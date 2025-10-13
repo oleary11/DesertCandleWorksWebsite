@@ -12,37 +12,37 @@ export type Product = {
 
 export const products = [
     {
-      slug: "titos-candle",
-      name: "Titos Candle",
-      price: 24.99,
-      image: "/images/titos.png",
-      sku: "DCW-0001",
-      stripePriceId: "price_1SHV4MKrvd2Dq5RV3EdaRFpR",
-      seoDescription: "Hand-poured candle in an upcycled Titos bottle.",
-      bestSeller: true,
-      stock: 0
+        slug: "titos-candle",
+        name: "Titos Candle",
+        price: 24.99,
+        image: "/images/titos.png",
+        sku: "DCW-0001",
+        stripePriceId: "price_1SHV4MKrvd2Dq5RV3EdaRFpR",
+        seoDescription: "Hand-poured candle in an upcycled Titos bottle.",
+        bestSeller: true,
+        stock: 0
     },
     {
-      slug: "casamigos-candle",
-      name: "Casamigos Candle",
-      price: 24.99,
-      image: "/images/casamigos.png",
-      sku: "DCW-0002",
-      stripePriceId: "price_1SHV3xKrvd2Dq5RVuVNYWqWO",
-      seoDescription: "Hand-poured candle in an upcycled Casamigos bottle.",
-      bestSeller: true,
-      stock: 0
+        slug: "casamigos-candle",
+        name: "Casamigos Candle",
+        price: 24.99,
+        image: "/images/casamigos.png",
+        sku: "DCW-0002",
+        stripePriceId: "price_1SHV3xKrvd2Dq5RVuVNYWqWO",
+        seoDescription: "Hand-poured candle in an upcycled Casamigos bottle.",
+        bestSeller: true,
+        stock: 0
     },
     {
-      slug: "stgermain-candle",
-      name: "St. Germain Candle",
-      price: 24.99,
-      image: "/images/stgermain.png",
-      sku: "DCW-0003",
-      stripePriceId: "price_1SHV4uKrvd2Dq5RVNBQjAmn7",
-      seoDescription: "Hand-poured candle in an upcycled St. Germain bottle.",
-      bestSeller: true,
-      stock: 0
+        slug: "stgermain-candle",
+        name: "St. Germain Candle",
+        price: 24.99,
+        image: "/images/stgermain.png",
+        sku: "DCW-0003",
+        stripePriceId: "price_1SHsPCKrvd2Dq5RVSe3NDICE",
+        seoDescription: "Hand-poured candle in an upcycled St. Germain bottle.",
+        bestSeller: true,
+        stock: 0
     },
     {
         slug: "la-crema-candle",
