@@ -16,7 +16,7 @@ const TIMELINE = [
   {
     title: "Cutting & Finishing",
     text: "Each bottle is measured, cut on a wet tile saw, and hand-sanded. We sand the rim through multiple grits for a smooth, comfortable edge that looks as good as it feels.",
-    image: "/images/cutting.jpg",
+    image: "/images/cuttingbottles.png",
   },
   {
     title: "Pouring Small Batches",
