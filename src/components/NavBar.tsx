@@ -13,20 +13,22 @@ export default function NavBar() {
       <div className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         {/* Logo + Name */}
         <Link href="/" className="flex items-center gap-2">
-          <Image
-            src="/images/logo.png"
-            alt="Desert Candle Works logo"
-            className="w-8 h-8 object-contain"
-          />
+        <Image
+        src="/images/logo.png"
+        alt="Desert Candle Works logo"
+        width={40}     // or whatever size looks good
+        height={40}
+        priority
+        />
           <span className="text-lg font-semibold tracking-tight">Desert Candle Works</span>
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
-          <a className="hover:opacity-80 transition" href="/">Home</a>
-          <a className="hover:opacity-80 transition" href="/shop">Shop</a>
-          <a className="hover:opacity-80 transition" href="/about">About</a>
-          <a className="hover:opacity-80 transition" href="/contact">Contact</a>
+          <Link className="hover:opacity-80 transition" href="/">Home</Link>
+          <Link className="hover:opacity-80 transition" href="/shop">Shop</Link>
+          <Link className="hover:opacity-80 transition" href="/about">About</Link>
+          <Link className="hover:opacity-80 transition" href="/contact">Contact</Link>
         </nav>
 
         {/* Mobile toggle */}
