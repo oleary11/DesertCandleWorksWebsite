@@ -7,6 +7,7 @@ export type Product = {
   stripePriceId?: string;   // some are placeholders
   seoDescription: string;
   bestSeller?: boolean;     // optional flag if you want it
+  stock: number;
 };
 
 export const products = [
@@ -19,6 +20,7 @@ export const products = [
       stripePriceId: "price_1SHV4MKrvd2Dq5RV3EdaRFpR",
       seoDescription: "Hand-poured candle in an upcycled Titos bottle.",
       bestSeller: true,
+      stock: 0
     },
     {
       slug: "casamigos-candle",
@@ -29,6 +31,7 @@ export const products = [
       stripePriceId: "price_1SHV3xKrvd2Dq5RVuVNYWqWO",
       seoDescription: "Hand-poured candle in an upcycled Casamigos bottle.",
       bestSeller: true,
+      stock: 0
     },
     {
       slug: "stgermain-candle",
@@ -39,6 +42,7 @@ export const products = [
       stripePriceId: "price_1SHV4uKrvd2Dq5RVNBQjAmn7",
       seoDescription: "Hand-poured candle in an upcycled St. Germain bottle.",
       bestSeller: true,
+      stock: 0
     },
     {
         slug: "la-crema-candle",
@@ -48,6 +52,7 @@ export const products = [
         sku: "DCW-0004",
         stripePriceId: "price_1SHV5HKrvd2Dq5RVkxi7i16s",
         seoDescription: "Hand-poured candle in an upcycled Wine bottle.",
+        stock: 0
       },
       {
         slug: "new-amsterdam-gin-candle",
@@ -57,15 +62,17 @@ export const products = [
         sku: "DCW-0005",
         stripePriceId: "price_1SHYksKrvd2Dq5RVDFHcOV5H",
         seoDescription: "Hand-poured candle in an upcycled New Amsterdam Gin bottle.",
+        stock: 0
       },
       {
         slug: "pink-whitney-candle",
         name: "Pink Whitney Candle",
         price: 24.99,
-        image: "/images/placeholder.png",
+        image: "/images/pinkwhitney.png",
         sku: "DCW-0006",
         stripePriceId: "price_1SHYllKrvd2Dq5RVvtmFCBxD",
         seoDescription: "Hand-poured candle in an upcycled Pink Whitney bottle.",
+        stock: 0
       },
       {
         slug: "ruffino-prosecco-candle",
@@ -75,6 +82,7 @@ export const products = [
         sku: "DCW-0007",
         stripePriceId: "price_1SHYm2Krvd2Dq5RVc16I4NgK",
         seoDescription: "Hand-poured candle in an upcycled Ruffino Prosecco bottle.",
+        stock: 0
       },
       {
         slug: "santan-espresso-martini-candle",
@@ -84,6 +92,7 @@ export const products = [
         sku: "DCW-0008",
         stripePriceId: "price_1SHYmPKrvd2Dq5RVO8gzjTkL",
         seoDescription: "Hand-poured candle in an upcycled Santan Spirits Espresso Martini bottle.",
+        stock: 0
       },
       {
         slug: "bacardi-candle",
@@ -93,6 +102,7 @@ export const products = [
         sku: "DCW-0009",
         stripePriceId: "price_1SHYmeKrvd2Dq5RVDWj6eWDg",
         seoDescription: "Hand-poured candle in an upcycled Bacardi bottle.",
+        stock: 0
       },
       {
         slug: "mi-campo-tequila-candle",
@@ -102,6 +112,7 @@ export const products = [
         sku: "DCW-0010",
         stripePriceId: "price_1SHYmvKrvd2Dq5RVLCpSrDbj",
         seoDescription: "Hand-poured candle in an upcycled Mi Campo Tequila bottle.",
+        stock: 0
       },
       {
         slug: "hendricks-gin-candle",
@@ -111,6 +122,7 @@ export const products = [
         sku: "DCW-0011",
         stripePriceId: "price_1SHYp2Krvd2Dq5RV2tqZN0d0",
         seoDescription: "Hand-poured candle in an upcycled Hendrick's Gin bottle.",
+        stock: 0
       },
       {
         slug: "grand-marnier-candle",
@@ -120,6 +132,7 @@ export const products = [
         sku: "DCW-0012",
         stripePriceId: "price_1SHYpMKrvd2Dq5RVgF9mIHev",
         seoDescription: "Hand-poured candle in an upcycled Grand Marnier bottle.",
+        stock: 0
       },
       {
         slug: "woodford-reserve-candle",
@@ -130,25 +143,28 @@ export const products = [
         stripePriceId: "price_1SHYpXKrvd2Dq5RVh4qF83pQ",
         seoDescription: "Hand-poured candle in an upcycled Woodford Reserve bottle.",
         bestSeller: true,
+        stock: 0
       },
       {
         slug: "1800-tequila-candle",
         name: "1800 Tequila Candle",
         price: 24.99,
-        image: "/images/placeholder.png",
+        image: "/images/1800.png",
         sku: "DCW-0014",
         stripePriceId: "price_1SHYpmKrvd2Dq5RVdRKMJMf2",
         seoDescription: "Hand-poured candle in an upcycled 1800 Tequila bottle.",
+        stock: 0
       },
       {
         slug: "bulleit-bourbon-candle",
         name: "Bulleit Bourbon Candle",
         price: 24.99,
-        image: "/images/placeholder.png",
+        image: "/images/bulleit.png",
         sku: "DCW-0015",
         stripePriceId: "price_1SHYpzKrvd2Dq5RVFMkda0YX",
         seoDescription: "Hand-poured candle in an upcycled Bulleit Bourbon bottle.",
         bestSeller: true,
+        stock: 0
       },
   ];
   

@@ -11,12 +11,12 @@ const TIMELINE = [
   {
     title: "How We Began",
     text: "We reached out to local bars and restaurants in Scottsdale to rescue their empty bottles. After a few late-night pickups and lots of label-saving experiments, Desert Candle Works was born.",
-    image: "/images/boondocks.png",
+    image: "/images/bottles.jpg",
   },
   {
     title: "Cutting & Finishing",
     text: "Each bottle is measured, cut on a wet tile saw, and hand-sanded. We sand the rim through multiple grits for a smooth, comfortable edge that looks as good as it feels.",
-    image: "/images/cutting.jpeg",
+    image: "/images/cutting.jpg",
   },
   {
     title: "Pouring Small Batches",

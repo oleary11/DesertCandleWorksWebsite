@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-import type { Product } from "@/lib/products";
+import type { Product } from "@/lib/productsStore";
 type Props = { products: Product[]; title?: string };
 
 export default function BestSellerCarousel({ products, title = "Best sellers" }: Props) {

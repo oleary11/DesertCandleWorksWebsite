@@ -1,18 +1,18 @@
 import ProductCard from "@/components/ProductCard";
-import { products } from "@/lib/products";
+import { listResolvedProducts } from "@/lib/resolvedProducts";
 
 export const metadata = { title: "Shop" };
 
-export default function ShopPage() {
+export default async function ShopPage() {
+  const products = await listResolvedProducts();
+
   return (
     <section className="min-h-dvh">
       {/* Full-bleed header strip */}
       <div className="full-bleed relative isolate py-12 sm:py-16">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white/70 to-white/90 backdrop-blur-[2px]" />
         <div className="mx-auto max-w-6xl px-6 text-center">
-          <h1>
-            Shop
-          </h1>
+          <h1>Shop</h1>
           <p className="mt-3 text-[var(--color-muted)]">
             Hand-poured, upcycled-bottle candles — curated bestsellers and new arrivals.
           </p>

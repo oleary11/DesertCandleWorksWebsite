@@ -1,15 +1,17 @@
 import Image from "next/image";
 import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
-import { products } from "@/lib/products";
-import { Link } from "lucide-react";
+import Link from "next/link";
+import { listResolvedProducts } from "@/lib/resolvedProducts";
 
-export default function Home() {
-  const bestsellers = products.filter(p => p.bestSeller);
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const all = await listResolvedProducts();
+  const bestsellers = all.filter((p) => !!p.bestSeller);
 
   return (
     <>
-      {/* HERO unchanged */}
       <section
         className="
           relative isolate overflow-hidden
@@ -53,11 +55,9 @@ export default function Home() {
         </div>
       </section>
 
-      {/* BEST SELLERS CAROUSEL */}
       <BestSellerCarousel products={bestsellers} />
 
-      {/* MAILING LIST SECTION (below) */}
-      <div className="pb-6">  {/* ← adds nice space before the footer */}
+      <div className="pb-6">
         <MailingListSignup />
       </div>
     </>
