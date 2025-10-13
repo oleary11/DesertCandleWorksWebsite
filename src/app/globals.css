@@ -1,26 +1,240 @@
 @import "tailwindcss";
 
+/* ---- Force light mode ---- */
+html { color-scheme: light !important; }
+html, body { height: 100%; }
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-bg:        #ffffff;
+  --color-surface:   #FFFFFF;   /* cards pop off bg */
+  --color-surface-2: #ffffff;
+  --color-ink:       #2F2A25;   /* a touch cooler/darker */
+  --color-muted:     #2F2A25;
+  --color-line:      #E9E9EC;   /* neutral hairline */
+
+  /* Brighter pastel accent for CTAs/links */
+  --color-accent:     #6b5f57;  /* peach */
+  --color-accent-ink: #ffffff;
+
+  /* optional pastel section washes */
+  --color-rose:  #F7EDEA;
+  --color-sage:  #E8F2EC;
+  --color-mist:  #EAF2FB;
+  --color-lilac: #F1ECFA;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* =========================================
+   BASE
+   ========================================= */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  margin: 0;
+  background: var(--color-bg) !important;
+  color: var(--color-ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Inter, "SF Pro", Arial, "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
+
+.full-bleed { width: 100vw; margin-left: 50%; transform: translateX(-50%); }
+
+a:not(.btn-cta) {
+  color: color-mix(in oklab, var(--color-accent) 70%, #6b5b53 30%);
+  text-underline-offset: 3px;
+}
+a:not(.btn-cta):hover {
+  color: color-mix(in oklab, var(--color-accent) 85%, #6b5b53 15%);
+}
+
+.btn-cta { color: var(--color-accent-ink) !important; }
+
+/* Typography scale (kept minimal — you can rely on Tailwind utilities too) */
+h1 { font-weight: 600; letter-spacing: -0.02em; font-size: clamp(1.875rem, 3vw, 3rem); }
+h2 { font-weight: 600; letter-spacing: -0.02em; font-size: clamp(1.5rem, 2.2vw, 1.875rem); }
+h3 { font-weight: 500; letter-spacing: -0.01em; font-size: clamp(1.25rem, 1.6vw, 1.5rem); }
+p  { line-height: 1.7; }
+
+/* =========================================
+   CARDS (modern: no brown border, neutral hairline, soft lift)
+   ========================================= */
+.card {
+  background: var(--color-surface);
+  border: 0;
+  border-radius: var(--radius-xl);
+  /* inset hairline + elevation */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 10%, transparent),
+    var(--shadow-soft);
+  transition:
+    transform var(--duration-2) var(--ease-smooth),
+    box-shadow var(--duration-2) var(--ease-smooth),
+    background-color var(--duration-2) var(--ease-smooth);
+}
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 12%, transparent),
+    var(--shadow-hover);
+}
+
+/* Pastel variants if you want tinted cards */
+.card--rose  { background: var(--color-rose); }
+.card--sage  { background: var(--color-sage); }
+.card--mist  { background: var(--color-mist); }
+.card--lilac { background: var(--color-lilac); }
+
+/* =========================================
+   BUTTONS (pop without neon; no hard borders)
+   ========================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 0.875rem;            /* text-sm */
+  line-height: 1;
+  padding: 0.5rem 1rem;           /* px-4 py-2 */
+  border: 0;                      /* no hard border */
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  color: var(--color-ink);
+  /* inner hairline + soft elevation */
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 10%, transparent),
+    var(--shadow-soft);
+  transition:
+    transform var(--duration-2) var(--ease-smooth),
+    box-shadow var(--duration-2) var(--ease-smooth),
+    background-color var(--duration-2) var(--ease-smooth);
+}
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 14%, transparent),
+    var(--shadow-hover);
+}
+.btn:active { transform: translateY(0); }
+.btn:focus-visible { outline: none; box-shadow: var(--ring), var(--shadow-hover); }
+
+/* Primary CTA with gentle glossy gradient */
+.btn-primary {
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, var(--color-accent) 92%, white 8%),
+    color-mix(in oklab, var(--color-accent) 78%, black 4%)
+  );
+  color: var(--color-accent-ink);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.45) inset,
+    inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 40%, transparent),
+    var(--shadow-soft);
+}
+.btn-primary:hover {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,.55) inset,
+    inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 55%, transparent),
+    var(--shadow-hover);
+  transform: translateY(-1px);
+}
+
+/* Minimal “ghost” button */
+.btn-ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-ink) 14%, transparent);
+}
+.btn-ghost:hover {
+  background: color-mix(in oklab, var(--color-surface) 80%, white 20%);
+}
+
+/* Icon spacing helper */
+.btn > svg { margin-inline-start: 0.25rem; }
+
+/* =========================================
+   BADGES / CHIPS
+   ========================================= */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-weight: 500;
+  font-size: 0.75rem;           /* text-xs */
+  padding: 0.25rem 0.625rem;    /* px-2.5 py-1 */
+  border-radius: 999px;
+  border: 1px solid var(--color-line);
+  background: var(--color-surface);
+}
+.badge--rose  { background: var(--color-rose); }
+.badge--sage  { background: var(--color-sage); }
+.badge--mist  { background: var(--color-mist); }
+.badge--lilac { background: var(--color-lilac); }
+
+/* =========================================
+   INPUTS
+   ========================================= */
+.input, .select, .textarea {
+  width: 100%;
+  font-size: 0.875rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-xl);
+  background: var(--color-surface);
+  border: 1px solid var(--color-line);
+  color: var(--color-ink);
+  transition:
+    box-shadow var(--duration-1) var(--ease-smooth),
+    border-color var(--duration-1) var(--ease-smooth);
+}
+.input::placeholder,
+.textarea::placeholder {
+  color: color-mix(in oklab, var(--color-muted) 70%, white 30%);
+}
+.input:focus, .select:focus, .textarea:focus {
+  outline: none;
+  border-color: color-mix(in oklab, var(--color-accent) 50%, var(--color-line));
+  box-shadow: var(--ring);
+}
+
+/* =========================================
+   NAV (subtle glass)
+   ========================================= */
+.navbar {
+  position: sticky;
+  top: 0;
+  backdrop-filter: saturate(140%) blur(12px);
+  background: color-mix(in oklab, var(--color-bg) 70%, white 30% / 70%);
+  border-bottom: 1px solid var(--color-line);
+}
+
+/* =========================================
+   UTILITIES / HELPERS
+   ========================================= */
+.hr {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--color-line), transparent);
+}
+
+.hero-blend {
+  background: linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.4) 0%,
+      rgba(255, 255, 255, 0.7) 50%,
+      rgba(255, 255, 255, 0.9) 100%
+    );
+  backdrop-filter: blur(3px);
+}
+
+.hero-gradient {
+  background:
+    radial-gradient(1200px 600px at 20% -10%, var(--color-rose), transparent 60%),
+    radial-gradient(1000px 500px at 80% -10%, var(--color-sage), transparent 55%),
+    var(--color-bg);
+}
+
+/* Safety nets to wipe any old brown borders on product cards/buttons */
+.product-grid .card,
+[class*="product-card"] {
+  border: 0 !important;
+}
+button, .btn, .btn-primary, .btn-ghost {
+  border-color: transparent !important;
+}
+.product-card__img { background: transparent !important; }
