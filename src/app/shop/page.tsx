@@ -1,7 +1,17 @@
 import ProductCard from "@/components/ProductCard";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import type { Metadata } from "next";
+export const revalidate = 3600;
 
-export const metadata = { title: "Shop" };
+export const generateMetadata = (): Metadata => {
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+  return {
+    title: "Shop Upcycled Bottle Candles",
+    description:
+      "Browse small-batch soy candles poured into upcycled whiskey, tequila, and gin bottles.",
+    alternates: { canonical: `${base}/shop` },
+  };
+};
 
 export default async function ShopPage() {
   const products = await listResolvedProducts();

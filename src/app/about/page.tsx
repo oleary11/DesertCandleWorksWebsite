@@ -1,6 +1,14 @@
 import Image from "next/image";
+import type { Metadata } from "next";
+export const revalidate = 3600;
 
-export const metadata = { title: "About" };
+export const metadata: Metadata = {
+  title: "About Desert Candle Works",
+  description:
+    "Why we started, how we upcycle bottles into candles, and our small-batch process in Scottsdale, AZ.",
+  alternates: { canonical: "/about" },
+};
+
 
 const TIMELINE = [
   {

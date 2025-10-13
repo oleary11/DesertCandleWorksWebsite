@@ -1,10 +1,10 @@
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 
 export default async function sitemap() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://example.com";
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
   const now = new Date().toISOString();
 
-  const staticUrls = ["", "/shop", "/about", "/contact", "/policies"].map((p) => ({
+  const staticUrls = ["", "/shop", "/about", "/policies"].map((p) => ({
     url: `${base}${p || "/"}`,
     lastModified: now,
   }));

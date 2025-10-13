@@ -2,10 +2,34 @@ import "./globals.css";
 import type { Metadata } from "next";
 import NavBar from "../components/NavBar";
 
+const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://example.com"),
-  title: { default: "Desert Candle Works", template: "%s · Desert Candle Works" },
-  description: "Warm, desert-inspired candles hand-poured into upcycled bottles.",
+  metadataBase: new URL(BASE),
+  title: {
+    default: "Desert Candle Works | Upcycled Bottle Candles",
+    template: "%s · Desert Candle Works",
+  },
+  description:
+    "Hand-poured, desert-inspired soy candles made in Scottsdale, AZ — upcycled whiskey, tequila, and gin bottles with polished rims and clean burn.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    type: "website",
+    url: BASE,
+    siteName: "Desert Candle Works",
+    title: "Desert Candle Works | Upcycled Bottle Candles",
+    description:
+      "Small-batch soy candles hand-poured into upcycled spirits bottles. Clean burn, thoughtful design.",
+    images: [{ url: "/images/logo.png" }], // add 1200x630 image at /public/images/og-cover.jpg
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Desert Candle Works | Upcycled Bottle Candles",
+    description:
+      "Small-batch soy candles hand-poured into upcycled spirits bottles. Clean burn, thoughtful design.",
+    images: ["/images/logo.png"],
+  },
+  robots: { index: true, follow: true },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

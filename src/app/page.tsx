@@ -4,7 +4,7 @@ import MailingListSignup from "@/components/MailingListSignup";
 import Link from "next/link";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 3600;
 
 export default async function Home() {
   const all = await listResolvedProducts();
@@ -31,9 +31,9 @@ export default async function Home() {
         />
         <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
         <div className="relative z-10 px-6">
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
-            Warm, desert-inspired candles
-          </h1>
+        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
+          Upcycled Bottle Candles, Hand-Poured in the Desert
+        </h1>
           <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg text-[var(--color-muted)]">
             Hand-poured into upcycled bottles. Clean burn. Subtle crackle. Thoughtful packaging.
           </p>
