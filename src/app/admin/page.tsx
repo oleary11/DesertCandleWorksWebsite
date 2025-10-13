@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 
+/* ---------- Types ---------- */
 type Product = {
   slug: string;
   name: string;
@@ -14,6 +16,7 @@ type Product = {
   stock: number;
 };
 
+/* ---------- Helpers ---------- */
 function emptyProduct(): Product {
   return {
     slug: "",
@@ -39,12 +42,14 @@ function slugify(name: string): string {
 
 const SLUG_REGEX = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
+/** parse "DCW-0015" -> { prefix: "DCW-", num: 15, width: 4 } */
 function parseSku(sku: string) {
   const m = sku.match(/^([A-Za-z]+-?)(\d+)$/);
   if (!m) return { prefix: "DCW-", num: 0, width: 4 };
   return { prefix: m[1], num: Number(m[2]), width: m[2].length };
 }
 
+/** From existing items + staged drafts, compute next SKU like DCW-0016 */
 function computeNextSku(allSkus: string[]): string {
   if (allSkus.length === 0) return "DCW-0001";
   let best = { prefix: "DCW-", num: 0, width: 4 };
@@ -57,6 +62,7 @@ function computeNextSku(allSkus: string[]): string {
   return `${best.prefix}${padded}`;
 }
 
+/* ---------- Component ---------- */
 export default function AdminPage() {
   const [items, setItems] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,6 +71,7 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Staged local drafts keyed by slug (full product objects)
   const [staged, setStaged] = useState<Record<string, Product>>({});
   const [slugTouched, setSlugTouched] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
@@ -72,15 +79,18 @@ export default function AdminPage() {
   async function load() {
     setLoading(true);
     const res = await fetch("/api/admin/products", { cache: "no-store" });
-    const j = await res.json();
+    const j = (await res.json()) as { items?: Product[] };
     setItems(j.items || []);
     setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    void load();
+  }, []);
 
-  const isServerItem = (slug: string) => items.some(x => x.slug === slug);
+  const isServerItem = (slug: string) => items.some((x) => x.slug === slug);
   const hasDraft = (slug: string) => staged[slug] !== undefined;
 
+  // merged view = server items overlayed with staged changes/new items
   const merged = useMemo(() => {
     const bySlug = new Map<string, Product>();
     for (const p of items) bySlug.set(p.slug, p);
@@ -91,29 +101,41 @@ export default function AdminPage() {
   const filtered = useMemo(() => {
     const q = filter.trim().toLowerCase();
     if (!q) return merged;
-    return merged.filter(p =>
-      p.slug.toLowerCase().includes(q) ||
-      p.name.toLowerCase().includes(q) ||
-      p.sku.toLowerCase().includes(q)
+    return merged.filter(
+      (p) =>
+        p.slug.toLowerCase().includes(q) ||
+        p.name.toLowerCase().includes(q) ||
+        p.sku.toLowerCase().includes(q)
     );
   }, [merged, filter]);
 
+  /* ---------- Drafting & Publishing ---------- */
+
+  // Stage (no network): create/replace a draft for slug
   function stageProduct(p: Product) {
     const slug = (p.slug || "").trim();
-    if (!slug) { setSlugError("Slug is required"); return; }
-    if (!SLUG_REGEX.test(slug)) { setSlugError("Use lowercase letters/numbers with single hyphens"); return; }
+    if (!slug) {
+      setSlugError("Slug is required");
+      return;
+    }
+    if (!SLUG_REGEX.test(slug)) {
+      setSlugError("Use lowercase letters/numbers with single hyphens");
+      return;
+    }
     setSlugError(null);
-    setStaged(prev => ({ ...prev, [slug]: { ...p, slug } }));
+    setStaged((prev) => ({ ...prev, [slug]: { ...p, slug } }));
   }
 
+  // Remove a staged draft (undo)
   function discardDraft(slug: string) {
-    setStaged(prev => {
+    setStaged((prev) => {
       const copy = { ...prev };
       delete copy[slug];
       return copy;
     });
   }
 
+  // Publish a single product: POST (new) or PATCH (existing)
   async function publishOne(slug: string) {
     const draft = staged[slug];
     if (!draft) return;
@@ -129,7 +151,7 @@ export default function AdminPage() {
     });
 
     if (!res.ok) {
-      const j = await res.json().catch(() => ({}));
+      const j = (await res.json().catch(() => ({}))) as { error?: string };
       setError(j.error || "Publish failed");
     } else {
       discardDraft(slug);
@@ -138,6 +160,7 @@ export default function AdminPage() {
     setSaving(false);
   }
 
+  // Publish all drafts
   async function publishAll() {
     const slugs = Object.keys(staged);
     setSaving(true);
@@ -150,18 +173,18 @@ export default function AdminPage() {
         body: JSON.stringify(staged[slug]),
       });
       if (!res.ok) {
-        const j = await res.json().catch(() => ({}));
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
         setError(j.error || `Publish failed for ${slug}`);
         setSaving(false);
-        return; 
+        return; // stop on first failure
       }
     }
-
     setStaged({});
     await load();
     setSaving(false);
   }
 
+  // Delete (server)
   async function deleteProduct(slug: string) {
     if (!confirm(`Delete ${slug}?`)) return;
     discardDraft(slug);
@@ -169,44 +192,44 @@ export default function AdminPage() {
     if (res.ok) await load();
   }
 
+  // Stock edits: stage only (no network)
   function changeStock(slug: string, op: "incr" | "decr", amt = 1) {
-    const base = staged[slug] ?? merged.find(x => x.slug === slug)!;
+    const base = staged[slug] ?? merged.find((x) => x.slug === slug)!;
     const next = Math.max(0, (base.stock ?? 0) + (op === "incr" ? amt : -amt));
     stageProduct({ ...base, stock: next });
   }
 
-  function setStockTyped(slug: string, value: number) {
-    const v = Math.max(0, Math.floor(Number(value || 0)));
-    const base = staged[slug] ?? merged.find(x => x.slug === slug)!;
-    stageProduct({ ...base, stock: v });
-  }
-
+  // Image upload (only updates the draft via the modal)
   async function handleImagePick(
     e: React.ChangeEvent<HTMLInputElement>,
-    editing: Product | null,
+    editingLocal: Product | null,
     setEditingLocal: (v: Product) => void
   ) {
     const file = e.target.files?.[0];
-    if (!file || !editing) return;
+    if (!file || !editingLocal) return;
 
     const fd = new FormData();
     fd.append("file", file);
 
     const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-    if (!res.ok) { alert("Upload failed"); return; }
+    if (!res.ok) {
+      alert("Upload failed");
+      return;
+    }
 
-    const { url } = await res.json();
-    setEditingLocal({ ...editing, image: url });
+    const { url } = (await res.json()) as { url: string };
+    setEditingLocal({ ...editingLocal, image: url });
   }
 
+  // Next SKU for new product modal
   const nextSku = useMemo(() => {
-    const allSkus = [
-      ...items.map(i => i.sku),
-      ...Object.values(staged).map(d => d.sku),
-    ].filter(Boolean);
+    const allSkus = [...items.map((i) => i.sku), ...Object.values(staged).map((d) => d.sku)].filter(
+      Boolean
+    );
     return computeNextSku(allSkus);
   }, [items, staged]);
 
+  /* ---------- UI ---------- */
   return (
     <div className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between gap-4">
@@ -233,13 +256,13 @@ export default function AdminPage() {
           className="input max-w-sm"
           placeholder="Filter by name, slug, SKU…"
           value={filter}
-          onChange={(e)=>setFilter(e.target.value)}
+          onChange={(e) => setFilter(e.target.value)}
         />
         <button
           className="btn btn-primary"
           onClick={() => {
             const p = emptyProduct();
-            p.sku = nextSku; 
+            p.sku = nextSku; // default auto-increment
             setEditing(p);
             setSlugTouched(false);
             setSlugError(null);
@@ -271,35 +294,47 @@ export default function AdminPage() {
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(p => {
+                {filtered.map((p) => {
                   const isDraft = hasDraft(p.slug);
                   return (
                     <tr key={p.slug} className="border-b border-[var(--color-line)]">
                       <td className="py-2 pr-3">
-                        {p.image ? <img src={p.image} alt="" className="h-12 w-12 object-contain" /> : <span>—</span>}
+                        {p.image ? (
+                          <Image
+                            src={p.image}
+                            alt=""
+                            width={48}
+                            height={48}
+                            className="object-contain"
+                          />
+                        ) : (
+                          <span>—</span>
+                        )}
                       </td>
                       <td className="py-2 pr-3">{p.name}</td>
                       <td className="py-2 pr-3">{p.slug}</td>
                       <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
                       <td className="py-2 pr-3">
                         <div className="inline-flex items-center gap-2">
-                          <button className="btn" onClick={()=>changeStock(p.slug,"decr",1)}>-</button>
+                          <button className="btn" onClick={() => changeStock(p.slug, "decr", 1)}>
+                            -
+                          </button>
                           <input
                             className="input w-16 text-center"
                             type="number"
                             value={p.stock}
                             onChange={(e) => {
-                              const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
-                              const base = staged[p.slug] ?? p;
-                              stageProduct({ ...base, stock: v });
-                            }}
-                            onBlur={(e) => {
-                              const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
+                              const v = Math.max(
+                                0,
+                                Math.floor(Number(e.target.value || 0))
+                              );
                               const base = staged[p.slug] ?? p;
                               stageProduct({ ...base, stock: v });
                             }}
                           />
-                          <button className="btn" onClick={()=>changeStock(p.slug,"incr",1)}>+</button>
+                          <button className="btn" onClick={() => changeStock(p.slug, "incr", 1)}>
+                            +
+                          </button>
                         </div>
                       </td>
                       <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
@@ -326,7 +361,11 @@ export default function AdminPage() {
 
                           {isDraft ? (
                             <>
-                              <button className="btn btn-primary" disabled={saving} onClick={() => publishOne(p.slug)}>
+                              <button
+                                className="btn btn-primary"
+                                disabled={saving}
+                                onClick={() => publishOne(p.slug)}
+                              >
                                 {saving ? "Publishing…" : "Publish"}
                               </button>
                               <button className="btn" onClick={() => discardDraft(p.slug)}>
@@ -335,7 +374,9 @@ export default function AdminPage() {
                             </>
                           ) : null}
 
-                          <button className="btn" onClick={()=>deleteProduct(p.slug)}>Delete</button>
+                          <button className="btn" onClick={() => void deleteProduct(p.slug)}>
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -347,6 +388,7 @@ export default function AdminPage() {
         )}
       </div>
 
+      {/* ---------- Edit/Create Modal (no Publish here) ---------- */}
       {editing && (
         <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
           <div className="card p-6 w-[720px] max-w-[95vw]">
@@ -357,6 +399,7 @@ export default function AdminPage() {
             {error && <p className="text-rose-600 text-sm mt-2">{error}</p>}
 
             <div className="grid grid-cols-2 gap-4 mt-4">
+              {/* Name (auto-slug if slug not manually touched & product is new) */}
               <label className="block">
                 <div className="text-xs mb-1">Name</div>
                 <input
@@ -381,12 +424,13 @@ export default function AdminPage() {
                 />
               </label>
 
+              {/* Slug */}
               <label className="block">
                 <div className="text-xs mb-1">Slug</div>
                 <input
                   className="input"
                   value={editing.slug}
-                  disabled={isServerItem(editing.slug)}
+                  disabled={isServerItem(editing.slug)} // keep URLs stable once published
                   onChange={(e) => {
                     const v = e.target.value.trim();
                     setSlugTouched(true);
@@ -418,7 +462,9 @@ export default function AdminPage() {
                   type="number"
                   step="0.01"
                   value={editing.price}
-                  onChange={(e)=>setEditing({ ...editing, price: Number(e.target.value) })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, price: Number(e.target.value) })
+                  }
                 />
               </label>
 
@@ -428,13 +474,15 @@ export default function AdminPage() {
                   <input
                     className="input flex-1"
                     value={editing.sku}
-                    onChange={(e)=>setEditing({ ...editing, sku: e.target.value })}
+                    onChange={(e) => setEditing({ ...editing, sku: e.target.value })}
                     placeholder={nextSku}
                   />
                   <button
                     type="button"
                     className="btn"
-                    onClick={() => setEditing(prev => prev ? { ...prev, sku: nextSku } : prev)}
+                    onClick={() =>
+                      setEditing((prev) => (prev ? { ...prev, sku: nextSku } : prev))
+                    }
                     title="Use next available SKU"
                   >
                     Use {nextSku}
@@ -447,17 +495,20 @@ export default function AdminPage() {
                 <input
                   className="input"
                   value={editing.stripePriceId || ""}
-                  onChange={(e)=>setEditing({ ...editing, stripePriceId: e.target.value })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, stripePriceId: e.target.value })
+                  }
                 />
               </label>
 
+              {/* Image URL + Browse */}
               <label className="block col-span-2">
                 <div className="text-xs mb-1">Image</div>
                 <div className="flex items-center gap-3">
                   <input
                     className="input flex-1"
                     value={editing.image || ""}
-                    onChange={(e)=>setEditing({ ...editing, image: e.target.value })}
+                    onChange={(e) => setEditing({ ...editing, image: e.target.value })}
                     placeholder="/images/woodford.png or https://…"
                   />
                   <label className="btn cursor-pointer">
@@ -472,7 +523,13 @@ export default function AdminPage() {
                 </div>
                 {editing.image ? (
                   <div className="mt-3">
-                    <img src={editing.image} alt="" className="h-24 object-contain" />
+                    <Image
+                      src={editing.image}
+                      alt=""
+                      width={96}
+                      height={96}
+                      className="object-contain"
+                    />
                   </div>
                 ) : null}
               </label>
@@ -483,7 +540,9 @@ export default function AdminPage() {
                   className="textarea"
                   rows={4}
                   value={editing.seoDescription}
-                  onChange={(e)=>setEditing({ ...editing, seoDescription: e.target.value })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, seoDescription: e.target.value })
+                  }
                 />
               </label>
 
@@ -491,7 +550,9 @@ export default function AdminPage() {
                 <input
                   type="checkbox"
                   checked={!!editing.bestSeller}
-                  onChange={(e)=>setEditing({ ...editing, bestSeller: e.target.checked })}
+                  onChange={(e) =>
+                    setEditing({ ...editing, bestSeller: e.target.checked })
+                  }
                 />
                 <span className="text-sm">Best Seller</span>
               </label>
@@ -502,7 +563,12 @@ export default function AdminPage() {
                   className="input"
                   type="number"
                   value={editing.stock}
-                  onChange={(e)=>setEditing({ ...editing, stock: Math.max(0, Number(e.target.value)) })}
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      stock: Math.max(0, Number(e.target.value)),
+                    })
+                  }
                 />
               </label>
             </div>
@@ -520,6 +586,7 @@ export default function AdminPage() {
                 Cancel
               </button>
 
+              {/* SAVE → STAGE ONLY (no publish here) */}
               <button
                 className="btn btn-primary"
                 onClick={() => {

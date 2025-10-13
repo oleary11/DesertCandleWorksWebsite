@@ -1,4 +1,3 @@
-// src/app/api/stripe/webhook/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getPriceToSlug } from "@/lib/pricemap";
@@ -19,15 +18,17 @@ export async function POST(req: NextRequest) {
 
   try {
     event = stripe.webhooks.constructEvent(raw, sig, whSecret);
-  } catch (err: any) {
-    return NextResponse.json({ error: `Webhook signature failed: ${err.message}` }, { status: 400 });
+  } catch (err: unknown) {
+    const msg =
+      err && typeof err === "object" && "message" in err
+        ? String((err as { message?: unknown }).message)
+        : "Unknown error";
+    return NextResponse.json({ error: `Webhook signature failed: ${msg}` }, { status: 400 });
   }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-
-    // Build a fresh map of PriceID -> slug
     const priceToSlug = await getPriceToSlug();
 
     for (const item of lineItems.data) {

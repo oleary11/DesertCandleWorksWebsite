@@ -1,5 +1,5 @@
 import { redis } from "./redis";
-import { getProduct as getStaticProduct } from "@/lib/products"; // ← seed fallback
+import { getProduct as getStaticProduct } from "@/lib/products";
 
 export type Product = {
   slug: string;
@@ -15,6 +15,13 @@ export type Product = {
 
 const key = (slug: string) => `product:${slug}`;
 const INDEX_KEY = "products:index";
+
+function coerceBool(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "string") return /^(true|1|yes|on)$/i.test(v.trim());
+  if (typeof v === "number") return v === 1;
+  return false;
+}
 
 export async function listProducts(): Promise<Product[]> {
   const slugs = (await redis.smembers(INDEX_KEY)) as string[];
@@ -48,29 +55,27 @@ async function ensureLive(slug: string): Promise<Product> {
   if (live) return live;
 
   const s = getStaticProduct(slug);
-  if (!s) throw new Error("Not found"); // truly unknown
+  if (!s) throw new Error("Not found");
+
   const seeded: Product = {
     ...s,
     stock: Math.max(0, Number(s.stock ?? 0)),
     price: Number(s.price),
-    bestSeller:
-      typeof (s as any).bestSeller === "string"
-        ? /^(true|1|yes|on)$/i.test((s as any).bestSeller.trim())
-        : Boolean(s.bestSeller),
+    bestSeller: coerceBool(s.bestSeller),
   };
   await upsertProduct(seeded);
   return seeded;
 }
 
 export async function setStock(slug: string, value: number): Promise<number> {
-  const p = await ensureLive(slug);              // ← seed if missing
+  const p = await ensureLive(slug);
   p.stock = Math.max(0, Math.floor(value));
   await upsertProduct(p);
   return p.stock;
 }
 
 export async function incrStock(slug: string, delta: number): Promise<number> {
-  const p = await ensureLive(slug);              // ← seed if missing
+  const p = await ensureLive(slug);
   const next = (p.stock ?? 0) + Math.floor(delta);
   if (next < 0) throw new Error("Stock would go negative");
   p.stock = next;
