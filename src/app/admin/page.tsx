@@ -231,10 +231,11 @@ export default function AdminPage() {
 
   /* ---------- UI ---------- */
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="flex items-center justify-between gap-4">
+    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+      {/* Top bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-semibold">Admin · Products</h1>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {Object.keys(staged).length > 0 && (
             <>
               <button className="btn" onClick={() => setStaged({})} disabled={saving}>
@@ -246,20 +247,21 @@ export default function AdminPage() {
             </>
           )}
           <form action="/api/admin/logout" method="post">
-            <button className="btn btn-ghost">Log out</button>
+            <button className="btn btn-ghost w-full sm:w-auto">Log out</button>
           </form>
         </div>
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
+      {/* Filter + New */}
+      <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
         <input
-          className="input max-w-sm"
+          className="input w-full sm:max-w-sm"
           placeholder="Filter by name, slug, SKU…"
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
         />
         <button
-          className="btn btn-primary"
+          className="btn btn-primary w-full sm:w-auto"
           onClick={() => {
             const p = emptyProduct();
             p.sku = nextSku; // default auto-increment
@@ -273,132 +275,273 @@ export default function AdminPage() {
         </button>
       </div>
 
-      <div className="mt-6">
+      {/* Content */}
+      <div className="mt-4">
         {loading ? (
           <p>Loading…</p>
         ) : filtered.length === 0 ? (
           <p className="text-[var(--color-muted)]">No products.</p>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-left border-b border-[var(--color-line)]">
-                  <th className="py-2 pr-3">Image</th>
-                  <th className="py-2 pr-3">Name</th>
-                  <th className="py-2 pr-3">Slug</th>
-                  <th className="py-2 pr-3">Price</th>
-                  <th className="py-2 pr-3">Stock</th>
-                  <th className="py-2 pr-3">Best</th>
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((p) => {
-                  const isDraft = hasDraft(p.slug);
-                  return (
-                    <tr key={p.slug} className="border-b border-[var(--color-line)]">
-                      <td className="py-2 pr-3">
+          <>
+            {/* Desktop/tablet table */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-[var(--color-line)]">
+                    <th className="py-2 pr-3">Image</th>
+                    <th className="py-2 pr-3">Name</th>
+                    <th className="py-2 pr-3">Slug</th>
+                    <th className="py-2 pr-3">Price</th>
+                    <th className="py-2 pr-3">Stock</th>
+                    <th className="py-2 pr-3">Best</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p) => {
+                    const isDraft = hasDraft(p.slug);
+                    return (
+                      <tr key={p.slug} className="border-b border-[var(--color-line)]">
+                        <td className="py-2 pr-3">
+                          {p.image ? (
+                            <Image
+                              src={p.image}
+                              alt=""
+                              width={48}
+                              height={48}
+                              className="object-contain"
+                            />
+                          ) : (
+                            <span>—</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3">{p.name}</td>
+                        <td className="py-2 pr-3">{p.slug}</td>
+                        <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
+                        <td className="py-2 pr-3">
+                          <div className="inline-flex items-center gap-2">
+                            <button
+                              className="btn min-w-10"
+                              onClick={() => changeStock(p.slug, "decr", 1)}
+                              aria-label={`Decrease ${p.name} stock`}
+                            >
+                              −
+                            </button>
+                            <input
+                              className="input w-20 text-center"
+                              inputMode="numeric"
+                              type="number"
+                              value={p.stock}
+                              onChange={(e) => {
+                                const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
+                                const base = staged[p.slug] ?? p;
+                                stageProduct({ ...base, stock: v });
+                              }}
+                            />
+                            <button
+                              className="btn min-w-10"
+                              onClick={() => changeStock(p.slug, "incr", 1)}
+                              aria-label={`Increase ${p.name} stock`}
+                            >
+                              +
+                            </button>
+                          </div>
+                        </td>
+                        <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
+                        <td className="py-2 pr-3">
+                          {isDraft ? (
+                            <span className="badge">Draft</span>
+                          ) : (
+                            <span className="text-xs text-[var(--color-muted)]">Published</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3">
+                          <div className="flex flex-wrap gap-2">
+                            <button
+                              className="btn"
+                              onClick={() => {
+                                setEditing(p);
+                                setSlugTouched(true);
+                                setSlugError(null);
+                                setError(null);
+                              }}
+                            >
+                              Edit
+                            </button>
+
+                            {isDraft ? (
+                              <>
+                                <button
+                                  className="btn btn-primary"
+                                  disabled={saving}
+                                  onClick={() => publishOne(p.slug)}
+                                >
+                                  {saving ? "Publishing…" : "Publish"}
+                                </button>
+                                <button className="btn" onClick={() => discardDraft(p.slug)}>
+                                  Discard
+                                </button>
+                              </>
+                            ) : null}
+
+                            <button className="btn" onClick={() => void deleteProduct(p.slug)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card list */}
+            <div className="md:hidden grid grid-cols-1 gap-3">
+              {filtered.map((p) => {
+                const isDraft = hasDraft(p.slug);
+                return (
+                  <div key={p.slug} className="card p-4">
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-white">
                         {p.image ? (
                           <Image
                             src={p.image}
                             alt=""
-                            width={48}
-                            height={48}
+                            fill
+                            sizes="64px"
                             className="object-contain"
                           />
-                        ) : (
-                          <span>—</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">{p.name}</td>
-                      <td className="py-2 pr-3">{p.slug}</td>
-                      <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
-                      <td className="py-2 pr-3">
-                        <div className="inline-flex items-center gap-2">
-                          <button className="btn" onClick={() => changeStock(p.slug, "decr", 1)}>
-                            -
-                          </button>
-                          <input
-                            className="input w-16 text-center"
-                            type="number"
-                            value={p.stock}
-                            onChange={(e) => {
-                              const v = Math.max(
-                                0,
-                                Math.floor(Number(e.target.value || 0))
-                              );
-                              const base = staged[p.slug] ?? p;
-                              stageProduct({ ...base, stock: v });
-                            }}
-                          />
-                          <button className="btn" onClick={() => changeStock(p.slug, "incr", 1)}>
-                            +
-                          </button>
+                        ) : null}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-medium truncate">{p.name}</h3>
+                          {p.bestSeller ? <span className="badge">Best</span> : null}
+                          {isDraft ? <span className="badge">Draft</span> : null}
                         </div>
-                      </td>
-                      <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
-                      <td className="py-2 pr-3">
+                        <div className="text-xs text-[var(--color-muted)] truncate">
+                          {p.slug} · ${p.price.toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-between gap-3">
+                      {/* Stock control */}
+                      <div className="flex items-center gap-2">
+                        <button
+                          className="btn min-w-12 h-10"
+                          onClick={() => changeStock(p.slug, "decr", 1)}
+                          aria-label={`Decrease ${p.name} stock`}
+                        >
+                          −
+                        </button>
+                        <input
+                          className="input w-20 h-10 text-center"
+                          inputMode="numeric"
+                          type="number"
+                          value={p.stock}
+                          onChange={(e) => {
+                            const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
+                            const base = staged[p.slug] ?? p;
+                            stageProduct({ ...base, stock: v });
+                          }}
+                        />
+                        <button
+                          className="btn min-w-12 h-10"
+                          onClick={() => changeStock(p.slug, "incr", 1)}
+                          aria-label={`Increase ${p.name} stock`}
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      {/* Row actions */}
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <button
+                          className="btn h-10"
+                          onClick={() => {
+                            setEditing(p);
+                            setSlugTouched(true);
+                            setSlugError(null);
+                            setError(null);
+                          }}
+                        >
+                          Edit
+                        </button>
+
                         {isDraft ? (
-                          <span className="badge">Draft</span>
-                        ) : (
-                          <span className="text-xs text-[var(--color-muted)]">Published</span>
-                        )}
-                      </td>
-                      <td className="py-2 pr-3">
-                        <div className="flex flex-wrap gap-2">
-                          <button
-                            className="btn"
-                            onClick={() => {
-                              setEditing(p);
-                              setSlugTouched(true);
-                              setSlugError(null);
-                              setError(null);
-                            }}
-                          >
-                            Edit
-                          </button>
+                          <>
+                            <button
+                              className="btn btn-primary h-10"
+                              disabled={saving}
+                              onClick={() => publishOne(p.slug)}
+                            >
+                              {saving ? "…" : "Publish"}
+                            </button>
+                            <button className="btn h-10" onClick={() => discardDraft(p.slug)}>
+                              Discard
+                            </button>
+                          </>
+                        ) : null}
 
-                          {isDraft ? (
-                            <>
-                              <button
-                                className="btn btn-primary"
-                                disabled={saving}
-                                onClick={() => publishOne(p.slug)}
-                              >
-                                {saving ? "Publishing…" : "Publish"}
-                              </button>
-                              <button className="btn" onClick={() => discardDraft(p.slug)}>
-                                Discard
-                              </button>
-                            </>
-                          ) : null}
-
-                          <button className="btn" onClick={() => void deleteProduct(p.slug)}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+                        <button className="btn h-10" onClick={() => void deleteProduct(p.slug)}>
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
       </div>
 
-      {/* ---------- Edit/Create Modal (no Publish here) ---------- */}
+      {/* ---------- Edit/Create Modal (scrollable on mobile) ---------- */}
       {editing && (
-        <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50">
-          <div className="card p-6 w-[720px] max-w-[95vw]">
-            <h2 className="text-xl font-semibold">
-              {isServerItem(editing.slug) ? "Edit product (staged)" : "New product (staged)"}
-            </h2>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* backdrop */}
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => {
+              setEditing(null);
+              setSlugTouched(false);
+              setSlugError(null);
+              setError(null);
+            }}
+          />
+          {/* panel */}
+          <div
+            className="
+              relative card w-[92vw] max-w-[720px]
+              h-[92svh] sm:h-auto sm:max-h-[90svh]
+              overflow-y-auto
+              p-5 sm:p-6
+            "
+          >
+            <div className="sticky top-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-b border-[var(--color-line)] px-5 sm:px-6 py-3 z-10 flex items-center justify-between">
+              <h2 className="text-lg sm:text-xl font-semibold">
+                {isServerItem(editing.slug) ? "Edit product (staged)" : "New product (staged)"}
+              </h2>
+              <button
+                className="btn"
+                onClick={() => {
+                  setEditing(null);
+                  setSlugTouched(false);
+                  setSlugError(null);
+                  setError(null);
+                }}
+                aria-label="Close"
+              >
+                Close
+              </button>
+            </div>
 
-            {error && <p className="text-rose-600 text-sm mt-2">{error}</p>}
+            {error && <p className="text-rose-600 text-sm mt-3">{error}</p>}
 
-            <div className="grid grid-cols-2 gap-4 mt-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
               {/* Name (auto-slug if slug not manually touched & product is new) */}
               <label className="block">
                 <div className="text-xs mb-1">Name</div>
@@ -462,9 +605,7 @@ export default function AdminPage() {
                   type="number"
                   step="0.01"
                   value={editing.price}
-                  onChange={(e) =>
-                    setEditing({ ...editing, price: Number(e.target.value) })
-                  }
+                  onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
                 />
               </label>
 
@@ -475,34 +616,42 @@ export default function AdminPage() {
                     className="input flex-1"
                     value={editing.sku}
                     onChange={(e) => setEditing({ ...editing, sku: e.target.value })}
-                    placeholder={nextSku}
+                    placeholder="DCW-0001"
                   />
                   <button
                     type="button"
                     className="btn"
                     onClick={() =>
-                      setEditing((prev) => (prev ? { ...prev, sku: nextSku } : prev))
+                      setEditing((prev) =>
+                        prev
+                          ? {
+                              ...prev,
+                              sku: computeNextSku([
+                                ...items.map((i) => i.sku),
+                                ...Object.values(staged).map((d) => d.sku),
+                              ])
+                            }
+                          : prev
+                      )
                     }
                     title="Use next available SKU"
                   >
-                    Use {nextSku}
+                    Auto
                   </button>
                 </div>
               </label>
 
-              <label className="block col-span-2">
+              <label className="block sm:col-span-2">
                 <div className="text-xs mb-1">Stripe Price ID</div>
                 <input
                   className="input"
                   value={editing.stripePriceId || ""}
-                  onChange={(e) =>
-                    setEditing({ ...editing, stripePriceId: e.target.value })
-                  }
+                  onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
                 />
               </label>
 
               {/* Image URL + Browse */}
-              <label className="block col-span-2">
+              <label className="block sm:col-span-2">
                 <div className="text-xs mb-1">Image</div>
                 <div className="flex items-center gap-3">
                   <input
@@ -522,27 +671,19 @@ export default function AdminPage() {
                   </label>
                 </div>
                 {editing.image ? (
-                  <div className="mt-3">
-                    <Image
-                      src={editing.image}
-                      alt=""
-                      width={96}
-                      height={96}
-                      className="object-contain"
-                    />
+                  <div className="mt-3 relative w-full h-40 rounded-xl overflow-hidden">
+                    <Image src={editing.image} alt="" fill className="object-contain" />
                   </div>
                 ) : null}
               </label>
 
-              <label className="block col-span-2">
+              <label className="block sm:col-span-2">
                 <div className="text-xs mb-1">Description</div>
                 <textarea
                   className="textarea"
                   rows={4}
                   value={editing.seoDescription}
-                  onChange={(e) =>
-                    setEditing({ ...editing, seoDescription: e.target.value })
-                  }
+                  onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
                 />
               </label>
 
@@ -550,9 +691,7 @@ export default function AdminPage() {
                 <input
                   type="checkbox"
                   checked={!!editing.bestSeller}
-                  onChange={(e) =>
-                    setEditing({ ...editing, bestSeller: e.target.checked })
-                  }
+                  onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })}
                 />
                 <span className="text-sm">Best Seller</span>
               </label>
@@ -573,7 +712,7 @@ export default function AdminPage() {
               </label>
             </div>
 
-            <div className="mt-6 flex justify-end gap-2">
+            <div className="sticky bottom-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-t border-[var(--color-line)] px-5 sm:px-6 py-3 mt-6 flex justify-end gap-2">
               <button
                 className="btn"
                 onClick={() => {
@@ -595,7 +734,7 @@ export default function AdminPage() {
                   setEditing(null);
                 }}
               >
-                Save
+                Save draft
               </button>
             </div>
           </div>
