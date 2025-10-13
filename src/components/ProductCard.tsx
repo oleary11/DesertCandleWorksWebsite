@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
+import type { Product } from "@/lib/products";
 
-export default function ProductCard({
-  product,
-  compact = false,
-}: { product: any; compact?: boolean }) {
+type ProductCardProps = { product: Product; compact?: boolean };
+
+export default function ProductCard({product, compact = false, }: ProductCardProps) {
   return (
     <Link
       href={`/shop/${product.slug}`}

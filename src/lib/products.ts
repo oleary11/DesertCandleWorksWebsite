@@ -1,3 +1,14 @@
+export type Product = {
+  slug: string;
+  name: string;
+  price: number;
+  image?: string;           // optional is fine
+  sku: string;
+  stripePriceId?: string;   // some are placeholders
+  seoDescription: string;
+  bestSeller?: boolean;     // optional flag if you want it
+};
+
 export const products = [
     {
       slug: "titos-candle",
@@ -141,7 +152,6 @@ export const products = [
       },
   ];
   
-  export function getProduct(slug: string) {
-    return products.find((p) => p.slug === slug);
+  export function getProduct(slug: string): Product | undefined {
+    return products.find(p => p.slug === slug);
   }
-  

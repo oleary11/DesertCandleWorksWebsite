@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
@@ -10,14 +12,14 @@ export default function NavBar() {
     <>
       <div className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         {/* Logo + Name */}
-        <a href="/" className="flex items-center gap-2">
-          <img
+        <Link href="/" className="flex items-center gap-2">
+          <Image
             src="/images/logo.png"
             alt="Desert Candle Works logo"
             className="w-8 h-8 object-contain"
           />
           <span className="text-lg font-semibold tracking-tight">Desert Candle Works</span>
-        </a>
+        </Link>
 
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
@@ -42,10 +44,10 @@ export default function NavBar() {
       {open && (
         <div className="md:hidden border-t border-[var(--color-line)] bg-white/95 backdrop-blur-sm">
           <nav className="flex flex-col items-center py-5 space-y-4 text-sm">
-            <a href="/" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Home</a>
-            <a href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Shop</a>
-            <a href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</a>
-            <a href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</a>
+            <Link href="/" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Home</Link>
+            <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Shop</Link>
+            <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
+            <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
           </nav>
         </div>
       )}

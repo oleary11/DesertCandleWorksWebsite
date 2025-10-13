@@ -1,7 +1,26 @@
-// app/api/subscribe/route.ts
+import { NextRequest, NextResponse } from "next/server";
+
 export const runtime = "nodejs";
 
-import { NextRequest, NextResponse } from "next/server";
+type ButtondownJSON = {
+  detail?: string | { msg?: string }[];
+  errors?: { message?: string }[];
+};
+
+function extractEmailAddressFromJSON(body: unknown): string | null {
+  if (!body || typeof body !== "object") return null;
+  const o = body as Record<string, unknown>;
+
+  if (typeof o.email_address === "string") return o.email_address;
+  if (typeof o.email === "string") return o.email;
+
+  const payload = o.payload as unknown;
+  if (payload && typeof payload === "object") {
+    const p = payload as Record<string, unknown>;
+    if (typeof p.email_address === "string") return p.email_address;
+  }
+  return null;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,12 +28,8 @@ export async function POST(req: NextRequest) {
     let email_address: string | null = null;
 
     if (ct.includes("application/json")) {
-      const body = await req.json().catch(() => ({}));
-      email_address =
-        body?.email_address ??
-        body?.email ??
-        body?.payload?.email_address ??
-        null;
+      const body: unknown = await req.json().catch(() => ({}));
+      email_address = extractEmailAddressFromJSON(body);
     } else {
       const form = await req.formData().catch(() => null);
       const v = form?.get("email_address") || form?.get("email");
@@ -23,21 +38,15 @@ export async function POST(req: NextRequest) {
 
     email_address = email_address?.trim() || null;
     if (!email_address) {
-      return NextResponse.json(
-        { ok: false, error: "Email is required." },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Email is required." }, { status: 400 });
     }
 
     const API_KEY = process.env.BUTTONDOWN_API_KEY;
     if (!API_KEY) {
-      return NextResponse.json(
-        { ok: false, error: "Newsletter not configured." },
-        { status: 500 }
-      );
+      return NextResponse.json({ ok: false, error: "Newsletter not configured." }, { status: 500 });
     }
 
-    // Buttondown API (note the .email domain and `email_address` key)
+    // Buttondown expects { email_address } at this endpoint/host
     const bdRes = await fetch("https://api.buttondown.email/v1/subscribers", {
       method: "POST",
       headers: {
@@ -45,33 +54,34 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({
-        email_address,
-        // tags: ["website"], // optional
-      }),
+      body: JSON.stringify({ email_address }),
     });
 
     const text = await bdRes.text();
-    let data: any = {};
-    try { data = JSON.parse(text); } catch {}
+    let data: ButtondownJSON = {};
+    try {
+      data = JSON.parse(text) as ButtondownJSON;
+    } catch {
+      // non-JSON error body; keep text for fallback message
+    }
 
     if (bdRes.ok) {
       return NextResponse.json({ ok: true }, { status: 201 });
     }
 
-    // Common Buttondown error shapes
-    const detail =
-      (typeof data?.detail === "string" && data.detail) ||
-      (Array.isArray(data?.detail) && data.detail.map((d: any) => d?.msg).filter(Boolean).join(", ")) ||
-      (Array.isArray(data?.errors) && data.errors.map((e: any) => e?.message).filter(Boolean).join(", ")) ||
+    // Normalize error details from Buttondown
+    const detailString =
+      (typeof data.detail === "string" && data.detail) ||
+      (Array.isArray(data.detail) && data.detail.map((d) => d?.msg).filter(Boolean).join(", ")) ||
+      (Array.isArray(data.errors) && data.errors.map((e) => e?.message).filter(Boolean).join(", ")) ||
       text ||
       "Subscription failed.";
 
-    if (String(detail).toLowerCase().includes("already")) {
+    if (detailString.toLowerCase().includes("already")) {
       return NextResponse.json({ ok: true, already: true }, { status: 200 });
     }
 
-    return NextResponse.json({ ok: false, error: detail }, { status: 400 });
+    return NextResponse.json({ ok: false, error: detailString }, { status: 400 });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ ok: false, error: "Server error." }, { status: 500 });

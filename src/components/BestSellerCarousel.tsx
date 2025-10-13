@@ -4,10 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import ProductCard from "@/components/ProductCard";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
-type Props = {
-  products: any[];
-  title?: string;
-};
+import type { Product } from "@/lib/products";
+type Props = { products: Product[]; title?: string };
 
 export default function BestSellerCarousel({ products, title = "Best sellers" }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
