@@ -2,6 +2,7 @@ import Image from "next/image";
 import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
 import { products } from "@/lib/products";
+import { Link } from "lucide-react";
 
 export default function Home() {
   const bestsellers = products.filter(p => p.bestSeller);
@@ -35,7 +36,7 @@ export default function Home() {
             Hand-poured into upcycled bottles. Clean burn. Subtle crackle. Thoughtful packaging.
           </p>
           <div className="mt-8">
-            <a
+            <Link
               href="/shop"
               className="
                 btn-cta inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium
@@ -47,7 +48,7 @@ export default function Home() {
               "
             >
               Shop candles
-            </a>
+            </Link>
           </div>
         </div>
       </section>
