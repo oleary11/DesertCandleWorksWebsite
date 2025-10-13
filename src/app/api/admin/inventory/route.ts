@@ -1,7 +1,8 @@
+// src/app/api/admin/inventory/route.ts
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { getPriceToSlug } from "@/lib/pricemap";
-import { getResolvedProduct } from "@/lib/liveProducts";
+import { getLiveStock } from "@/lib/inventory";
 
 export const runtime = "nodejs";
 
@@ -34,19 +35,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Build a merged map so new products are recognized
+    // Build a fresh map of PriceID -> slug
     const priceToSlug = await getPriceToSlug();
 
-    // Ensure every item is in stock right now
+    // Guard: ensure each item is in stock
     for (const li of lineItems) {
       const price = li.price as string | undefined;
       const slug = price ? priceToSlug.get(price) : undefined;
-      if (!slug) return NextResponse.json({ error: "Unknown item" }, { status: 400 });
-
-      const product = await getResolvedProduct(slug);
-      const stock = product?.stock ?? 0; // treat missing as 0
+      if (!slug) {
+        return NextResponse.json({ error: "Unknown item" }, { status: 400 });
+      }
+      const live = await getLiveStock(slug);
+      const stock = (typeof live === "number") ? live : 0;
       const qty = li.quantity ?? 1;
-
       if (stock < qty) {
         return NextResponse.json(
           { error: `Out of stock: ${slug} (requested ${qty}, available ${stock})` },
