@@ -1,13 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createAdminSession } from "@/lib/adminSession";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  const { password, next } = await req.json().catch(() => ({}));
-  const ok = typeof password === "string" && password === process.env.ADMIN_PASSWORD;
-  if (!ok) return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  const ctype = req.headers.get("content-type") || "";
+  let password = "";
+  let next = "/admin";
 
-  await createAdminSession();
+  if (ctype.includes("application/json")) {
+    const body = (await req.json().catch(() => ({}))) as { password?: string; next?: string };
+    password = (body.password ?? "").toString();
+    next = (body.next ?? "/admin").toString();
+  } else {
+    const form = await req.formData();
+    password = (form.get("password") ?? "").toString();
+    next = (form.get("next") ?? "/admin").toString();
+  }
 
-  const dest = new URL(next || "/admin", req.url);
-  return NextResponse.redirect(dest, { status: 303 });
+  const expected = process.env.ADMIN_PASSWORD || "";
+  if (!expected) {
+    return NextResponse.json(
+      { error: "Admin password not configured on server" },
+      { status: 500 }
+    );
+  }
+
+  if (password !== expected) {
+    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+  }
+
+  // Set the admin cookie for the whole site
+  const res = NextResponse.json({ redirect: next });
+  res.cookies.set("dcw_admin", "1", {
+    path: "/",
+    httpOnly: true,
+    sameSite: "lax",
+    secure: true,         // keep true on Vercel (HTTPS)
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  });
+  return res;
 }
