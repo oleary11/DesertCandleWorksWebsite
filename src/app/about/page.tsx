@@ -6,7 +6,7 @@ const TIMELINE = [
   {
     title: "Why We Started",
     text: "We love great design, great bottles, and great candles. Tossing beautiful glass felt wrong—so we began giving bottles a second life with warm, desert-inspired scents.",
-    image: "/images/scottsdale.png",
+    image: "/images/why.png",
   },
   {
     title: "How We Began",
@@ -16,7 +16,7 @@ const TIMELINE = [
   {
     title: "Cutting & Finishing",
     text: "Each bottle is measured, cut on a wet tile saw, and hand-sanded. We sand the rim through multiple grits for a smooth, comfortable edge that looks as good as it feels.",
-    image: "/images/cutting.JPG",
+    image: "/images/cutting.jpg",
   },
   {
     title: "Pouring Small Batches",
