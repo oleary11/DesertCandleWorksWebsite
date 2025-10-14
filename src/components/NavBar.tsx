@@ -21,7 +21,7 @@ export default function NavBar() {
         width={40}
         height={40}
         priority
-        className="rounded-full border-2 border-[var(--color-ink)]"
+        className="rounded-full border-2 border-[var(#a79f9a)]"
         />
           <span className="text-lg font-semibold tracking-tight">Desert Candle Works</span>
         </Link>
