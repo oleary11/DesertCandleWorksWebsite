@@ -1,10 +1,15 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/products";
+import { getTotalStock } from "@/lib/productsStore";
 
 type ProductCardProps = { product: Product; compact?: boolean };
 
 export default function ProductCard({product, compact = false, }: ProductCardProps) {
+  const stock = getTotalStock(product);
+  const isLowStock = stock > 0 && stock <= 3;
+  const isOutOfStock = stock === 0;
+
   return (
     <Link
       href={`/shop/${product.slug}`}
@@ -36,6 +41,36 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
             sizes="(min-width:1280px) 260px, (min-width:1024px) 30vw, (min-width:640px) 45vw, 90vw"
             quality={90}
           />
+        )}
+
+        {/* Stock status badge in top-left corner */}
+        {isOutOfStock && (
+          <span
+            className="
+              absolute top-3 left-3
+              px-2.5 py-1 text-xs font-medium
+              rounded-full
+              bg-neutral-800/90 backdrop-blur-sm
+              text-white
+              shadow-sm
+            "
+          >
+            Out of Stock
+          </span>
+        )}
+        {isLowStock && (
+          <span
+            className="
+              absolute top-3 left-3
+              px-2.5 py-1 text-xs font-medium
+              rounded-full
+              bg-amber-500/90 backdrop-blur-sm
+              text-white
+              shadow-sm
+            "
+          >
+            Only {stock} left
+          </span>
         )}
 
         {/* Price pill in top-right corner */}

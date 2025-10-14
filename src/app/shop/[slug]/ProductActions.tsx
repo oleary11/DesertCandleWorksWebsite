@@ -14,6 +14,7 @@ export default function ProductActions({ product, stock }: Props) {
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
   const [isBuying, setIsBuying] = useState(false);
+  const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState("");
 
   const canBuy = !!product.stripePriceId && stock > 0;
@@ -21,6 +22,8 @@ export default function ProductActions({ product, stock }: Props) {
   const remainingStock = stock - currentQuantityInCart;
 
   const handleAddToCart = () => {
+    setIsAddingToCart(true);
+
     const success = addItem({
       productSlug: product.slug,
       productName: product.name,
@@ -32,10 +35,16 @@ export default function ProductActions({ product, stock }: Props) {
 
     if (success) {
       setAddToCartMessage("Added to cart!");
-      setTimeout(() => setAddToCartMessage(""), 2000);
+      setTimeout(() => {
+        setAddToCartMessage("");
+        setIsAddingToCart(false);
+      }, 1500);
     } else {
       setAddToCartMessage("Cannot add more - stock limit reached");
-      setTimeout(() => setAddToCartMessage(""), 3000);
+      setTimeout(() => {
+        setAddToCartMessage("");
+        setIsAddingToCart(false);
+      }, 2500);
     }
   };
 
@@ -92,16 +101,28 @@ export default function ProductActions({ product, stock }: Props) {
       <div className="mt-6 flex gap-3">
         <button
           onClick={handleAddToCart}
-          disabled={!canBuy || remainingStock <= 0}
+          disabled={!canBuy || remainingStock <= 0 || isAddingToCart}
           className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium
           border border-[var(--color-accent)]
           text-[var(--color-accent)]
           hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-ink)]
           transition
-          ${!canBuy || remainingStock <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+          ${!canBuy || remainingStock <= 0 || isAddingToCart ? "opacity-50 cursor-not-allowed" : ""}`}
         >
-          <ShoppingCart className="w-4 h-4" />
-          {remainingStock <= 0 && currentQuantityInCart > 0 ? "Max in Cart" : "Add to Cart"}
+          {!isAddingToCart && <ShoppingCart className="w-4 h-4" />}
+          {isAddingToCart ? (
+            <>
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Adding...
+            </>
+          ) : remainingStock <= 0 && currentQuantityInCart > 0 ? (
+            "Max in Cart"
+          ) : (
+            "Add to Cart"
+          )}
         </button>
 
         <button

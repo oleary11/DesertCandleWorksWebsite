@@ -207,6 +207,16 @@ export default function CartPage() {
                 <span>${getTotalPrice().toFixed(2)}</span>
               </div>
 
+              {/* Shipping Info */}
+              <div className="mb-6 p-3 bg-neutral-50 rounded-lg border border-[var(--color-line)]">
+                <p className="text-xs font-medium text-[var(--color-ink)] mb-1">
+                  Shipping Information
+                </p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  Orders typically ship within 2-3 business days. Local pickup available in Scottsdale, AZ.
+                </p>
+              </div>
+
               <button
                 onClick={handleCheckout}
                 disabled={isCheckingOut}
