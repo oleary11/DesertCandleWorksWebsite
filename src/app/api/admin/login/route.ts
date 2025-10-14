@@ -3,34 +3,9 @@ import { createAdminSession, destroyAdminSession } from "@/lib/adminSession";
 import { timingSafeEqual } from "crypto";
 import { verifyTwoFactorToken, isTwoFactorEnabled } from "@/lib/twoFactor";
 import { logAdminAction } from "@/lib/adminLogs";
+import { checkRateLimit, resetRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
-
-// Rate limiting map (in production, use Redis or a proper rate limiter)
-const loginAttempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_ATTEMPTS = 5;
-const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
-
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const attempt = loginAttempts.get(ip);
-
-  if (!attempt || now > attempt.resetAt) {
-    loginAttempts.set(ip, { count: 1, resetAt: now + LOCKOUT_DURATION });
-    return true;
-  }
-
-  if (attempt.count >= MAX_ATTEMPTS) {
-    return false;
-  }
-
-  attempt.count++;
-  return true;
-}
-
-function resetRateLimit(ip: string) {
-  loginAttempts.delete(ip);
-}
 
 export async function POST(req: NextRequest) {
   // Get request metadata for logging
@@ -38,7 +13,8 @@ export async function POST(req: NextRequest) {
   const userAgent = req.headers.get("user-agent") || "unknown";
 
   // Rate limiting
-  if (!checkRateLimit(ip)) {
+  const rateLimitOk = await checkRateLimit(ip);
+  if (!rateLimitOk) {
     await logAdminAction({
       action: "login",
       ip,
@@ -155,7 +131,7 @@ export async function POST(req: NextRequest) {
   await destroyAdminSession();
 
   // Reset rate limit on successful login
-  resetRateLimit(ip);
+  await resetRateLimit(ip);
 
   // Create new session with UUID token in Redis
   await createAdminSession();

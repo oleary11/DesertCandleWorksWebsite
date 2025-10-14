@@ -60,6 +60,35 @@
 - ✅ Proper session validation on every request
 - ✅ Webhook signature verification prevents fake orders
 
+## Emergency Access
+
+### If You Get Locked Out
+
+If you exceed the rate limit (5 failed login attempts), you have several options:
+
+1. **Wait 15 minutes** - The lockout automatically expires
+2. **Use the emergency reset endpoint** (recommended for production):
+   ```bash
+   curl -X POST https://your-domain.com/api/emergency-reset \
+     -H "Content-Type: application/json" \
+     -d '{"token":"YOUR_EMERGENCY_RESET_TOKEN"}'
+   ```
+   Set `EMERGENCY_RESET_TOKEN` in your environment variables (Vercel dashboard)
+
+3. **Restart the server** (development only) - Clears in-memory fallback
+
+### Setting Up Emergency Reset Token
+
+Add to your `.env` or Vercel environment variables:
+```
+EMERGENCY_RESET_TOKEN=a-long-random-secure-token-here
+```
+
+Generate a secure token:
+```bash
+openssl rand -hex 32
+```
+
 ## Remaining Recommendations
 
 ### HIGH Priority
@@ -79,11 +108,13 @@
    - Enable/disable via Settings page
    - See `2FA_SETUP_GUIDE.md` for step-by-step instructions
 
-3. **Add Redis-based Rate Limiting**
-   - Current rate limiting uses in-memory Map
-   - Will reset if server restarts
-   - Use Redis for persistent rate limiting
-   - Example: `@upstash/ratelimit` package
+3. **Redis-based Rate Limiting** ✅ IMPLEMENTED
+   - Uses Redis for persistent rate limiting across server restarts
+   - Falls back to in-memory if Redis unavailable
+   - 5 attempts per IP address
+   - 15-minute lockout period
+   - Automatic reset on successful login
+   - Emergency reset endpoint: `/api/emergency-reset` (requires EMERGENCY_RESET_TOKEN)
 
 ### MEDIUM Priority
 4. **Add Security Headers**
