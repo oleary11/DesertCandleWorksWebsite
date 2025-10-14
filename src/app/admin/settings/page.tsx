@@ -9,6 +9,15 @@ interface TwoFactorSetup {
   secret: string;
 }
 
+interface AdminLogEntry {
+  timestamp: string;
+  action: string;
+  ip: string;
+  userAgent: string;
+  details?: Record<string, unknown>;
+  success: boolean;
+}
+
 export default function AdminSettings() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
@@ -18,9 +27,12 @@ export default function AdminSettings() {
   const [verificationCode, setVerificationCode] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [logs, setLogs] = useState<AdminLogEntry[]>([]);
+  const [logsLoading, setLogsLoading] = useState(false);
 
   useEffect(() => {
     checkTwoFactorStatus();
+    loadLogs();
   }, []);
 
   async function checkTwoFactorStatus() {
@@ -34,6 +46,21 @@ export default function AdminSettings() {
       console.error("Failed to check 2FA status:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadLogs() {
+    setLogsLoading(true);
+    try {
+      const res = await fetch("/api/admin/logs?limit=50");
+      if (res.ok) {
+        const data = await res.json();
+        setLogs(data.logs || []);
+      }
+    } catch (err) {
+      console.error("Failed to load logs:", err);
+    } finally {
+      setLogsLoading(false);
     }
   }
 
@@ -340,6 +367,80 @@ export default function AdminSettings() {
               <p className="text-[var(--color-muted)]">Good UX for iOS/Android</p>
             </div>
           </div>
+        </div>
+
+        {/* Activity Logs */}
+        <div className="card p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold">Admin Activity Logs</h2>
+            <button
+              onClick={loadLogs}
+              disabled={logsLoading}
+              className="btn text-sm"
+            >
+              {logsLoading ? "Refreshing..." : "Refresh"}
+            </button>
+          </div>
+
+          {logsLoading ? (
+            <p className="text-sm text-[var(--color-muted)]">Loading logs...</p>
+          ) : logs.length === 0 ? (
+            <p className="text-sm text-[var(--color-muted)]">No activity logs yet.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left border-b border-[var(--color-line)]">
+                    <th className="py-2 pr-3">Time</th>
+                    <th className="py-2 pr-3">Action</th>
+                    <th className="py-2 pr-3">Status</th>
+                    <th className="py-2 pr-3">IP Address</th>
+                    <th className="py-2 pr-3">Details</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {logs.map((log, idx) => (
+                    <tr key={idx} className="border-b border-[var(--color-line)]">
+                      <td className="py-2 pr-3 text-xs whitespace-nowrap">
+                        {new Date(log.timestamp).toLocaleString()}
+                      </td>
+                      <td className="py-2 pr-3 capitalize">{log.action}</td>
+                      <td className="py-2 pr-3">
+                        {log.success ? (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded">
+                            Success
+                          </span>
+                        ) : (
+                          <span className="px-2 py-0.5 text-xs font-medium bg-rose-100 text-rose-800 rounded">
+                            Failed
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-2 pr-3 font-mono text-xs">{log.ip}</td>
+                      <td className="py-2 pr-3 text-xs text-[var(--color-muted)]">
+                        <>
+                          {log.details?.reason && (
+                            <span className="capitalize">
+                              {String(log.details.reason).replace(/_/g, " ")}
+                            </span>
+                          )}
+                          {log.details?.twoFactorUsed && (
+                            <span className="ml-2 px-1.5 py-0.5 bg-amber-100 text-amber-800 rounded text-xs">
+                              2FA
+                            </span>
+                          )}
+                        </>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          <p className="text-xs text-[var(--color-muted)] mt-4">
+            Showing last {logs.length} events. Logs are stored for up to 1,000 entries.
+          </p>
         </div>
       </div>
     </div>
