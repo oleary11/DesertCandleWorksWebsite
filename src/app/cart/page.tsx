@@ -75,7 +75,7 @@ export default function CartPage() {
             href="/shop"
             className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium
             [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-            text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
+            text-white shadow-[0_2px_10px_rgba(20,16,12,0.1)]
             hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition"
           >
             Shop Candles
