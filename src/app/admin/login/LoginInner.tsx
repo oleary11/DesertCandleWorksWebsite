@@ -8,6 +8,7 @@ export default function LoginInner() {
   const next = sp.get("next") || "/admin";
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -18,23 +19,30 @@ export default function LoginInner() {
     fd.append("next", next);
 
     const res = await fetch("/api/admin/login", { method: "POST", body: fd });
+    const j = await res.json().catch(() => ({}));
+
     if (res.ok) {
-      // server sets cookie + redirects URL in JSON for fetch; or use 303 redirect if form-posting
-      try {
-        const j = await res.json();
-        if (j?.redirect) {
-          window.location.href = j.redirect as string;
-          return;
-        }
-      } catch {
-        // If API used 303 redirect, browser already navigated on real form posts
+      if (j?.requiresTwoFactor) {
+        // Password correct, but need 2FA code
+        setNeedsTwoFactor(true);
+        setError(null);
+        setSubmitting(false);
+        setTimeout(() => {
+          (document.getElementById("twoFactorToken") as HTMLInputElement | null)?.focus();
+        }, 100);
+        return;
+      }
+
+      // Full login success
+      if (j?.redirect) {
+        window.location.href = j.redirect as string;
+        return;
       }
       window.location.href = next;
     } else {
-      const j = await res.json().catch(() => ({}));
-      setError(j.error || "Invalid password");
+      setError(j.error || "Invalid credentials");
+      setSubmitting(false);
     }
-    setSubmitting(false);
   }
 
   // Optional: autofocus password
@@ -47,28 +55,66 @@ export default function LoginInner() {
       <div className="card p-6 w-[420px] max-w-[95vw]">
         <h1 className="text-xl font-semibold">Admin login</h1>
         <p className="text-sm text-[var(--color-muted)] mt-1">
-          Enter the admin password to continue.
+          {needsTwoFactor
+            ? "Enter your 2FA code to continue"
+            : "Enter the admin password to continue"}
         </p>
 
         <form className="mt-4 space-y-4" onSubmit={onSubmit}>
           <input type="hidden" name="next" value={next} />
-          <label className="block">
-            <div className="text-xs mb-1">Password</div>
-            <input
-              id="pw"
-              className="input w-full"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </label>
+
+          {!needsTwoFactor && (
+            <label className="block">
+              <div className="text-xs mb-1">Password</div>
+              <input
+                id="pw"
+                className="input w-full"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                required
+              />
+            </label>
+          )}
+
+          {needsTwoFactor && (
+            <label className="block">
+              <div className="text-xs mb-1">2FA Code</div>
+              <input
+                id="twoFactorToken"
+                className="input w-full"
+                name="twoFactorToken"
+                type="text"
+                placeholder="Enter 6-digit code"
+                autoComplete="one-time-code"
+                required
+                maxLength={6}
+                pattern="[0-9]{6}"
+              />
+              <div className="text-xs text-[var(--color-muted)] mt-1">
+                Enter the code from your authenticator app or a backup code
+              </div>
+            </label>
+          )}
 
           {error && <p className="text-rose-600 text-sm">{error}</p>}
 
           <button className="btn btn-primary w-full" type="submit" disabled={submitting}>
             {submitting ? "Signing in…" : "Sign in"}
           </button>
+
+          {needsTwoFactor && (
+            <button
+              type="button"
+              onClick={() => {
+                setNeedsTwoFactor(false);
+                setError(null);
+              }}
+              className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] w-full text-center"
+            >
+              ← Back to password
+            </button>
+          )}
         </form>
       </div>
     </section>

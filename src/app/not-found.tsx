@@ -24,17 +24,25 @@ export default function NotFound() {
   const [flicker, setFlicker] = useState(1);
 
   useEffect(() => {
+    // Check if mobile
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+
     const interval = setInterval(() => {
-      // Random flicker intensity between 0.92 and 1 (more subtle)
-      setFlicker(0.92 + Math.random() * 0.08);
-    }, 200);
+      if (isMobile) {
+        // More subtle flicker on mobile: 0.96-1.0 range
+        setFlicker(0.96 + Math.random() * 0.04);
+      } else {
+        // Desktop: 0.92-1.0 range
+        setFlicker(0.92 + Math.random() * 0.08);
+      }
+    }, isMobile ? 300 : 200); // Slower on mobile
 
     return () => clearInterval(interval);
   }, []);
 
   return (
     <section className="relative min-h-dvh flex items-center justify-center px-6 py-12 overflow-hidden bg-gradient-to-b from-neutral-900 to-black">
-      {/* Radial candlelight glow with flicker effect */}
+      {/* Radial candlelight glow with flicker effect - stronger gradient on mobile */}
       <div
         className="absolute inset-0 pointer-events-none transition-opacity duration-150"
         style={{
@@ -44,7 +52,9 @@ export default function NotFound() {
             rgba(255, 160, 70, ${0.25 * flicker}) 30%,
             rgba(220, 140, 60, ${0.18 * flicker}) 45%,
             rgba(120, 80, 30, ${0.12 * flicker}) 60%,
-            transparent 75%)`,
+            rgba(40, 30, 20, ${0.08 * flicker}) 75%,
+            rgba(0, 0, 0, 0.9) 90%,
+            rgba(0, 0, 0, 1) 100%)`,
           opacity: flicker,
         }}
       />

@@ -43,11 +43,11 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
           />
         )}
 
-        {/* Stock status badge in top-left corner */}
+        {/* Stock status badge - positioned to not overlap price */}
         {isOutOfStock && (
           <span
             className="
-              absolute top-3 left-3
+              absolute bottom-3 left-3
               px-2.5 py-1 text-xs font-medium
               rounded-full
               bg-neutral-800/90 backdrop-blur-sm
@@ -61,7 +61,7 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
         {isLowStock && (
           <span
             className="
-              absolute top-3 left-3
+              absolute bottom-3 left-3
               px-2.5 py-1 text-xs font-medium
               rounded-full
               bg-amber-500/90 backdrop-blur-sm
