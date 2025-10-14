@@ -14,16 +14,10 @@ export default function NavBar() {
     <>
       <div className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         {/* Logo + Name */}
-        <Link href="/" className="flex items-center gap-2">
-        <Image
-        src="/images/logo.png"
-        alt="Desert Candle Works logo"
-        width={40}
-        height={40}
-        priority
-        className="rounded-full border-2 border-[var(--a79f9a)]"
-        />
-          <span className="text-lg font-semibold tracking-tight">Desert Candle Works</span>
+        <Link href="/" className="flex items-center gap-3">
+          <span className="text-base md:text-lg font-semibold tracking-tight">
+            Desert Candle Works
+          </span>
         </Link>
 
         {/* Desktop nav */}
