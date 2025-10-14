@@ -69,7 +69,7 @@ export default function CartPage() {
         <div className="text-center max-w-md">
           <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
           <p className="text-[var(--color-muted)] mb-8">
-            Looks like you haven't added any candles to your cart yet.
+            Looks like you haven&apos;t added any candles to your cart yet.
           </p>
           <Link
             href="/shop"

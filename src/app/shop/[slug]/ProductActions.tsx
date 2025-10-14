@@ -3,7 +3,6 @@
 import { useCartStore } from "@/lib/cartStore";
 import type { Product } from "@/lib/productsStore";
 import { ShoppingCart } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type Props = {
@@ -14,7 +13,6 @@ type Props = {
 export default function ProductActions({ product, stock }: Props) {
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
-  const router = useRouter();
   const [isBuying, setIsBuying] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState("");
 

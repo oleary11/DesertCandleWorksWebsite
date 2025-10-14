@@ -2,11 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const runtime = "nodejs";
 
-type ButtondownJSON = {
-  detail?: string | { msg?: string }[];
-  errors?: { message?: string }[];
-};
-
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}));

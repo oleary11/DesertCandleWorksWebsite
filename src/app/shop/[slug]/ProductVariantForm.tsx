@@ -145,7 +145,7 @@ export default function ProductVariantForm({ product, variants, variantConfig }:
         setRequestStatus("error");
         setRequestMessage(data.error || "Failed to submit request.");
       }
-    } catch (err) {
+    } catch {
       setRequestStatus("error");
       setRequestMessage("Network error. Please try again.");
     }
