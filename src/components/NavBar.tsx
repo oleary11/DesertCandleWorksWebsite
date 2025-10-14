@@ -44,6 +44,7 @@ export default function NavBar() {
                 </span>
               )}
             </Link>
+            <div className="h-5 w-px bg-[var(--color-line)]" />
             <a
               href="https://www.instagram.com/desertcandleworks/"
               target="_blank"

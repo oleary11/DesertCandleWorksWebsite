@@ -42,7 +42,7 @@ export default async function Home() {
               href="/shop"
               className="
                 btn-cta inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium
-                border-0
+                border-0 text-white
                 [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_92%,_white_8%),_color-mix(in_oklab,_var(--color-accent)_78%,_black_4%))]
                 shadow-[0_1px_0_rgba(255,255,255,.45)_inset,0_10px_30px_rgba(20,16,12,.08)]
                 hover:shadow-[0_1px_0_rgba(255,255,255,.55)_inset,0_16px_40px_rgba(20,16,12,.12)]
