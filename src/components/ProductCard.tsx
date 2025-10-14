@@ -26,7 +26,7 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
         {product.image && (
           <Image
             src={product.image}
-            alt={product.name}
+            alt={`${product.name} - Handmade soy candle in upcycled liquor bottle`}
             fill
             className="
               object-cover object-center rounded-t-2xl

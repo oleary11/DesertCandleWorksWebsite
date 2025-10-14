@@ -1,17 +1,13 @@
 import { redis } from "./redis";
-import { getProduct as getStaticProduct } from "@/lib/products";
+import { getProduct as getStaticProduct, generateVariants, type Product } from "@/lib/products";
 
-export type Product = {
-  slug: string;
-  name: string;
-  price: number;
-  image?: string;
-  sku: string;
-  stripePriceId?: string;
-  seoDescription: string;
-  bestSeller?: boolean;
-  stock: number;
-};
+export type {
+  Product,
+  ProductVariant,
+  WickType,
+  Scent,
+  VariantConfig,
+} from "@/lib/products";
 
 const key = (slug: string) => `product:${slug}`;
 const INDEX_KEY = "products:index";
@@ -81,4 +77,55 @@ export async function incrStock(slug: string, delta: number): Promise<number> {
   p.stock = next;
   await upsertProduct(p);
   return p.stock;
+}
+
+/** Get total stock across all variants (or fallback to base stock) */
+export function getTotalStock(p: Product): number {
+  if (p.variantConfig) {
+    const variants = generateVariants(p);
+    return variants.reduce((sum, v) => sum + (v.stock ?? 0), 0);
+  }
+  return p.stock ?? 0;
+}
+
+/** Update stock for a specific variant */
+export async function setVariantStock(
+  slug: string,
+  variantId: string,
+  value: number
+): Promise<Product> {
+  const p = await ensureLive(slug);
+  if (!p.variantConfig) throw new Error("Product has no variant configuration");
+
+  // Update the variant data in the config
+  if (!p.variantConfig.variantData[variantId]) {
+    p.variantConfig.variantData[variantId] = { stripePriceId: "", stock: 0 };
+  }
+  p.variantConfig.variantData[variantId].stock = Math.max(0, Math.floor(value));
+
+  await upsertProduct(p);
+  return p;
+}
+
+/** Increment/decrement stock for a specific variant */
+export async function incrVariantStock(
+  slug: string,
+  variantId: string,
+  delta: number
+): Promise<Product> {
+  const p = await ensureLive(slug);
+  if (!p.variantConfig) throw new Error("Product has no variant configuration");
+
+  // Ensure variant data exists
+  if (!p.variantConfig.variantData[variantId]) {
+    p.variantConfig.variantData[variantId] = { stripePriceId: "", stock: 0 };
+  }
+
+  const current = p.variantConfig.variantData[variantId].stock ?? 0;
+  const next = current + Math.floor(delta);
+  if (next < 0) throw new Error("Variant stock would go negative");
+
+  p.variantConfig.variantData[variantId].stock = next;
+  await upsertProduct(p);
+  return p;
 }

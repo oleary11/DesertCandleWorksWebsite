@@ -1,14 +1,79 @@
+export type WickType = {
+  id: string;        // e.g., "standard" or "wood"
+  name: string;      // e.g., "Standard Wick" or "Wood Wick"
+};
+
+export type Scent = {
+  id: string;        // e.g., "vanilla" or "unscented"
+  name: string;      // e.g., "Vanilla" or "Unscented"
+};
+
+export type ProductVariant = {
+  id: string;              // auto-generated: "standard-vanilla"
+  wickType: string;        // references WickType.id
+  scent: string;           // references Scent.id
+  stripePriceId: string;   // Stripe price ID for this specific variant
+  stock: number;           // Inventory for this variant
+  sku: string;             // auto-generated: "DCW-0001-STD-VAN"
+};
+
+export type VariantConfig = {
+  wickTypes: WickType[];   // List of available wick types
+  scents: Scent[];         // List of available scents
+  variantData: Record<string, { stripePriceId: string; stock: number }>;  // Data per variant ID
+};
+
 export type Product = {
   slug: string;
   name: string;
   price: number;
-  image?: string;           // optional is fine
+  image?: string;
   sku: string;
-  stripePriceId?: string;   // some are placeholders
+  stripePriceId?: string;   // deprecated, for non-variant products
   seoDescription: string;
-  bestSeller?: boolean;     // optional flag if you want it
-  stock: number;
+  bestSeller?: boolean;
+  stock: number;            // deprecated for variant products
+  variantConfig?: VariantConfig;  // NEW: wick types + scents → auto-generates variants
 };
+
+/** Generate all variant combinations from wick types + scents */
+export function generateVariants(product: Product): ProductVariant[] {
+  if (!product.variantConfig) return [];
+
+  const { wickTypes, scents, variantData } = product.variantConfig;
+  const variants: ProductVariant[] = [];
+
+  for (const wick of wickTypes) {
+    for (const scent of scents) {
+      const variantId = `${wick.id}-${scent.id}`;
+      const wickCode = wick.id === "wood" ? "WD" : "STD";
+      const scentCode = scent.id.substring(0, 3).toUpperCase();
+
+      const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
+
+      variants.push({
+        id: variantId,
+        wickType: wick.id,
+        scent: scent.id,
+        stripePriceId: data.stripePriceId,
+        stock: data.stock,
+        sku: `${product.sku}-${wickCode}-${scentCode}`,
+      });
+    }
+  }
+
+  return variants;
+}
+
+/** Get a product with its variants generated */
+export function getProductWithVariants(product: Product): Product {
+  if (!product.variantConfig) return product;
+
+  return {
+    ...product,
+    // Keep variantConfig for editing, but also expose generated variants for display
+  };
+}
 
 export const products = [
     {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
-import { getPriceToSlug } from "@/lib/pricemap";
-import { incrStock } from "@/lib/productsStore"; // decrement by passing negative
+import { getPriceToProduct } from "@/lib/pricemap";
+import { incrStock, incrVariantStock } from "@/lib/productsStore";
 
 export const runtime = "nodejs";
 
@@ -29,17 +29,24 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-    const priceToSlug = await getPriceToSlug();
+    const priceToProduct = await getPriceToProduct();
 
     for (const item of lineItems.data) {
       const priceId = item.price?.id || "";
-      const slug = priceToSlug.get(priceId);
+      const productInfo = priceToProduct.get(priceId);
       const qty = item.quantity ?? 1;
-      if (slug && qty > 0) {
+
+      if (productInfo && qty > 0) {
         try {
-          await incrStock(slug, -qty); // decrement
-        } catch {
-          console.error(`Stock decrement failed for ${slug} x${qty}`);
+          if (productInfo.variantId) {
+            // Decrement variant stock
+            await incrVariantStock(productInfo.slug, productInfo.variantId, -qty);
+          } else {
+            // Decrement base stock (backward compat for non-variant products)
+            await incrStock(productInfo.slug, -qty);
+          }
+        } catch (err) {
+          console.error(`Stock decrement failed for ${productInfo.slug} ${productInfo.variantId ? `variant ${productInfo.variantId}` : ''} x${qty}`, err);
         }
       }
     }

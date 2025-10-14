@@ -4,6 +4,22 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 /* ---------- Types ---------- */
+type WickType = {
+  id: string;
+  name: string;
+};
+
+type Scent = {
+  id: string;
+  name: string;
+};
+
+type VariantConfig = {
+  wickTypes: WickType[];
+  scents: Scent[];
+  variantData: Record<string, { stripePriceId: string; stock: number }>;
+};
+
 type Product = {
   slug: string;
   name: string;
@@ -14,6 +30,7 @@ type Product = {
   seoDescription: string;
   bestSeller?: boolean;
   stock: number;
+  variantConfig?: VariantConfig;
 };
 
 /* ---------- Helpers ---------- */
@@ -60,6 +77,50 @@ function computeNextSku(allSkus: string[]): string {
   const next = best.num + 1;
   const padded = String(next).padStart(best.width, "0");
   return `${best.prefix}${padded}`;
+}
+
+function getTotalStock(p: Product): number {
+  if (p.variantConfig) {
+    const { wickTypes, scents, variantData } = p.variantConfig;
+    let total = 0;
+    for (const wick of wickTypes) {
+      for (const scent of scents) {
+        const variantId = `${wick.id}-${scent.id}`;
+        total += variantData[variantId]?.stock ?? 0;
+      }
+    }
+    return total;
+  }
+  return p.stock ?? 0;
+}
+
+function generateVariantsForDisplay(p: Product) {
+  if (!p.variantConfig) return [];
+
+  const { wickTypes, scents, variantData } = p.variantConfig;
+  const variants: Array<{
+    id: string;
+    wickName: string;
+    scentName: string;
+    stock: number;
+    stripePriceId: string;
+  }> = [];
+
+  for (const wick of wickTypes) {
+    for (const scent of scents) {
+      const variantId = `${wick.id}-${scent.id}`;
+      const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
+      variants.push({
+        id: variantId,
+        wickName: wick.name,
+        scentName: scent.name,
+        stock: data.stock,
+        stripePriceId: data.stripePriceId,
+      });
+    }
+  }
+
+  return variants;
 }
 
 /* ---------- Component ---------- */
@@ -320,33 +381,39 @@ export default function AdminPage() {
                         <td className="py-2 pr-3">{p.slug}</td>
                         <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
                         <td className="py-2 pr-3">
-                          <div className="inline-flex items-center gap-2">
-                            <button
-                              className="btn min-w-10"
-                              onClick={() => changeStock(p.slug, "decr", 1)}
-                              aria-label={`Decrease ${p.name} stock`}
-                            >
-                              −
-                            </button>
-                            <input
-                              className="input w-20 text-center"
-                              inputMode="numeric"
-                              type="number"
-                              value={p.stock}
-                              onChange={(e) => {
-                                const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
-                                const base = staged[p.slug] ?? p;
-                                stageProduct({ ...base, stock: v });
-                              }}
-                            />
-                            <button
-                              className="btn min-w-10"
-                              onClick={() => changeStock(p.slug, "incr", 1)}
-                              aria-label={`Increase ${p.name} stock`}
-                            >
-                              +
-                            </button>
-                          </div>
+                          {p.variantConfig ? (
+                            <span className="text-sm">
+                              {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                            </span>
+                          ) : (
+                            <div className="inline-flex items-center gap-2">
+                              <button
+                                className="btn min-w-10"
+                                onClick={() => changeStock(p.slug, "decr", 1)}
+                                aria-label={`Decrease ${p.name} stock`}
+                              >
+                                −
+                              </button>
+                              <input
+                                className="input w-20 text-center"
+                                inputMode="numeric"
+                                type="number"
+                                value={p.stock}
+                                onChange={(e) => {
+                                  const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
+                                  const base = staged[p.slug] ?? p;
+                                  stageProduct({ ...base, stock: v });
+                                }}
+                              />
+                              <button
+                                className="btn min-w-10"
+                                onClick={() => changeStock(p.slug, "incr", 1)}
+                                aria-label={`Increase ${p.name} stock`}
+                              >
+                                +
+                              </button>
+                            </div>
+                          )}
                         </td>
                         <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
                         <td className="py-2 pr-3">
@@ -429,33 +496,39 @@ export default function AdminPage() {
 
                     <div className="mt-3 flex items-center justify-between gap-3">
                       {/* Stock control */}
-                      <div className="flex items-center gap-2">
-                        <button
-                          className="btn min-w-12 h-10"
-                          onClick={() => changeStock(p.slug, "decr", 1)}
-                          aria-label={`Decrease ${p.name} stock`}
-                        >
-                          −
-                        </button>
-                        <input
-                          className="input w-20 h-10 text-center"
-                          inputMode="numeric"
-                          type="number"
-                          value={p.stock}
-                          onChange={(e) => {
-                            const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
-                            const base = staged[p.slug] ?? p;
-                            stageProduct({ ...base, stock: v });
-                          }}
-                        />
-                        <button
-                          className="btn min-w-12 h-10"
-                          onClick={() => changeStock(p.slug, "incr", 1)}
-                          aria-label={`Increase ${p.name} stock`}
-                        >
-                          +
-                        </button>
-                      </div>
+                      {p.variantConfig ? (
+                        <div className="text-sm">
+                          Stock: {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          <button
+                            className="btn min-w-12 h-10"
+                            onClick={() => changeStock(p.slug, "decr", 1)}
+                            aria-label={`Decrease ${p.name} stock`}
+                          >
+                            −
+                          </button>
+                          <input
+                            className="input w-20 h-10 text-center"
+                            inputMode="numeric"
+                            type="number"
+                            value={p.stock}
+                            onChange={(e) => {
+                              const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
+                              const base = staged[p.slug] ?? p;
+                              stageProduct({ ...base, stock: v });
+                            }}
+                          />
+                          <button
+                            className="btn min-w-12 h-10"
+                            onClick={() => changeStock(p.slug, "incr", 1)}
+                            aria-label={`Increase ${p.name} stock`}
+                          >
+                            +
+                          </button>
+                        </div>
+                      )}
 
                       {/* Row actions */}
                       <div className="flex flex-wrap justify-end gap-2">
@@ -697,7 +770,7 @@ export default function AdminPage() {
               </label>
 
               <label className="block">
-                <div className="text-xs mb-1">Stock</div>
+                <div className="text-xs mb-1">Stock (base, if not using variants)</div>
                 <input
                   className="input"
                   type="number"
@@ -708,8 +781,243 @@ export default function AdminPage() {
                       stock: Math.max(0, Number(e.target.value)),
                     })
                   }
+                  disabled={!!editing.variantConfig}
                 />
               </label>
+            </div>
+
+            {/* ---------- Variants Section ---------- */}
+            <div className="mt-6 border-t border-[var(--color-line)] pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold">Product Variants</h3>
+                {!editing.variantConfig ? (
+                  <button
+                    type="button"
+                    className="btn btn-primary text-xs"
+                    onClick={() => {
+                      setEditing({
+                        ...editing,
+                        variantConfig: {
+                          wickTypes: [{ id: "standard", name: "Standard Wick" }],
+                          scents: [{ id: "unscented", name: "Unscented" }],
+                          variantData: {},
+                        },
+                      });
+                    }}
+                  >
+                    Enable Variants
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    className="btn text-xs"
+                    onClick={() => {
+                      if (confirm("Remove all variants? This will delete all variant data.")) {
+                        setEditing({ ...editing, variantConfig: undefined });
+                      }
+                    }}
+                  >
+                    Disable Variants
+                  </button>
+                )}
+              </div>
+
+              {editing.variantConfig ? (
+                <div className="space-y-4">
+                  {/* Wick Types */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium">Wick Types</h4>
+                      <button
+                        type="button"
+                        className="btn text-xs"
+                        onClick={() => {
+                          const newId = `wick-${Date.now()}`;
+                          setEditing({
+                            ...editing,
+                            variantConfig: {
+                              ...editing.variantConfig!,
+                              wickTypes: [
+                                ...editing.variantConfig!.wickTypes,
+                                { id: newId, name: "New Wick Type" },
+                              ],
+                            },
+                          });
+                        }}
+                      >
+                        + Add Wick Type
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {editing.variantConfig.wickTypes.map((wick, idx) => (
+                        <div key={wick.id} className="flex items-center gap-2">
+                          <input
+                            className="input text-sm flex-1"
+                            value={wick.name}
+                            onChange={(e) => {
+                              const newWicks = [...editing.variantConfig!.wickTypes];
+                              newWicks[idx] = { ...wick, name: e.target.value };
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  wickTypes: newWicks,
+                                },
+                              });
+                            }}
+                            placeholder="e.g., Wood Wick"
+                          />
+                          <button
+                            type="button"
+                            className="btn text-xs"
+                            onClick={() => {
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  wickTypes: editing.variantConfig!.wickTypes.filter((_, i) => i !== idx),
+                                },
+                              });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Scents */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-xs font-medium">Scents</h4>
+                      <button
+                        type="button"
+                        className="btn text-xs"
+                        onClick={() => {
+                          const newId = `scent-${Date.now()}`;
+                          setEditing({
+                            ...editing,
+                            variantConfig: {
+                              ...editing.variantConfig!,
+                              scents: [
+                                ...editing.variantConfig!.scents,
+                                { id: newId, name: "New Scent" },
+                              ],
+                            },
+                          });
+                        }}
+                      >
+                        + Add Scent
+                      </button>
+                    </div>
+                    <div className="space-y-2">
+                      {editing.variantConfig.scents.map((scent, idx) => (
+                        <div key={scent.id} className="flex items-center gap-2">
+                          <input
+                            className="input text-sm flex-1"
+                            value={scent.name}
+                            onChange={(e) => {
+                              const newScents = [...editing.variantConfig!.scents];
+                              newScents[idx] = { ...scent, name: e.target.value };
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  scents: newScents,
+                                },
+                              });
+                            }}
+                            placeholder="e.g., Vanilla"
+                          />
+                          <button
+                            type="button"
+                            className="btn text-xs"
+                            onClick={() => {
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  scents: editing.variantConfig!.scents.filter((_, i) => i !== idx),
+                                },
+                              });
+                            }}
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Generated Variants Grid */}
+                  <div>
+                    <h4 className="text-xs font-medium mb-2">
+                      Generated Variants ({editing.variantConfig.wickTypes.length} × {editing.variantConfig.scents.length} ={" "}
+                      {editing.variantConfig.wickTypes.length * editing.variantConfig.scents.length} total)
+                    </h4>
+                    <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
+                      {generateVariantsForDisplay(editing).map((v) => (
+                        <div key={v.id} className="card p-2">
+                          <div className="text-xs font-medium mb-1">
+                            {v.wickName} / {v.scentName}
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            <label className="block">
+                              <div className="text-xs mb-1">Stock</div>
+                              <input
+                                className="input text-xs"
+                                type="number"
+                                value={v.stock}
+                                onChange={(e) => {
+                                  const newData = { ...editing.variantConfig!.variantData };
+                                  newData[v.id] = {
+                                    ...newData[v.id],
+                                    stock: Math.max(0, Number(e.target.value)),
+                                  };
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      variantData: newData,
+                                    },
+                                  });
+                                }}
+                              />
+                            </label>
+                            <label className="block">
+                              <div className="text-xs mb-1">Stripe Price ID</div>
+                              <input
+                                className="input text-xs"
+                                value={v.stripePriceId}
+                                onChange={(e) => {
+                                  const newData = { ...editing.variantConfig!.variantData };
+                                  newData[v.id] = {
+                                    ...newData[v.id],
+                                    stripePriceId: e.target.value,
+                                  };
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      variantData: newData,
+                                    },
+                                  });
+                                }}
+                                placeholder="price_xxxxx"
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-xs text-[var(--color-muted)]">
+                  Click &ldquo;Enable Variants&rdquo; to add wick types and scents. Variants will be automatically generated for all combinations.
+                </p>
+              )}
             </div>
 
             <div className="sticky bottom-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-t border-[var(--color-line)] px-5 sm:px-6 py-3 mt-6 flex justify-end gap-2">

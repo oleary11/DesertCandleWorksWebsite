@@ -1,23 +1,48 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getResolvedProduct } from "@/lib/liveProducts";
+import { getTotalStock } from "@/lib/productsStore";
+import { generateVariants } from "@/lib/products";
+import ProductVariantForm from "./ProductVariantForm";
+import ProductActions from "./ProductActions";
 
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const p = await getResolvedProduct(slug);
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+
   if (!p) return { title: "Not found" };
+
   return {
-    title: p.name,
-    description: p.seoDescription,
-    alternates: { canonical: `${process.env.NEXT_PUBLIC_BASE_URL || "https://example.com"}/shop/${p.slug}` },
+    title: `${p.name} | Scottsdale Handmade Candles`,
+    description: `${p.seoDescription} Hand-poured in Scottsdale, AZ. Premium soy wax, wood wicks, and upcycled bottles. Shop local Arizona candles.`,
+    keywords: [
+      p.name,
+      "Scottsdale candles",
+      "Arizona candles",
+      "handmade candles",
+      "soy candles",
+      "wood wick candles",
+      "upcycled bottle candles",
+      "local candles",
+    ],
+    alternates: { canonical: `${base}/shop/${p.slug}` },
     openGraph: {
-      title: p.name,
-      description: p.seoDescription,
-      images: p.image ? [{ url: p.image }] : [],
+      title: `${p.name} | Scottsdale Handmade Candles`,
+      description: `${p.seoDescription} Made in Scottsdale, Arizona.`,
+      images: p.image ? [{ url: p.image, width: 1200, height: 630 }] : [],
+      type: "website",
+      url: `${base}/shop/${p.slug}`,
     },
-    metadataBase: new URL(process.env.NEXT_PUBLIC_BASE_URL || "https://example.com"),
+    twitter: {
+      card: "summary_large_image",
+      title: `${p.name} | Desert Candle Works`,
+      description: p.seoDescription,
+      images: p.image ? [p.image] : [],
+    },
+    metadataBase: new URL(base),
   };
 }
 
@@ -26,8 +51,36 @@ export default async function ProductPage({ params }: Props) {
   const p = await getResolvedProduct(slug);
   if (!p) return <div className="py-20">Not found</div>;
 
-  const stock = p.stock ?? 0;
+  const stock = p.variantConfig ? getTotalStock(p) : (p.stock ?? 0);
+  const variants = p.variantConfig ? generateVariants(p) : [];
   const availability = stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
+
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+
+  const breadcrumbSchema = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      {
+        "@type": "ListItem",
+        position: 1,
+        name: "Home",
+        item: base,
+      },
+      {
+        "@type": "ListItem",
+        position: 2,
+        name: "Shop",
+        item: `${base}/shop`,
+      },
+      {
+        "@type": "ListItem",
+        position: 3,
+        name: p.name,
+        item: `${base}/shop/${p.slug}`,
+      },
+    ],
+  };
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -42,8 +95,30 @@ export default async function ProductPage({ params }: Props) {
       priceCurrency: "USD",
       price: p.price,
       availability,
-      url: `${process.env.NEXT_PUBLIC_BASE_URL || "https://example.com"}/shop/${p.slug}`,
+      url: `${base}/shop/${p.slug}`,
+      seller: {
+        "@type": "Organization",
+        name: "Desert Candle Works",
+        address: {
+          "@type": "PostalAddress",
+          addressLocality: "Scottsdale",
+          addressRegion: "AZ",
+          addressCountry: "US",
+        },
+      },
     },
+    manufacturer: {
+      "@type": "Organization",
+      name: "Desert Candle Works",
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Scottsdale",
+        addressRegion: "AZ",
+        addressCountry: "US",
+      },
+    },
+    material: "Soy wax",
+    category: "Home & Garden > Candles",
   };
 
   return (
@@ -53,7 +128,7 @@ export default async function ProductPage({ params }: Props) {
           {p.image && (
             <Image
               src={p.image}
-              alt={p.name}
+              alt={`${p.name} - Hand-poured soy candle in upcycled liquor bottle`}
               fill
               className="object-contain"
               sizes="(min-width: 1024px) 540px, 90vw"
@@ -67,36 +142,18 @@ export default async function ProductPage({ params }: Props) {
           <h1 className="text-4xl font-semibold tracking-tight">{p.name}</h1>
           <p className="mt-3 text-base text-[var(--color-muted)]">{p.seoDescription}</p>
           <p className="mt-6 text-xl font-medium">${p.price}</p>
-          <p className="mt-2 text-sm">
-            {stock <= 0 ? (
-              <span className="text-rose-600 font-medium">Out of stock</span>
-            ) : stock < 3 ? (
-              <span className="text-rose-600 font-medium">Only {stock} left — almost gone</span>
-            ) : (
-              <span className="text-[var(--color-muted)]">{stock} in stock</span>
-            )}
-          </p>
 
-          <form className="mt-6" action="/api/checkout" method="post">
-            <input
-              type="hidden"
-              name="lineItems"
-              value={JSON.stringify([{ price: p.stripePriceId, quantity: 1 }])}
+          {variants.length > 0 ? (
+            <ProductVariantForm product={p} variants={variants} variantConfig={p.variantConfig!} />
+          ) : (
+            <ProductActions
+              product={p}
+              stock={stock}
             />
-            <button
-              type="submit"
-              disabled={!p.stripePriceId || stock <= 0}
-              className={`inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium border-0 cursor-pointer
-              [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-              text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
-              hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition
-              ${stock <= 0 ? "opacity-50 cursor-not-allowed hover:translate-y-0" : ""}`}
-            >
-              {stock <= 0 ? "Out of stock" : "Buy now"}
-            </button>
-          </form>
+          )}
         </div>
 
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </article>
     </section>

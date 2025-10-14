@@ -2,7 +2,7 @@ export const metadata = { title: "Contact" };
 
 export default function Contact() {
   return (
-    <section className="min-h-screen flex items-center justify-center bg-[var(--color-bg)]">
+    <section className="flex items-center justify-center bg-[var(--color-bg)] py-12 px-6">
       <div className="w-full max-w-lg bg-white rounded-2xl shadow-[0_8px_30px_rgba(20,16,12,0.06)] p-8 border border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)]">
         <h1 className="text-3xl font-bold mb-6 text-center text-[var(--color-ink)]">
           Contact Us
