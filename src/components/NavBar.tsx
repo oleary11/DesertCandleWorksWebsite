@@ -18,9 +18,10 @@ export default function NavBar() {
         <Image
         src="/images/logo.png"
         alt="Desert Candle Works logo"
-        width={40}     // or whatever size looks good
+        width={40}
         height={40}
         priority
+        className="rounded-full border-2 border-[var(--color-ink)]"
         />
           <span className="text-lg font-semibold tracking-tight">Desert Candle Works</span>
         </Link>
