@@ -9,6 +9,7 @@ export default function LoginInner() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
+  const [password, setPassword] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -24,6 +25,9 @@ export default function LoginInner() {
     if (res.ok) {
       if (j?.requiresTwoFactor) {
         // Password correct, but need 2FA code
+        // Store password so we can send it again with 2FA token
+        const passwordValue = fd.get("password")?.toString() || "";
+        setPassword(passwordValue);
         setNeedsTwoFactor(true);
         setError(null);
         setSubmitting(false);
@@ -63,7 +67,7 @@ export default function LoginInner() {
         <form className="mt-4 space-y-4" onSubmit={onSubmit}>
           <input type="hidden" name="next" value={next} />
 
-          {!needsTwoFactor && (
+          {!needsTwoFactor ? (
             <label className="block">
               <div className="text-xs mb-1">Password</div>
               <input
@@ -75,6 +79,8 @@ export default function LoginInner() {
                 required
               />
             </label>
+          ) : (
+            <input type="hidden" name="password" value={password} />
           )}
 
           {needsTwoFactor && (
