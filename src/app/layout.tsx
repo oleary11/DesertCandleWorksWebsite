@@ -36,7 +36,7 @@ export const metadata: Metadata = {
     title: "Desert Candle Works | Hand-Poured Candles in Scottsdale, AZ",
     description:
       "Hand-poured soy candles made in Scottsdale, Arizona. Upcycled liquor bottles with wood wicks and desert-inspired scents. Shop local Phoenix candles.",
-    images: [{ url: "/images/logo.png" }],
+    images: [{ url: "/images/logo.svg" }],
     locale: "en_US",
   },
   twitter: {
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     title: "Desert Candle Works | Hand-Poured Candles in Scottsdale, AZ",
     description:
       "Hand-poured soy candles made in Scottsdale, Arizona. Upcycled bottles with wood wicks and desert scents.",
-    images: ["/images/logo.png"],
+    images: ["/images/logo.svg"],
   },
   robots: { index: true, follow: true },
 };
@@ -56,8 +56,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@id": `${BASE}#business`,
     name: "Desert Candle Works",
     url: BASE,
-    logo: `${BASE}/images/logo.png`,
-    image: `${BASE}/images/logo.png`,
+    logo: `${BASE}/images/logo.svg`,
+    image: `${BASE}/images/logo.svg`,
     description: "Hand-poured, desert-inspired soy candles made in Scottsdale, Arizona. Upcycled liquor bottles with premium soy wax, wood wicks, and clean burns.",
     priceRange: "$$",
     telephone: "",
@@ -123,7 +123,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@id": `${BASE}#organization`,
     name: "Desert Candle Works",
     url: BASE,
-    logo: `${BASE}/images/logo.png`,
+    logo: `${BASE}/images/logo.svg`,
     description: "Small-batch, handcrafted candles made in Scottsdale, Arizona",
     founder: {
       "@type": "Person",
