@@ -6,30 +6,25 @@
 1. Navigate to `/admin` and log in with your password
 2. You'll see your admin dashboard
 
-### Step 2: Enable 2FA (Via API or Admin UI)
-Since the admin UI doesn't have a 2FA setup page yet, you can enable it via API:
+### Step 2: Navigate to Settings
+1. Click the "Settings" button in the top navigation
+2. Or navigate directly to `/admin/settings`
 
-```bash
-# Call the setup endpoint (must be logged in)
-curl -X POST https://your-domain.com/api/admin/2fa/setup \
-  -H "Cookie: admin_session=YOUR_SESSION_TOKEN"
-```
+### Step 3: Enable 2FA
+1. Click the "Enable 2FA" button in the Two-Factor Authentication section
+2. A QR code will be displayed
 
-This will return:
-```json
-{
-  "qrCodeUrl": "data:image/png;base64,...",
-  "backupCodes": ["ABCD1234", "EFGH5678", ...],
-  "secret": "BASE32SECRET"
-}
-```
-
-### Step 3: Scan QR Code
+### Step 4: Scan QR Code
 1. Open your authenticator app (Google Authenticator, Authy, 1Password, etc.)
-2. Scan the QR code from the `qrCodeUrl`
-3. Or manually enter the `secret` if you can't scan
+2. Scan the QR code displayed on the screen
+3. Or click "Can't scan? Enter manually" to view the secret key
 
-### Step 4: Save Backup Codes
+### Step 5: Verify Setup
+1. Enter the 6-digit code from your authenticator app
+2. Click "Verify & Enable"
+3. If successful, your backup codes will be displayed
+
+### Step 6: Save Backup Codes
 **IMPORTANT:** Save the backup codes in a secure location!
 - Each code can only be used once
 - Use them if you lose access to your authenticator app
@@ -62,12 +57,12 @@ If you lose your phone or authenticator app:
 
 ## Disabling 2FA
 
-To disable 2FA (requires being logged in):
+To disable 2FA:
 
-```bash
-curl -X POST https://your-domain.com/api/admin/2fa/disable \
-  -H "Cookie: admin_session=YOUR_SESSION_TOKEN"
-```
+1. Log into the admin panel
+2. Navigate to Settings (`/admin/settings`)
+3. Click the "Disable 2FA" button
+4. Confirm the action
 
 **Warning:** This will delete your 2FA secret and all backup codes!
 

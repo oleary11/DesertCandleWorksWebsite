@@ -307,6 +307,9 @@ export default function AdminPage() {
               </button>
             </>
           )}
+          <a href="/admin/settings" className="btn">
+            Settings
+          </a>
           <form action="/api/admin/logout" method="post">
             <button className="btn btn-ghost w-full sm:w-auto">Log out</button>
           </form>

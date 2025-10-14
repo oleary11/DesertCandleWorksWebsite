@@ -69,12 +69,15 @@
    - Never reuse passwords from other services
    - Consider using a password manager
 
-2. **Enable 2FA** ✅ IMPLEMENTED
-   - TOTP (Time-based One-Time Password) now available
-   - Uses `otplib` for token generation/verification
-   - Secrets stored securely in Redis
-   - 10 backup codes generated per setup
-   - See `2FA_SETUP_GUIDE.md` for instructions
+2. **Enable 2FA** ✅ FULLY IMPLEMENTED
+   - TOTP (Time-based One-Time Password) with full UI
+   - Access via Admin → Settings → Two-Factor Authentication
+   - QR code scanning with authenticator apps
+   - Manual entry option available
+   - Verification step during setup
+   - 10 backup codes generated per setup (copy/download)
+   - Enable/disable via Settings page
+   - See `2FA_SETUP_GUIDE.md` for step-by-step instructions
 
 3. **Add Redis-based Rate Limiting**
    - Current rate limiting uses in-memory Map
@@ -90,21 +93,24 @@
    - Referrer-Policy: strict-origin-when-cross-origin
    - Add in `next.config.ts` headers
 
-5. **Add Admin Activity Logging**
-   - Log all admin logins
-   - Log product changes
-   - Store in Redis or database
-   - Monitor for suspicious activity
+5. **Add Admin Activity Logging** ✅ IMPLEMENTED
+   - All admin logins logged (successful and failed)
+   - Timestamps, IP addresses, user agents tracked
+   - Login attempt details (reason for failure)
+   - 2FA usage tracked
+   - Stored in Redis lists (last 1000 events)
+   - View logs via `/api/admin/logs`
 
 6. **Add CAPTCHA to Login**
    - Prevents automated attacks
    - Use hCaptcha or reCAPTCHA
    - Only show after 2-3 failed attempts
 
-7. **Session Rotation**
-   - Generate new session token after login
-   - Invalidate old session
+7. **Session Rotation** ✅ IMPLEMENTED
+   - New session token generated after each successful login
+   - Old session destroyed automatically
    - Prevents session fixation attacks
+   - Implemented in `/api/admin/login`
 
 ### LOW Priority
 8. **Add IP Whitelisting (Optional)**
