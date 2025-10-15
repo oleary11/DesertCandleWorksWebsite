@@ -3,7 +3,9 @@
     "allow": [
       "Bash(git add:*)",
       "Bash(npm run build)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(curl -s \"http://localhost:3000/api/admin/products\")",
+      "Bash(node:*)"
     ],
     "deny": [],
     "ask": []

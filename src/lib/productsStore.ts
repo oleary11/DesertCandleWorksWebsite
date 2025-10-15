@@ -107,28 +107,62 @@ export async function getTotalStockForProduct(p: Product): Promise<number> {
     return p.stock ?? 0;
   }
 
-  // Import dynamically to avoid circular dependency
-  const { getScentsForProduct } = await import("@/lib/scents");
+  try {
+    // Import dynamically to avoid circular dependency
+    const { getScentsForProduct } = await import("@/lib/scents");
 
-  // Get allowed scents for this product (filters experimental)
-  const allowedScents = await getScentsForProduct(p.slug);
-  const allowedScentIds = new Set(allowedScents.map(s => s.id));
+    // Get allowed scents for this product (filters experimental)
+    const allowedScents = await getScentsForProduct(p.slug);
 
-  // Sum stock only for variants with allowed scents
-  const { variantData } = p.variantConfig;
-  let total = 0;
-
-  for (const [variantId, data] of Object.entries(variantData)) {
-    // Extract scent ID from variant ID (format: "wickType-scentId")
-    const scentId = variantId.split('-').slice(1).join('-'); // Handle multi-part scent IDs
-
-    // Only count if scent is in allowed list
-    if (allowedScentIds.has(scentId)) {
-      total += data.stock ?? 0;
+    // Debug logging for 1800 Tequila
+    if (p.slug === '1800-tequila-candle') {
+      console.log('  Allowed scents:', allowedScents?.map(s => s.id));
     }
-  }
 
-  return total;
+    // If no scents returned, fall back to counting all variants
+    // This prevents showing 0 stock when Redis/scents fail to load
+    if (!allowedScents || allowedScents.length === 0) {
+      console.warn(`No scents found for product ${p.slug}, falling back to total stock`);
+      return getTotalStock(p);
+    }
+
+    const allowedScentIds = new Set(allowedScents.map(s => s.id));
+
+    // Sum stock only for variants with allowed scents
+    const { variantData, wickTypes } = p.variantConfig;
+    let total = 0;
+
+    // Build a set of all wick IDs to properly extract scent IDs
+    const wickIds = new Set(wickTypes.map(w => w.id));
+
+    for (const [variantId, data] of Object.entries(variantData)) {
+      // Extract scent ID from variant ID (format: "wickId-scentId")
+      // We need to find which wick ID is used and remove it
+      let scentId = variantId;
+      for (const wickId of wickIds) {
+        if (variantId.startsWith(wickId + '-')) {
+          scentId = variantId.substring(wickId.length + 1);
+          break;
+        }
+      }
+
+      // Debug logging for 1800 Tequila
+      if (p.slug === '1800-tequila-candle') {
+        console.log(`  Variant ${variantId}: scentId="${scentId}", stock=${data.stock}, allowed=${allowedScentIds.has(scentId)}`);
+      }
+
+      // Only count if scent is in allowed list
+      if (allowedScentIds.has(scentId)) {
+        total += data.stock ?? 0;
+      }
+    }
+
+    return total;
+  } catch (error) {
+    // If there's any error fetching scents, fall back to counting all variants
+    console.error(`Error calculating stock for ${p.slug}:`, error);
+    return getTotalStock(p);
+  }
 }
 
 /** Update stock for a specific variant */
