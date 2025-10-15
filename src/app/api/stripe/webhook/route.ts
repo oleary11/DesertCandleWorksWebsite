@@ -31,22 +31,26 @@ export async function POST(req: NextRequest) {
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
     const priceToProduct = await getPriceToProduct();
 
-    for (const item of lineItems.data) {
+    for (let index = 0; index < lineItems.data.length; index++) {
+      const item = lineItems.data[index];
       const priceId = item.price?.id || "";
       const productInfo = priceToProduct.get(priceId);
       const qty = item.quantity ?? 1;
 
       if (productInfo && qty > 0) {
+        // Check if there's variant info in session metadata
+        const variantId = session.metadata?.[`item_${index}_variant`];
+
         try {
-          if (productInfo.variantId) {
+          if (variantId) {
             // Decrement variant stock
-            await incrVariantStock(productInfo.slug, productInfo.variantId, -qty);
+            await incrVariantStock(productInfo.slug, variantId, -qty);
           } else {
-            // Decrement base stock (backward compat for non-variant products)
+            // Decrement base stock (for non-variant products)
             await incrStock(productInfo.slug, -qty);
           }
         } catch (err) {
-          console.error(`Stock decrement failed for ${productInfo.slug} ${productInfo.variantId ? `variant ${productInfo.variantId}` : ''} x${qty}`, err);
+          console.error(`Stock decrement failed for ${productInfo.slug} ${variantId ? `variant ${variantId}` : ''} x${qty}`, err);
         }
       }
     }
