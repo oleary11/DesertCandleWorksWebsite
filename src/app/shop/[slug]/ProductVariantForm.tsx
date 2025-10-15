@@ -301,7 +301,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           onClick={handleAddToCart}
           disabled={!canBuy || remainingStock <= 0}
           className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium
-          border border-[var(--color-accent)]
+          border-2 !border-[var(--color-accent)]
           text-[var(--color-accent)]
           hover:bg-[var(--color-accent)] hover:text-[var(--color-accent-ink)]
           transition
