@@ -139,7 +139,8 @@ export async function POST(req: NextRequest) {
     // Calculate subtotal for free shipping threshold
     const subtotal = lineItems.reduce((sum, item) => {
       const unitAmount = item.price_data?.unit_amount || 0;
-      return sum + (unitAmount * item.quantity);
+      const quantity = item.quantity || 1;
+      return sum + (unitAmount * quantity);
     }, 0);
 
     // Determine shipping options based on subtotal
