@@ -5,7 +5,6 @@ export type {
   Product,
   ProductVariant,
   WickType,
-  Scent,
   VariantConfig,
 } from "@/lib/products";
 

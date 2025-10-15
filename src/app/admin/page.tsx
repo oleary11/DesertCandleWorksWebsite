@@ -263,13 +263,6 @@ export default function AdminPage() {
     if (res.ok) await load();
   }
 
-  // Stock edits: stage only (no network)
-  function changeStock(slug: string, op: "incr" | "decr", amt = 1) {
-    const base = staged[slug] ?? merged.find((x) => x.slug === slug)!;
-    const next = Math.max(0, (base.stock ?? 0) + (op === "incr" ? amt : -amt));
-    stageProduct({ ...base, stock: next });
-  }
-
   // Image upload (only updates the draft via the modal)
   async function handleImagePick(
     e: React.ChangeEvent<HTMLInputElement>,
