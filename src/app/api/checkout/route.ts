@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Build custom product name with variant details
-      let productName = item.metadata?.productName || 'Candle';
+      const productName = item.metadata?.productName || 'Candle';
       let description = '';
       let imageUrl: string | undefined;
 

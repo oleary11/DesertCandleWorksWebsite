@@ -1,5 +1,5 @@
 import { redis } from "./redis";
-import { getProduct as getStaticProduct, generateVariants, type Product } from "@/lib/products";
+import { getProduct as getStaticProduct, type Product } from "@/lib/products";
 
 export type {
   Product,
