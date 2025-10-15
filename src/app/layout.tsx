@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import NavBar from "../components/NavBar";
+import EntranceCheck from "../components/EntranceCheck";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
 
@@ -153,6 +154,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh w-full overflow-x-clip bg-[var(--color-bg)] text-[var(--color-ink)] antialiased flex flex-col">
+        <EntranceCheck />
         <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
           <NavBar />
         </header>
