@@ -41,13 +41,17 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   }, [variants, selectedWickType, selectedScent]);
 
   const stock = selectedVariant?.stock ?? 0;
-  const canBuy = !!selectedVariant?.stripePriceId && stock > 0;
+  const canBuy = !!product.stripePriceId && stock > 0;
   const currentQuantityInCart = getItemQuantity(product.slug, selectedVariant?.id);
   const remainingStock = stock - currentQuantityInCart;
 
   // Helper to check if a wick type has ANY available stock across scents
   const isWickTypeAvailable = (wickTypeId: string) => {
-    return variants.some(v => v.wickType === wickTypeId && v.stock > 0);
+    return variants.some(v =>
+      v.wickType === wickTypeId &&
+      v.stock > 0 &&
+      scents.some(s => s.id === v.scent) // Only count if scent is allowed
+    );
   };
 
   // Helper to check if a scent has stock for the selected wick type
@@ -70,7 +74,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       productName: product.name,
       productImage: product.image,
       price: product.price,
-      stripePriceId: selectedVariant.stripePriceId,
+      stripePriceId: product.stripePriceId!,
       maxStock: stock,
       variantId: selectedVariant.id,
       wickType: selectedVariant.wickType,
@@ -98,7 +102,17 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          lineItems: [{ price: selectedVariant.stripePriceId, quantity: 1 }],
+          lineItems: [{
+            price: product.stripePriceId!,
+            quantity: 1,
+            metadata: {
+              productName: product.name,
+              productImage: product.image,
+              wickType: selectedWickName,
+              scent: selectedScentName,
+              variantId: selectedVariant.id,
+            },
+          }],
         }),
       });
 
@@ -174,25 +188,30 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               </tr>
             </thead>
             <tbody>
-              {variants.map((variant) => {
-                const wickName = wickTypes.find(w => w.id === variant.wickType)?.name || variant.wickType;
-                const scentName = scents.find(s => s.id === variant.scent)?.name || variant.scent;
-                return (
-                  <tr key={variant.id} className="border-b border-[var(--color-line)] last:border-0">
-                    <td className="py-2">{wickName}</td>
-                    <td className="py-2">{scentName}</td>
-                    <td className="py-2 text-right">
-                      {variant.stock <= 0 ? (
-                        <span className="text-rose-600 text-xs">Out of stock</span>
-                      ) : variant.stock < 3 ? (
-                        <span className="text-amber-600 font-medium">{variant.stock}</span>
-                      ) : (
-                        <span className="text-[var(--color-muted)]">{variant.stock}</span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
+              {variants
+                .filter((variant) => {
+                  // Only show variants where the scent is in the allowed globalScents list
+                  return scents.some(s => s.id === variant.scent);
+                })
+                .map((variant) => {
+                  const wickName = wickTypes.find(w => w.id === variant.wickType)?.name || variant.wickType;
+                  const scentName = scents.find(s => s.id === variant.scent)?.name || variant.scent;
+                  return (
+                    <tr key={variant.id} className="border-b border-[var(--color-line)] last:border-0">
+                      <td className="py-2">{wickName}</td>
+                      <td className="py-2">{scentName}</td>
+                      <td className="py-2 text-right">
+                        {variant.stock <= 0 ? (
+                          <span className="text-rose-600 text-xs">Out of stock</span>
+                        ) : variant.stock < 3 ? (
+                          <span className="text-amber-600 font-medium">{variant.stock}</span>
+                        ) : (
+                          <span className="text-[var(--color-muted)]">{variant.stock}</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>
@@ -212,9 +231,10 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 onClick={() => {
                   setSelectedWickType(wickType.id);
                   // Auto-select first scent for this wick type (prefer in-stock, but allow out-of-stock)
+                  // Only consider scents that are in the allowed globalScents list
                   const firstAvailableScent = variants.find(
-                    v => v.wickType === wickType.id && v.stock > 0
-                  )?.scent || variants.find(v => v.wickType === wickType.id)?.scent || scents[0]?.id || "";
+                    v => v.wickType === wickType.id && v.stock > 0 && scents.some(s => s.id === v.scent)
+                  )?.scent || variants.find(v => v.wickType === wickType.id && scents.some(s => s.id === v.scent))?.scent || scents[0]?.id || "";
                   setSelectedScent(firstAvailableScent);
                 }}
                 className={`

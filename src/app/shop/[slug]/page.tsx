@@ -1,7 +1,7 @@
 import Image from "next/image";
 import type { Metadata } from "next";
 import { getResolvedProduct } from "@/lib/liveProducts";
-import { getTotalStock } from "@/lib/productsStore";
+import { getTotalStockForProduct } from "@/lib/productsStore";
 import { generateVariants } from "@/lib/products";
 import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
@@ -55,7 +55,7 @@ export default async function ProductPage({ params }: Props) {
   // Get global scents for this product
   const globalScents = p.variantConfig ? await getScentsForProduct(slug) : [];
 
-  const stock = p.variantConfig ? getTotalStock(p) : (p.stock ?? 0);
+  const stock = await getTotalStockForProduct(p);
   const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
   const availability = stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 

@@ -78,13 +78,57 @@ export async function incrStock(slug: string, delta: number): Promise<number> {
   return p.stock;
 }
 
-/** Get total stock across all variants (or fallback to base stock) */
+/**
+ * Get total stock across all variants (or fallback to base stock)
+ * NOTE: This function counts ALL variants including experimental scents.
+ * For accurate stock counts that respect experimental scent filtering,
+ * use getTotalStockForProduct() instead.
+ */
 export function getTotalStock(p: Product): number {
   if (p.variantConfig) {
-    const variants = generateVariants(p);
-    return variants.reduce((sum, v) => sum + (v.stock ?? 0), 0);
+    // Sum stock directly from variantData without needing to generate full variants
+    const { variantData } = p.variantConfig;
+    let total = 0;
+    for (const data of Object.values(variantData)) {
+      total += data.stock ?? 0;
+    }
+    return total;
   }
   return p.stock ?? 0;
+}
+
+/**
+ * Get total stock for a product, filtering out experimental scents
+ * This is async because it needs to fetch and filter global scents
+ * Use this in server components for accurate stock counts
+ */
+export async function getTotalStockForProduct(p: Product): Promise<number> {
+  if (!p.variantConfig) {
+    return p.stock ?? 0;
+  }
+
+  // Import dynamically to avoid circular dependency
+  const { getScentsForProduct } = await import("@/lib/scents");
+
+  // Get allowed scents for this product (filters experimental)
+  const allowedScents = await getScentsForProduct(p.slug);
+  const allowedScentIds = new Set(allowedScents.map(s => s.id));
+
+  // Sum stock only for variants with allowed scents
+  const { variantData } = p.variantConfig;
+  let total = 0;
+
+  for (const [variantId, data] of Object.entries(variantData)) {
+    // Extract scent ID from variant ID (format: "wickType-scentId")
+    const scentId = variantId.split('-').slice(1).join('-'); // Handle multi-part scent IDs
+
+    // Only count if scent is in allowed list
+    if (allowedScentIds.has(scentId)) {
+      total += data.stock ?? 0;
+    }
+  }
+
+  return total;
 }
 
 /** Update stock for a specific variant */
@@ -98,7 +142,7 @@ export async function setVariantStock(
 
   // Update the variant data in the config
   if (!p.variantConfig.variantData[variantId]) {
-    p.variantConfig.variantData[variantId] = { stripePriceId: "", stock: 0 };
+    p.variantConfig.variantData[variantId] = { stock: 0 };
   }
   p.variantConfig.variantData[variantId].stock = Math.max(0, Math.floor(value));
 
@@ -117,7 +161,7 @@ export async function incrVariantStock(
 
   // Ensure variant data exists
   if (!p.variantConfig.variantData[variantId]) {
-    p.variantConfig.variantData[variantId] = { stripePriceId: "", stock: 0 };
+    p.variantConfig.variantData[variantId] = { stock: 0 };
   }
 
   const current = p.variantConfig.variantData[variantId].stock ?? 0;

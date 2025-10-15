@@ -20,7 +20,7 @@ type GlobalScent = {
 type VariantConfig = {
   wickTypes: WickType[];
   // scents are now global - not stored per product
-  variantData: Record<string, { stripePriceId: string; stock: number }>;
+  variantData: Record<string, { stock: number }>;
 };
 
 type Product = {
@@ -107,19 +107,26 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
     wickName: string;
     scentName: string;
     stock: number;
-    stripePriceId: string;
   }> = [];
 
+  // Filter scents based on experimental flag and enabled products
+  const availableScents = globalScents.filter((scent) => {
+    // Non-experimental scents are available for all products
+    if (!scent.experimental) return true;
+
+    // Experimental scents only available for specific products
+    return scent.enabledProducts?.includes(p.slug) ?? false;
+  });
+
   for (const wick of wickTypes) {
-    for (const scent of globalScents) {
+    for (const scent of availableScents) {
       const variantId = `${wick.id}-${scent.id}`;
-      const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
+      const data = variantData[variantId] || { stock: 0 };
       variants.push({
         id: variantId,
         wickName: wick.name,
         scentName: scent.name,
         stock: data.stock,
-        stripePriceId: data.stripePriceId,
       });
     }
   }
@@ -831,73 +838,61 @@ export default function AdminPage() {
 
                   {/* Generated Variants Grid */}
                   <div>
-                    <h4 className="text-xs font-medium mb-2">
-                      Generated Variants ({editing.variantConfig.wickTypes.length} wick types × {globalScents.length} global scents ={" "}
-                      {editing.variantConfig.wickTypes.length * globalScents.length} total)
-                    </h4>
-                    {globalScents.length === 0 ? (
-                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                        <p className="text-xs text-amber-900">
-                          No global scents available. <a href="/admin/scents" className="underline">Create scents first →</a>
-                        </p>
-                      </div>
-                    ) : (
-                    <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
-                      {generateVariantsForDisplay(editing, globalScents).map((v) => (
+                    {(() => {
+                      // Calculate filtered scents for this product
+                      const availableScents = globalScents.filter((scent) => {
+                        if (!scent.experimental) return true;
+                        return scent.enabledProducts?.includes(editing.slug) ?? false;
+                      });
+                      const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
+
+                      return (
+                        <>
+                          <h4 className="text-xs font-medium mb-2">
+                            Generated Variants ({editing.variantConfig.wickTypes.length} wick types × {availableScents.length} available scents ={" "}
+                            {variantsForDisplay.length} total)
+                          </h4>
+                          {availableScents.length === 0 ? (
+                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                              <p className="text-xs text-amber-900">
+                                No scents available for this product. <a href="/admin/scents" className="underline">Manage scents →</a>
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
+                              {variantsForDisplay.map((v) => (
                         <div key={v.id} className="card p-2">
                           <div className="text-xs font-medium mb-1">
                             {v.wickName} / {v.scentName}
                           </div>
-                          <div className="grid grid-cols-2 gap-2">
-                            <label className="block">
-                              <div className="text-xs mb-1">Stock</div>
-                              <input
-                                className="input text-xs"
-                                type="number"
-                                value={v.stock}
-                                onChange={(e) => {
-                                  const newData = { ...editing.variantConfig!.variantData };
-                                  newData[v.id] = {
-                                    ...newData[v.id],
-                                    stock: Math.max(0, Number(e.target.value)),
-                                  };
-                                  setEditing({
-                                    ...editing,
-                                    variantConfig: {
-                                      ...editing.variantConfig!,
-                                      variantData: newData,
-                                    },
-                                  });
-                                }}
-                              />
-                            </label>
-                            <label className="block">
-                              <div className="text-xs mb-1">Stripe Price ID</div>
-                              <input
-                                className="input text-xs"
-                                value={v.stripePriceId}
-                                onChange={(e) => {
-                                  const newData = { ...editing.variantConfig!.variantData };
-                                  newData[v.id] = {
-                                    ...newData[v.id],
-                                    stripePriceId: e.target.value,
-                                  };
-                                  setEditing({
-                                    ...editing,
-                                    variantConfig: {
-                                      ...editing.variantConfig!,
-                                      variantData: newData,
-                                    },
-                                  });
-                                }}
-                                placeholder="price_xxxxx"
-                              />
-                            </label>
-                          </div>
+                          <label className="block">
+                            <div className="text-xs mb-1">Stock</div>
+                            <input
+                              className="input text-xs"
+                              type="number"
+                              value={v.stock}
+                              onChange={(e) => {
+                                const newData = { ...editing.variantConfig!.variantData };
+                                newData[v.id] = {
+                                  stock: Math.max(0, Number(e.target.value)),
+                                };
+                                setEditing({
+                                  ...editing,
+                                  variantConfig: {
+                                    ...editing.variantConfig!,
+                                    variantData: newData,
+                                  },
+                                });
+                              }}
+                            />
+                          </label>
                         </div>
-                      ))}
-                    </div>
-                    )}
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               );

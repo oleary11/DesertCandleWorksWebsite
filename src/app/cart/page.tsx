@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Minus, Plus } from "lucide-react";
 import { useState } from "react";
+import FreeShippingBanner from "@/components/FreeShippingBanner";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
@@ -35,10 +36,17 @@ export default function CartPage() {
     setIsCheckingOut(true);
 
     try {
-      // Build line items for Stripe
+      // Build line items for Stripe with variant metadata
       const lineItems = items.map(item => ({
         price: item.stripePriceId,
         quantity: item.quantity,
+        metadata: {
+          productName: item.productName,
+          productImage: item.productImage,
+          wickType: item.wickTypeName,
+          scent: item.scentName,
+          variantId: item.variantId,
+        },
       }));
 
       const res = await fetch("/api/checkout", {
@@ -101,6 +109,9 @@ export default function CartPage() {
         <div className="grid lg:grid-cols-3 gap-8">
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
+            {/* Free Shipping Banner */}
+            <FreeShippingBanner currentTotal={getTotalPrice()} threshold={50} />
+
             {items.map((item) => (
               <div
                 key={`${item.productSlug}-${item.variantId || ""}`}
@@ -198,6 +209,17 @@ export default function CartPage() {
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--color-muted)]">Shipping</span>
+                  <span className="font-medium">
+                    {getTotalPrice() >= 50 ? "FREE" : "$7.99"}
+                  </span>
+                </div>
+                {getTotalPrice() < 50 && (
+                  <p className="text-xs text-[var(--color-muted)] pt-1">
+                    Free shipping on orders $50+
+                  </p>
+                )}
+                <div className="flex justify-between text-sm">
+                  <span className="text-[var(--color-muted)]">Tax</span>
                   <span className="font-medium">Calculated at checkout</span>
                 </div>
               </div>

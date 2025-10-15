@@ -1,12 +1,13 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/products";
-import { getTotalStock } from "@/lib/productsStore";
 
-type ProductCardProps = { product: Product; compact?: boolean };
+type ProductWithStock = Product & { _computedStock?: number };
+type ProductCardProps = { product: ProductWithStock; compact?: boolean };
 
 export default function ProductCard({product, compact = false, }: ProductCardProps) {
-  const stock = getTotalStock(product);
+  // Use pre-computed stock if available, otherwise fall back to base stock
+  const stock = product._computedStock ?? product.stock ?? 0;
   const isLowStock = stock > 0 && stock <= 3;
   const isOutOfStock = stock === 0;
 

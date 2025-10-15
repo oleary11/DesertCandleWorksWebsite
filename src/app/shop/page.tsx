@@ -1,4 +1,5 @@
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import { getTotalStockForProduct } from "@/lib/productsStore";
 import type { Metadata } from "next";
 import ShopClient from "./ShopClient";
 export const revalidate = 3600;
@@ -33,9 +34,17 @@ export const generateMetadata = (): Metadata => {
 export default async function ShopPage() {
   const products = await listResolvedProducts();
 
+  // Compute stock for each product (filtering experimental scents)
+  const productsWithStock = await Promise.all(
+    products.map(async (p) => ({
+      ...p,
+      _computedStock: await getTotalStockForProduct(p),
+    }))
+  );
+
   return (
     <section className="min-h-dvh">
-      <ShopClient products={products} />
+      <ShopClient products={productsWithStock} />
     </section>
   );
 }

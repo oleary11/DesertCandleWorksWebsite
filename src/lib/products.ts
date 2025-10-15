@@ -7,7 +7,6 @@ export type ProductVariant = {
   id: string;              // auto-generated: "standard-vanilla"
   wickType: string;        // references WickType.id
   scent: string;           // references GlobalScent.id
-  stripePriceId: string;   // Stripe price ID for this specific variant
   stock: number;           // Inventory for this variant
   sku: string;             // auto-generated: "DCW-0001-STD-VAN"
 };
@@ -16,8 +15,8 @@ export type ProductVariant = {
 export type VariantConfig = {
   wickTypes: WickType[];   // List of available wick types for THIS product
   // Scents are no longer stored here - they come from global scents
-  // variantData stores: wickTypeId-scentId -> {stripePriceId, stock}
-  variantData: Record<string, { stripePriceId: string; stock: number }>;  // Data per variant ID
+  // variantData stores: wickTypeId-scentId -> {stock}
+  variantData: Record<string, { stock: number }>;  // Stock data per variant ID
 };
 
 export type Product = {
@@ -26,7 +25,7 @@ export type Product = {
   price: number;
   image?: string;
   sku: string;
-  stripePriceId?: string;   // deprecated, for non-variant products
+  stripePriceId?: string;   // Now used for ALL products (single price per product)
   seoDescription: string;
   bestSeller?: boolean;
   stock: number;            // deprecated for variant products
@@ -52,17 +51,13 @@ export function generateVariants(product: Product, globalScents?: Array<{id: str
       const wickCode = wick.id === "wood" ? "WD" : "STD";
       const scentCode = scent.id.substring(0, 3).toUpperCase();
 
-      const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
-
-      // Variant is out of stock if no Stripe Price ID, regardless of stock count
-      const effectiveStock = data.stripePriceId ? data.stock : 0;
+      const data = variantData[variantId] || { stock: 0 };
 
       variants.push({
         id: variantId,
         wickType: wick.id,
         scent: scent.id,
-        stripePriceId: data.stripePriceId,
-        stock: effectiveStock,
+        stock: data.stock,
         sku: `${product.sku}-${wickCode}-${scentCode}`,
       });
     }

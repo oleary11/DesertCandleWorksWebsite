@@ -3,10 +3,12 @@
 import { useState, useMemo } from "react";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
-import { getTotalStock } from "@/lib/productsStore";
+import { Truck } from "lucide-react";
+
+type ProductWithStock = Product & { _computedStock: number };
 
 type ShopClientProps = {
-  products: Product[];
+  products: ProductWithStock[];
 };
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
@@ -21,14 +23,14 @@ export default function ShopClient({ products }: ShopClientProps) {
 
     // Apply filter
     if (filterBy === "in-stock") {
-      filtered = filtered.filter((p) => getTotalStock(p) > 3);
+      filtered = filtered.filter((p) => p._computedStock > 0);
     } else if (filterBy === "low-stock") {
       filtered = filtered.filter((p) => {
-        const stock = getTotalStock(p);
+        const stock = p._computedStock;
         return stock > 0 && stock <= 3;
       });
     } else if (filterBy === "out-of-stock") {
-      filtered = filtered.filter((p) => getTotalStock(p) === 0);
+      filtered = filtered.filter((p) => p._computedStock === 0);
     }
 
     // Apply sort
@@ -51,11 +53,21 @@ export default function ShopClient({ products }: ShopClientProps) {
   }, [products, sortBy, filterBy]);
 
   const productCount = products.length;
-  const inStockCount = products.filter((p) => getTotalStock(p) > 0).length;
+  const inStockCount = products.filter((p) => p._computedStock > 0).length;
   const displayCount = filteredAndSortedProducts.length;
 
   return (
     <>
+      {/* Free Shipping Banner */}
+      <div className="full-bleed bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3">
+        <div className="mx-auto max-w-6xl px-6 text-center">
+          <p className="text-sm font-medium flex items-center justify-center gap-2">
+            <Truck className="w-4 h-4" />
+            Free shipping on orders over $50 • Free local pickup in Scottsdale, AZ
+          </p>
+        </div>
+      </div>
+
       {/* Header with counts */}
       <div className="full-bleed relative isolate py-12 sm:py-16">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white/70 to-white/90 backdrop-blur-[2px]" />
