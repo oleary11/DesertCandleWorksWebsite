@@ -5,8 +5,27 @@ import type { Product } from "@/lib/productsStore";
 
 export async function getResolvedProduct(slug: string): Promise<Product | null> {
   const live = await getProductBySlug(slug);
-  if (live) return live;
+  if (live) {
+    // Ensure live products have variantConfig
+    if (!live.variantConfig) {
+      live.variantConfig = {
+        wickTypes: [{ id: "standard", name: "Standard Wick" }],
+        variantData: {},
+      };
+    }
+    return live;
+  }
 
   const s = getStaticProduct(slug);
-  return s ? { ...s, stock: s.stock ?? 0 } : null;
+  if (!s) return null;
+
+  // Auto-migrate static products to use variants
+  return {
+    ...s,
+    stock: s.stock ?? 0,
+    variantConfig: s.variantConfig || {
+      wickTypes: [{ id: "standard", name: "Standard Wick" }],
+      variantData: {},
+    },
+  };
 }

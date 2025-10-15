@@ -74,8 +74,14 @@ export async function verifyTwoFactorToken(token: string): Promise<boolean> {
 
 /**
  * Check if 2FA is enabled
+ * NOTE: 2FA is automatically disabled in development mode
  */
 export async function isTwoFactorEnabled(): Promise<boolean> {
+  // Disable 2FA in development mode
+  if (process.env.NODE_ENV === "development") {
+    return false;
+  }
+
   const secret = await redis.get(SECRET_KEY);
   return Boolean(secret);
 }

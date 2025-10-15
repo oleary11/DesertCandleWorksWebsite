@@ -9,14 +9,17 @@ type WickType = {
   name: string;
 };
 
-type Scent = {
+type GlobalScent = {
   id: string;
   name: string;
+  experimental: boolean;
+  enabledProducts?: string[];
+  sortOrder?: number;
 };
 
 type VariantConfig = {
   wickTypes: WickType[];
-  scents: Scent[];
+  // scents are now global - not stored per product
   variantData: Record<string, { stripePriceId: string; stock: number }>;
 };
 
@@ -45,6 +48,10 @@ function emptyProduct(): Product {
     seoDescription: "",
     bestSeller: false,
     stock: 0,
+    variantConfig: {
+      wickTypes: [{ id: "standard", name: "Standard Wick" }],
+      variantData: {},
+    },
   };
 }
 
@@ -81,23 +88,20 @@ function computeNextSku(allSkus: string[]): string {
 
 function getTotalStock(p: Product): number {
   if (p.variantConfig) {
-    const { wickTypes, scents, variantData } = p.variantConfig;
+    const { variantData } = p.variantConfig;
     let total = 0;
-    for (const wick of wickTypes) {
-      for (const scent of scents) {
-        const variantId = `${wick.id}-${scent.id}`;
-        total += variantData[variantId]?.stock ?? 0;
-      }
+    for (const data of Object.values(variantData)) {
+      total += data.stock ?? 0;
     }
     return total;
   }
   return p.stock ?? 0;
 }
 
-function generateVariantsForDisplay(p: Product) {
+function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
   if (!p.variantConfig) return [];
 
-  const { wickTypes, scents, variantData } = p.variantConfig;
+  const { wickTypes, variantData } = p.variantConfig;
   const variants: Array<{
     id: string;
     wickName: string;
@@ -107,7 +111,7 @@ function generateVariantsForDisplay(p: Product) {
   }> = [];
 
   for (const wick of wickTypes) {
-    for (const scent of scents) {
+    for (const scent of globalScents) {
       const variantId = `${wick.id}-${scent.id}`;
       const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
       variants.push({
@@ -126,6 +130,7 @@ function generateVariantsForDisplay(p: Product) {
 /* ---------- Component ---------- */
 export default function AdminPage() {
   const [items, setItems] = useState<Product[]>([]);
+  const [globalScents, setGlobalScents] = useState<GlobalScent[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
@@ -139,9 +144,14 @@ export default function AdminPage() {
 
   async function load() {
     setLoading(true);
-    const res = await fetch("/api/admin/products", { cache: "no-store" });
-    const j = (await res.json()) as { items?: Product[] };
-    setItems(j.items || []);
+    const [productsRes, scentsRes] = await Promise.all([
+      fetch("/api/admin/products", { cache: "no-store" }),
+      fetch("/api/admin/scents", { cache: "no-store" })
+    ]);
+    const productsData = (await productsRes.json()) as { items?: Product[] };
+    const scentsData = (await scentsRes.json()) as { scents?: GlobalScent[] };
+    setItems(productsData.items || []);
+    setGlobalScents(scentsData.scents || []);
     setLoading(false);
   }
   useEffect(() => {
@@ -307,6 +317,9 @@ export default function AdminPage() {
               </button>
             </>
           )}
+          <a href="/admin/scents" className="btn">
+            Scents
+          </a>
           <a href="/admin/settings" className="btn">
             Settings
           </a>
@@ -384,39 +397,9 @@ export default function AdminPage() {
                         <td className="py-2 pr-3">{p.slug}</td>
                         <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
                         <td className="py-2 pr-3">
-                          {p.variantConfig ? (
-                            <span className="text-sm">
-                              {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
-                            </span>
-                          ) : (
-                            <div className="inline-flex items-center gap-2">
-                              <button
-                                className="btn min-w-10"
-                                onClick={() => changeStock(p.slug, "decr", 1)}
-                                aria-label={`Decrease ${p.name} stock`}
-                              >
-                                −
-                              </button>
-                              <input
-                                className="input w-20 text-center"
-                                inputMode="numeric"
-                                type="number"
-                                value={p.stock}
-                                onChange={(e) => {
-                                  const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
-                                  const base = staged[p.slug] ?? p;
-                                  stageProduct({ ...base, stock: v });
-                                }}
-                              />
-                              <button
-                                className="btn min-w-10"
-                                onClick={() => changeStock(p.slug, "incr", 1)}
-                                aria-label={`Increase ${p.name} stock`}
-                              >
-                                +
-                              </button>
-                            </div>
-                          )}
+                          <span className="text-sm">
+                            {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                          </span>
                         </td>
                         <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
                         <td className="py-2 pr-3">
@@ -499,39 +482,9 @@ export default function AdminPage() {
 
                     <div className="mt-3 flex items-center justify-between gap-3">
                       {/* Stock control */}
-                      {p.variantConfig ? (
-                        <div className="text-sm">
-                          Stock: {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          <button
-                            className="btn min-w-12 h-10"
-                            onClick={() => changeStock(p.slug, "decr", 1)}
-                            aria-label={`Decrease ${p.name} stock`}
-                          >
-                            −
-                          </button>
-                          <input
-                            className="input w-20 h-10 text-center"
-                            inputMode="numeric"
-                            type="number"
-                            value={p.stock}
-                            onChange={(e) => {
-                              const v = Math.max(0, Math.floor(Number(e.target.value || 0)));
-                              const base = staged[p.slug] ?? p;
-                              stageProduct({ ...base, stock: v });
-                            }}
-                          />
-                          <button
-                            className="btn min-w-12 h-10"
-                            onClick={() => changeStock(p.slug, "incr", 1)}
-                            aria-label={`Increase ${p.name} stock`}
-                          >
-                            +
-                          </button>
-                        </div>
-                      )}
+                      <div className="text-sm">
+                        Stock: {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                      </div>
 
                       {/* Row actions */}
                       <div className="flex flex-wrap justify-end gap-2">
@@ -793,39 +746,24 @@ export default function AdminPage() {
             <div className="mt-6 border-t border-[var(--color-line)] pt-4">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold">Product Variants</h3>
-                {!editing.variantConfig ? (
-                  <button
-                    type="button"
-                    className="btn btn-primary text-xs"
-                    onClick={() => {
-                      setEditing({
-                        ...editing,
-                        variantConfig: {
-                          wickTypes: [{ id: "standard", name: "Standard Wick" }],
-                          scents: [{ id: "unscented", name: "Unscented" }],
-                          variantData: {},
-                        },
-                      });
-                    }}
-                  >
-                    Enable Variants
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    className="btn text-xs"
-                    onClick={() => {
-                      if (confirm("Remove all variants? This will delete all variant data.")) {
-                        setEditing({ ...editing, variantConfig: undefined });
-                      }
-                    }}
-                  >
-                    Disable Variants
-                  </button>
-                )}
+                <p className="text-xs text-[var(--color-muted)]">
+                  All products use the global scents system
+                </p>
               </div>
 
-              {editing.variantConfig ? (
+              {(() => {
+                // Auto-initialize variantConfig if it doesn't exist
+                if (!editing.variantConfig) {
+                  setEditing({
+                    ...editing,
+                    variantConfig: {
+                      wickTypes: [{ id: "standard", name: "Standard Wick" }],
+                      variantData: {},
+                    },
+                  });
+                  return null;
+                }
+                return (
                 <div className="space-y-4">
                   {/* Wick Types */}
                   <div>
@@ -890,77 +828,29 @@ export default function AdminPage() {
                     </div>
                   </div>
 
-                  {/* Scents */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-medium">Scents</h4>
-                      <button
-                        type="button"
-                        className="btn text-xs"
-                        onClick={() => {
-                          const newId = `scent-${Date.now()}`;
-                          setEditing({
-                            ...editing,
-                            variantConfig: {
-                              ...editing.variantConfig!,
-                              scents: [
-                                ...editing.variantConfig!.scents,
-                                { id: newId, name: "New Scent" },
-                              ],
-                            },
-                          });
-                        }}
-                      >
-                        + Add Scent
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {editing.variantConfig.scents.map((scent, idx) => (
-                        <div key={scent.id} className="flex items-center gap-2">
-                          <input
-                            className="input text-sm flex-1"
-                            value={scent.name}
-                            onChange={(e) => {
-                              const newScents = [...editing.variantConfig!.scents];
-                              newScents[idx] = { ...scent, name: e.target.value };
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  scents: newScents,
-                                },
-                              });
-                            }}
-                            placeholder="e.g., Vanilla"
-                          />
-                          <button
-                            type="button"
-                            className="btn text-xs"
-                            onClick={() => {
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  scents: editing.variantConfig!.scents.filter((_, i) => i !== idx),
-                                },
-                              });
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                  {/* Scents are now managed globally - show info */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-xs text-blue-900">
+                      <strong>Scents are now global.</strong> All scents from the global scents list will automatically appear as variants for this product.
+                      <a href="/admin/scents" className="underline ml-1">Manage scents →</a>
+                    </p>
                   </div>
 
                   {/* Generated Variants Grid */}
                   <div>
                     <h4 className="text-xs font-medium mb-2">
-                      Generated Variants ({editing.variantConfig.wickTypes.length} × {editing.variantConfig.scents.length} ={" "}
-                      {editing.variantConfig.wickTypes.length * editing.variantConfig.scents.length} total)
+                      Generated Variants ({editing.variantConfig.wickTypes.length} wick types × {globalScents.length} global scents ={" "}
+                      {editing.variantConfig.wickTypes.length * globalScents.length} total)
                     </h4>
+                    {globalScents.length === 0 ? (
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                        <p className="text-xs text-amber-900">
+                          No global scents available. <a href="/admin/scents" className="underline">Create scents first →</a>
+                        </p>
+                      </div>
+                    ) : (
                     <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
-                      {generateVariantsForDisplay(editing).map((v) => (
+                      {generateVariantsForDisplay(editing, globalScents).map((v) => (
                         <div key={v.id} className="card p-2">
                           <div className="text-xs font-medium mb-1">
                             {v.wickName} / {v.scentName}
@@ -1014,13 +904,11 @@ export default function AdminPage() {
                         </div>
                       ))}
                     </div>
+                    )}
                   </div>
                 </div>
-              ) : (
-                <p className="text-xs text-[var(--color-muted)]">
-                  Click &ldquo;Enable Variants&rdquo; to add wick types and scents. Variants will be automatically generated for all combinations.
-                </p>
-              )}
+              );
+              })()}
             </div>
 
             <div className="sticky bottom-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-t border-[var(--color-line)] px-5 sm:px-6 py-3 mt-6 flex justify-end gap-2">

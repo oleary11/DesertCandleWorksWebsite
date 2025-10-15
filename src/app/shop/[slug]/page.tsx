@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getResolvedProduct } from "@/lib/liveProducts";
 import { getTotalStock } from "@/lib/productsStore";
 import { generateVariants } from "@/lib/products";
+import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
 import ProductActions from "./ProductActions";
 
@@ -51,8 +52,11 @@ export default async function ProductPage({ params }: Props) {
   const p = await getResolvedProduct(slug);
   if (!p) return <div className="py-20">Not found</div>;
 
+  // Get global scents for this product
+  const globalScents = p.variantConfig ? await getScentsForProduct(slug) : [];
+
   const stock = p.variantConfig ? getTotalStock(p) : (p.stock ?? 0);
-  const variants = p.variantConfig ? generateVariants(p) : [];
+  const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
   const availability = stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
@@ -143,8 +147,14 @@ export default async function ProductPage({ params }: Props) {
           <p className="mt-3 text-base text-[var(--color-muted)]">{p.seoDescription}</p>
           <p className="mt-6 text-xl font-medium">${p.price}</p>
 
-          {variants.length > 0 ? (
-            <ProductVariantForm product={p} variants={variants} variantConfig={p.variantConfig!} />
+          {p.variantConfig && globalScents.length > 0 ? (
+            <ProductVariantForm product={p} variants={variants} globalScents={globalScents} variantConfig={p.variantConfig} />
+          ) : p.variantConfig && globalScents.length === 0 ? (
+            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+              <p className="text-sm text-amber-900">
+                <strong>No scents available yet.</strong> Please contact us to set up scents for this product.
+              </p>
+            </div>
           ) : (
             <ProductActions
               product={p}

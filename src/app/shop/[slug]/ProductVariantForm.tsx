@@ -2,17 +2,20 @@
 
 import { useState, useMemo } from "react";
 import type { Product, ProductVariant, VariantConfig } from "@/lib/productsStore";
+import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
 import { ShoppingCart } from "lucide-react";
 
 type Props = {
   product: Product;
   variants: ProductVariant[];
+  globalScents: GlobalScent[];
   variantConfig: VariantConfig;
 };
 
-export default function ProductVariantForm({ product, variants, variantConfig }: Props) {
-  const { wickTypes, scents } = variantConfig;
+export default function ProductVariantForm({ product, variants, globalScents, variantConfig }: Props) {
+  const { wickTypes } = variantConfig;
+  const scents = globalScents; // Use global scents instead of per-product scents
 
   // Selected options
   const [selectedWickType, setSelectedWickType] = useState(wickTypes[0]?.id || "");

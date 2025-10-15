@@ -3,23 +3,20 @@ export type WickType = {
   name: string;      // e.g., "Standard Wick" or "Wood Wick"
 };
 
-export type Scent = {
-  id: string;        // e.g., "vanilla" or "unscented"
-  name: string;      // e.g., "Vanilla" or "Unscented"
-};
-
 export type ProductVariant = {
   id: string;              // auto-generated: "standard-vanilla"
   wickType: string;        // references WickType.id
-  scent: string;           // references Scent.id
+  scent: string;           // references GlobalScent.id
   stripePriceId: string;   // Stripe price ID for this specific variant
   stock: number;           // Inventory for this variant
   sku: string;             // auto-generated: "DCW-0001-STD-VAN"
 };
 
+// New: Only stores wick types per product, scents are global
 export type VariantConfig = {
-  wickTypes: WickType[];   // List of available wick types
-  scents: Scent[];         // List of available scents
+  wickTypes: WickType[];   // List of available wick types for THIS product
+  // Scents are no longer stored here - they come from global scents
+  // variantData stores: wickTypeId-scentId -> {stripePriceId, stock}
   variantData: Record<string, { stripePriceId: string; stock: number }>;  // Data per variant ID
 };
 
@@ -33,46 +30,45 @@ export type Product = {
   seoDescription: string;
   bestSeller?: boolean;
   stock: number;            // deprecated for variant products
-  variantConfig?: VariantConfig;  // NEW: wick types + scents → auto-generates variants
+  variantConfig?: VariantConfig;  // NEW: wick types + global scents → auto-generates variants
 };
 
-/** Generate all variant combinations from wick types + scents */
-export function generateVariants(product: Product): ProductVariant[] {
+/**
+ * Generate all variant combinations from wick types + scents
+ * NOTE: This now requires global scents to be passed in separately
+ * @param product - The product with wick types
+ * @param globalScents - All scents available for this product (filtered by experimental flag)
+ */
+export function generateVariants(product: Product, globalScents?: Array<{id: string, name: string}>): ProductVariant[] {
   if (!product.variantConfig) return [];
+  if (!globalScents || globalScents.length === 0) return [];
 
-  const { wickTypes, scents, variantData } = product.variantConfig;
+  const { wickTypes, variantData } = product.variantConfig;
   const variants: ProductVariant[] = [];
 
   for (const wick of wickTypes) {
-    for (const scent of scents) {
+    for (const scent of globalScents) {
       const variantId = `${wick.id}-${scent.id}`;
       const wickCode = wick.id === "wood" ? "WD" : "STD";
       const scentCode = scent.id.substring(0, 3).toUpperCase();
 
       const data = variantData[variantId] || { stripePriceId: "", stock: 0 };
 
+      // Variant is out of stock if no Stripe Price ID, regardless of stock count
+      const effectiveStock = data.stripePriceId ? data.stock : 0;
+
       variants.push({
         id: variantId,
         wickType: wick.id,
         scent: scent.id,
         stripePriceId: data.stripePriceId,
-        stock: data.stock,
+        stock: effectiveStock,
         sku: `${product.sku}-${wickCode}-${scentCode}`,
       });
     }
   }
 
   return variants;
-}
-
-/** Get a product with its variants generated */
-export function getProductWithVariants(product: Product): Product {
-  if (!product.variantConfig) return product;
-
-  return {
-    ...product,
-    // Keep variantConfig for editing, but also expose generated variants for display
-  };
 }
 
 export const products = [
