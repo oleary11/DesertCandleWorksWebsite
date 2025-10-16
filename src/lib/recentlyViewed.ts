@@ -43,7 +43,7 @@ export function addToRecentlyViewed(product: Pick<Product, "slug" | "name" | "im
       {
         slug: product.slug,
         name: product.name,
-        image: product.image,
+        image: product.image || "",
         price: product.price,
         viewedAt: Date.now(),
       },
