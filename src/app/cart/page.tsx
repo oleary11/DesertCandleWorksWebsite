@@ -115,40 +115,51 @@ export default function CartPage() {
             {items.map((item) => (
               <div
                 key={`${item.productSlug}-${item.variantId || ""}`}
-                className="card p-4 flex gap-4"
+                className="card p-4"
               >
-                {/* Product Image */}
-                {item.productImage && (
-                  <div className="relative w-24 h-24 flex-shrink-0">
-                    <Image
-                      src={item.productImage}
-                      alt={item.productName}
-                      fill
-                      className="object-cover rounded-lg"
-                    />
-                  </div>
-                )}
-
-                {/* Product Details */}
-                <div className="flex-1 min-w-0">
-                  <Link
-                    href={`/shop/${item.productSlug}`}
-                    className="font-medium hover:underline block truncate"
-                  >
-                    {item.productName}
-                  </Link>
-                  {item.variantId && (
-                    <p className="text-sm text-[var(--color-muted)] mt-1">
-                      {item.wickTypeName && `${item.wickTypeName}`}
-                      {item.scentName && ` • ${item.scentName}`}
-                    </p>
+                <div className="flex gap-4">
+                  {/* Product Image */}
+                  {item.productImage && (
+                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
+                      <Image
+                        src={item.productImage}
+                        alt={item.productName}
+                        fill
+                        className="object-cover rounded-lg"
+                      />
+                    </div>
                   )}
-                  <p className="text-sm font-medium mt-2">${item.price.toFixed(2)}</p>
+
+                  {/* Product Details */}
+                  <div className="flex-1 min-w-0">
+                    <Link
+                      href={`/shop/${item.productSlug}`}
+                      className="font-medium hover:underline block text-sm sm:text-base"
+                    >
+                      {item.productName}
+                    </Link>
+                    {item.variantId && (
+                      <p className="text-xs sm:text-sm text-[var(--color-muted)] mt-1">
+                        {item.wickTypeName && `${item.wickTypeName}`}
+                        {item.scentName && ` • ${item.scentName}`}
+                      </p>
+                    )}
+                    <p className="text-sm font-medium mt-2">${item.price.toFixed(2)}</p>
+                  </div>
+
+                  {/* Remove Button (desktop) */}
+                  <button
+                    onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
+                    className="hidden sm:block p-2 text-[var(--color-muted)] hover:text-rose-600 transition self-start"
+                    aria-label="Remove from cart"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
 
-                {/* Quantity Controls */}
-                <div className="flex flex-col items-center gap-1">
-                  <div className="flex items-center gap-2">
+                {/* Quantity Controls and Remove (mobile) */}
+                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--color-line)]">
+                  <div className="flex items-center gap-3">
                     <button
                       onClick={() =>
                         handleQuantityChange(
@@ -159,12 +170,12 @@ export default function CartPage() {
                           item.productName
                         )
                       }
-                      className="p-1 rounded hover:bg-neutral-100 transition"
+                      className="p-2 rounded-lg border border-[var(--color-line)] hover:bg-neutral-50 transition"
                       aria-label="Decrease quantity"
                     >
                       <Minus className="w-4 h-4" />
                     </button>
-                    <span className="w-8 text-center font-medium">{item.quantity}</span>
+                    <span className="w-10 text-center font-medium">{item.quantity}</span>
                     <button
                       onClick={() =>
                         updateQuantity(
@@ -174,25 +185,25 @@ export default function CartPage() {
                         )
                       }
                       disabled={item.quantity >= item.maxStock}
-                      className="p-1 rounded hover:bg-neutral-100 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="p-2 rounded-lg border border-[var(--color-line)] hover:bg-neutral-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
                       aria-label="Increase quantity"
                     >
                       <Plus className="w-4 h-4" />
                     </button>
+                    {item.quantity >= item.maxStock && (
+                      <span className="text-xs text-amber-600 ml-2">Max</span>
+                    )}
                   </div>
-                  {item.quantity >= item.maxStock && (
-                    <span className="text-xs text-amber-600">Max stock</span>
-                  )}
-                </div>
 
-                {/* Remove Button */}
-                <button
-                  onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
-                  className="p-2 text-[var(--color-muted)] hover:text-rose-600 transition"
-                  aria-label="Remove from cart"
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                  {/* Remove Button (mobile) */}
+                  <button
+                    onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
+                    className="sm:hidden p-2 text-[var(--color-muted)] hover:text-rose-600 transition"
+                    aria-label="Remove from cart"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
