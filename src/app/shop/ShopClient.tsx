@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
@@ -20,6 +20,26 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
+
+  // Restore scroll position when returning from product page
+  useEffect(() => {
+    const shouldRestore = sessionStorage.getItem('useBackButton');
+    const savedPosition = sessionStorage.getItem('shopScrollPosition');
+
+    if (shouldRestore === 'true' && savedPosition) {
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        window.scrollTo({
+          top: parseInt(savedPosition, 10),
+          behavior: 'instant' as ScrollBehavior
+        });
+      });
+
+      // Clean up flags
+      sessionStorage.removeItem('useBackButton');
+      sessionStorage.removeItem('fromProductPage');
+    }
+  }, []);
 
   // Get experimental/seasonal scents
   const seasonalScents = useMemo(() =>

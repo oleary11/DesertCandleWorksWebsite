@@ -22,10 +22,35 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const seasonalScents = useMemo(() => scents.filter(s => s.experimental), [scents]);
   const hasSeasonalScents = seasonalScents.length > 0;
 
+  // Find first in-stock variant to use as default
+  const getDefaultVariant = () => {
+    // Try to find ANY in-stock variant (prefer standard scents)
+    const inStockVariant = variants.find(v =>
+      v.stock > 0 && standardScents.some(s => s.id === v.scent)
+    ) || variants.find(v => v.stock > 0);
+
+    if (inStockVariant) {
+      return {
+        wickType: inStockVariant.wickType,
+        scent: inStockVariant.scent,
+        scentGroup: standardScents.some(s => s.id === inStockVariant.scent) ? "standard" as const : "seasonal" as const
+      };
+    }
+
+    // Fallback to first variant if nothing in stock
+    return {
+      wickType: wickTypes[0]?.id || "",
+      scent: standardScents[0]?.id || scents[0]?.id || "",
+      scentGroup: "standard" as const
+    };
+  };
+
+  const defaultVariant = getDefaultVariant();
+
   // Selected options
-  const [selectedWickType, setSelectedWickType] = useState(wickTypes[0]?.id || "");
-  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal">("standard");
-  const [selectedScent, setSelectedScent] = useState(standardScents[0]?.id || scents[0]?.id || "");
+  const [selectedWickType, setSelectedWickType] = useState(defaultVariant.wickType);
+  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal">(defaultVariant.scentGroup);
+  const [selectedScent, setSelectedScent] = useState(defaultVariant.scent);
 
   // Request scent modal state
   const [showRequestModal, setShowRequestModal] = useState(false);

@@ -1,3 +1,5 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { Product } from "@/lib/products";
@@ -11,9 +13,15 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
   const isLowStock = stock > 0 && stock <= 3;
   const isOutOfStock = stock === 0;
 
+  const handleClick = () => {
+    // Save current scroll position before navigating
+    sessionStorage.setItem('shopScrollPosition', window.scrollY.toString());
+  };
+
   return (
     <Link
       href={`/shop/${product.slug}`}
+      onClick={handleClick}
       className="
         group block overflow-hidden rounded-2xl bg-transparent
         shadow-[0_8px_30px_rgba(20,16,12,0.06)]

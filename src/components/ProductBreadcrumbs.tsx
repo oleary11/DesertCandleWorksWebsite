@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ChevronLeft, Home, ChevronRight } from "lucide-react";
+import { useEffect } from "react";
 
 type ProductBreadcrumbsProps = {
   productName: string;
@@ -11,7 +12,15 @@ type ProductBreadcrumbsProps = {
 export default function ProductBreadcrumbs({ productName }: ProductBreadcrumbsProps) {
   const router = useRouter();
 
+  useEffect(() => {
+    // Store that we came from a product page (for scroll restoration on /shop)
+    sessionStorage.setItem('fromProductPage', 'true');
+  }, []);
+
   const handleBackClick = () => {
+    // Mark that we're using the back button (for scroll restoration)
+    sessionStorage.setItem('useBackButton', 'true');
+
     // Try to go back in history (preserves scroll position)
     if (window.history.length > 1) {
       router.back();
