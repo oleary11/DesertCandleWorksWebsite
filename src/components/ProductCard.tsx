@@ -40,7 +40,10 @@ export default function ProductCard({product, compact = false, }: ProductCardPro
               group-hover:scale-[1.03]
             "
             sizes="(min-width:1280px) 260px, (min-width:1024px) 30vw, (min-width:640px) 45vw, 90vw"
-            quality={90}
+            quality={75}
+            loading="lazy"
+            placeholder="blur"
+            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
           />
         )}
 

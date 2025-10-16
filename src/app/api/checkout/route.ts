@@ -59,15 +59,18 @@ export async function POST(req: NextRequest) {
 
     const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
 
-    // Fetch price details from Stripe so we can rebuild line items with custom names
+    // Fetch all price details from Stripe in parallel
+    const priceIds = extendedLineItems.map(item => item.price);
+    const priceDetailsArray = await Promise.all(
+      priceIds.map(priceId => stripe.prices.retrieve(priceId))
+    );
+
+    // Build line items with custom names
     const lineItems: LineItem[] = [];
-    const sessionMetadata: Record<string, string> = {};
 
     for (let index = 0; index < extendedLineItems.length; index++) {
       const item = extendedLineItems[index];
-
-      // Fetch the price to get unit_amount and currency
-      const priceDetails = await stripe.prices.retrieve(item.price);
+      const priceDetails = priceDetailsArray[index];
 
       if (!priceDetails.unit_amount) {
         throw new Error(`Price ${item.price} has no unit_amount`);
@@ -90,29 +93,14 @@ export async function POST(req: NextRequest) {
         // If invalid URL format, skip image
       }
 
+      // Build visible description for checkout page
       if (item.metadata) {
-        // Store metadata for seller reference
-        if (item.metadata.productName) {
-          sessionMetadata[`item_${index}_product`] = item.metadata.productName;
-        }
-        if (item.metadata.wickType) {
-          sessionMetadata[`item_${index}_wick`] = item.metadata.wickType;
-        }
-        if (item.metadata.scent) {
-          sessionMetadata[`item_${index}_scent`] = item.metadata.scent;
-        }
-        if (item.metadata.variantId) {
-          sessionMetadata[`item_${index}_variant`] = item.metadata.variantId;
-        }
-
-        // Build visible description for checkout page
         const variantParts: string[] = [];
         if (item.metadata.wickType) variantParts.push(item.metadata.wickType);
         if (item.metadata.scent) variantParts.push(item.metadata.scent);
 
         if (variantParts.length > 0) {
           description = variantParts.join(' • ');
-          sessionMetadata[`item_${index}_details`] = `${productName} | ${description}`;
         }
       }
 
@@ -198,7 +186,6 @@ export async function POST(req: NextRequest) {
       allow_promotion_codes: true,
       // Disable automatic tax for now - enable after setting business address in Stripe dashboard
       // automatic_tax: { enabled: true },
-      metadata: sessionMetadata,
     });
 
     // Form posts: redirect; fetch calls: return JSON

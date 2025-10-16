@@ -1,13 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X, ShoppingCart } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const totalItems = useCartStore((state) => state.getTotalItems());
+
+  // Only render cart count after hydration
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <>
@@ -32,7 +38,7 @@ export default function NavBar() {
               aria-label="Shopping cart"
             >
               <ShoppingCart className="w-5 h-5" />
-              {totalItems > 0 && (
+              {mounted && totalItems > 0 && (
                 <span className="absolute -top-2 -right-2 bg-[var(--color-accent)] text-[var(--color-accent-ink)] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {totalItems}
                 </span>
@@ -89,7 +95,7 @@ export default function NavBar() {
               className="relative flex items-center gap-2 hover:opacity-80 transition"
             >
               <ShoppingCart className="w-5 h-5" />
-              <span>Cart {totalItems > 0 && `(${totalItems})`}</span>
+              <span>Cart {mounted && totalItems > 0 && `(${totalItems})`}</span>
             </Link>
             <div className="flex items-center gap-4 pt-2 border-t border-[var(--color-line)] mt-2">
               <a
