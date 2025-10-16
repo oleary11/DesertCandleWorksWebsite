@@ -138,7 +138,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                     )}
                   </div>
                 </div>
-                <span className="text-sm whitespace-nowrap">Seasonal Only</span>
+                <span className="text-sm whitespace-nowrap">Candles with Seasonal Scents</span>
               </label>
             </div>
           )}
@@ -238,7 +238,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                       </div>
                     </div>
                     <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                      Seasonal Scents Only
+                      Candles with Seasonal Scents
                     </span>
                   </label>
                 </div>
