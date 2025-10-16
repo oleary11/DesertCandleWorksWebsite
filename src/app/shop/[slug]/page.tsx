@@ -7,6 +7,9 @@ import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
 import ProductActions from "./ProductActions";
 import ProductBreadcrumbs from "@/components/ProductBreadcrumbs";
+import RecentlyViewed from "@/components/RecentlyViewed";
+import ProductPageTracker from "@/components/ProductPageTracker";
+import ShareButtons from "@/components/ShareButtons";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -148,7 +151,10 @@ export default async function ProductPage({ params }: Props) {
         </div>
 
         <div>
-          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{p.name}</h1>
+          <div className="flex items-start justify-between gap-4 mb-2">
+            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex-1">{p.name}</h1>
+            <ShareButtons productName={p.name} productSlug={p.slug} />
+          </div>
           <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)]">{p.seoDescription}</p>
           <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
 
@@ -171,6 +177,12 @@ export default async function ProductPage({ params }: Props) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </article>
+
+      {/* Product page tracker - tracks view in localStorage */}
+      <ProductPageTracker product={p} />
+
+      {/* Recently Viewed */}
+      <RecentlyViewed currentProductSlug={p.slug} maxProducts={4} />
     </section>
   );
 }

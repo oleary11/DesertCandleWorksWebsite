@@ -3,8 +3,9 @@
 import { useState, useMemo, useEffect } from "react";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
+import { generateVariants } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
-import { Truck } from "lucide-react";
+import { Truck, Search } from "lucide-react";
 
 type ProductWithStock = Product & { _computedStock: number };
 
@@ -20,6 +21,19 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // Get price range from products
+  const priceRange = useMemo(() => {
+    const prices = products.map(p => p.price);
+    return {
+      min: Math.floor(Math.min(...prices)),
+      max: Math.ceil(Math.max(...prices))
+    };
+  }, [products]);
+
+  const [priceMin, setPriceMin] = useState(priceRange.min);
+  const [priceMax, setPriceMax] = useState(priceRange.max);
 
   // Restore scroll position when returning from product page
   useEffect(() => {
@@ -51,6 +65,16 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      filtered = filtered.filter((p) => {
+        const nameMatch = p.name.toLowerCase().includes(query);
+        const descMatch = p.seoDescription?.toLowerCase().includes(query);
+        return nameMatch || descMatch;
+      });
+    }
+
     // Apply seasonal scents filter
     if (showSeasonalOnly) {
       const seasonalScentIds = new Set(seasonalScents.map(s => s.id));
@@ -68,6 +92,9 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         });
       });
     }
+
+    // Apply price range filter
+    filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
     // Apply stock filter
     if (filterBy === "in-stock") {
@@ -98,7 +125,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
     });
 
     return filtered;
-  }, [products, sortBy, filterBy, showSeasonalOnly, seasonalScents]);
+  }, [products, sortBy, filterBy, showSeasonalOnly, seasonalScents, searchQuery, priceMin, priceMax]);
 
   const productCount = products.length;
   const inStockCount = products.filter((p) => p._computedStock > 0).length;
@@ -127,11 +154,88 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
           <p className="mt-2 text-sm text-[var(--color-muted)]">
             Showing {displayCount} of {productCount} {productCount === 1 ? "candle" : "candles"} ({inStockCount} in stock)
           </p>
+
+          {/* Search Bar */}
+          <div className="mt-6 mx-auto max-w-md">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted)] pointer-events-none" />
+              <input
+                type="text"
+                placeholder="Search candles..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="
+                  w-full pl-10 pr-4 py-3 text-sm
+                  rounded-xl border border-[var(--color-line)]
+                  bg-white
+                  focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent
+                  transition
+                "
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
+                  aria-label="Clear search"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Mobile Filters */}
       <div className="lg:hidden px-6 mb-8">
+        {/* Price Range Filter - Mobile */}
+        <div className="mb-6 p-4 rounded-lg border border-[var(--color-line)]">
+          <h3 className="text-sm font-semibold mb-3">Price Range</h3>
+          <div className="space-y-3">
+            <div className="flex items-center justify-center gap-2 text-sm">
+              <span className="font-medium">${priceMin}</span>
+              <span className="text-[var(--color-muted)]">-</span>
+              <span className="font-medium">${priceMax}</span>
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
+              <input
+                type="range"
+                min={priceRange.min}
+                max={priceRange.max}
+                value={priceMin}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val <= priceMax) setPriceMin(val);
+                }}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                style={{
+                  accentColor: 'var(--color-accent)'
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
+              <input
+                type="range"
+                min={priceRange.min}
+                max={priceRange.max}
+                value={priceMax}
+                onChange={(e) => {
+                  const val = Number(e.target.value);
+                  if (val >= priceMin) setPriceMax(val);
+                }}
+                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                style={{
+                  accentColor: 'var(--color-accent)'
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           {/* Seasonal Scents Filter - Mobile */}
           {hasSeasonalScents && (
@@ -311,6 +415,52 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                 </div>
               </div>
 
+              {/* Price Range Filter */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Price Range</h3>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <span className="text-[var(--color-muted)]">${priceMin}</span>
+                    <span className="text-[var(--color-muted)]">-</span>
+                    <span className="text-[var(--color-muted)]">${priceMax}</span>
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
+                    <input
+                      type="range"
+                      min={priceRange.min}
+                      max={priceRange.max}
+                      value={priceMin}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val <= priceMax) setPriceMin(val);
+                      }}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                      style={{
+                        accentColor: 'var(--color-accent)'
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
+                    <input
+                      type="range"
+                      min={priceRange.min}
+                      max={priceRange.max}
+                      value={priceMax}
+                      onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val >= priceMin) setPriceMax(val);
+                      }}
+                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                      style={{
+                        accentColor: 'var(--color-accent)'
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Sort */}
               <div>
                 <h3 className="text-sm font-semibold mb-3">Sort</h3>
@@ -332,9 +482,18 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
             {/* Product grid - centered */}
             <div className="flex-1 mx-auto max-w-6xl">
               <div className="grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredAndSortedProducts.map((p) => (
-              <ProductCard key={p.slug} product={p} compact />
-            ))}
+            {filteredAndSortedProducts.map((p) => {
+              const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
+              return (
+                <ProductCard
+                  key={p.slug}
+                  product={p}
+                  compact
+                  variants={variants}
+                  globalScents={globalScents}
+                />
+              );
+            })}
           </div>
 
               {/* Empty state */}
@@ -346,6 +505,9 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                       setFilterBy("all");
                       setSortBy("name-asc");
                       setShowSeasonalOnly(false);
+                      setSearchQuery("");
+                      setPriceMin(priceRange.min);
+                      setPriceMax(priceRange.max);
                     }}
                     className="mt-4 text-sm text-[var(--color-accent)] hover:underline"
                   >
