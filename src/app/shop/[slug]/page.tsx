@@ -126,9 +126,9 @@ export default async function ProductPage({ params }: Props) {
   };
 
   return (
-    <section className="pt-8 md:pt-12">
-      <article className="mx-auto max-w-6xl grid gap-10 md:grid-cols-2 items-start pb-14">
-        <div className="relative w-full aspect-[4/5] md:aspect-[3/4] max-h-[56svh] md:max-h-[60svh] overflow-hidden">
+    <section className="pt-8 md:pt-12 px-6">
+      <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
+        <div className="relative w-full aspect-[4/5] md:aspect-[3/4] max-h-[56svh] md:max-h-[60svh] overflow-hidden rounded-lg md:rounded-xl">
           {p.image && (
             <Image
               src={p.image}
@@ -143,9 +143,9 @@ export default async function ProductPage({ params }: Props) {
         </div>
 
         <div>
-          <h1 className="text-4xl font-semibold tracking-tight">{p.name}</h1>
-          <p className="mt-3 text-base text-[var(--color-muted)]">{p.seoDescription}</p>
-          <p className="mt-6 text-xl font-medium">${p.price}</p>
+          <h1 className="text-3xl md:text-4xl font-semibold tracking-tight">{p.name}</h1>
+          <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)]">{p.seoDescription}</p>
+          <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
 
           {p.variantConfig && globalScents.length > 0 ? (
             <ProductVariantForm product={p} variants={variants} globalScents={globalScents} variantConfig={p.variantConfig} />
