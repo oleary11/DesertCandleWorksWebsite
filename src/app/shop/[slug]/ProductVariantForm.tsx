@@ -17,9 +17,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const { wickTypes } = variantConfig;
   const scents = globalScents; // Use global scents instead of per-product scents
 
+  // Separate scents into standard and seasonal (experimental)
+  const standardScents = useMemo(() => scents.filter(s => !s.experimental), [scents]);
+  const seasonalScents = useMemo(() => scents.filter(s => s.experimental), [scents]);
+  const hasSeasonalScents = seasonalScents.length > 0;
+
   // Selected options
   const [selectedWickType, setSelectedWickType] = useState(wickTypes[0]?.id || "");
-  const [selectedScent, setSelectedScent] = useState(scents[0]?.id || "");
+  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal">("standard");
+  const [selectedScent, setSelectedScent] = useState(standardScents[0]?.id || scents[0]?.id || "");
 
   // Request scent modal state
   const [showRequestModal, setShowRequestModal] = useState(false);
@@ -33,6 +39,11 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
 
+  // Get the current scent list based on selected group
+  const currentScents = useMemo(() => {
+    return scentGroup === "standard" ? standardScents : seasonalScents;
+  }, [scentGroup, standardScents, seasonalScents]);
+
   // Find the matching variant
   const selectedVariant = useMemo(() => {
     return variants.find(
@@ -45,12 +56,12 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const currentQuantityInCart = getItemQuantity(product.slug, selectedVariant?.id);
   const remainingStock = stock - currentQuantityInCart;
 
-  // Helper to check if a wick type has ANY available stock across scents
+  // Helper to check if a wick type has ANY available stock across scents in the current group
   const isWickTypeAvailable = (wickTypeId: string) => {
     return variants.some(v =>
       v.wickType === wickTypeId &&
       v.stock > 0 &&
-      scents.some(s => s.id === v.scent) // Only count if scent is allowed
+      currentScents.some(s => s.id === v.scent) // Only count if scent is in current group
     );
   };
 
@@ -231,10 +242,10 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 onClick={() => {
                   setSelectedWickType(wickType.id);
                   // Auto-select first scent for this wick type (prefer in-stock, but allow out-of-stock)
-                  // Only consider scents that are in the allowed globalScents list
+                  // Only consider scents that are in the current scent group
                   const firstAvailableScent = variants.find(
-                    v => v.wickType === wickType.id && v.stock > 0 && scents.some(s => s.id === v.scent)
-                  )?.scent || variants.find(v => v.wickType === wickType.id && scents.some(s => s.id === v.scent))?.scent || scents[0]?.id || "";
+                    v => v.wickType === wickType.id && v.stock > 0 && currentScents.some(s => s.id === v.scent)
+                  )?.scent || variants.find(v => v.wickType === wickType.id && currentScents.some(s => s.id === v.scent))?.scent || currentScents[0]?.id || "";
                   setSelectedScent(firstAvailableScent);
                 }}
                 className={`
@@ -254,6 +265,55 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         </div>
       </div>
 
+      {/* Scent Group Toggle (only show if there are seasonal scents) */}
+      {hasSeasonalScents && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Scent Collection</label>
+          <div className="flex gap-3">
+            <button
+              type="button"
+              onClick={() => {
+                setScentGroup("standard");
+                // Auto-select first standard scent when switching
+                const firstStandardScent = standardScents[0]?.id;
+                if (firstStandardScent) {
+                  setSelectedScent(firstStandardScent);
+                }
+              }}
+              className={`
+                flex-1 inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition
+                ${scentGroup === "standard"
+                  ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
+                  : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                }
+              `}
+            >
+              Standard Scents
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setScentGroup("seasonal");
+                // Auto-select first seasonal scent when switching
+                const firstSeasonalScent = seasonalScents[0]?.id;
+                if (firstSeasonalScent) {
+                  setSelectedScent(firstSeasonalScent);
+                }
+              }}
+              className={`
+                flex-1 inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium transition
+                ${scentGroup === "seasonal"
+                  ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
+                  : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                }
+              `}
+            >
+              Seasonal Scents
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Scent Selector */}
       <div>
         <label className="block text-sm font-medium mb-2">Scent</label>
@@ -262,7 +322,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           onChange={e => setSelectedScent(e.target.value)}
           className="input w-full"
         >
-          {scents.map(scent => {
+          {currentScents.map(scent => {
             const available = isScentAvailable(scent.id);
             return (
               <option key={scent.id} value={scent.id}>

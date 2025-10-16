@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import {
   upsertProduct,
   deleteProduct,
@@ -42,6 +43,16 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
     merged.stock = Math.max(0, Number(merged.stock));
 
   await upsertProduct(merged);
+
+  // Revalidate cached pages (wrapped in try-catch for Turbopack compatibility)
+  try {
+    revalidatePath("/shop");
+    revalidatePath(`/shop/${slug}`);
+    revalidatePath("/");
+  } catch (error) {
+    console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+  }
+
   return NextResponse.json(
     { ok: true, product: merged },
     { headers: { "Cache-Control": "no-store" } }
@@ -51,6 +62,16 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 export async function DELETE(_: NextRequest, ctx: RouteCtx) {
   const { slug } = await ctx.params;
   await deleteProduct(slug);
+
+  // Revalidate cached pages (wrapped in try-catch for Turbopack compatibility)
+  try {
+    revalidatePath("/shop");
+    revalidatePath(`/shop/${slug}`);
+    revalidatePath("/");
+  } catch (error) {
+    console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+  }
+
   return NextResponse.json({ ok: true }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -63,14 +84,38 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
   if (op === "incr") {
     const s = await incrStock(slug, Math.floor(value));
+    // Revalidate cached pages after stock change (wrapped in try-catch for Turbopack compatibility)
+    try {
+      revalidatePath("/shop");
+      revalidatePath(`/shop/${slug}`);
+      revalidatePath("/");
+    } catch (error) {
+      console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+    }
     return NextResponse.json({ stock: s }, { headers: { "Cache-Control": "no-store" } });
   }
   if (op === "decr") {
     const s = await incrStock(slug, -Math.floor(value));
+    // Revalidate cached pages after stock change (wrapped in try-catch for Turbopack compatibility)
+    try {
+      revalidatePath("/shop");
+      revalidatePath(`/shop/${slug}`);
+      revalidatePath("/");
+    } catch (error) {
+      console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+    }
     return NextResponse.json({ stock: s }, { headers: { "Cache-Control": "no-store" } });
   }
   if (op === "set") {
     const s = await setStock(slug, value);
+    // Revalidate cached pages after stock change (wrapped in try-catch for Turbopack compatibility)
+    try {
+      revalidatePath("/shop");
+      revalidatePath(`/shop/${slug}`);
+      revalidatePath("/");
+    } catch (error) {
+      console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+    }
     return NextResponse.json({ stock: s }, { headers: { "Cache-Control": "no-store" } });
   }
   return NextResponse.json({ error: "Invalid op" }, { status: 400 });

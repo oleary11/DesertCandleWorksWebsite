@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { upsertProduct, type Product } from "@/lib/productsStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 
@@ -38,6 +39,16 @@ export async function POST(req: NextRequest) {
   };
 
   await upsertProduct(product);
+
+  // Revalidate cached pages (wrapped in try-catch for Turbopack compatibility)
+  try {
+    revalidatePath("/shop");
+    revalidatePath(`/shop/${product.slug}`);
+    revalidatePath("/");
+  } catch (error) {
+    console.warn("Cache revalidation failed (this is OK in dev mode):", error);
+  }
+
   return NextResponse.json(
     { ok: true, product },
     { headers: { "Cache-Control": "no-store" } }

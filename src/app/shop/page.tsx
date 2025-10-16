@@ -1,5 +1,6 @@
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { getTotalStockForProduct } from "@/lib/productsStore";
+import { getAllScents } from "@/lib/scents";
 import type { Metadata } from "next";
 import ShopClient from "./ShopClient";
 export const revalidate = 3600;
@@ -33,19 +34,12 @@ export const generateMetadata = (): Metadata => {
 
 export default async function ShopPage() {
   const products = await listResolvedProducts();
+  const globalScents = await getAllScents();
 
   // Compute stock for each product (filtering experimental scents)
   const productsWithStock = await Promise.all(
     products.map(async (p) => {
       const computedStock = await getTotalStockForProduct(p);
-
-      // Debug logging for 1800 Tequila
-      if (p.slug === '1800-tequila-candle') {
-        console.log('=== 1800 Tequila Debug ===');
-        console.log('Has variantConfig:', !!p.variantConfig);
-        console.log('Variant data:', p.variantConfig?.variantData);
-        console.log('Computed stock:', computedStock);
-      }
 
       return {
         ...p,
@@ -56,7 +50,7 @@ export default async function ShopPage() {
 
   return (
     <section className="min-h-dvh">
-      <ShopClient products={productsWithStock} />
+      <ShopClient products={productsWithStock} globalScents={globalScents} />
     </section>
   );
 }

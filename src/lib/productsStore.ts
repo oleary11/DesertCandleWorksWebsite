@@ -114,11 +114,6 @@ export async function getTotalStockForProduct(p: Product): Promise<number> {
     // Get allowed scents for this product (filters experimental)
     const allowedScents = await getScentsForProduct(p.slug);
 
-    // Debug logging for 1800 Tequila
-    if (p.slug === '1800-tequila-candle') {
-      console.log('  Allowed scents:', allowedScents?.map(s => s.id));
-    }
-
     // If no scents returned, fall back to counting all variants
     // This prevents showing 0 stock when Redis/scents fail to load
     if (!allowedScents || allowedScents.length === 0) {
@@ -144,11 +139,6 @@ export async function getTotalStockForProduct(p: Product): Promise<number> {
           scentId = variantId.substring(wickId.length + 1);
           break;
         }
-      }
-
-      // Debug logging for 1800 Tequila
-      if (p.slug === '1800-tequila-candle') {
-        console.log(`  Variant ${variantId}: scentId="${scentId}", stock=${data.stock}, allowed=${allowedScentIds.has(scentId)}`);
       }
 
       // Only count if scent is in allowed list
