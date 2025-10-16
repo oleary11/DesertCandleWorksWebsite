@@ -196,7 +196,8 @@ export async function POST(req: NextRequest) {
       shipping_address_collection: { allowed_countries: ["US", "CA"] },
       shipping_options: shippingOptions,
       allow_promotion_codes: true,
-      automatic_tax: { enabled: true },
+      // Disable automatic tax for now - enable after setting business address in Stripe dashboard
+      // automatic_tax: { enabled: true },
       metadata: sessionMetadata,
     });
 

@@ -5,7 +5,10 @@
       "Bash(npm run build)",
       "Bash(cat:*)",
       "Bash(curl -s \"http://localhost:3000/api/admin/products\")",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install)",
+      "Bash(curl:*)"
     ],
     "deny": [],
     "ask": []
