@@ -56,7 +56,7 @@ export default function ShareButtons({ productName, productSlug }: ShareButtonsP
       <button
         onClick={() => {
           // If native share is available on mobile, use it directly
-          if (navigator.share && window.innerWidth < 768) {
+          if (typeof navigator !== 'undefined' && 'share' in navigator && window.innerWidth < 768) {
             handleNativeShare();
           } else {
             setShowDropdown(!showDropdown);
@@ -105,7 +105,7 @@ export default function ShareButtons({ productName, productSlug }: ShareButtonsP
               <span>Share on Facebook</span>
             </button>
 
-            {navigator.share && (
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
               <button
                 onClick={handleNativeShare}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-neutral-50 transition text-left border-t border-[var(--color-line)]"
