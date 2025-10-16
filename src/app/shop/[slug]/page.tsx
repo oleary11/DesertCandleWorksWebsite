@@ -6,6 +6,7 @@ import { generateVariants } from "@/lib/products";
 import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
 import ProductActions from "./ProductActions";
+import ProductBreadcrumbs from "@/components/ProductBreadcrumbs";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -126,7 +127,11 @@ export default async function ProductPage({ params }: Props) {
   };
 
   return (
-    <section className="pt-8 md:pt-12 px-6">
+    <section className="pt-6 md:pt-8 px-6">
+      <div className="mx-auto max-w-6xl mb-6">
+        <ProductBreadcrumbs productName={p.name} />
+      </div>
+
       <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
         <div className="relative w-full aspect-[4/5] md:aspect-[3/4] max-h-[56svh] md:max-h-[60svh] overflow-hidden rounded-lg md:rounded-xl">
           {p.image && (
