@@ -110,99 +110,180 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         </div>
       </div>
 
-      {/* Main Content with Sidebar */}
-      <div className="relative px-6">
-        <div className="mx-auto max-w-6xl">
-          <div className="flex flex-col lg:flex-row lg:justify-center gap-8">
-            {/* Left Sidebar - Filters (positioned in left whitespace on large screens) */}
-            <aside className="lg:w-64 lg:absolute lg:left-1/2 lg:-translate-x-[calc(100%+2rem+32rem)] lg:top-0 flex-shrink-0">
-              {/* Mobile: Horizontal layout */}
-              <div className="lg:hidden">
-                <div className="flex flex-col sm:flex-row gap-4 mb-6">
-                  {/* Seasonal Scents Filter - Mobile */}
-                  {hasSeasonalScents && (
-                    <div className="flex-1">
-                      <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
-                        <div className="relative flex items-center justify-center">
-                          <input
-                            type="checkbox"
-                            checked={showSeasonalOnly}
-                            onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                          />
-                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                            {showSeasonalOnly && (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-sm whitespace-nowrap">Seasonal Only</span>
-                      </label>
-                    </div>
-                  )}
-
-                  {/* Sort - Mobile */}
-                  <div className="flex-1">
-                    <select
-                      id="sort-mobile"
-                      value={sortBy}
-                      onChange={(e) => setSortBy(e.target.value as SortOption)}
-                      className="w-full px-3 py-3 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
-                    >
-                      <option value="name-asc">Name (A-Z)</option>
-                      <option value="name-desc">Name (Z-A)</option>
-                      <option value="price-asc">Price (Low-High)</option>
-                      <option value="price-desc">Price (High-Low)</option>
-                    </select>
+      {/* Mobile Filters */}
+      <div className="lg:hidden px-6 mb-8">
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
+          {/* Seasonal Scents Filter - Mobile */}
+          {hasSeasonalScents && (
+            <div className="flex-1">
+              <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={showSeasonalOnly}
+                    onChange={(e) => setShowSeasonalOnly(e.target.checked)}
+                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                  />
+                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                    {showSeasonalOnly && (
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
                   </div>
                 </div>
+                <span className="text-sm whitespace-nowrap">Seasonal Only</span>
+              </label>
+            </div>
+          )}
 
-                {/* Stock Filters - Mobile */}
-                <div className="flex flex-wrap gap-2 mb-6">
+          {/* Sort - Mobile */}
+          <div className="flex-1">
+            <select
+              id="sort-mobile"
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortOption)}
+              className="w-full px-3 py-3 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
+            >
+              <option value="name-asc">Name (A-Z)</option>
+              <option value="name-desc">Name (Z-A)</option>
+              <option value="price-asc">Price (Low-High)</option>
+              <option value="price-desc">Price (High-Low)</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Stock Filters - Mobile */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setFilterBy("all")}
+            className={`px-4 py-2 text-sm rounded-full border transition ${
+              filterBy === "all"
+                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+            }`}
+          >
+            All
+          </button>
+          <button
+            onClick={() => setFilterBy("in-stock")}
+            className={`px-4 py-2 text-sm rounded-full border transition ${
+              filterBy === "in-stock"
+                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+            }`}
+          >
+            In Stock
+          </button>
+          <button
+            onClick={() => setFilterBy("low-stock")}
+            className={`px-4 py-2 text-sm rounded-full border transition ${
+              filterBy === "low-stock"
+                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+            }`}
+          >
+            Low Stock
+          </button>
+          <button
+            onClick={() => setFilterBy("out-of-stock")}
+            className={`px-4 py-2 text-sm rounded-full border transition ${
+              filterBy === "out-of-stock"
+                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+            }`}
+          >
+            Out of Stock
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content with Sidebar */}
+      <div className="px-6">
+        <div className="mx-auto max-w-7xl">
+          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
+            {/* Desktop Sidebar */}
+            <aside className="hidden lg:block lg:w-64 flex-shrink-0">
+            <div className="space-y-6">
+              {/* Seasonal Scents Filter */}
+              {hasSeasonalScents && (
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Collections</h3>
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={showSeasonalOnly}
+                        onChange={(e) => setShowSeasonalOnly(e.target.checked)}
+                        className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                      />
+                      <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                        {showSeasonalOnly && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                      Seasonal Scents Only
+                    </span>
+                  </label>
+                </div>
+              )}
+
+              {/* Stock Filters */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Availability</h3>
+                <div className="space-y-2">
                   <button
                     onClick={() => setFilterBy("all")}
-                    className={`px-4 py-2 text-sm rounded-full border transition ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
                       filterBy === "all"
-                        ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                        : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                        ? "bg-[var(--color-ink)] text-white"
+                        : "hover:bg-neutral-50"
                     }`}
                   >
-                    All
+                    All Products
                   </button>
                   <button
                     onClick={() => setFilterBy("in-stock")}
-                    className={`px-4 py-2 text-sm rounded-full border transition ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
                       filterBy === "in-stock"
-                        ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                        : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                        ? "bg-[var(--color-ink)] text-white"
+                        : "hover:bg-neutral-50"
                     }`}
                   >
                     In Stock
                   </button>
                   <button
                     onClick={() => setFilterBy("low-stock")}
-                    className={`px-4 py-2 text-sm rounded-full border transition ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
                       filterBy === "low-stock"
-                        ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                        : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                        ? "bg-[var(--color-ink)] text-white"
+                        : "hover:bg-neutral-50"
                     }`}
                   >
                     Low Stock
                   </button>
                   <button
                     onClick={() => setFilterBy("out-of-stock")}
-                    className={`px-4 py-2 text-sm rounded-full border transition ${
+                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
                       filterBy === "out-of-stock"
-                        ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                        : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                        ? "bg-[var(--color-ink)] text-white"
+                        : "hover:bg-neutral-50"
                     }`}
                   >
                     Out of Stock
@@ -210,114 +291,31 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                 </div>
               </div>
 
-              {/* Desktop: Vertical sidebar layout */}
-              <div className="hidden lg:block space-y-6">
-                {/* Seasonal Scents Filter */}
-                {hasSeasonalScents && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                    <label className="flex items-start gap-3 cursor-pointer group">
-                      <div className="relative flex items-center justify-center mt-0.5">
-                        <input
-                          type="checkbox"
-                          checked={showSeasonalOnly}
-                          onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                          className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                        />
-                        <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                          {showSeasonalOnly && (
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                        Seasonal Scents Only
-                      </span>
-                    </label>
-                  </div>
-                )}
-
-                {/* Stock Filters */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Availability</h3>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => setFilterBy("all")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "all"
-                          ? "bg-[var(--color-ink)] text-white"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      All Products
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("in-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "in-stock"
-                          ? "bg-[var(--color-ink)] text-white"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      In Stock
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("low-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "low-stock"
-                          ? "bg-[var(--color-ink)] text-white"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      Low Stock
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("out-of-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "out-of-stock"
-                          ? "bg-[var(--color-ink)] text-white"
-                          : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      Out of Stock
-                    </button>
-                  </div>
-                </div>
-
-                {/* Sort */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Sort</h3>
-                  <select
-                    id="sort"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortOption)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
-                  >
-                    <option value="name-asc">Name (A-Z)</option>
-                    <option value="name-desc">Name (Z-A)</option>
-                    <option value="price-asc">Price (Low-High)</option>
-                    <option value="price-desc">Price (High-Low)</option>
-                  </select>
-                </div>
+              {/* Sort */}
+              <div>
+                <h3 className="text-sm font-semibold mb-3">Sort</h3>
+                <select
+                  id="sort"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value as SortOption)}
+                  className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
+                >
+                  <option value="name-asc">Name (A-Z)</option>
+                  <option value="name-desc">Name (Z-A)</option>
+                  <option value="price-asc">Price (Low-High)</option>
+                  <option value="price-desc">Price (High-Low)</option>
+                </select>
               </div>
+            </div>
             </aside>
 
-            {/* Center Content - Products */}
-            <div className="w-full lg:max-w-4xl">
-              {/* Product grid */}
+            {/* Product grid - centered */}
+            <div className="flex-1 mx-auto max-w-6xl">
               <div className="grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                {filteredAndSortedProducts.map((p) => (
-                  <ProductCard key={p.slug} product={p} compact />
-                ))}
-              </div>
+            {filteredAndSortedProducts.map((p) => (
+              <ProductCard key={p.slug} product={p} compact />
+            ))}
+          </div>
 
               {/* Empty state */}
               {filteredAndSortedProducts.length === 0 && (
