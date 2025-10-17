@@ -57,10 +57,10 @@ export default function ProductImageMagnifier({ src, alt }: ProductImageMagnifie
         onMouseLeave={handleMouseLeave}
         onMouseMove={handleMouseMove}
       >
-        {/* Toggle Button */}
+        {/* Toggle Button - Hidden on mobile */}
         <button
           onClick={toggleMagnifier}
-          className="absolute top-3 right-3 z-[1001] p-2 rounded-lg bg-white/90 backdrop-blur-sm border border-[var(--color-line)] shadow-sm hover:bg-white transition-colors"
+          className="hidden md:block absolute top-3 right-3 z-[1001] p-2 rounded-lg bg-white/90 backdrop-blur-sm border border-[var(--color-line)] shadow-sm hover:bg-white transition-colors"
           aria-label={magnifierEnabled ? "Disable magnifier" : "Enable magnifier"}
           title={magnifierEnabled ? "Disable magnifier" : "Enable magnifier"}
         >

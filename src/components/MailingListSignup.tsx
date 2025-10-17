@@ -39,7 +39,7 @@ export default function MailingListSignup() {
   };  
 
   return (
-    <section className="mx-auto max-w-6xl px-6 sm:px-10 mt-16">
+    <section className="mx-auto max-w-6xl px-6 mt-16">
       <div className="rounded-2xl border p-8 sm:p-10 bg-white
                       border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)]
                       shadow-[0_8px_30px_rgba(20,16,12,0.06)]">

@@ -41,7 +41,7 @@ export default function BestSellerCarousel({ products, title = "Best sellers" }:
   };
 
   return (
-    <section className="mx-auto max-w-6xl px-6 sm:px-10 mt-20">
+    <section className="mx-auto max-w-6xl px-6 mt-20">
       <h2 className="text-xl font-semibold mb-6">{title}</h2>
 
       {/* Relative container for arrows */}
