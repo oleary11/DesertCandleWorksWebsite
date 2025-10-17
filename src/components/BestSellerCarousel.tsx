@@ -46,13 +46,14 @@ export default function BestSellerCarousel({ products, title = "Best sellers" }:
 
       {/* Relative container for arrows */}
       <div className="relative overflow-visible">
-        {/* LEFT ARROW */}
+        {/* LEFT ARROW - Hidden on mobile */}
         <button
           onClick={() => scrollByAmount("left")}
           disabled={!canScrollLeft}
           className={`
+            hidden md:block
             absolute top-1/2 -translate-y-1/2 z-10
-            -left-10 md:-left-14 lg:-left-16   /* ← push outside */
+            md:-left-14 lg:-left-16
             p-3 transition
             rounded-full bg-white/80 shadow-[0_4px_16px_rgba(20,16,12,.12)]
             text-[color-mix(in_oklab,var(--color-ink)_70%,white)]
@@ -62,16 +63,17 @@ export default function BestSellerCarousel({ products, title = "Best sellers" }:
           `}
           aria-label="Scroll left"
         >
-          <ChevronLeft className="w-8 h-8 md:w-9 md:h-9" />
+          <ChevronLeft className="w-9 h-9" />
         </button>
 
-        {/* RIGHT ARROW */}
+        {/* RIGHT ARROW - Hidden on mobile */}
         <button
           onClick={() => scrollByAmount("right")}
           disabled={!canScrollRight}
           className={`
+            hidden md:block
             absolute top-1/2 -translate-y-1/2 z-10
-            -right-10 md:-right-14 lg:-right-16  /* ← push outside */
+            md:-right-14 lg:-right-16
             p-3 transition
             rounded-full bg-white/80 shadow-[0_4px_16px_rgba(20,16,12,.12)]
             text-[color-mix(in_oklab,var(--color-ink)_70%,white)]
@@ -81,7 +83,7 @@ export default function BestSellerCarousel({ products, title = "Best sellers" }:
           `}
           aria-label="Scroll right"
         >
-          <ChevronRight className="w-8 h-8 md:w-9 md:h-9" />
+          <ChevronRight className="w-9 h-9" />
         </button>
 
         {/* SCROLLER */}
