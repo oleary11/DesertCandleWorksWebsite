@@ -10,6 +10,7 @@ import ProductBreadcrumbs from "@/components/ProductBreadcrumbs";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import ProductPageTracker from "@/components/ProductPageTracker";
 import ShareButtons from "@/components/ShareButtons";
+import ProductImageMagnifier from "./ProductImageMagnifier";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -136,16 +137,11 @@ export default async function ProductPage({ params }: Props) {
       </div>
 
       <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
-        <div className="relative w-full aspect-[4/5] md:aspect-[3/4] max-h-[56svh] md:max-h-[60svh] overflow-hidden rounded-lg md:rounded-xl">
+        <div className="relative w-3/5 mx-auto aspect-[3/5] md:w-3/4 md:aspect-[2/3] max-h-[70svh] md:max-h-[75svh] rounded-lg overflow-hidden">
           {p.image && (
-            <Image
+            <ProductImageMagnifier
               src={p.image}
               alt={`${p.name} - Hand-poured soy candle in upcycled liquor bottle`}
-              fill
-              className="object-contain"
-              sizes="(min-width: 1024px) 540px, 90vw"
-              quality={90}
-              priority
             />
           )}
         </div>
