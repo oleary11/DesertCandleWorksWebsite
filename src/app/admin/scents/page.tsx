@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 
 /* ---------- Types ---------- */
 type GlobalScent = {
@@ -11,6 +11,8 @@ type GlobalScent = {
   experimental: boolean;
   enabledProducts?: string[];
   sortOrder?: number;
+  notes?: string[];
+  seasonal?: boolean;
 };
 
 type Product = {
@@ -24,6 +26,7 @@ export default function AdminScentsPage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<GlobalScent | null>(null);
+  const [notesInput, setNotesInput] = useState<string>(""); // Separate state for notes text input
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,6 +40,16 @@ export default function AdminScentsPage() {
       setError("Failed to load scents");
     }
   }
+
+  // Sort scents by sortOrder for display
+  const sortedScents = useMemo(() => {
+    return [...scents].sort((a, b) => {
+      const orderA = a.sortOrder ?? 999;
+      const orderB = b.sortOrder ?? 999;
+      if (orderA !== orderB) return orderA - orderB;
+      return a.name.localeCompare(b.name);
+    });
+  }, [scents]);
 
   async function loadProducts() {
     try {
@@ -69,11 +82,15 @@ export default function AdminScentsPage() {
     setSaving(true);
     setError(null);
 
+    // Convert notes input string to array before saving
+    const notesArray = notesInput ? notesInput.split(",").map(n => n.trim()).filter(n => n) : [];
+    const scentToSave = { ...editing, notes: notesArray };
+
     try {
       const res = await fetch("/api/admin/scents", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(editing),
+        body: JSON.stringify(scentToSave),
       });
 
       if (!res.ok) {
@@ -85,6 +102,7 @@ export default function AdminScentsPage() {
 
       await loadScents();
       setEditing(null);
+      setNotesInput("");
     } catch (err) {
       console.error("Save error:", err);
       setError("Failed to save scent");
@@ -115,13 +133,19 @@ export default function AdminScentsPage() {
   }
 
   function handleNew() {
+    // Find highest sort order and add 1
+    const maxSortOrder = scents.reduce((max, s) => Math.max(max, s.sortOrder ?? 0), 0);
+
     setEditing({
       id: "",
       name: "",
       experimental: false,
       enabledProducts: [],
-      sortOrder: scents.length,
+      sortOrder: maxSortOrder + 1,
+      notes: [],
+      seasonal: false,
     });
+    setNotesInput("");
     setError(null);
   }
 
@@ -137,6 +161,50 @@ export default function AdminScentsPage() {
         ? enabledProducts.filter(p => p !== productSlug)
         : [...enabledProducts, productSlug],
     });
+  }
+
+  async function moveScent(scentId: string, direction: "up" | "down") {
+    // Sort scents by sortOrder
+    const sortedScents = [...scents].sort((a, b) => {
+      const orderA = a.sortOrder ?? 999;
+      const orderB = b.sortOrder ?? 999;
+      return orderA - orderB;
+    });
+
+    const currentIndex = sortedScents.findIndex(s => s.id === scentId);
+    if (currentIndex === -1) return;
+
+    const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+    if (targetIndex < 0 || targetIndex >= sortedScents.length) return;
+
+    const currentScent = sortedScents[currentIndex];
+    const targetScent = sortedScents[targetIndex];
+
+    // Swap sort orders
+    const tempOrder = currentScent.sortOrder;
+    const updatedCurrent = { ...currentScent, sortOrder: targetScent.sortOrder };
+    const updatedTarget = { ...targetScent, sortOrder: tempOrder };
+
+    // Update both scents
+    try {
+      await Promise.all([
+        fetch("/api/admin/scents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedCurrent),
+        }),
+        fetch("/api/admin/scents", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updatedTarget),
+        }),
+      ]);
+
+      await loadScents();
+    } catch (err) {
+      console.error("Failed to reorder scents:", err);
+      alert("Failed to reorder scents");
+    }
   }
 
   return (
@@ -173,13 +241,35 @@ export default function AdminScentsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {scents.map((scent) => (
+          {sortedScents.map((scent, index) => (
             <div key={scent.id} className="card p-4 flex items-center justify-between gap-4">
+              {/* Reorder Controls */}
+              <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => moveScent(scent.id, "up")}
+                  disabled={index === 0}
+                  className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Move up"
+                >
+                  <ChevronUp className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => moveScent(scent.id, "down")}
+                  disabled={index === sortedScents.length - 1}
+                  className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  title="Move down"
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </button>
+              </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-medium">{scent.name}</h3>
                   {scent.experimental && (
                     <span className="badge bg-amber-100 text-amber-800 text-xs">Experimental</span>
+                  )}
+                  {scent.seasonal && (
+                    <span className="badge bg-blue-100 text-blue-800 text-xs">Seasonal</span>
                   )}
                 </div>
                 <p className="text-sm text-[var(--color-muted)]">
@@ -193,9 +283,17 @@ export default function AdminScentsPage() {
                     <span className="ml-2">· Available on all products</span>
                   )}
                 </p>
+                {scent.notes && scent.notes.length > 0 && (
+                  <p className="text-sm text-[var(--color-muted)] italic mt-1">
+                    Notes: {scent.notes.join(", ")}
+                  </p>
+                )}
               </div>
               <div className="flex gap-2">
-                <button className="btn" onClick={() => setEditing(scent)}>
+                <button className="btn" onClick={() => {
+                  setEditing(scent);
+                  setNotesInput(scent.notes?.join(", ") || "");
+                }}>
                   Edit
                 </button>
                 <button className="btn" onClick={() => handleDelete(scent.id)}>
@@ -215,6 +313,7 @@ export default function AdminScentsPage() {
             className="absolute inset-0 bg-black/40"
             onClick={() => {
               setEditing(null);
+              setNotesInput("");
               setError(null);
             }}
           />
@@ -229,6 +328,7 @@ export default function AdminScentsPage() {
                 className="btn"
                 onClick={() => {
                   setEditing(null);
+                  setNotesInput("");
                   setError(null);
                 }}
               >
@@ -264,9 +364,39 @@ export default function AdminScentsPage() {
                 <input
                   className="input"
                   value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  onChange={(e) => {
+                    const newName = e.target.value;
+                    const updates: Partial<GlobalScent> = { name: newName };
+
+                    // Auto-generate ID from name if this is a new scent (not found in existing scents)
+                    if (!scents.find(s => s.id === editing.id)) {
+                      const autoId = newName
+                        .toLowerCase()
+                        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+                        .trim()
+                        .replace(/\s+/g, '-') // Replace spaces with hyphens
+                        .replace(/-+/g, '-'); // Replace multiple hyphens with single
+                      updates.id = autoId;
+                    }
+
+                    setEditing({ ...editing, ...updates });
+                  }}
                   placeholder="e.g., Vanilla, Lavender, Cinnamon"
                 />
+              </label>
+
+              {/* Scent Notes */}
+              <label className="block">
+                <div className="text-sm font-medium mb-1">Scent Notes</div>
+                <input
+                  className="input"
+                  value={notesInput}
+                  onChange={(e) => setNotesInput(e.target.value)}
+                  placeholder="e.g., Leather, Bonfire Embers"
+                />
+                <p className="text-xs text-[var(--color-muted)] mt-1">
+                  Enter scent notes separated by commas (e.g., &quot;Leather, Bonfire Embers&quot;). These will be displayed on product pages.
+                </p>
               </label>
 
               {/* Sort Order */}
@@ -299,6 +429,25 @@ export default function AdminScentsPage() {
                   <div className="text-sm font-medium">Experimental Scent</div>
                   <p className="text-xs text-[var(--color-muted)] mt-1">
                     When checked, this scent will only appear on selected products. When unchecked, it will be available for all products.
+                  </p>
+                </div>
+              </label>
+
+              {/* Seasonal Toggle */}
+              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg">
+                <input
+                  type="checkbox"
+                  checked={editing.seasonal ?? false}
+                  onChange={(e) => setEditing({
+                    ...editing,
+                    seasonal: e.target.checked
+                  })}
+                  className="mt-1"
+                />
+                <div className="flex-1">
+                  <div className="text-sm font-medium">Seasonal Scent</div>
+                  <p className="text-xs text-[var(--color-muted)] mt-1">
+                    When checked, this scent will be marked as seasonal and can be filtered separately in the shop.
                   </p>
                 </div>
               </label>
@@ -343,6 +492,7 @@ export default function AdminScentsPage() {
                 className="btn"
                 onClick={() => {
                   setEditing(null);
+                  setNotesInput("");
                   setError(null);
                 }}
               >

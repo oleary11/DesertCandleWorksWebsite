@@ -21,6 +21,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
+  const [showExperimentalOnly, setShowExperimentalOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
   // Get price range from products
@@ -55,12 +56,17 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
     }
   }, []);
 
-  // Get experimental/seasonal scents
+  // Get seasonal and experimental scents
   const seasonalScents = useMemo(() =>
+    globalScents.filter(s => s.seasonal),
+    [globalScents]
+  );
+  const experimentalScents = useMemo(() =>
     globalScents.filter(s => s.experimental),
     [globalScents]
   );
   const hasSeasonalScents = seasonalScents.length > 0;
+  const hasExperimentalScents = experimentalScents.length > 0;
 
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
@@ -93,6 +99,24 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
       });
     }
 
+    // Apply experimental scents filter
+    if (showExperimentalOnly) {
+      const experimentalScentIds = new Set(experimentalScents.map(s => s.id));
+      filtered = filtered.filter((p) => {
+        // Only show products that have variantConfig AND have at least one experimental scent enabled
+        if (!p.variantConfig) return false;
+
+        // Check if product has any variants with experimental scents
+        const { variantData } = p.variantConfig;
+        return Object.keys(variantData).some(variantId => {
+          // Extract scent ID from variant ID (format: "wickId-scentId")
+          const parts = variantId.split('-');
+          const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+          return experimentalScentIds.has(scentId);
+        });
+      });
+    }
+
     // Apply price range filter
     filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
@@ -108,8 +132,17 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
       filtered = filtered.filter((p) => p._computedStock === 0);
     }
 
-    // Apply sort
+    // Apply sort: in-stock first, then by selected sort option
     filtered.sort((a, b) => {
+      // First, sort by stock status (in-stock first)
+      const aInStock = a._computedStock > 0 ? 1 : 0;
+      const bInStock = b._computedStock > 0 ? 1 : 0;
+
+      if (aInStock !== bInStock) {
+        return bInStock - aInStock; // In-stock (1) comes before out-of-stock (0)
+      }
+
+      // Then apply user's selected sort option
       switch (sortBy) {
         case "name-asc":
           return a.name.localeCompare(b.name);
@@ -120,12 +153,12 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         case "price-desc":
           return b.price - a.price;
         default:
-          return 0;
+          return a.name.localeCompare(b.name); // Default to alphabetical
       }
     });
 
     return filtered;
-  }, [products, sortBy, filterBy, showSeasonalOnly, seasonalScents, searchQuery, priceMin, priceMax]);
+  }, [products, sortBy, filterBy, showSeasonalOnly, showExperimentalOnly, seasonalScents, experimentalScents, searchQuery, priceMin, priceMax]);
 
   const productCount = products.length;
   const inStockCount = products.filter((p) => p._computedStock > 0).length;
@@ -236,10 +269,10 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
           </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Seasonal Scents Filter - Mobile */}
-          {hasSeasonalScents && (
-            <div className="flex-1">
+        {/* Collection Filters - Mobile */}
+        {(hasSeasonalScents || hasExperimentalScents) && (
+          <div className="mb-6 space-y-3">
+            {hasSeasonalScents && (
               <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
                 <div className="relative flex items-center justify-center">
                   <input
@@ -262,10 +295,39 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                     )}
                   </div>
                 </div>
-                <span className="text-sm whitespace-nowrap">Candles with Seasonal Scents</span>
+                <span className="text-sm whitespace-nowrap">Seasonal Scents</span>
               </label>
-            </div>
-          )}
+            )}
+            {hasExperimentalScents && (
+              <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
+                <div className="relative flex items-center justify-center">
+                  <input
+                    type="checkbox"
+                    checked={showExperimentalOnly}
+                    onChange={(e) => setShowExperimentalOnly(e.target.checked)}
+                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                  />
+                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                    {showExperimentalOnly && (
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <span className="text-sm whitespace-nowrap">Experimental Scents</span>
+              </label>
+            )}
+          </div>
+        )}
+
+        <div className="flex flex-col sm:flex-row gap-4 mb-6">
 
           {/* Sort - Mobile */}
           <div className="flex-1">
@@ -335,36 +397,68 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block lg:w-64 flex-shrink-0">
             <div className="space-y-6">
-              {/* Seasonal Scents Filter */}
-              {hasSeasonalScents && (
+              {/* Scent Collections Filter */}
+              {(hasSeasonalScents || hasExperimentalScents) && (
                 <div>
                   <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <div className="relative flex items-center justify-center mt-0.5">
-                      <input
-                        type="checkbox"
-                        checked={showSeasonalOnly}
-                        onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                        className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                      />
-                      <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                        {showSeasonalOnly && (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={3}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                      Candles with Seasonal Scents
-                    </span>
-                  </label>
+                  <div className="space-y-2">
+                    {hasSeasonalScents && (
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative flex items-center justify-center mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={showSeasonalOnly}
+                            onChange={(e) => setShowSeasonalOnly(e.target.checked)}
+                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                          />
+                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                            {showSeasonalOnly && (
+                              <svg
+                                className="w-3 h-3 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                          Seasonal Scents
+                        </span>
+                      </label>
+                    )}
+                    {hasExperimentalScents && (
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative flex items-center justify-center mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={showExperimentalOnly}
+                            onChange={(e) => setShowExperimentalOnly(e.target.checked)}
+                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                          />
+                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                            {showExperimentalOnly && (
+                              <svg
+                                className="w-3 h-3 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                          Experimental Scents
+                        </span>
+                      </label>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -505,6 +599,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                       setFilterBy("all");
                       setSortBy("name-asc");
                       setShowSeasonalOnly(false);
+                      setShowExperimentalOnly(false);
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);

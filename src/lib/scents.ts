@@ -9,6 +9,8 @@ export interface GlobalScent {
   experimental: boolean; // if true, only show on specific products
   enabledProducts?: string[]; // product slugs if experimental (empty = all products if not experimental)
   sortOrder?: number; // optional sort order for display
+  notes?: string[]; // scent notes/components (e.g., ["Leather", "Bonfire Embers"])
+  seasonal?: boolean; // if true, marks this scent as seasonal (for filtering in shop)
 }
 
 /**

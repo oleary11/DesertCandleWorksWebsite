@@ -17,9 +17,9 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const { wickTypes } = variantConfig;
   const scents = globalScents; // Use global scents instead of per-product scents
 
-  // Separate scents into standard and seasonal (experimental)
-  const standardScents = useMemo(() => scents.filter(s => !s.experimental), [scents]);
-  const seasonalScents = useMemo(() => scents.filter(s => s.experimental), [scents]);
+  // Separate scents into standard and seasonal
+  const standardScents = useMemo(() => scents.filter(s => !s.seasonal), [scents]);
+  const seasonalScents = useMemo(() => scents.filter(s => s.seasonal), [scents]);
   const hasSeasonalScents = seasonalScents.length > 0;
 
   // Find first in-stock variant to use as default
@@ -371,6 +371,18 @@ export default function ProductVariantForm({ product, variants, globalScents, va
             );
           })}
         </select>
+        {/* Display scent notes for selected scent */}
+        {(() => {
+          const selectedScentObj = scents.find(s => s.id === selectedScent);
+          if (selectedScentObj?.notes && selectedScentObj.notes.length > 0) {
+            return (
+              <div className="mt-2 text-sm text-[var(--color-muted)] italic">
+                Notes: {selectedScentObj.notes.join(", ")}
+              </div>
+            );
+          }
+          return null;
+        })()}
       </div>
 
       {/* Stock Display */}
