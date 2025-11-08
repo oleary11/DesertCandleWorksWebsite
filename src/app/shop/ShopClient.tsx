@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useMemo, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 import { generateVariants } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
-import { Truck, Search } from "lucide-react";
+import { Truck, Search, CheckCircle, XCircle } from "lucide-react";
 
 type ProductWithStock = Product & { _computedStock: number };
 
@@ -18,11 +19,14 @@ type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
 export default function ShopClient({ products, globalScents }: ShopClientProps) {
+  const searchParams = useSearchParams();
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
   const [showExperimentalOnly, setShowExperimentalOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showStatusBanner, setShowStatusBanner] = useState(false);
+  const [statusType, setStatusType] = useState<'success' | 'cancelled' | null>(null);
 
   // Get price range from products
   const priceRange = useMemo(() => {
@@ -35,6 +39,27 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
 
   const [priceMin, setPriceMin] = useState(priceRange.min);
   const [priceMax, setPriceMax] = useState(priceRange.max);
+
+  // Check for checkout status and show banner
+  useEffect(() => {
+    const status = searchParams.get('status');
+    if (status === 'success' || status === 'cancelled') {
+      setStatusType(status);
+      setShowStatusBanner(true);
+
+      // Auto-hide banner after 10 seconds
+      const timer = setTimeout(() => {
+        setShowStatusBanner(false);
+      }, 10000);
+
+      // Clean up URL
+      const url = new URL(window.location.href);
+      url.searchParams.delete('status');
+      window.history.replaceState({}, '', url.toString());
+
+      return () => clearTimeout(timer);
+    }
+  }, [searchParams]);
 
   // Restore scroll position when returning from product page
   useEffect(() => {
@@ -166,6 +191,48 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
 
   return (
     <>
+      {/* Checkout Status Banner */}
+      {showStatusBanner && statusType && (
+        <div
+          className={`full-bleed ${
+            statusType === 'success'
+              ? 'bg-gradient-to-r from-green-600 to-green-700'
+              : 'bg-gradient-to-r from-amber-600 to-amber-700'
+          } text-white py-4 shadow-lg`}
+        >
+          <div className="mx-auto max-w-6xl px-6">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                {statusType === 'success' ? (
+                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                ) : (
+                  <XCircle className="w-5 h-5 flex-shrink-0" />
+                )}
+                <div>
+                  <p className="font-semibold">
+                    {statusType === 'success' ? 'Order Confirmed!' : 'Order Cancelled'}
+                  </p>
+                  <p className="text-sm opacity-90">
+                    {statusType === 'success'
+                      ? 'Thank you for your purchase! A confirmation email has been sent to your email address.'
+                      : 'Your order was cancelled. No charges were made.'}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowStatusBanner(false)}
+                className="text-white/80 hover:text-white transition flex-shrink-0"
+                aria-label="Dismiss"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Free Shipping Banner */}
       <div className="full-bleed bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3">
         <div className="mx-auto max-w-6xl px-6 text-center">

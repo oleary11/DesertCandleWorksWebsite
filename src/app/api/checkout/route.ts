@@ -65,6 +65,9 @@ export async function POST(req: NextRequest) {
       priceIds.map(priceId => stripe.prices.retrieve(priceId))
     );
 
+    // Build session metadata to track what was purchased (for webhook)
+    const sessionMetadata: Record<string, string> = {};
+
     // Build line items with custom names
     const lineItems: LineItem[] = [];
 
@@ -74,6 +77,12 @@ export async function POST(req: NextRequest) {
 
       if (!priceDetails.unit_amount) {
         throw new Error(`Price ${item.price} has no unit_amount`);
+      }
+
+      // Store price ID and variant info in session metadata for webhook
+      sessionMetadata[`item_${index}_price`] = item.price;
+      if (item.metadata?.variantId) {
+        sessionMetadata[`item_${index}_variant`] = item.metadata.variantId;
       }
 
       // Build custom product name with variant details
@@ -182,8 +191,11 @@ export async function POST(req: NextRequest) {
       success_url: `${origin}/shop?status=success`,
       cancel_url: `${origin}/shop?status=cancelled`,
       shipping_address_collection: { allowed_countries: ["US", "CA"] },
+      billing_address_collection: "required", // Collect billing address (includes email)
+      phone_number_collection: { enabled: true }, // Collect phone for shipping issues
       shipping_options: shippingOptions,
       allow_promotion_codes: true,
+      metadata: sessionMetadata, // Pass product/variant info for webhook
       // Disable automatic tax for now - enable after setting business address in Stripe dashboard
       // automatic_tax: { enabled: true },
     });

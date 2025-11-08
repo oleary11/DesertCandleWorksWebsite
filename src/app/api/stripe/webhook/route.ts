@@ -33,9 +33,11 @@ export async function POST(req: NextRequest) {
 
     for (let index = 0; index < lineItems.data.length; index++) {
       const item = lineItems.data[index];
-      const priceId = item.price?.id || "";
-      const productInfo = priceToProduct.get(priceId);
       const qty = item.quantity ?? 1;
+
+      // Get price ID from session metadata (set during checkout)
+      const priceId = session.metadata?.[`item_${index}_price`] || item.price?.id || "";
+      const productInfo = priceToProduct.get(priceId);
 
       if (productInfo && qty > 0) {
         // Check if there's variant info in session metadata
@@ -44,14 +46,18 @@ export async function POST(req: NextRequest) {
         try {
           if (variantId) {
             // Decrement variant stock
+            console.log(`Decrementing variant stock: ${productInfo.slug} variant ${variantId} x${qty}`);
             await incrVariantStock(productInfo.slug, variantId, -qty);
           } else {
             // Decrement base stock (for non-variant products)
+            console.log(`Decrementing base stock: ${productInfo.slug} x${qty}`);
             await incrStock(productInfo.slug, -qty);
           }
         } catch (err) {
           console.error(`Stock decrement failed for ${productInfo.slug} ${variantId ? `variant ${variantId}` : ''} x${qty}`, err);
         }
+      } else {
+        console.warn(`No product mapping found for price ${priceId} at line item ${index}`);
       }
     }
   }
