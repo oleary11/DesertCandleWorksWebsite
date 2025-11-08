@@ -3,7 +3,7 @@ import { getTotalStockForProduct } from "@/lib/productsStore";
 import { getAllScents } from "@/lib/scents";
 import type { Metadata } from "next";
 import ShopClient from "./ShopClient";
-export const revalidate = 3600;
+export const revalidate = 30; // Revalidate every 30 seconds for real-time stock updates
 
 export const generateMetadata = (): Metadata => {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
