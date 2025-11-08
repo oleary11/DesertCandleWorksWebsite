@@ -6,6 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 import { generateVariants } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
+import { useCartStore } from "@/lib/cartStore";
 import { Truck, Search, CheckCircle, XCircle } from "lucide-react";
 
 type ProductWithStock = Product & { _computedStock: number };
@@ -20,6 +21,7 @@ type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
 export default function ShopClient({ products, globalScents }: ShopClientProps) {
   const searchParams = useSearchParams();
+  const clearCart = useCartStore((state) => state.clearCart);
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
@@ -47,6 +49,11 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
       setStatusType(status);
       setShowStatusBanner(true);
 
+      // Clear cart on successful checkout
+      if (status === 'success') {
+        clearCart();
+      }
+
       // Auto-hide banner after 10 seconds
       const timer = setTimeout(() => {
         setShowStatusBanner(false);
@@ -59,7 +66,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
 
       return () => clearTimeout(timer);
     }
-  }, [searchParams]);
+  }, [searchParams, clearCart]);
 
   // Restore scroll position when returning from product page
   useEffect(() => {
