@@ -77,10 +77,19 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
     }
 
     // Fallback to first variant if nothing in stock
+    let fallbackScentGroup: "standard" | "seasonal" | "experimental" = "standard";
+    if (standardScents.length > 0) {
+      fallbackScentGroup = "standard";
+    } else if (seasonalScents.length > 0) {
+      fallbackScentGroup = "seasonal";
+    } else {
+      fallbackScentGroup = "experimental";
+    }
+
     return {
       wickType: wickTypes[0]?.id || "",
       scent: standardScents[0]?.id || seasonalScents[0]?.id || experimentalScents[0]?.id || globalScents[0]?.id || "",
-      scentGroup: (standardScents.length > 0 ? "standard" : seasonalScents.length > 0 ? "seasonal" : "experimental") as const
+      scentGroup: fallbackScentGroup
     };
   };
 
