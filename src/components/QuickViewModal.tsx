@@ -1,21 +1,111 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { X, ExternalLink, ShoppingCart } from "lucide-react";
-import type { Product } from "@/lib/products";
+import type { Product, ProductVariant } from "@/lib/products";
+import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
 
 type QuickViewModalProps = {
   product: Product & { _computedStock?: number };
+  variants?: ProductVariant[];
+  globalScents?: GlobalScent[];
   onClose: () => void;
 };
 
-export default function QuickViewModal({ product, onClose }: QuickViewModalProps) {
+export default function QuickViewModal({ product, variants = [], globalScents = [], onClose }: QuickViewModalProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const addItem = useCartStore((state) => state.addItem);
-  const stock = product._computedStock ?? product.stock ?? 0;
+
+  const hasVariants = !!product.variantConfig && variants.length > 0;
+
+  // Separate scents into standard, seasonal, and experimental
+  const standardScents = useMemo(() => globalScents.filter(s => !s.seasonal && !s.experimental), [globalScents]);
+  const seasonalScents = useMemo(() => globalScents.filter(s => s.seasonal), [globalScents]);
+  const experimentalScents = useMemo(() => globalScents.filter(s => s.experimental), [globalScents]);
+
+  // Seasonal scents are available for ALL products
+  const hasSeasonalScents = seasonalScents.length > 0;
+
+  // Experimental scents only show if THIS product has them configured in variantData
+  const hasExperimentalScents = useMemo(() => {
+    if (!product.variantConfig) return false;
+    const { variantData } = product.variantConfig;
+
+    // Check if any variantData key contains an experimental scent
+    return Object.keys(variantData).some(variantId => {
+      const parts = variantId.split('-');
+      const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+      return experimentalScents.some(s => s.id === scentId);
+    });
+  }, [product.variantConfig, experimentalScents]);
+
+  // Find first in-stock variant to use as default
+  const getDefaultVariant = () => {
+    if (!hasVariants) return null;
+
+    const wickTypes = product.variantConfig!.wickTypes;
+
+    // Try to find in-stock variant in order of preference: standard > seasonal > experimental
+    const inStockStandard = variants.find(v =>
+      v.stock > 0 && standardScents.some(s => s.id === v.scent)
+    );
+    const inStockSeasonal = variants.find(v =>
+      v.stock > 0 && seasonalScents.some(s => s.id === v.scent)
+    );
+    const inStockExperimental = variants.find(v =>
+      v.stock > 0 && experimentalScents.some(s => s.id === v.scent)
+    );
+
+    const inStockVariant = inStockStandard || inStockSeasonal || inStockExperimental;
+
+    if (inStockVariant) {
+      let scentGroup: "standard" | "seasonal" | "experimental" = "standard";
+      if (seasonalScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "seasonal";
+      } else if (experimentalScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "experimental";
+      }
+
+      return {
+        wickType: inStockVariant.wickType,
+        scent: inStockVariant.scent,
+        scentGroup
+      };
+    }
+
+    // Fallback to first variant if nothing in stock
+    return {
+      wickType: wickTypes[0]?.id || "",
+      scent: standardScents[0]?.id || seasonalScents[0]?.id || experimentalScents[0]?.id || globalScents[0]?.id || "",
+      scentGroup: (standardScents.length > 0 ? "standard" : seasonalScents.length > 0 ? "seasonal" : "experimental") as const
+    };
+  };
+
+  const defaultVariant = getDefaultVariant();
+
+  const [selectedWickType, setSelectedWickType] = useState(defaultVariant?.wickType || "");
+  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal" | "experimental">(defaultVariant?.scentGroup || "standard");
+  const [selectedScent, setSelectedScent] = useState(defaultVariant?.scent || "");
+
+  // Get the current scent list based on selected group
+  const currentScents = useMemo(() => {
+    if (scentGroup === "standard") return standardScents;
+    if (scentGroup === "seasonal") return seasonalScents;
+    return experimentalScents;
+  }, [scentGroup, standardScents, seasonalScents, experimentalScents]);
+
+  // Find the matching variant
+  const selectedVariant = useMemo(() => {
+    if (!hasVariants) return null;
+    return variants.find(
+      v => v.wickType === selectedWickType && v.scent === selectedScent
+    );
+  }, [hasVariants, variants, selectedWickType, selectedScent]);
+
+  const stock = hasVariants ? (selectedVariant?.stock ?? 0) : (product._computedStock ?? product.stock ?? 0);
   const canBuy = !!product.stripePriceId && stock > 0;
 
   // Prevent body scroll when modal is open
@@ -35,8 +125,16 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
     return () => window.removeEventListener("keydown", handleEsc);
   }, [onClose]);
 
+  const getItemQuantity = useCartStore((state) => state.getItemQuantity);
+  const currentQuantityInCart = hasVariants ? getItemQuantity(product.slug, selectedVariant?.id) : 0;
+  const remainingStock = stock - currentQuantityInCart;
+
   const handleAddToCart = () => {
-    if (!canBuy) return;
+    if (!canBuy || (hasVariants && remainingStock <= 0)) return;
+
+    const wickTypes = product.variantConfig?.wickTypes || [];
+    const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
+    const selectedScentName = globalScents.find(s => s.id === selectedScent)?.name || "";
 
     const success = addItem({
       productSlug: product.slug,
@@ -45,6 +143,13 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
       price: product.price,
       stripePriceId: product.stripePriceId!,
       maxStock: stock,
+      ...(hasVariants && selectedVariant ? {
+        variantId: selectedVariant.id,
+        wickType: selectedVariant.wickType,
+        scent: selectedVariant.scent,
+        wickTypeName: selectedWickName,
+        scentName: selectedScentName,
+      } : {}),
     });
 
     if (success) {
@@ -116,28 +221,156 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
 
             <p className="text-2xl font-medium mb-4">${product.price}</p>
 
+            {/* Variant Selector */}
+            {hasVariants && product.variantConfig && (
+              <div className="space-y-4 mb-6">
+                {/* Wick Type Selector */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Wick Type</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {product.variantConfig.wickTypes.map(wickType => {
+                      const isSelected = wickType.id === selectedWickType;
+                      return (
+                        <button
+                          key={wickType.id}
+                          type="button"
+                          onClick={() => {
+                            setSelectedWickType(wickType.id);
+                            // Auto-select first scent for this wick type
+                            const firstAvailableScent = variants.find(
+                              v => v.wickType === wickType.id && v.stock > 0 && currentScents.some(s => s.id === v.scent)
+                            )?.scent || variants.find(v => v.wickType === wickType.id && currentScents.some(s => s.id === v.scent))?.scent || currentScents[0]?.id || "";
+                            setSelectedScent(firstAvailableScent);
+                          }}
+                          className={`
+                            px-3 py-2 rounded-lg border text-sm font-medium transition cursor-pointer
+                            ${isSelected
+                              ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                              : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                            }
+                          `}
+                        >
+                          {wickType.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Scent Group Toggle */}
+                {(hasSeasonalScents || hasExperimentalScents) && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Scent Collection</label>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setScentGroup("standard");
+                          const firstStandardScent = standardScents[0]?.id;
+                          if (firstStandardScent) setSelectedScent(firstStandardScent);
+                        }}
+                        className={`
+                          flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition
+                          ${scentGroup === "standard"
+                            ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                            : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                          }
+                        `}
+                      >
+                        Standard
+                      </button>
+                      {hasSeasonalScents && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScentGroup("seasonal");
+                            const firstSeasonalScent = seasonalScents[0]?.id;
+                            if (firstSeasonalScent) setSelectedScent(firstSeasonalScent);
+                          }}
+                          className={`
+                            flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition
+                            ${scentGroup === "seasonal"
+                              ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                              : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                            }
+                          `}
+                        >
+                          Seasonal
+                        </button>
+                      )}
+                      {hasExperimentalScents && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setScentGroup("experimental");
+                            const firstExperimentalScent = experimentalScents[0]?.id;
+                            if (firstExperimentalScent) setSelectedScent(firstExperimentalScent);
+                          }}
+                          className={`
+                            flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition
+                            ${scentGroup === "experimental"
+                              ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                              : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                            }
+                          `}
+                        >
+                          Experimental
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Scent Selector */}
+                <div>
+                  <label className="block text-sm font-medium mb-2">Scent</label>
+                  <select
+                    value={selectedScent}
+                    onChange={e => setSelectedScent(e.target.value)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
+                  >
+                    {currentScents.map(scent => {
+                      const available = variants.some(
+                        v => v.wickType === selectedWickType && v.scent === scent.id && v.stock > 0
+                      );
+                      return (
+                        <option key={scent.id} value={scent.id}>
+                          {scent.name} {!available ? "(Out of stock)" : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                  {/* Display scent notes */}
+                  {(() => {
+                    const selectedScentObj = globalScents.find(s => s.id === selectedScent);
+                    if (selectedScentObj?.notes && selectedScentObj.notes.length > 0) {
+                      return (
+                        <div className="mt-2 text-xs text-[var(--color-muted)] italic">
+                          Notes: {selectedScentObj.notes.join(", ")}
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+                </div>
+              </div>
+            )}
+
             {/* Stock status */}
             <p className="text-sm mb-6">
               {stock <= 0 ? (
                 <span className="text-rose-600 font-medium">Out of stock</span>
               ) : stock < 3 ? (
-                <span className="text-amber-600 font-medium">Only {stock} left!</span>
+                <span className="text-rose-600 font-medium">Only {stock} left — almost gone</span>
               ) : (
-                <span className="text-green-600 font-medium">{stock} in stock</span>
+                <span className="text-[var(--color-muted)]">{stock} in stock</span>
+              )}
+              {hasVariants && currentQuantityInCart > 0 && (
+                <span className="ml-2 text-xs text-[var(--color-muted)]">
+                  ({currentQuantityInCart} in cart)
+                </span>
               )}
             </p>
-
-            {/* Note about variants */}
-            {product.variantConfig && (
-              <div className="mb-6 p-3 rounded-lg bg-blue-50 border border-blue-200">
-                <p className="text-sm text-blue-900">
-                  <strong>Note:</strong> This product has multiple scent and wick options.
-                  <Link href={`/shop/${product.slug}`} className="ml-1 underline font-medium hover:text-blue-700">
-                    View all options →
-                  </Link>
-                </p>
-              </div>
-            )}
 
             {addToCartMessage && (
               <div className={`
@@ -162,20 +395,18 @@ export default function QuickViewModal({ product, onClose }: QuickViewModalProps
 
             {/* Actions */}
             <div className="flex flex-col gap-3 mt-auto">
-              {!product.variantConfig ? (
-                <button
-                  onClick={handleAddToCart}
-                  disabled={!canBuy}
-                  className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium
-                    [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-                    text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
-                    hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition
-                    ${!canBuy ? "opacity-50 cursor-not-allowed hover:translate-y-0" : ""}`}
-                >
-                  <ShoppingCart className="w-4 h-4" />
-                  Add to Cart
-                </button>
-              ) : null}
+              <button
+                onClick={handleAddToCart}
+                disabled={!canBuy || (hasVariants && remainingStock <= 0)}
+                className={`inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3 text-sm font-medium
+                  [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
+                  text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
+                  hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition
+                  ${!canBuy || (hasVariants && remainingStock <= 0) ? "opacity-50 cursor-not-allowed hover:translate-y-0" : ""}`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                {hasVariants && remainingStock <= 0 && currentQuantityInCart > 0 ? "Max in Cart" : "Add to Cart"}
+              </button>
 
               <Link
                 href={`/shop/${product.slug}`}

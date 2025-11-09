@@ -24,48 +24,67 @@ export default function QuickAddModal({
   const addItem = useCartStore((state) => state.addItem);
   const [addToCartMessage, setAddToCartMessage] = useState("");
 
-  // Use all global scents - don't filter by variantData
-  // Separate scents into standard and seasonal
-  const standardScents = useMemo(() => globalScents.filter(s => !s.experimental), [globalScents]);
-  const seasonalScents = useMemo(() => globalScents.filter(s => s.experimental), [globalScents]);
+  // Separate scents into standard, seasonal, and experimental
+  const standardScents = useMemo(() => globalScents.filter(s => !s.seasonal && !s.experimental), [globalScents]);
+  const seasonalScents = useMemo(() => globalScents.filter(s => s.seasonal), [globalScents]);
+  const experimentalScents = useMemo(() => globalScents.filter(s => s.experimental), [globalScents]);
 
-  // Check if this product has any seasonal scents configured in its variantData
-  const hasSeasonalScents = useMemo(() => {
+  // Seasonal scents are available for ALL products
+  const hasSeasonalScents = seasonalScents.length > 0;
+
+  // Experimental scents only show if THIS product has them configured in variantData
+  const hasExperimentalScents = useMemo(() => {
     if (!product.variantConfig) return false;
-    const seasonalScentIds = new Set(seasonalScents.map(s => s.id));
+    const { variantData } = product.variantConfig;
 
-    // Check if any variant in variantData uses a seasonal scent
-    return Object.keys(product.variantConfig.variantData).some(variantId => {
+    // Check if any variantData key contains an experimental scent
+    return Object.keys(variantData).some(variantId => {
       const parts = variantId.split('-');
-      const scentId = parts.slice(1).join('-');
-      return seasonalScentIds.has(scentId);
+      const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+      return experimentalScents.some(s => s.id === scentId);
     });
-  }, [product.variantConfig, seasonalScents]);
+  }, [product.variantConfig, experimentalScents]);
 
   // Find first in-stock variant to use as default
   const getDefaultVariant = () => {
-    const inStockVariant = variants.find(v =>
+    // Try to find in-stock variant in order of preference: standard > seasonal > experimental
+    const inStockStandard = variants.find(v =>
       v.stock > 0 && standardScents.some(s => s.id === v.scent)
-    ) || variants.find(v => v.stock > 0);
+    );
+    const inStockSeasonal = variants.find(v =>
+      v.stock > 0 && seasonalScents.some(s => s.id === v.scent)
+    );
+    const inStockExperimental = variants.find(v =>
+      v.stock > 0 && experimentalScents.some(s => s.id === v.scent)
+    );
+
+    const inStockVariant = inStockStandard || inStockSeasonal || inStockExperimental;
 
     if (inStockVariant) {
+      let scentGroup: "standard" | "seasonal" | "experimental" = "standard";
+      if (seasonalScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "seasonal";
+      } else if (experimentalScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "experimental";
+      }
+
       return {
         wickType: inStockVariant.wickType,
         scent: inStockVariant.scent,
-        scentGroup: standardScents.some(s => s.id === inStockVariant.scent) ? "standard" as const : "seasonal" as const
+        scentGroup
       };
     }
 
     return {
       wickType: wickTypes[0]?.id || "",
-      scent: standardScents[0]?.id || globalScents[0]?.id || "",
-      scentGroup: "standard" as const
+      scent: standardScents[0]?.id || seasonalScents[0]?.id || experimentalScents[0]?.id || globalScents[0]?.id || "",
+      scentGroup: (standardScents.length > 0 ? "standard" : seasonalScents.length > 0 ? "seasonal" : "experimental") as const
     };
   };
 
   const defaultVariant = getDefaultVariant();
   const [selectedWickType, setSelectedWickType] = useState(defaultVariant.wickType);
-  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal">(defaultVariant.scentGroup);
+  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal" | "experimental">(defaultVariant.scentGroup);
   const [selectedScent, setSelectedScent] = useState(defaultVariant.scent);
 
   // Prevent body scroll when modal is open
@@ -86,8 +105,10 @@ export default function QuickAddModal({
   }, [onClose]);
 
   const currentScents = useMemo(() => {
-    return scentGroup === "standard" ? standardScents : seasonalScents;
-  }, [scentGroup, standardScents, seasonalScents]);
+    if (scentGroup === "standard") return standardScents;
+    if (scentGroup === "seasonal") return seasonalScents;
+    return experimentalScents;
+  }, [scentGroup, standardScents, seasonalScents, experimentalScents]);
 
   const selectedVariant = useMemo(() => {
     return variants.find(
@@ -202,8 +223,8 @@ export default function QuickAddModal({
             </div>
           </div>
 
-          {/* Scent Group Toggle (if seasonal scents exist) */}
-          {hasSeasonalScents && (
+          {/* Scent Group Toggle (show if there are seasonal or experimental scents) */}
+          {(hasSeasonalScents || hasExperimentalScents) && (
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Scent Collection</label>
               <div className="flex gap-2">
@@ -215,7 +236,7 @@ export default function QuickAddModal({
                     if (firstStandardScent) setSelectedScent(firstStandardScent);
                   }}
                   className={`
-                    flex-1 px-4 py-2 text-sm font-medium rounded-lg transition
+                    flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
                     ${scentGroup === "standard"
                       ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                       : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
@@ -224,23 +245,44 @@ export default function QuickAddModal({
                 >
                   Standard
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setScentGroup("seasonal");
-                    const firstSeasonalScent = seasonalScents[0]?.id;
-                    if (firstSeasonalScent) setSelectedScent(firstSeasonalScent);
-                  }}
-                  className={`
-                    flex-1 px-4 py-2 text-sm font-medium rounded-lg transition
-                    ${scentGroup === "seasonal"
-                      ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
-                      : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
-                    }
-                  `}
-                >
-                  Seasonal
-                </button>
+                {hasSeasonalScents && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScentGroup("seasonal");
+                      const firstSeasonalScent = seasonalScents[0]?.id;
+                      if (firstSeasonalScent) setSelectedScent(firstSeasonalScent);
+                    }}
+                    className={`
+                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
+                      ${scentGroup === "seasonal"
+                        ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                        : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                      }
+                    `}
+                  >
+                    Seasonal
+                  </button>
+                )}
+                {hasExperimentalScents && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setScentGroup("experimental");
+                      const firstExperimentalScent = experimentalScents[0]?.id;
+                      if (firstExperimentalScent) setSelectedScent(firstExperimentalScent);
+                    }}
+                    className={`
+                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
+                      ${scentGroup === "experimental"
+                        ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                        : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                      }
+                    `}
+                  >
+                    Experimental
+                  </button>
+                )}
               </div>
             </div>
           )}

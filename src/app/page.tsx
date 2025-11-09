@@ -3,6 +3,13 @@ import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
 import Link from "next/link";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import localFont from "next/font/local";
+
+const megastina = localFont({
+  src: [{ path: "../../public/fonts/Megastina.ttf", weight: "400", style: "normal" }],
+  variable: "--font-megastina",
+  display: "swap",
+});
 
 export const revalidate = 3600;
 
@@ -12,6 +19,7 @@ export default async function Home() {
 
   return (
     <>
+      {/* HERO */}
       <section
         className="
           relative isolate overflow-hidden
@@ -31,9 +39,9 @@ export default async function Home() {
         />
         <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
         <div className="relative z-10 px-6">
-        <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
-          Hand-Poured Candles in Scottsdale, Arizona
-        </h1>
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
+            Hand-Poured Candles in Scottsdale, Arizona
+          </h1>
           <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg text-[var(--color-muted)]">
             Locally crafted soy candles in upcycled liquor bottles. Wood wicks, clean burns, and desert-inspired scents made in Phoenix.
           </p>
@@ -55,7 +63,88 @@ export default async function Home() {
         </div>
       </section>
 
-      <BestSellerCarousel products={bestsellers} />
+      {/* OUR SMELLS — big, cursive, typing effect (FIRST under banner) */}
+      <section className="mx-auto max-w-6xl px-6 pt-6 pb-0 text-center">
+        <h2 className={`${megastina.className} script-title`} style={{ color: "var(--color-ink)" }}>
+          <span className="typing script-hero">Our Smells</span>
+        </h2>
+      </section>
+
+
+      {/* MINI BLURB UNDER HERO */}
+      <section className="mx-auto max-w-4xl px-6 pt-4 pb-8 text-center">
+        <p className="text-sm sm:text-base leading-relaxed text-[var(--color-muted)]">
+          Our lineup rotates through{" "}
+          <span className="font-medium text-[var(--color-ink)]">Signature</span> blends,
+          small-batch{" "}
+          <span className="font-medium text-[var(--color-ink)]">Experimental</span> pours on select bottles,
+          and limited-time{" "}
+          <span className="font-medium text-[var(--color-ink)]">Seasonal</span> scents available across all bottles.
+        </p>
+      </section>
+
+      {/* SCENT PROGRAM OVERVIEW + SIGNATURE DETAILS (no duplicate OUR SMELLS) */}
+      <section className="mx-auto max-w-6xl px-6 pt-6 pb-0">
+        <div className="grid gap-6 sm:grid-cols-3">
+          {/* Signature */}
+          <div className="card rounded-2xl p-6 sm:p-7 card--sage">
+            <div className="flex items-center gap-2">
+              <span className="badge badge--sage">Signature</span>
+              <span className="text-xs text-[var(--color-muted)]/70">Rotating Core</span>
+            </div>
+            <h3 className="mt-3 text-lg font-semibold">Always-Return Favorites</h3>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              Our core, desert-inspired blends cycle in and out through the year.
+            </p>
+            {/* Simple list, not individual cards */}
+            <ul className="mt-4 text-sm leading-7 text-[var(--color-ink)]/90">
+              <li><span className="font-medium">Wood and Bloom</span> — Lavender &amp; Sandalwood</li>
+              <li><span className="font-medium">Cabin Spa</span> — Amber, Lavender, &amp; Sandalwood</li>
+              <li><span className="font-medium">Boot Leather</span> — Bonfire &amp; Leather</li>
+              <li><span className="font-medium">Minted Lavender</span> — Eucalyptus &amp; Lavender</li>
+              <li><span className="font-medium">Smoked Amber</span> — Amber &amp; Bonfire</li>
+            </ul>
+          </div>
+
+          {/* Experimental */}
+          <div className="card rounded-2xl p-6 sm:p-7 card--mist">
+            <div className="flex items-center gap-2">
+              <span className="badge badge--mist">Experimental</span>
+              <span className="text-xs text-[var(--color-muted)]/70">Small Batch</span>
+            </div>
+            <h3 className="mt-3 text-lg font-semibold">New Combos, Limited Runs</h3>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              We test fresh pairings and tweak ratios. These pours are{" "}
+              <span className="font-medium">small-batch</span> and only appear on{" "}
+              <span className="font-medium">select candles</span>. When they’re gone, they’re gone.
+            </p>
+            <p className="mt-3 text-xs text-[var(--color-muted)]/80">
+              Check product pages for notes on current experiments.
+            </p>
+          </div>
+
+          {/* Seasonal */}
+          <div className="card rounded-2xl p-6 sm:p-7 card--rose">
+            <div className="flex items-center gap-2">
+              <span className="badge badge--rose">Seasonal</span>
+              <span className="text-xs text-[var(--color-muted)]/70">Limited Time</span>
+            </div>
+            <h3 className="mt-3 text-lg font-semibold">Made for the Moment</h3>
+            <p className="mt-2 text-sm text-[var(--color-muted)]">
+              Timed to the season and available{" "}
+              <span className="font-medium">across all bottle styles</span> during the run.
+            </p>
+            <p className="mt-3 text-xs text-[var(--color-muted)]/80">
+              Look for drop dates and restocks on socials and our newsletter.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* BEST SELLERS — still pulled up tight */}
+      <div className="-mt-2">
+        <BestSellerCarousel products={bestsellers} />
+      </div>
 
       <div className="pb-6">
         <MailingListSignup />
