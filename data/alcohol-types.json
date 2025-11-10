@@ -23,19 +23,21 @@
   },
   {
     "id": "wine",
-    "name": "Wines",
-    "sortOrder": 4
+    "name": "Wines & Champagnes",
+    "sortOrder": 4,
+    "archived": false
   },
   {
     "id": "liqueur",
-    "name": "Liqueurs",
+    "name": "Liqueurs & Cocktails",
     "sortOrder": 6,
     "archived": false
   },
   {
     "id": "other",
     "name": "Other",
-    "sortOrder": 9999
+    "sortOrder": 999,
+    "archived": false
   },
   {
     "id": "whiskeys-bourbons",
