@@ -7,8 +7,8 @@ import {
 } from "@/lib/alcoholTypesStore";
 import { revalidateTag } from "next/cache";
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
-  const id = params.id;
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const patch = (await req.json().catch(() => ({}))) as {
     name?: string; sortOrder?: number; archived?: boolean;
   };
@@ -23,8 +23,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   );
 }
 
-export async function DELETE(_: Request, { params }: { params: { id: string } }) {
-  const ok = await deleteAlcoholType(params.id);
+export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const ok = await deleteAlcoholType(id);
   if (!ok) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   revalidateTag(ALCOHOL_TYPES_TAG);
