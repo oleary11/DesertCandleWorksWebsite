@@ -25,6 +25,7 @@ export async function listResolvedProducts(): Promise<Product[]> {
       bestSeller: coerceBool(p.bestSeller),
       stock: Math.max(0, Number(p.stock ?? 0)),
       price: Number(p.price),
+      alcoholType: p.alcoholType ?? "Other",
     } as Product;
   });
 

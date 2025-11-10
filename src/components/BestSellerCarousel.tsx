@@ -5,9 +5,10 @@ import ProductCard from "@/components/ProductCard";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import type { Product } from "@/lib/productsStore";
-type Props = { products: Product[]; title?: string };
 
-export default function BestSellerCarousel({ products, title = "Best sellers" }: Props) {
+type Props = { products: Product[] };
+
+export default function BestSellerCarousel({ products }: Props) {
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
@@ -41,9 +42,7 @@ export default function BestSellerCarousel({ products, title = "Best sellers" }:
   };
 
   return (
-    <section className="mx-auto max-w-6xl px-6 mt-20">
-      <h2 className="text-xl font-semibold mb-6">{title}</h2>
-
+    <section className="mx-auto max-w-6xl px-6 pt-6"> {/* was mt-20 → now tighter */}
       {/* Relative container for arrows */}
       <div className="relative overflow-visible">
         {/* LEFT ARROW - Hidden on mobile */}

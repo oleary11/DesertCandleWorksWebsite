@@ -289,5 +289,31 @@ button, .btn, .btn-primary, .btn-ghost {
   font-synthesis-weight: none;      /* don't fake a bold */
 }
 
-/* make the caret scale with font size so it doesn’t look too thin */
-.typing { border-right-width: 0.06em; }
+/* Looping typing effect (used by <TypingLoop/>) */
+.typing-loop {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: hidden;
+  vertical-align: bottom;
+}
+
+.typing-caret {
+  display: inline-block;
+  border-right: 0.04em solid currentColor; /* thinner caret */
+  margin-left: 0.05em;
+  height: 0.95em;
+  translate: 0 0.07em; /* centers better on baseline */
+  animation: caret-blink 1.25s step-end infinite; /* slower blink for elegance */
+}
+
+@keyframes caret-blink {
+  0%, 100% { opacity: 0; }
+  50%      { opacity: 1; }
+}
+
+/* Respect reduced-motion prefs */
+@media (prefers-reduced-motion: reduce) {
+  .typing-caret {
+    animation: none;
+  }
+}

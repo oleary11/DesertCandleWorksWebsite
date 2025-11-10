@@ -11,99 +11,98 @@ import { Truck, Search, CheckCircle, XCircle } from "lucide-react";
 
 type ProductWithStock = Product & { _computedStock: number };
 
-type ShopClientProps = {
-  products: ProductWithStock[];
-  globalScents: GlobalScent[];
-};
-
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
-export default function ShopClient({ products, globalScents }: ShopClientProps) {
+type AlcoholType = { id: string; name: string; sortOrder?: number };
+
+type ShopClientProps = {
+  products: ProductWithStock[];
+  globalScents: GlobalScent[];
+  alcoholTypes: AlcoholType[]; // NEW for grouping
+};
+
+export default function ShopClient({ products, globalScents, alcoholTypes }: ShopClientProps) {
   const searchParams = useSearchParams();
   const clearCart = useCartStore((state) => state.clearCart);
+
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
   const [showExperimentalOnly, setShowExperimentalOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
-  const [statusType, setStatusType] = useState<'success' | 'cancelled' | null>(null);
+  const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
+  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
-  // Get price range from products
+  // Price range from products
   const priceRange = useMemo(() => {
-    const prices = products.map(p => p.price);
+    const prices = products.map((p) => p.price);
     return {
       min: Math.floor(Math.min(...prices)),
-      max: Math.ceil(Math.max(...prices))
+      max: Math.ceil(Math.max(...prices)),
     };
   }, [products]);
 
   const [priceMin, setPriceMin] = useState(priceRange.min);
   const [priceMax, setPriceMax] = useState(priceRange.max);
 
-  // Check for checkout status and show banner
+  // Checkout status & banner
   useEffect(() => {
-    const status = searchParams.get('status');
-    if (status === 'success' || status === 'cancelled') {
+    const status = searchParams.get("status");
+    if (status === "success" || status === "cancelled") {
       setStatusType(status);
       setShowStatusBanner(true);
 
-      // Clear cart on successful checkout
-      if (status === 'success') {
+      if (status === "success") {
         clearCart();
       }
 
-      // Auto-hide banner after 10 seconds
       const timer = setTimeout(() => {
         setShowStatusBanner(false);
       }, 10000);
 
-      // Clean up URL
+      // Clean URL
       const url = new URL(window.location.href);
-      url.searchParams.delete('status');
-      window.history.replaceState({}, '', url.toString());
+      url.searchParams.delete("status");
+      window.history.replaceState({}, "", url.toString());
 
       return () => clearTimeout(timer);
     }
   }, [searchParams, clearCart]);
 
-  // Restore scroll position when returning from product page
+  // Restore scroll when coming back from product page
   useEffect(() => {
-    const shouldRestore = sessionStorage.getItem('useBackButton');
-    const savedPosition = sessionStorage.getItem('shopScrollPosition');
+    const shouldRestore = sessionStorage.getItem("useBackButton");
+    const savedPosition = sessionStorage.getItem("shopScrollPosition");
 
-    if (shouldRestore === 'true' && savedPosition) {
-      // Use requestAnimationFrame to ensure DOM is ready
+    if (shouldRestore === "true" && savedPosition) {
       requestAnimationFrame(() => {
         window.scrollTo({
           top: parseInt(savedPosition, 10),
-          behavior: 'instant' as ScrollBehavior
+          behavior: "instant" as ScrollBehavior,
         });
       });
 
-      // Clean up flags
-      sessionStorage.removeItem('useBackButton');
-      sessionStorage.removeItem('fromProductPage');
+      sessionStorage.removeItem("useBackButton");
+      sessionStorage.removeItem("fromProductPage");
     }
   }, []);
 
-  // Get seasonal and experimental scents
-  const seasonalScents = useMemo(() =>
-    globalScents.filter(s => s.seasonal),
-    [globalScents]
-  );
-  const experimentalScents = useMemo(() =>
-    globalScents.filter(s => s.experimental),
+  // Seasonal & Experimental sets
+  const seasonalScents = useMemo(() => globalScents.filter((s) => s.seasonal), [globalScents]);
+  const experimentalScents = useMemo(
+    () => globalScents.filter((s) => s.experimental),
     [globalScents]
   );
   const hasSeasonalScents = seasonalScents.length > 0;
   const hasExperimentalScents = experimentalScents.length > 0;
 
+  // Base filter/sort (before grouping)
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
 
-    // Apply search filter
+    // Search
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       filtered = filtered.filter((p) => {
@@ -113,68 +112,57 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
       });
     }
 
-    // Apply seasonal scents filter
+    // Seasonal filter
     if (showSeasonalOnly) {
-      const seasonalScentIds = new Set(seasonalScents.map(s => s.id));
+      const seasonalScentIds = new Set(seasonalScents.map((s) => s.id));
       filtered = filtered.filter((p) => {
-        // Only show products that have variantConfig AND have at least one seasonal scent enabled
         if (!p.variantConfig) return false;
-
-        // Check if product has any variants with seasonal scents
         const { variantData } = p.variantConfig;
-        return Object.keys(variantData).some(variantId => {
-          // Extract scent ID from variant ID (format: "wickId-scentId")
-          const parts = variantId.split('-');
-          const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+        return Object.keys(variantData).some((variantId) => {
+          const parts = variantId.split("-");
+          const scentId = parts.slice(1).join("-");
           return seasonalScentIds.has(scentId);
         });
       });
     }
 
-    // Apply experimental scents filter
+    // Experimental filter
     if (showExperimentalOnly) {
-      const experimentalScentIds = new Set(experimentalScents.map(s => s.id));
+      const experimentalScentIds = new Set(experimentalScents.map((s) => s.id));
       filtered = filtered.filter((p) => {
-        // Only show products that have variantConfig AND have at least one experimental scent enabled
         if (!p.variantConfig) return false;
-
-        // Check if product has any variants with experimental scents
         const { variantData } = p.variantConfig;
-        return Object.keys(variantData).some(variantId => {
-          // Extract scent ID from variant ID (format: "wickId-scentId")
-          const parts = variantId.split('-');
-          const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+        return Object.keys(variantData).some((variantId) => {
+          const parts = variantId.split("-");
+          const scentId = parts.slice(1).join("-");
           return experimentalScentIds.has(scentId);
         });
       });
     }
 
-    // Apply price range filter
+    // Price range
     filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
-    // Apply stock filter
+    // Hide OOS by default unless toggled or out-of-stock filter selected
+    if (!showOutOfStock && filterBy !== "out-of-stock") {
+      filtered = filtered.filter((p) => p._computedStock > 0);
+    }
+
+    // Stock filter
     if (filterBy === "in-stock") {
       filtered = filtered.filter((p) => p._computedStock > 0);
     } else if (filterBy === "low-stock") {
-      filtered = filtered.filter((p) => {
-        const stock = p._computedStock;
-        return stock > 0 && stock <= 3;
-      });
+      filtered = filtered.filter((p) => p._computedStock > 0 && p._computedStock <= 3);
     } else if (filterBy === "out-of-stock") {
       filtered = filtered.filter((p) => p._computedStock === 0);
     }
 
-    // Apply sort: in-stock first, then by selected sort option
+    // Sort: in-stock first, then user-selected sort
     filtered.sort((a, b) => {
-      // First, sort by stock status (in-stock first)
-      const aInStock = a._computedStock > 0 ? 1 : 0;
-      const bInStock = b._computedStock > 0 ? 1 : 0;
+      const aIn = a._computedStock > 0 ? 1 : 0;
+      const bIn = b._computedStock > 0 ? 1 : 0;
+      if (aIn !== bIn) return bIn - aIn;
 
-      if (aInStock !== bInStock) {
-        return bInStock - aInStock; // In-stock (1) comes before out-of-stock (0)
-      }
-
-      // Then apply user's selected sort option
       switch (sortBy) {
         case "name-asc":
           return a.name.localeCompare(b.name);
@@ -185,12 +173,56 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         case "price-desc":
           return b.price - a.price;
         default:
-          return a.name.localeCompare(b.name); // Default to alphabetical
+          return a.name.localeCompare(b.name);
       }
     });
 
     return filtered;
-  }, [products, sortBy, filterBy, showSeasonalOnly, showExperimentalOnly, seasonalScents, experimentalScents, searchQuery, priceMin, priceMax]);
+  }, [
+    products,
+    sortBy,
+    filterBy,
+    showSeasonalOnly,
+    showExperimentalOnly,
+    seasonalScents,
+    experimentalScents,
+    searchQuery,
+    priceMin,
+    priceMax,
+    showOutOfStock,
+  ]);
+
+  // Build ordering index for Alcohol Types
+  const typeOrderIndex = useMemo(() => {
+    const idx = new Map<string, number>();
+    alcoholTypes.forEach((t, i) => idx.set(t.name, t.sortOrder ?? i + 1));
+    if (!idx.has("Other")) idx.set("Other", 9999);
+    return idx;
+  }, [alcoholTypes]);
+
+  // Group filtered results by Alcohol Type in requested order
+  const grouped = useMemo(() => {
+    const m = new Map<string, ProductWithStock[]>();
+    for (const p of filteredAndSortedProducts) {
+      const key = p.alcoholType || "Other";
+      if (!m.has(key)) m.set(key, []);
+      m.get(key)!.push(p);
+    }
+
+    // keep graceful name sort inside each group
+    for (const [key, list] of m) {
+      list.sort((a, b) => a.name.localeCompare(b.name));
+      m.set(key, list);
+    }
+
+    // order sections by alcoholTypes sortOrder (fallback alpha)
+    return Array.from(m.entries()).sort((a, b) => {
+      const ai = typeOrderIndex.get(a[0]) ?? 9999;
+      const bi = typeOrderIndex.get(b[0]) ?? 9999;
+      if (ai !== bi) return ai - bi;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [filteredAndSortedProducts, typeOrderIndex]);
 
   const productCount = products.length;
   const inStockCount = products.filter((p) => p._computedStock > 0).length;
@@ -202,27 +234,27 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
       {showStatusBanner && statusType && (
         <div
           className={`full-bleed ${
-            statusType === 'success'
-              ? 'bg-gradient-to-r from-green-600 to-green-700'
-              : 'bg-gradient-to-r from-amber-600 to-amber-700'
+            statusType === "success"
+              ? "bg-gradient-to-r from-green-600 to-green-700"
+              : "bg-gradient-to-r from-amber-600 to-amber-700"
           } text-white py-4 shadow-lg`}
         >
           <div className="mx-auto max-w-6xl px-6">
             <div className="flex items-center justify-between gap-4">
               <div className="flex items-center gap-3">
-                {statusType === 'success' ? (
+                {statusType === "success" ? (
                   <CheckCircle className="w-5 h-5 flex-shrink-0" />
                 ) : (
                   <XCircle className="w-5 h-5 flex-shrink-0" />
                 )}
                 <div>
                   <p className="font-semibold">
-                    {statusType === 'success' ? 'Order Confirmed!' : 'Order Cancelled'}
+                    {statusType === "success" ? "Order Confirmed!" : "Order Cancelled"}
                   </p>
                   <p className="text-sm opacity-90">
-                    {statusType === 'success'
-                      ? 'Thank you for your purchase! A confirmation email has been sent to your email address.'
-                      : 'Your order was cancelled. No charges were made.'}
+                    {statusType === "success"
+                      ? "Thank you for your purchase! A confirmation email has been sent to your email address."
+                      : "Your order was cancelled. No charges were made."}
                   </p>
                 </div>
               </div>
@@ -256,10 +288,12 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         <div className="mx-auto max-w-6xl px-6 text-center">
           <h1>Shop Scottsdale Candles</h1>
           <p className="mt-3 text-[var(--color-muted)]">
-            Hand-poured soy candles made locally in Arizona. Upcycled bottles, wood wicks, and desert-inspired scents.
+            Hand-poured soy candles made locally in Arizona. Upcycled bottles, wood wicks, and
+            desert-inspired scents.
           </p>
           <p className="mt-2 text-sm text-[var(--color-muted)]">
-            Showing {displayCount} of {productCount} {productCount === 1 ? "candle" : "candles"} ({inStockCount} in stock)
+            Showing {displayCount} of {productCount} {productCount === 1 ? "candle" : "candles"} (
+            {inStockCount} in stock)
           </p>
 
           {/* Search Bar */}
@@ -271,13 +305,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                 placeholder="Search candles..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="
-                  w-full pl-10 pr-4 py-3 text-sm
-                  rounded-xl border border-[var(--color-line)]
-                  bg-white
-                  focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent
-                  transition
-                "
+                className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent transition"
               />
               {searchQuery && (
                 <button
@@ -318,9 +346,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                   if (val <= priceMax) setPriceMin(val);
                 }}
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                style={{
-                  accentColor: 'var(--color-accent)'
-                }}
+                style={{ accentColor: "var(--color-accent)" }}
               />
             </div>
             <div className="space-y-2">
@@ -335,12 +361,38 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                   if (val >= priceMin) setPriceMax(val);
                 }}
                 className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                style={{
-                  accentColor: 'var(--color-accent)'
-                }}
+                style={{ accentColor: "var(--color-accent)" }}
               />
             </div>
           </div>
+        </div>
+
+        {/* Show Out of Stock - Mobile */}
+        <div className="mb-6">
+          <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
+            <div className="relative flex items-center justify-center">
+              <input
+                type="checkbox"
+                checked={showOutOfStock}
+                onChange={(e) => setShowOutOfStock(e.target.checked)}
+                className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+              />
+              <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                {showOutOfStock && (
+                  <svg
+                    className="w-3 h-3 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <span className="text-sm whitespace-nowrap">Show out of stock items</span>
+          </label>
         </div>
 
         {/* Collection Filters - Mobile */}
@@ -402,7 +454,6 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
         )}
 
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
-
           {/* Sort - Mobile */}
           <div className="flex-1">
             <select
@@ -470,202 +521,230 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block lg:w-64 flex-shrink-0">
-            <div className="space-y-6">
-              {/* Scent Collections Filter */}
-              {(hasSeasonalScents || hasExperimentalScents) && (
+              <div className="space-y-6">
+                {/* Collections */}
+                {(hasSeasonalScents || hasExperimentalScents) && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Collections</h3>
+                    <div className="space-y-2">
+                      {hasSeasonalScents && (
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <div className="relative flex items-center justify-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={showSeasonalOnly}
+                              onChange={(e) => setShowSeasonalOnly(e.target.checked)}
+                              className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                            />
+                            <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                              {showSeasonalOnly && (
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                            Seasonal Scents
+                          </span>
+                        </label>
+                      )}
+                      {hasExperimentalScents && (
+                        <label className="flex items-start gap-3 cursor-pointer group">
+                          <div className="relative flex items-center justify-center mt-0.5">
+                            <input
+                              type="checkbox"
+                              checked={showExperimentalOnly}
+                              onChange={(e) => setShowExperimentalOnly(e.target.checked)}
+                              className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                            />
+                            <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                              {showExperimentalOnly && (
+                                <svg
+                                  className="w-3 h-3 text-white"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={3}
+                                >
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                                </svg>
+                              )}
+                            </div>
+                          </div>
+                          <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                            Experimental Scents
+                          </span>
+                        </label>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Show Out of Stock */}
                 <div>
-                  <h3 className="text-sm font-semibold mb-3">Collections</h3>
+                  <label className="flex items-start gap-3 cursor-pointer group">
+                    <div className="relative flex items-center justify-center mt-0.5">
+                      <input
+                        type="checkbox"
+                        checked={showOutOfStock}
+                        onChange={(e) => setShowOutOfStock(e.target.checked)}
+                        className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                      />
+                      <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                        {showOutOfStock && (
+                          <svg
+                            className="w-3 h-3 text-white"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                            strokeWidth={3}
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+                    <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                      Show out of stock items
+                    </span>
+                  </label>
+                </div>
+
+                {/* Availability */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Availability</h3>
                   <div className="space-y-2">
-                    {hasSeasonalScents && (
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className="relative flex items-center justify-center mt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={showSeasonalOnly}
-                            onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                          />
-                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                            {showSeasonalOnly && (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                          Seasonal Scents
-                        </span>
-                      </label>
-                    )}
-                    {hasExperimentalScents && (
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className="relative flex items-center justify-center mt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={showExperimentalOnly}
-                            onChange={(e) => setShowExperimentalOnly(e.target.checked)}
-                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                          />
-                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                            {showExperimentalOnly && (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                          Experimental Scents
-                        </span>
-                      </label>
-                    )}
+                    <button
+                      onClick={() => setFilterBy("all")}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
+                        filterBy === "all" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
+                      }`}
+                    >
+                      All Products
+                    </button>
+                    <button
+                      onClick={() => setFilterBy("in-stock")}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
+                        filterBy === "in-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
+                      }`}
+                    >
+                      In Stock
+                    </button>
+                    <button
+                      onClick={() => setFilterBy("low-stock")}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
+                        filterBy === "low-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
+                      }`}
+                    >
+                      Low Stock
+                    </button>
+                    <button
+                      onClick={() => setFilterBy("out-of-stock")}
+                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
+                        filterBy === "out-of-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
+                      }`}
+                    >
+                      Out of Stock
+                    </button>
                   </div>
                 </div>
-              )}
 
-              {/* Stock Filters */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3">Availability</h3>
-                <div className="space-y-2">
-                  <button
-                    onClick={() => setFilterBy("all")}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                      filterBy === "all"
-                        ? "bg-[var(--color-ink)] text-white"
-                        : "hover:bg-neutral-50"
-                    }`}
-                  >
-                    All Products
-                  </button>
-                  <button
-                    onClick={() => setFilterBy("in-stock")}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                      filterBy === "in-stock"
-                        ? "bg-[var(--color-ink)] text-white"
-                        : "hover:bg-neutral-50"
-                    }`}
-                  >
-                    In Stock
-                  </button>
-                  <button
-                    onClick={() => setFilterBy("low-stock")}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                      filterBy === "low-stock"
-                        ? "bg-[var(--color-ink)] text-white"
-                        : "hover:bg-neutral-50"
-                    }`}
-                  >
-                    Low Stock
-                  </button>
-                  <button
-                    onClick={() => setFilterBy("out-of-stock")}
-                    className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                      filterBy === "out-of-stock"
-                        ? "bg-[var(--color-ink)] text-white"
-                        : "hover:bg-neutral-50"
-                    }`}
-                  >
-                    Out of Stock
-                  </button>
-                </div>
-              </div>
-
-              {/* Price Range Filter */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3">Price Range</h3>
-                <div className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm">
-                    <span className="text-[var(--color-muted)]">${priceMin}</span>
-                    <span className="text-[var(--color-muted)]">-</span>
-                    <span className="text-[var(--color-muted)]">${priceMax}</span>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
-                    <input
-                      type="range"
-                      min={priceRange.min}
-                      max={priceRange.max}
-                      value={priceMin}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        if (val <= priceMax) setPriceMin(val);
-                      }}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                      style={{
-                        accentColor: 'var(--color-accent)'
-                      }}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
-                    <input
-                      type="range"
-                      min={priceRange.min}
-                      max={priceRange.max}
-                      value={priceMax}
-                      onChange={(e) => {
-                        const val = Number(e.target.value);
-                        if (val >= priceMin) setPriceMax(val);
-                      }}
-                      className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                      style={{
-                        accentColor: 'var(--color-accent)'
-                      }}
-                    />
+                {/* Price Range - Desktop */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Price Range</h3>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-[var(--color-muted)]">${priceMin}</span>
+                      <span className="text-[var(--color-muted)]">-</span>
+                      <span className="text-[var(--color-muted)]">${priceMax}</span>
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
+                      <input
+                        type="range"
+                        min={priceRange.min}
+                        max={priceRange.max}
+                        value={priceMin}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (val <= priceMax) setPriceMin(val);
+                        }}
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                        style={{ accentColor: "var(--color-accent)" }}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
+                      <input
+                        type="range"
+                        min={priceRange.min}
+                        max={priceRange.max}
+                        value={priceMax}
+                        onChange={(e) => {
+                          const val = Number(e.target.value);
+                          if (val >= priceMin) setPriceMax(val);
+                        }}
+                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
+                        style={{ accentColor: "var(--color-accent)" }}
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Sort */}
-              <div>
-                <h3 className="text-sm font-semibold mb-3">Sort</h3>
-                <select
-                  id="sort"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
-                >
-                  <option value="name-asc">Name (A-Z)</option>
-                  <option value="name-desc">Name (Z-A)</option>
-                  <option value="price-asc">Price (Low-High)</option>
-                  <option value="price-desc">Price (High-Low)</option>
-                </select>
+                {/* Sort */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Sort</h3>
+                  <select
+                    id="sort"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as SortOption)}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
+                  >
+                    <option value="name-asc">Name (A-Z)</option>
+                    <option value="name-desc">Name (Z-A)</option>
+                    <option value="price-asc">Price (Low-High)</option>
+                    <option value="price-desc">Price (High-Low)</option>
+                  </select>
+                </div>
               </div>
-            </div>
             </aside>
 
-            {/* Product grid - centered */}
+            {/* Product Sections (Grouped) */}
             <div className="flex-1 mx-auto max-w-6xl">
-              <div className="grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filteredAndSortedProducts.map((p) => {
-              const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
-              return (
-                <ProductCard
-                  key={p.slug}
-                  product={p}
-                  compact
-                  variants={variants}
-                  globalScents={globalScents}
-                />
-              );
-            })}
-          </div>
+              {grouped.map(([typeName, list], i) => (
+                <section key={typeName} className="mb-16">
+                  <h2 className="text-lg sm:text-xl font-semibold">{typeName}</h2>
+
+                  {/* Add bottom padding inside grid to separate from divider */}
+                  <div className="mt-6 grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pb-6">
+                    {list.map((p) => {
+                      const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
+                      return (
+                        <ProductCard
+                          key={p.slug}
+                          product={p}
+                          compact
+                          variants={variants}
+                          globalScents={globalScents}
+                        />
+                      );
+                    })}
+                  </div>
+
+                  {/* Bottom divider */}
+                  <div className="h-px w-full bg-[var(--color-line)]" />
+                </section>
+              ))}
 
               {/* Empty state */}
-              {filteredAndSortedProducts.length === 0 && (
+              {grouped.length === 0 && (
                 <div className="text-center py-12">
                   <p className="text-[var(--color-muted)]">No candles match your filters.</p>
                   <button
@@ -677,6 +756,7 @@ export default function ShopClient({ products, globalScents }: ShopClientProps) 
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);
+                      setShowOutOfStock(false);
                     }}
                     className="mt-4 text-sm text-[var(--color-accent)] hover:underline"
                   >

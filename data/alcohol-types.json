@@ -1,0 +1,46 @@
+[
+  {
+    "id": "tequila",
+    "name": "Tequilas & Mezcals",
+    "sortOrder": 2,
+    "archived": false
+  },
+  {
+    "id": "vodka",
+    "name": "Vodkas",
+    "sortOrder": 3
+  },
+  {
+    "id": "gin",
+    "name": "Gins",
+    "sortOrder": 5
+  },
+  {
+    "id": "rum",
+    "name": "Rums",
+    "sortOrder": 7,
+    "archived": false
+  },
+  {
+    "id": "wine",
+    "name": "Wines",
+    "sortOrder": 4
+  },
+  {
+    "id": "liqueur",
+    "name": "Liqueurs",
+    "sortOrder": 6,
+    "archived": false
+  },
+  {
+    "id": "other",
+    "name": "Other",
+    "sortOrder": 9999
+  },
+  {
+    "id": "whiskeys-bourbons",
+    "name": "Whiskeys & Bourbons",
+    "sortOrder": 1,
+    "archived": false
+  }
+]

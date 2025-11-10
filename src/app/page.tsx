@@ -1,9 +1,11 @@
+// app/page.tsx (or wherever your Home component lives)
 import Image from "next/image";
 import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
 import Link from "next/link";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import localFont from "next/font/local";
+import TypingLoop from "@/components/TypingLoop";
 
 const megastina = localFont({
   src: [{ path: "../../public/fonts/Megastina.ttf", weight: "400", style: "normal" }],
@@ -62,14 +64,37 @@ export default async function Home() {
           </div>
         </div>
       </section>
+        
+      <section className="mx-auto max-w-6xl px-6 pt-6 pb-2 text-center">
+      <h2 className={`${megastina.className} script-title`}>
+        <TypingLoop
+          texts="Best Sellers"
+          className="script-hero"
+          // optional per-heading tuning (can omit since defaults updated)
+          typingMs={120}
+          deletingMs={70}
+          holdFullMs={1800}
+          holdEmptyMs={900}
+        />
+      </h2>
+    </section>
+    
+      {/* BEST SELLERS — still pulled up tight */}
+      <div className="-mt-2">
+        <BestSellerCarousel products={bestsellers} />
+      </div>
 
+      {/* Divider line between Best Sellers and Our Smells */}
+      <div className="mx-auto max-w-4xl px-6 my-10">
+        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
+      </div>
+      
       {/* OUR SMELLS — big, cursive, typing effect (FIRST under banner) */}
       <section className="mx-auto max-w-6xl px-6 pt-6 pb-0 text-center">
         <h2 className={`${megastina.className} script-title`} style={{ color: "var(--color-ink)" }}>
-          <span className="typing script-hero">Our Smells</span>
+          <TypingLoop texts="Our Smells" className="script-hero" />
         </h2>
       </section>
-
 
       {/* MINI BLURB UNDER HERO */}
       <section className="mx-auto max-w-4xl px-6 pt-4 pb-8 text-center">
@@ -83,20 +108,19 @@ export default async function Home() {
         </p>
       </section>
 
-      {/* SCENT PROGRAM OVERVIEW + SIGNATURE DETAILS (no duplicate OUR SMELLS) */}
+     {/* SCENT PROGRAM OVERVIEW — all blue mist cards */}
       <section className="mx-auto max-w-6xl px-6 pt-6 pb-0">
         <div className="grid gap-6 sm:grid-cols-3">
           {/* Signature */}
-          <div className="card rounded-2xl p-6 sm:p-7 card--sage">
+          <div className="card rounded-2xl p-6 sm:p-7 card--mist">
             <div className="flex items-center gap-2">
-              <span className="badge badge--sage">Signature</span>
+              <span className="badge badge--mist">Signature</span>
               <span className="text-xs text-[var(--color-muted)]/70">Rotating Core</span>
             </div>
             <h3 className="mt-3 text-lg font-semibold">Always-Return Favorites</h3>
             <p className="mt-2 text-sm text-[var(--color-muted)]">
               Our core, desert-inspired blends cycle in and out through the year.
             </p>
-            {/* Simple list, not individual cards */}
             <ul className="mt-4 text-sm leading-7 text-[var(--color-ink)]/90">
               <li><span className="font-medium">Wood and Bloom</span> — Lavender &amp; Sandalwood</li>
               <li><span className="font-medium">Cabin Spa</span> — Amber, Lavender, &amp; Sandalwood</li>
@@ -124,9 +148,9 @@ export default async function Home() {
           </div>
 
           {/* Seasonal */}
-          <div className="card rounded-2xl p-6 sm:p-7 card--rose">
+          <div className="card rounded-2xl p-6 sm:p-7 card--mist">
             <div className="flex items-center gap-2">
-              <span className="badge badge--rose">Seasonal</span>
+              <span className="badge badge--mist">Seasonal</span>
               <span className="text-xs text-[var(--color-muted)]/70">Limited Time</span>
             </div>
             <h3 className="mt-3 text-lg font-semibold">Made for the Moment</h3>
@@ -141,9 +165,8 @@ export default async function Home() {
         </div>
       </section>
 
-      {/* BEST SELLERS — still pulled up tight */}
-      <div className="-mt-2">
-        <BestSellerCarousel products={bestsellers} />
+      <div className="mx-auto max-w-4xl px-6 my-10">
+        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
       </div>
 
       <div className="pb-6">

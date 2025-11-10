@@ -1,9 +1,12 @@
+// app/shop/page.tsx
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { getTotalStockForProduct } from "@/lib/productsStore";
 import { getAllScents } from "@/lib/scents";
+import { getAlcoholTypes } from "@/lib/alcoholTypesStore";
 import type { Metadata } from "next";
 import ShopClient from "./ShopClient";
-export const revalidate = 30; // Revalidate every 30 seconds for real-time stock updates
+
+export const revalidate = 30;
 
 export const generateMetadata = (): Metadata => {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
@@ -25,7 +28,8 @@ export const generateMetadata = (): Metadata => {
     alternates: { canonical: `${base}/shop` },
     openGraph: {
       title: "Shop Local Candles | Scottsdale & Phoenix Handmade Soy Candles",
-      description: "Hand-poured soy candles in upcycled bottles. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
+      description:
+        "Hand-poured soy candles in upcycled bottles. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
       url: `${base}/shop`,
       type: "website",
     },
@@ -33,24 +37,26 @@ export const generateMetadata = (): Metadata => {
 };
 
 export default async function ShopPage() {
-  const products = await listResolvedProducts();
-  const globalScents = await getAllScents();
+  const [products, globalScents, alcoholTypes] = await Promise.all([
+    listResolvedProducts(),
+    getAllScents(),
+    getAlcoholTypes(),
+  ]);
 
-  // Compute stock for each product (filtering experimental scents)
   const productsWithStock = await Promise.all(
     products.map(async (p) => {
       const computedStock = await getTotalStockForProduct(p);
-
-      return {
-        ...p,
-        _computedStock: computedStock,
-      };
+      return { ...p, _computedStock: computedStock };
     })
   );
 
   return (
     <section className="min-h-dvh">
-      <ShopClient products={productsWithStock} globalScents={globalScents} />
+      <ShopClient
+        products={productsWithStock}
+        globalScents={globalScents}
+        alcoholTypes={alcoholTypes}
+      />
     </section>
   );
 }

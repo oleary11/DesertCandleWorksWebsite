@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 
 /* ---------- Types ---------- */
+type AlcoholType = { id: string; name: string; sortOrder?: number };
+
 type WickType = {
   id: string;
   name: string;
@@ -34,6 +36,7 @@ type Product = {
   bestSeller?: boolean;
   stock: number;
   variantConfig?: VariantConfig;
+  alcoholType?: string; // NEW
 };
 
 /* ---------- Helpers ---------- */
@@ -48,6 +51,7 @@ function emptyProduct(): Product {
     seoDescription: "",
     bestSeller: false,
     stock: 0,
+    alcoholType: "Other", // NEW default
     variantConfig: {
       wickTypes: [{ id: "standard", name: "Standard Wick" }],
       variantData: {},
@@ -111,10 +115,7 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
 
   // Filter scents based on experimental flag and enabled products
   const availableScents = globalScents.filter((scent) => {
-    // Non-experimental scents are available for all products
     if (!scent.experimental) return true;
-
-    // Experimental scents only available for specific products
     return scent.enabledProducts?.includes(p.slug) ?? false;
   });
 
@@ -138,6 +139,7 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
 export default function AdminPage() {
   const [items, setItems] = useState<Product[]>([]);
   const [globalScents, setGlobalScents] = useState<GlobalScent[]>([]);
+  const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]); // NEW
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
@@ -151,14 +153,17 @@ export default function AdminPage() {
 
   async function load() {
     setLoading(true);
-    const [productsRes, scentsRes] = await Promise.all([
+    const [productsRes, scentsRes, typesRes] = await Promise.all([
       fetch("/api/admin/products", { cache: "no-store" }),
-      fetch("/api/admin/scents", { cache: "no-store" })
+      fetch("/api/admin/scents", { cache: "no-store" }),
+      fetch("/api/admin/alcohol-types?active=1", { cache: "no-store" })
     ]);
     const productsData = (await productsRes.json()) as { items?: Product[] };
     const scentsData = (await scentsRes.json()) as { scents?: GlobalScent[] };
+    const typesData = (await typesRes.json()) as { types?: AlcoholType[] };
     setItems(productsData.items || []);
     setGlobalScents(scentsData.scents || []);
+    setAlcoholTypes(typesData.types || []); // NEW
     setLoading(false);
   }
   useEffect(() => {
@@ -320,6 +325,7 @@ export default function AdminPage() {
           <a href="/admin/scents" className="btn">
             Scents
           </a>
+          <a href="/admin/alcohol-types" className="btn">Types</a>
           <a href="/admin/settings" className="btn">
             Settings
           </a>
@@ -369,6 +375,7 @@ export default function AdminPage() {
                     <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Slug</th>
                     <th className="py-2 pr-3">Price</th>
+                    <th className="py-2 pr-3">Type</th>{/* NEW */}
                     <th className="py-2 pr-3">Stock</th>
                     <th className="py-2 pr-3">Best</th>
                     <th className="py-2 pr-3">Status</th>
@@ -396,9 +403,11 @@ export default function AdminPage() {
                         <td className="py-2 pr-3">{p.name}</td>
                         <td className="py-2 pr-3">{p.slug}</td>
                         <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
+                        <td className="py-2 pr-3">{p.alcoholType ?? "Other"}</td>{/* NEW */}
                         <td className="py-2 pr-3">
                           <span className="text-sm">
-                            {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                            {getTotalStock(p)}{" "}
+                            <span className="text-[var(--color-muted)]">(variants)</span>
                           </span>
                         </td>
                         <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
@@ -459,13 +468,7 @@ export default function AdminPage() {
                     <div className="flex items-center gap-3">
                       <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-white">
                         {p.image ? (
-                          <Image
-                            src={p.image}
-                            alt=""
-                            fill
-                            sizes="64px"
-                            className="object-contain"
-                          />
+                          <Image src={p.image} alt="" fill sizes="64px" className="object-contain" />
                         ) : null}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -475,7 +478,7 @@ export default function AdminPage() {
                           {isDraft ? <span className="badge">Draft</span> : null}
                         </div>
                         <div className="text-xs text-[var(--color-muted)] truncate">
-                          {p.slug} · ${p.price.toFixed(2)}
+                          {p.slug} · ${p.price.toFixed(2)} · {p.alcoholType ?? "Other"}
                         </div>
                       </div>
                     </div>
@@ -483,7 +486,8 @@ export default function AdminPage() {
                     <div className="mt-3 flex items-center justify-between gap-3">
                       {/* Stock control */}
                       <div className="text-sm">
-                        Stock: {getTotalStock(p)} <span className="text-[var(--color-muted)]">(variants)</span>
+                        Stock: {getTotalStock(p)}{" "}
+                        <span className="text-[var(--color-muted)]">(variants)</span>
                       </div>
 
                       {/* Row actions */}
@@ -571,7 +575,7 @@ export default function AdminPage() {
             {error && <p className="text-rose-600 text-sm mt-3">{error}</p>}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              {/* Name (auto-slug if slug not manually touched & product is new) */}
+              {/* Name */}
               <label className="block">
                 <div className="text-xs mb-1">Name</div>
                 <input
@@ -627,6 +631,7 @@ export default function AdminPage() {
                 {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
               </label>
 
+              {/* Price */}
               <label className="block">
                 <div className="text-xs mb-1">Price</div>
                 <input
@@ -638,6 +643,7 @@ export default function AdminPage() {
                 />
               </label>
 
+              {/* SKU */}
               <label className="block">
                 <div className="text-xs mb-1">SKU</div>
                 <div className="flex gap-2">
@@ -658,7 +664,7 @@ export default function AdminPage() {
                               sku: computeNextSku([
                                 ...items.map((i) => i.sku),
                                 ...Object.values(staged).map((d) => d.sku),
-                              ])
+                              ]),
                             }
                           : prev
                       )
@@ -670,6 +676,55 @@ export default function AdminPage() {
                 </div>
               </label>
 
+              {/* Alcohol Type — NEW */}
+              <label className="block">
+                <div className="text-xs mb-1">Alcohol Type</div>
+                <div className="flex gap-2">
+                  <select
+                    className="input flex-1"
+                    value={editing.alcoholType || ""}
+                    onChange={async (e) => {
+                      const v = e.target.value;
+                      if (v === "__new__") {
+                        const name = window.prompt("Enter new alcohol type (e.g., Tequila):");
+                        if (name && name.trim()) {
+                          const res = await fetch("/api/admin/alcohol-types", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ name: name.trim() }),
+                          });
+                          if (res.ok) {
+                            await load();
+                            setEditing((prev) => (prev ? { ...prev, alcoholType: name.trim() } : prev));
+                          } else {
+                            alert("Failed to create type");
+                          }
+                        }
+                        return;
+                      }
+                      setEditing({ ...editing, alcoholType: v || undefined });
+                    }}
+                  >
+                    <option value="">— Select type —</option>
+                    {/* Active types only */}
+                    {alcoholTypes.map((t) => (
+                      <option key={t.id} value={t.name}>
+                        {t.name}
+                      </option>
+                    ))}
+                    {/* If the current product has an archived type, show it as disabled but visible */}
+                    {editing.alcoholType &&
+                      !alcoholTypes.some((t) => t.name === editing.alcoholType) && (
+                        <option value={editing.alcoholType} disabled>
+                          {editing.alcoholType} (archived)
+                        </option>
+                      )}
+                    <option value="__new__">+ Add new type…</option>
+                  </select>
+                </div>
+              </label>
+
+              {/* Stripe Price ID */}
               <label className="block sm:col-span-2">
                 <div className="text-xs mb-1">Stripe Price ID</div>
                 <input
@@ -706,6 +761,7 @@ export default function AdminPage() {
                 ) : null}
               </label>
 
+              {/* Description */}
               <label className="block sm:col-span-2">
                 <div className="text-xs mb-1">Description</div>
                 <textarea
@@ -716,6 +772,7 @@ export default function AdminPage() {
                 />
               </label>
 
+              {/* Best Seller */}
               <label className="flex items-center gap-2">
                 <input
                   type="checkbox"
@@ -725,6 +782,7 @@ export default function AdminPage() {
                 <span className="text-sm">Best Seller</span>
               </label>
 
+              {/* Base Stock (disabled when variants used) */}
               <label className="block">
                 <div className="text-xs mb-1">Stock (base, if not using variants)</div>
                 <input
@@ -764,138 +822,145 @@ export default function AdminPage() {
                   return null;
                 }
                 return (
-                <div className="space-y-4">
-                  {/* Wick Types */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-xs font-medium">Wick Types</h4>
-                      <button
-                        type="button"
-                        className="btn text-xs"
-                        onClick={() => {
-                          const newId = `wick-${Date.now()}`;
-                          setEditing({
-                            ...editing,
-                            variantConfig: {
-                              ...editing.variantConfig!,
-                              wickTypes: [
-                                ...editing.variantConfig!.wickTypes,
-                                { id: newId, name: "New Wick Type" },
-                              ],
-                            },
-                          });
-                        }}
-                      >
-                        + Add Wick Type
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {editing.variantConfig.wickTypes.map((wick, idx) => (
-                        <div key={wick.id} className="flex items-center gap-2">
-                          <input
-                            className="input text-sm flex-1"
-                            value={wick.name}
-                            onChange={(e) => {
-                              const newWicks = [...editing.variantConfig!.wickTypes];
-                              newWicks[idx] = { ...wick, name: e.target.value };
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  wickTypes: newWicks,
-                                },
-                              });
-                            }}
-                            placeholder="e.g., Wood Wick"
-                          />
-                          <button
-                            type="button"
-                            className="btn text-xs"
-                            onClick={() => {
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  wickTypes: editing.variantConfig!.wickTypes.filter((_, i) => i !== idx),
-                                },
-                              });
-                            }}
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Scents are now managed globally - show info */}
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <p className="text-xs text-blue-900">
-                      <strong>Scents are now global.</strong> All scents from the global scents list will automatically appear as variants for this product.
-                      <a href="/admin/scents" className="underline ml-1">Manage scents →</a>
-                    </p>
-                  </div>
-
-                  {/* Generated Variants Grid */}
-                  <div>
-                    {(() => {
-                      // Calculate filtered scents for this product
-                      const availableScents = globalScents.filter((scent) => {
-                        if (!scent.experimental) return true;
-                        return scent.enabledProducts?.includes(editing.slug) ?? false;
-                      });
-                      const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
-
-                      return (
-                        <>
-                          <h4 className="text-xs font-medium mb-2">
-                            Generated Variants ({editing.variantConfig.wickTypes.length} wick types × {availableScents.length} available scents ={" "}
-                            {variantsForDisplay.length} total)
-                          </h4>
-                          {availableScents.length === 0 ? (
-                            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                              <p className="text-xs text-amber-900">
-                                No scents available for this product. <a href="/admin/scents" className="underline">Manage scents →</a>
-                              </p>
-                            </div>
-                          ) : (
-                            <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
-                              {variantsForDisplay.map((v) => (
-                        <div key={v.id} className="card p-2">
-                          <div className="text-xs font-medium mb-1">
-                            {v.wickName} / {v.scentName}
-                          </div>
-                          <label className="block">
-                            <div className="text-xs mb-1">Stock</div>
+                  <div className="space-y-4">
+                    {/* Wick Types */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="text-xs font-medium">Wick Types</h4>
+                        <button
+                          type="button"
+                          className="btn text-xs"
+                          onClick={() => {
+                            const newId = `wick-${Date.now()}`;
+                            setEditing({
+                              ...editing,
+                              variantConfig: {
+                                ...editing.variantConfig!,
+                                wickTypes: [
+                                  ...editing.variantConfig!.wickTypes,
+                                  { id: newId, name: "New Wick Type" },
+                                ],
+                              },
+                            });
+                          }}
+                        >
+                          + Add Wick Type
+                        </button>
+                      </div>
+                      <div className="space-y-2">
+                        {editing.variantConfig.wickTypes.map((wick, idx) => (
+                          <div key={wick.id} className="flex items-center gap-2">
                             <input
-                              className="input text-xs"
-                              type="number"
-                              value={v.stock}
+                              className="input text-sm flex-1"
+                              value={wick.name}
                               onChange={(e) => {
-                                const newData = { ...editing.variantConfig!.variantData };
-                                newData[v.id] = {
-                                  stock: Math.max(0, Number(e.target.value)),
-                                };
+                                const newWicks = [...editing.variantConfig!.wickTypes];
+                                newWicks[idx] = { ...wick, name: e.target.value };
                                 setEditing({
                                   ...editing,
                                   variantConfig: {
                                     ...editing.variantConfig!,
-                                    variantData: newData,
+                                    wickTypes: newWicks,
                                   },
                                 });
                               }}
+                              placeholder="e.g., Wood Wick"
                             />
-                          </label>
-                        </div>
-                              ))}
-                            </div>
-                          )}
-                        </>
-                      );
-                    })()}
+                            <button
+                              type="button"
+                              className="btn text-xs"
+                              onClick={() => {
+                                setEditing({
+                                  ...editing,
+                                  variantConfig: {
+                                    ...editing.variantConfig!,
+                                    wickTypes: editing.variantConfig!.wickTypes.filter(
+                                      (_, i) => i !== idx
+                                    ),
+                                  },
+                                });
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Scents are now managed globally - show info */}
+                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                      <p className="text-xs text-blue-900">
+                        <strong>Scents are now global.</strong> All scents from the global scents list
+                        will automatically appear as variants for this product.
+                        <a href="/admin/scents" className="underline ml-1">
+                          Manage scents →
+                        </a>
+                      </p>
+                    </div>
+
+                    {/* Generated Variants Grid */}
+                    <div>
+                      {(() => {
+                        const availableScents = globalScents.filter((scent) => {
+                          if (!scent.experimental) return true;
+                          return scent.enabledProducts?.includes(editing.slug) ?? false;
+                        });
+                        const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
+
+                        return (
+                          <>
+                            <h4 className="text-xs font-medium mb-2">
+                              Generated Variants ({editing.variantConfig.wickTypes.length} wick types ×{" "}
+                              {availableScents.length} available scents = {variantsForDisplay.length} total)
+                            </h4>
+                            {availableScents.length === 0 ? (
+                              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                                <p className="text-xs text-amber-900">
+                                  No scents available for this product.{" "}
+                                  <a href="/admin/scents" className="underline">
+                                    Manage scents →
+                                  </a>
+                                </p>
+                              </div>
+                            ) : (
+                              <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
+                                {variantsForDisplay.map((v) => (
+                                  <div key={v.id} className="card p-2">
+                                    <div className="text-xs font-medium mb-1">
+                                      {v.wickName} / {v.scentName}
+                                    </div>
+                                    <label className="block">
+                                      <div className="text-xs mb-1">Stock</div>
+                                      <input
+                                        className="input text-xs"
+                                        type="number"
+                                        value={v.stock}
+                                        onChange={(e) => {
+                                          const newData = { ...editing.variantConfig!.variantData };
+                                          newData[v.id] = {
+                                            stock: Math.max(0, Number(e.target.value)),
+                                          };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              variantData: newData,
+                                            },
+                                          });
+                                        }}
+                                      />
+                                    </label>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
-                </div>
-              );
+                );
               })()}
             </div>
 

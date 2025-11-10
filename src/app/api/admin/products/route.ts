@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
     seoDescription: String(data.seoDescription),
     bestSeller: coerceBool(data.bestSeller),
     stock: Math.max(0, Number(data.stock ?? 0)),
+    alcoholType: data.alcoholType ?? undefined,
   };
 
   await upsertProduct(product);
