@@ -110,7 +110,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           itemOffered: {
             "@type": "Product",
             name: "Hand-Poured Soy Candles in Upcycled Bottles",
-            description: "Premium soy wax candles poured into upcycled liquor bottles",
+            description: "Premium soy wax candles poured into upcycled liquor bottles with wood wicks",
+            brand: {
+              "@type": "Brand",
+              name: "Desert Candle Works",
+            },
+            offers: {
+              "@type": "AggregateOffer",
+              priceCurrency: "USD",
+              lowPrice: "20.00",
+              highPrice: "45.00",
+              offerCount: "15",
+              availability: "https://schema.org/InStock",
+            },
           },
         },
       ],
