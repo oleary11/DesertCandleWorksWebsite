@@ -124,16 +124,12 @@ export default function NavBar() {
         <div className="md:hidden border-t border-[var(--color-line)] bg-white/95 backdrop-blur-sm">
           <nav className="flex flex-col items-center py-5 space-y-4 text-sm">
             <Link href="/" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Home</Link>
-
-            {/* Shop section */}
-            <div className="flex flex-col items-center space-y-2">
-              <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition font-medium">Shop</Link>
-              <div className="flex flex-col items-center space-y-2 pl-4 text-xs">
-                <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">All Candles</Link>
-                <Link href="/shop/young-dumb" onClick={() => setOpen(false)} className="hover:opacity-80 transition bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-semibold">Young & Dumb</Link>
-              </div>
-            </div>
-
+            <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">All Candles</Link>
+            <Link href="/shop/young-dumb" onClick={() => setOpen(false)} className="hover:opacity-80 transition">
+              <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-semibold">
+                Young & Dumb
+              </span>
+            </Link>
             <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
             <Link
