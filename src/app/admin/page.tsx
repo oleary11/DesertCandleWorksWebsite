@@ -34,6 +34,7 @@ type Product = {
   stripePriceId?: string;
   seoDescription: string;
   bestSeller?: boolean;
+  youngDumb?: boolean;
   stock: number;
   variantConfig?: VariantConfig;
   alcoholType?: string; // NEW
@@ -50,6 +51,7 @@ function emptyProduct(): Product {
     stripePriceId: "",
     seoDescription: "",
     bestSeller: false,
+    youngDumb: false,
     stock: 0,
     alcoholType: "Other", // NEW default
     variantConfig: {
@@ -780,6 +782,16 @@ export default function AdminPage() {
                   onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })}
                 />
                 <span className="text-sm">Best Seller</span>
+              </label>
+
+              {/* Young & Dumb */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={!!editing.youngDumb}
+                  onChange={(e) => setEditing({ ...editing, youngDumb: e.target.checked })}
+                />
+                <span className="text-sm">Young & Dumb</span>
               </label>
 
               {/* Base Stock (disabled when variants used) */}

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { getResolvedProduct } from "@/lib/liveProducts";
 import { getTotalStockForProduct } from "@/lib/productsStore";
 import { generateVariants } from "@/lib/products";
@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ProductPage({ params }: Props) {
   const { slug } = await params;
   const p = await getResolvedProduct(slug);
-  if (!p) return <div className="py-20">Not found</div>;
+  if (!p) notFound();
 
   // Get global scents for this product
   const globalScents = p.variantConfig ? await getScentsForProduct(slug) : [];

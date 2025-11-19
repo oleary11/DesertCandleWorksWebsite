@@ -28,6 +28,7 @@ export type Product = {
   stripePriceId?: string;   // Now used for ALL products (single price per product)
   seoDescription: string;
   bestSeller?: boolean;
+  youngDumb?: boolean;      // Young & Dumb collection (fun, trendy bottles)
   stock: number;            // deprecated for variant products
   variantConfig?: VariantConfig;  // NEW: wick types + global scents → auto-generates variants
   alcoholType?: string;

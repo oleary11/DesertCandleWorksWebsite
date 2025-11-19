@@ -82,7 +82,7 @@ export default function AdminSettings() {
         const data = await res.json();
         setError(data.error || "Failed to setup 2FA");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while setting up 2FA");
     } finally {
       setLoading(false);
@@ -109,7 +109,7 @@ export default function AdminSettings() {
         const data = await res.json();
         setError(data.error || "Invalid verification code");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while verifying the code");
     } finally {
       setLoading(false);
@@ -139,7 +139,7 @@ export default function AdminSettings() {
         const data = await res.json();
         setError(data.error || "Failed to disable 2FA");
       }
-    } catch (err) {
+    } catch {
       setError("An error occurred while disabling 2FA");
     } finally {
       setLoading(false);

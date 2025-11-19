@@ -86,7 +86,7 @@ export async function getRemainingLockoutTime(ip: string): Promise<number | null
       return ttl;
     }
     return null;
-  } catch (error) {
+  } catch {
     // Fallback to in-memory
     const attempt = inMemoryAttempts.get(ip);
     if (attempt && attempt.count >= MAX_ATTEMPTS) {

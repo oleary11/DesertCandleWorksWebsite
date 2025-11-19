@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, ShoppingCart } from "lucide-react";
+import { Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
+  const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
   const totalItems = useCartStore((state) => state.getTotalItems());
 
@@ -28,7 +29,44 @@ export default function NavBar() {
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-6 text-sm">
           <Link className="hover:opacity-80 transition" href="/">Home</Link>
-          <Link className="hover:opacity-80 transition" href="/shop">Shop</Link>
+
+          {/* Shop Dropdown */}
+          <div
+            className="relative"
+            onMouseEnter={() => setShopDropdownOpen(true)}
+            onMouseLeave={() => setShopDropdownOpen(false)}
+          >
+            <Link
+              href="/shop"
+              className="hover:opacity-80 transition flex items-center gap-1 py-2"
+            >
+              Shop
+              <ChevronDown className="w-3 h-3" />
+            </Link>
+            {shopDropdownOpen && (
+              <div className="absolute top-full left-0 pt-2 pb-2 z-50">
+                <div className="bg-white border border-[var(--color-line)] rounded-lg shadow-lg py-2 min-w-[180px]">
+                  <Link
+                    href="/shop"
+                    onClick={() => setShopDropdownOpen(false)}
+                    className="block px-4 py-2 hover:bg-neutral-50 transition"
+                  >
+                    All Candles
+                  </Link>
+                  <Link
+                    href="/shop/young-dumb"
+                    onClick={() => setShopDropdownOpen(false)}
+                    className="block px-4 py-2 hover:bg-neutral-50 transition"
+                  >
+                    <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-semibold">
+                      Young & Dumb
+                    </span>
+                  </Link>
+                </div>
+              </div>
+            )}
+          </div>
+
           <Link className="hover:opacity-80 transition" href="/about">About</Link>
           <Link className="hover:opacity-80 transition" href="/contact">Contact</Link>
           <div className="flex items-center gap-3 ml-2 pl-4 border-l border-[var(--color-line)]">
@@ -86,7 +124,16 @@ export default function NavBar() {
         <div className="md:hidden border-t border-[var(--color-line)] bg-white/95 backdrop-blur-sm">
           <nav className="flex flex-col items-center py-5 space-y-4 text-sm">
             <Link href="/" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Home</Link>
-            <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Shop</Link>
+
+            {/* Shop section */}
+            <div className="flex flex-col items-center space-y-2">
+              <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition font-medium">Shop</Link>
+              <div className="flex flex-col items-center space-y-2 pl-4 text-xs">
+                <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">All Candles</Link>
+                <Link href="/shop/young-dumb" onClick={() => setOpen(false)} className="hover:opacity-80 transition bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-semibold">Young & Dumb</Link>
+              </div>
+            </div>
+
             <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
             <Link

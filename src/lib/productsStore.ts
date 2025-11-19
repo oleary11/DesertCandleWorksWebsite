@@ -57,6 +57,7 @@ async function ensureLive(slug: string): Promise<Product> {
     stock: Math.max(0, Number(s.stock ?? 0)),
     price: Number(s.price),
     bestSeller: coerceBool(s.bestSeller),
+    youngDumb: coerceBool(s.youngDumb),
   };
   await upsertProduct(seeded);
   return seeded;

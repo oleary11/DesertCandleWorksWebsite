@@ -30,6 +30,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const [filterBy, setFilterBy] = useState<FilterOption>("all");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
   const [showExperimentalOnly, setShowExperimentalOnly] = useState(false);
+  const [showYoungDumbOnly, setShowYoungDumbOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
@@ -140,6 +141,11 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
       });
     }
 
+    // Young & Dumb filter
+    if (showYoungDumbOnly) {
+      filtered = filtered.filter((p) => p.youngDumb === true);
+    }
+
     // Price range
     filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
@@ -184,6 +190,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     filterBy,
     showSeasonalOnly,
     showExperimentalOnly,
+    showYoungDumbOnly,
     seasonalScents,
     experimentalScents,
     searchQuery,
@@ -367,34 +374,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
           </div>
         </div>
 
-        {/* Show Out of Stock - Mobile */}
-        <div className="mb-6">
-          <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
-            <div className="relative flex items-center justify-center">
-              <input
-                type="checkbox"
-                checked={showOutOfStock}
-                onChange={(e) => setShowOutOfStock(e.target.checked)}
-                className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-              />
-              <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                {showOutOfStock && (
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-            </div>
-            <span className="text-sm whitespace-nowrap">Show out of stock items</span>
-          </label>
-        </div>
-
         {/* Collection Filters - Mobile */}
         {(hasSeasonalScents || hasExperimentalScents) && (
           <div className="mb-6 space-y-3">
@@ -450,6 +429,31 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                 <span className="text-sm whitespace-nowrap">Experimental Scents</span>
               </label>
             )}
+            {/* Young & Dumb - Mobile */}
+            <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
+              <div className="relative flex items-center justify-center">
+                <input
+                  type="checkbox"
+                  checked={showYoungDumbOnly}
+                  onChange={(e) => setShowYoungDumbOnly(e.target.checked)}
+                  className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                />
+                <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                  {showYoungDumbOnly && (
+                    <svg
+                      className="w-3 h-3 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={3}
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </div>
+              </div>
+              <span className="text-sm whitespace-nowrap">Young & Dumb</span>
+            </label>
           </div>
         )}
 
@@ -512,6 +516,34 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
           >
             Out of Stock
           </button>
+        </div>
+
+        {/* Show Out of Stock - Mobile */}
+        <div className="mt-4">
+          <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
+            <div className="relative flex items-center justify-center">
+              <input
+                type="checkbox"
+                checked={showOutOfStock}
+                onChange={(e) => setShowOutOfStock(e.target.checked)}
+                className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+              />
+              <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                {showOutOfStock && (
+                  <svg
+                    className="w-3 h-3 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={3}
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+            </div>
+            <span className="text-sm whitespace-nowrap">Show out of stock items</span>
+          </label>
         </div>
       </div>
 
@@ -583,39 +615,36 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                           </span>
                         </label>
                       )}
+                      {/* Young & Dumb */}
+                      <label className="flex items-start gap-3 cursor-pointer group">
+                        <div className="relative flex items-center justify-center mt-0.5">
+                          <input
+                            type="checkbox"
+                            checked={showYoungDumbOnly}
+                            onChange={(e) => setShowYoungDumbOnly(e.target.checked)}
+                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                          />
+                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                            {showYoungDumbOnly && (
+                              <svg
+                                className="w-3 h-3 text-white"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                                strokeWidth={3}
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                          Young & Dumb
+                        </span>
+                      </label>
                     </div>
                   </div>
                 )}
-
-                {/* Show Out of Stock */}
-                <div>
-                  <label className="flex items-start gap-3 cursor-pointer group">
-                    <div className="relative flex items-center justify-center mt-0.5">
-                      <input
-                        type="checkbox"
-                        checked={showOutOfStock}
-                        onChange={(e) => setShowOutOfStock(e.target.checked)}
-                        className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                      />
-                      <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                        {showOutOfStock && (
-                          <svg
-                            className="w-3 h-3 text-white"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                            strokeWidth={3}
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                          </svg>
-                        )}
-                      </div>
-                    </div>
-                    <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                      Show out of stock items
-                    </span>
-                  </label>
-                </div>
 
                 {/* Availability */}
                 <div>
@@ -653,6 +682,33 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                     >
                       Out of Stock
                     </button>
+                    {/* Show Out of Stock */}
+                    <label className="flex items-start gap-3 cursor-pointer group px-3 py-2">
+                      <div className="relative flex items-center justify-center mt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={showOutOfStock}
+                          onChange={(e) => setShowOutOfStock(e.target.checked)}
+                          className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                        />
+                        <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                          {showOutOfStock && (
+                            <svg
+                              className="w-3 h-3 text-white"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={3}
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
+                        Show out of stock items
+                      </span>
+                    </label>
                   </div>
                 </div>
 
@@ -718,7 +774,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
 
             {/* Product Sections (Grouped) */}
             <div className="flex-1 mx-auto max-w-6xl">
-              {grouped.map(([typeName, list], i) => (
+              {grouped.map(([typeName, list]) => (
                 <section key={typeName} className="mb-16">
                   <h2 className="text-lg sm:text-xl font-semibold">{typeName}</h2>
 
@@ -753,6 +809,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                       setSortBy("name-asc");
                       setShowSeasonalOnly(false);
                       setShowExperimentalOnly(false);
+                      setShowYoungDumbOnly(false);
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);
