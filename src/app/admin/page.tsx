@@ -286,17 +286,39 @@ export default function AdminPage() {
     const file = e.target.files?.[0];
     if (!file || !editingLocal) return;
 
-    const fd = new FormData();
-    fd.append("file", file);
+    console.log("[Admin] Starting image upload:", {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+    });
 
-    const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
-    if (!res.ok) {
-      alert("Upload failed");
-      return;
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+
+      console.log("[Admin] Sending upload request to /api/admin/upload");
+      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+
+      console.log("[Admin] Upload response:", {
+        status: res.status,
+        statusText: res.statusText,
+        ok: res.ok,
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+        console.error("[Admin] Upload failed:", errorData);
+        alert(`Upload failed: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`);
+        return;
+      }
+
+      const { url } = (await res.json()) as { url: string };
+      console.log("[Admin] Upload successful, URL:", url);
+      setEditingLocal({ ...editingLocal, image: url });
+    } catch (error) {
+      console.error("[Admin] Upload error:", error);
+      alert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`);
     }
-
-    const { url } = (await res.json()) as { url: string };
-    setEditingLocal({ ...editingLocal, image: url });
   }
 
   // Next SKU for new product modal
