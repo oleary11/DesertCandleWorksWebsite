@@ -826,9 +826,16 @@ export default function AdminPage() {
                   onChange={(e) =>
                     setEditing({
                       ...editing,
-                      stock: Math.max(0, Number(e.target.value)),
+                      stock: e.target.value === "" ? 0 : Number(e.target.value),
                     })
                   }
+                  onBlur={(e) => {
+                    const val = e.target.value === "" ? 0 : Number(e.target.value);
+                    setEditing({
+                      ...editing,
+                      stock: Math.max(0, val),
+                    });
+                  }}
                   disabled={!!editing.variantConfig}
                 />
               </label>
@@ -973,7 +980,21 @@ export default function AdminPage() {
                                         onChange={(e) => {
                                           const newData = { ...editing.variantConfig!.variantData };
                                           newData[v.id] = {
-                                            stock: Math.max(0, Number(e.target.value)),
+                                            stock: e.target.value === "" ? 0 : Number(e.target.value),
+                                          };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              variantData: newData,
+                                            },
+                                          });
+                                        }}
+                                        onBlur={(e) => {
+                                          const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                          const newData = { ...editing.variantConfig!.variantData };
+                                          newData[v.id] = {
+                                            stock: Math.max(0, val),
                                           };
                                           setEditing({
                                             ...editing,
