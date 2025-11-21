@@ -26,11 +26,10 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
   const clearCart = useCartStore((state) => state.clearCart);
 
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
-  const [filterBy, setFilterBy] = useState<FilterOption>("all");
+  const [filterBy, setFilterBy] = useState<FilterOption>("in-stock");
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
-  const [showOutOfStock, setShowOutOfStock] = useState(false);
 
   // Price range from products
   const priceRange = useMemo(() => {
@@ -104,11 +103,6 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
     // Price range
     filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
-    // Hide OOS by default unless toggled or out-of-stock filter selected
-    if (!showOutOfStock && filterBy !== "out-of-stock") {
-      filtered = filtered.filter((p) => p._computedStock > 0);
-    }
-
     // Stock filter
     if (filterBy === "in-stock") {
       filtered = filtered.filter((p) => p._computedStock > 0);
@@ -117,6 +111,7 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
     } else if (filterBy === "out-of-stock") {
       filtered = filtered.filter((p) => p._computedStock === 0);
     }
+    // "all" shows everything - no filtering needed
 
     // Sort: in-stock first, then user-selected sort
     filtered.sort((a, b) => {
@@ -139,7 +134,7 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
     });
 
     return filtered;
-  }, [products, sortBy, filterBy, searchQuery, priceMin, priceMax, showOutOfStock]);
+  }, [products, sortBy, filterBy, searchQuery, priceMin, priceMax]);
 
   // Build ordering index for Alcohol Types
   const typeOrderIndex = useMemo(() => {
@@ -377,34 +372,6 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
             Out of Stock
           </button>
         </div>
-
-        {/* Show Out of Stock - Mobile */}
-        <div className="mt-4">
-          <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-purple-200 hover:border-purple-500 transition">
-            <div className="relative flex items-center justify-center">
-              <input
-                type="checkbox"
-                checked={showOutOfStock}
-                onChange={(e) => setShowOutOfStock(e.target.checked)}
-                className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-              />
-              <div className="w-5 h-5 rounded border-2 border-purple-200 group-hover:border-purple-500 transition-colors peer-checked:bg-purple-600 peer-checked:border-purple-600 flex items-center justify-center pointer-events-none">
-                {showOutOfStock && (
-                  <svg
-                    className="w-3 h-3 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={3}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                  </svg>
-                )}
-              </div>
-            </div>
-            <span className="text-sm whitespace-nowrap">Show out of stock items</span>
-          </label>
-        </div>
       </div>
 
       {/* Main Content with Sidebar */}
@@ -450,33 +417,6 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
                     >
                       Out of Stock
                     </button>
-                    {/* Show Out of Stock */}
-                    <label className="flex items-start gap-3 cursor-pointer group px-3 py-2">
-                      <div className="relative flex items-center justify-center mt-0.5">
-                        <input
-                          type="checkbox"
-                          checked={showOutOfStock}
-                          onChange={(e) => setShowOutOfStock(e.target.checked)}
-                          className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                        />
-                        <div className="w-5 h-5 rounded border-2 border-purple-200 group-hover:border-purple-500 transition-colors peer-checked:bg-purple-600 peer-checked:border-purple-600 flex items-center justify-center pointer-events-none">
-                          {showOutOfStock && (
-                            <svg
-                              className="w-3 h-3 text-white"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={3}
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                            </svg>
-                          )}
-                        </div>
-                      </div>
-                      <span className="text-sm leading-relaxed group-hover:text-purple-600 transition">
-                        Show out of stock items
-                      </span>
-                    </label>
                   </div>
                 </div>
 
