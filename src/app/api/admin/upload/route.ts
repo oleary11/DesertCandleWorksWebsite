@@ -56,8 +56,9 @@ export async function POST(req: NextRequest) {
 
     console.log("[Upload] Upload successful:", {
       url: blob.url,
-      size: blob.size,
-      uploadedAt: blob.uploadedAt,
+      pathname: blob.pathname,
+      contentType: blob.contentType,
+      contentDisposition: blob.contentDisposition,
     });
 
     // blob.url is a public, CDN-backed URL you can save to the product.image
