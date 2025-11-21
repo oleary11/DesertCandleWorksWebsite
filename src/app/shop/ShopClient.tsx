@@ -752,7 +752,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);
-                      setShowOutOfStock(false);
                     }}
                     className="mt-4 text-sm text-[var(--color-accent)] hover:underline"
                   >
