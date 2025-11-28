@@ -19,9 +19,12 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   const data = (await req.json().catch(() => ({}))) as Partial<Product>;
-  const required: (keyof Product)[] = ["slug", "name", "price", "sku", "seoDescription"];
+  console.log("[API POST /api/admin/products] Received data:", JSON.stringify(data, null, 2));
+
+  const required: (keyof Product)[] = ["slug", "name", "price", "sku"];
   for (const k of required) {
     if (data[k] == null || data[k] === "") {
+      console.error(`[API POST /api/admin/products] Missing required field: ${k}`);
       return NextResponse.json({ error: `Missing ${k}` }, { status: 400 });
     }
   }
@@ -31,11 +34,14 @@ export async function POST(req: NextRequest) {
     name: String(data.name),
     price: Number(data.price),
     image: data.image ? String(data.image) : undefined,
+    images: data.images && Array.isArray(data.images) ? data.images : undefined,
     sku: String(data.sku),
     stripePriceId: data.stripePriceId ? String(data.stripePriceId) : undefined,
-    seoDescription: String(data.seoDescription),
+    seoDescription: data.seoDescription ? String(data.seoDescription) : `Hand-poured candle in an upcycled bottle.`,
     bestSeller: coerceBool(data.bestSeller),
+    youngDumb: coerceBool(data.youngDumb),
     stock: Math.max(0, Number(data.stock ?? 0)),
+    variantConfig: data.variantConfig,
     alcoholType: data.alcoholType ?? undefined,
   };
 

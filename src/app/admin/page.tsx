@@ -227,20 +227,30 @@ export default function AdminPage() {
     const draft = staged[slug];
     if (!draft) return;
 
+    console.log("[Admin] Publishing product:", slug, draft);
+
     setSaving(true);
     setError(null);
 
     const isNew = !isServerItem(slug);
+    console.log(`[Admin] ${isNew ? 'Creating new' : 'Updating existing'} product`);
+
     const res = await fetch(isNew ? "/api/admin/products" : `/api/admin/products/${slug}`, {
       method: isNew ? "POST" : "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(draft),
     });
 
+    console.log("[Admin] Response status:", res.status);
+
     if (!res.ok) {
       const j = (await res.json().catch(() => ({}))) as { error?: string };
-      setError(j.error || "Publish failed");
+      console.error("[Admin] Publish failed:", j);
+      const errorMsg = j.error || `Publish failed (${res.status})`;
+      setError(errorMsg);
+      alert(`Failed to publish product:\n\n${errorMsg}`);
     } else {
+      console.log("[Admin] Publish successful");
       discardDraft(slug);
       await load();
     }
@@ -261,7 +271,9 @@ export default function AdminPage() {
       });
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
-        setError(j.error || `Publish failed for ${slug}`);
+        const errorMsg = j.error || `Publish failed for ${slug}`;
+        setError(errorMsg);
+        alert(`Failed to publish product "${slug}":\n\n${errorMsg}`);
         setSaving(false);
         return; // stop on first failure
       }
