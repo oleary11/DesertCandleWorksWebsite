@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ShoppingCart } from "lucide-react";
 import type { Product } from "@/lib/products";
+import { getPrimaryImage } from "@/lib/products";
 import type { ProductVariant } from "@/lib/productsStore";
 import type { GlobalScent } from "@/lib/scents";
 import QuickAddModal from "./QuickAddModal";
@@ -60,23 +61,26 @@ export default function ProductCard({
           border-b-0 rounded-t-2xl bg-transparent
         "
       >
-        {product.image && (
-          <Image
-            src={product.image}
-            alt={`${product.name} - Handmade soy candle in upcycled liquor bottle`}
-            fill
-            className="
-              object-cover object-center rounded-t-2xl
-              transition-transform duration-500 ease-out
-              group-hover:scale-110
-            "
-            sizes="(min-width:1280px) 260px, (min-width:1024px) 30vw, (min-width:640px) 45vw, 90vw"
-            quality={75}
-            loading="lazy"
-            placeholder="blur"
-            blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
-          />
-        )}
+        {(() => {
+          const primaryImage = getPrimaryImage(product);
+          return primaryImage ? (
+            <Image
+              src={primaryImage}
+              alt={`${product.name} - Handmade soy candle in upcycled liquor bottle`}
+              fill
+              className="
+                object-cover object-center rounded-t-2xl
+                transition-transform duration-500 ease-out
+                group-hover:scale-110
+              "
+              sizes="(min-width:1280px) 260px, (min-width:1024px) 30vw, (min-width:640px) 45vw, 90vw"
+              quality={75}
+              loading="lazy"
+              placeholder="blur"
+              blurDataURL="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=="
+            />
+          ) : null;
+        })()}
 
         {/* Best Seller Badge - positioned to not overlap with price on mobile */}
         {product.bestSeller && (

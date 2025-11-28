@@ -30,6 +30,7 @@ type Product = {
   name: string;
   price: number;
   image?: string;
+  images?: string[]; // Multiple images support
   sku: string;
   stripePriceId?: string;
   seoDescription: string;
@@ -47,6 +48,7 @@ function emptyProduct(): Product {
     name: "",
     price: 0,
     image: "",
+    images: [],
     sku: "",
     stripePriceId: "",
     seoDescription: "",
@@ -277,48 +279,97 @@ export default function AdminPage() {
     if (res.ok) await load();
   }
 
-  // Image upload (only updates the draft via the modal)
+  // Image upload (supports multiple images)
   async function handleImagePick(
     e: React.ChangeEvent<HTMLInputElement>,
     editingLocal: Product | null,
     setEditingLocal: (v: Product) => void
   ) {
-    const file = e.target.files?.[0];
-    if (!file || !editingLocal) return;
+    const files = e.target.files;
+    if (!files || files.length === 0 || !editingLocal) return;
 
-    console.log("[Admin] Starting image upload:", {
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-    });
+    console.log(`[Admin] Starting upload of ${files.length} image(s)`);
 
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      const uploadedUrls: string[] = [];
 
-      console.log("[Admin] Sending upload request to /api/admin/upload");
-      const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      // Upload each file
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        console.log(`[Admin] Uploading image ${i + 1}/${files.length}:`, {
+          fileName: file.name,
+          fileSize: file.size,
+          fileType: file.type,
+        });
 
-      console.log("[Admin] Upload response:", {
-        status: res.status,
-        statusText: res.statusText,
-        ok: res.ok,
-      });
+        const fd = new FormData();
+        fd.append("file", file);
 
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
-        console.error("[Admin] Upload failed:", errorData);
-        alert(`Upload failed: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`);
-        return;
+        const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+          console.error("[Admin] Upload failed:", errorData);
+          alert(`Upload failed for ${file.name}: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`);
+          continue; // Continue with other files
+        }
+
+        const { url } = (await res.json()) as { url: string };
+        console.log(`[Admin] Upload ${i + 1} successful, URL:`, url);
+        uploadedUrls.push(url);
       }
 
-      const { url } = (await res.json()) as { url: string };
-      console.log("[Admin] Upload successful, URL:", url);
-      setEditingLocal({ ...editingLocal, image: url });
+      if (uploadedUrls.length > 0) {
+        // Append to existing images array
+        const currentImages = editingLocal.images || [];
+        setEditingLocal({
+          ...editingLocal,
+          images: [...currentImages, ...uploadedUrls],
+          // Keep legacy image field pointing to first image for backward compatibility
+          image: currentImages.length === 0 && uploadedUrls.length > 0 ? uploadedUrls[0] : editingLocal.image
+        });
+      }
     } catch (error) {
       console.error("[Admin] Upload error:", error);
       alert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`);
     }
+  }
+
+  // Remove image from array
+  function removeImage(index: number, editingLocal: Product | null, setEditingLocal: (v: Product) => void) {
+    if (!editingLocal) return;
+    const newImages = [...(editingLocal.images || [])];
+    newImages.splice(index, 1);
+    setEditingLocal({
+      ...editingLocal,
+      images: newImages,
+      // Update legacy image field
+      image: newImages.length > 0 ? newImages[0] : undefined
+    });
+  }
+
+  // Reorder images (move up)
+  function moveImageUp(index: number, editingLocal: Product | null, setEditingLocal: (v: Product) => void) {
+    if (!editingLocal || index === 0) return;
+    const newImages = [...(editingLocal.images || [])];
+    [newImages[index - 1], newImages[index]] = [newImages[index], newImages[index - 1]];
+    setEditingLocal({
+      ...editingLocal,
+      images: newImages,
+      image: newImages[0]
+    });
+  }
+
+  // Reorder images (move down)
+  function moveImageDown(index: number, editingLocal: Product | null, setEditingLocal: (v: Product) => void) {
+    if (!editingLocal || !editingLocal.images || index === editingLocal.images.length - 1) return;
+    const newImages = [...editingLocal.images];
+    [newImages[index], newImages[index + 1]] = [newImages[index + 1], newImages[index]];
+    setEditingLocal({
+      ...editingLocal,
+      images: newImages,
+      image: newImages[0]
+    });
   }
 
   // Next SKU for new product modal
@@ -412,17 +463,20 @@ export default function AdminPage() {
                     return (
                       <tr key={p.slug} className="border-b border-[var(--color-line)]">
                         <td className="py-2 pr-3">
-                          {p.image ? (
-                            <Image
-                              src={p.image}
-                              alt=""
-                              width={48}
-                              height={48}
-                              className="object-contain"
-                            />
-                          ) : (
-                            <span>—</span>
-                          )}
+                          {(() => {
+                            const img = p.images?.[0] ?? p.image;
+                            return img ? (
+                              <Image
+                                src={img}
+                                alt=""
+                                width={48}
+                                height={48}
+                                className="object-contain"
+                              />
+                            ) : (
+                              <span>—</span>
+                            );
+                          })()}
                         </td>
                         <td className="py-2 pr-3">{p.name}</td>
                         <td className="py-2 pr-3">{p.slug}</td>
@@ -491,9 +545,12 @@ export default function AdminPage() {
                   <div key={p.slug} className="card p-4">
                     <div className="flex items-center gap-3">
                       <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-white">
-                        {p.image ? (
-                          <Image src={p.image} alt="" fill sizes="64px" className="object-contain" />
-                        ) : null}
+                        {(() => {
+                          const img = p.images?.[0] ?? p.image;
+                          return img ? (
+                            <Image src={img} alt="" fill sizes="64px" className="object-contain" />
+                          ) : null;
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -758,32 +815,69 @@ export default function AdminPage() {
                 />
               </label>
 
-              {/* Image URL + Browse */}
-              <label className="block sm:col-span-2">
-                <div className="text-xs mb-1">Image</div>
-                <div className="flex items-center gap-3">
+              {/* Images - Multiple Upload */}
+              <div className="block sm:col-span-2">
+                <div className="text-xs mb-1">Product Images</div>
+                <label className="btn cursor-pointer w-full">
+                  + Add Images
                   <input
-                    className="input flex-1"
-                    value={editing.image || ""}
-                    onChange={(e) => setEditing({ ...editing, image: e.target.value })}
-                    placeholder="/images/woodford.png or https://…"
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
                   />
-                  <label className="btn cursor-pointer">
-                    Browse…
-                    <input
-                      type="file"
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
-                    />
-                  </label>
-                </div>
-                {editing.image ? (
-                  <div className="mt-3 relative w-full h-40 rounded-xl overflow-hidden">
-                    <Image src={editing.image} alt="" fill className="object-contain" />
+                </label>
+
+                {/* Display current images */}
+                {editing.images && editing.images.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {editing.images.map((img, idx) => (
+                      <div key={idx} className="card p-3 flex items-center gap-3">
+                        <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-white">
+                          <Image src={img} alt={`Product image ${idx + 1}`} fill className="object-contain" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs text-[var(--color-muted)] truncate">{img}</div>
+                          {idx === 0 && <span className="text-xs font-medium text-green-600">Primary</span>}
+                        </div>
+                        <div className="flex gap-1">
+                          {idx > 0 && (
+                            <button
+                              type="button"
+                              className="btn text-xs px-2 py-1"
+                              onClick={() => moveImageUp(idx, editing, (v) => setEditing(v))}
+                              title="Move up"
+                            >
+                              ↑
+                            </button>
+                          )}
+                          {editing.images && idx < editing.images.length - 1 && (
+                            <button
+                              type="button"
+                              className="btn text-xs px-2 py-1"
+                              onClick={() => moveImageDown(idx, editing, (v) => setEditing(v))}
+                              title="Move down"
+                            >
+                              ↓
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            className="btn text-xs px-2 py-1"
+                            onClick={() => removeImage(idx, editing, (v) => setEditing(v))}
+                            title="Remove"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ) : null}
-              </label>
+                ) : (
+                  <p className="mt-2 text-xs text-[var(--color-muted)]">No images yet. Click &quot;Add Images&quot; to upload.</p>
+                )}
+              </div>
 
               {/* Description */}
               <label className="block sm:col-span-2">

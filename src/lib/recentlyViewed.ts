@@ -1,4 +1,5 @@
 import type { Product } from "./products";
+import { getPrimaryImage } from "./products";
 
 const STORAGE_KEY = "recentlyViewedProducts";
 const MAX_ITEMS = 8;
@@ -29,7 +30,7 @@ export function getRecentlyViewed(): RecentlyViewedProduct[] {
 }
 
 // Add a product to recently viewed
-export function addToRecentlyViewed(product: Pick<Product, "slug" | "name" | "image" | "price">) {
+export function addToRecentlyViewed(product: Product) {
   if (typeof window === "undefined") return;
 
   try {
@@ -43,7 +44,7 @@ export function addToRecentlyViewed(product: Pick<Product, "slug" | "name" | "im
       {
         slug: product.slug,
         name: product.name,
-        image: product.image || "",
+        image: getPrimaryImage(product) || "",
         price: product.price,
         viewedAt: Date.now(),
       },
