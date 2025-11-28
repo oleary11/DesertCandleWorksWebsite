@@ -1,5 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
+import { getUserSession } from "@/lib/userSession";
+import { getUserById } from "@/lib/userStore";
 
 export const runtime = "nodejs";
 
@@ -41,12 +43,18 @@ export async function POST(req: NextRequest) {
     const ct = req.headers.get("content-type") || "";
     const accept = req.headers.get("accept") || "";
     let extendedLineItems: ExtendedLineItem[] = [];
+    let pointsToRedeem: number | undefined;
 
     if (ct.includes("application/json")) {
       const body: unknown = await req.json();
       if (body && typeof body === "object" && "lineItems" in body) {
         const raw = (body as { lineItems: unknown }).lineItems;
         if (isLineItemArray(raw)) extendedLineItems = raw;
+
+        // Get points to redeem if provided
+        if ("pointsToRedeem" in body && typeof (body as { pointsToRedeem: unknown }).pointsToRedeem === "number") {
+          pointsToRedeem = (body as { pointsToRedeem: number }).pointsToRedeem;
+        }
       }
     } else {
       const form = await req.formData();
@@ -59,6 +67,30 @@ export async function POST(req: NextRequest) {
 
     const origin = process.env.NEXT_PUBLIC_BASE_URL || new URL(req.url).origin;
 
+    // Validate points redemption if provided
+    let discountAmountCents = 0;
+    let userId: string | undefined;
+
+    if (pointsToRedeem && pointsToRedeem > 0) {
+      const session = await getUserSession();
+      if (!session) {
+        return NextResponse.json({ error: "Must be logged in to redeem points" }, { status: 401 });
+      }
+
+      const user = await getUserById(session.userId);
+      if (!user) {
+        return NextResponse.json({ error: "User not found" }, { status: 404 });
+      }
+
+      if (user.points < pointsToRedeem) {
+        return NextResponse.json({ error: "Insufficient points" }, { status: 400 });
+      }
+
+      // Calculate discount (1 point = 1 cent)
+      discountAmountCents = pointsToRedeem;
+      userId = user.id;
+    }
+
     // Fetch all price details from Stripe in parallel
     const priceIds = extendedLineItems.map(item => item.price);
     const priceDetailsArray = await Promise.all(
@@ -67,6 +99,10 @@ export async function POST(req: NextRequest) {
 
     // Build session metadata to track what was purchased (for webhook)
     const sessionMetadata: Record<string, string> = {};
+    if (pointsToRedeem && userId) {
+      sessionMetadata.pointsRedeemed = pointsToRedeem.toString();
+      sessionMetadata.userId = userId;
+    }
 
     // Build line items with custom names
     const lineItems: LineItem[] = [];
@@ -185,9 +221,24 @@ export async function POST(req: NextRequest) {
             },
           ];
 
+    // Create discount coupon if redeeming points
+    let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+    if (discountAmountCents > 0) {
+      // Create a one-time coupon for this checkout
+      const coupon = await stripe.coupons.create({
+        amount_off: discountAmountCents,
+        currency: 'usd',
+        duration: 'once',
+        name: `Points Redemption (${pointsToRedeem} points)`,
+      });
+
+      discounts = [{ coupon: coupon.id }];
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: "payment",
       line_items: lineItems,
+      discounts,
       success_url: `${origin}/shop?status=success`,
       cancel_url: `${origin}/shop?status=cancelled`,
       shipping_address_collection: { allowed_countries: ["US", "CA"] },

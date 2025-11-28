@@ -4,13 +4,38 @@ import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Minus, Plus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
+
+type UserData = {
+  id: string;
+  email: string;
+  firstName: string;
+  points: number;
+};
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
+  const [user, setUser] = useState<UserData | null>(null);
+  const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  useEffect(() => {
+    loadUser();
+  }, []);
+
+  async function loadUser() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      }
+    } catch (err) {
+      // Not logged in - that's ok
+    }
+  }
 
   const handleRemoveItem = (slug: string, variantId: string | undefined, name: string) => {
     setItemToRemove({ slug, variantId, name });
@@ -52,10 +77,19 @@ export default function CartPage() {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lineItems }),
+        body: JSON.stringify({
+          lineItems,
+          pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
+        }),
       });
 
       const data = await res.json();
+
+      if (data.error) {
+        alert(data.error);
+        setIsCheckingOut(false);
+        return;
+      }
 
       if (data.url) {
         // Redirect to Stripe checkout
@@ -70,6 +104,14 @@ export default function CartPage() {
       setIsCheckingOut(false);
     }
   };
+
+  // Calculate discount amount based on points
+  const maxPointsForDiscount = Math.min(
+    user?.points || 0, // Can't use more points than user has
+    Math.floor(getTotalPrice() * 100) // Can't use more points than order total (in cents)
+  );
+
+  const discountAmount = pointsToRedeem / 100; // Convert points to dollars
 
   if (items.length === 0) {
     return (
@@ -218,6 +260,12 @@ export default function CartPage() {
                   <span className="text-[var(--color-muted)]">Subtotal</span>
                   <span className="font-medium">${getTotalPrice().toFixed(2)}</span>
                 </div>
+                {pointsToRedeem > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Points Discount</span>
+                    <span className="font-medium">-${discountAmount.toFixed(2)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--color-muted)]">Shipping</span>
                   <span className="font-medium">
@@ -235,9 +283,41 @@ export default function CartPage() {
                 </div>
               </div>
 
+              {/* Points Redemption */}
+              {user && user.points > 0 && (
+                <div className="mb-4 pb-4 border-b border-[var(--color-line)]">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-sm font-medium">Redeem Points</span>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      {user.points.toLocaleString()} available
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="number"
+                      min="0"
+                      max={maxPointsForDiscount}
+                      value={pointsToRedeem}
+                      onChange={(e) => setPointsToRedeem(Math.min(Number(e.target.value), maxPointsForDiscount))}
+                      className="input text-sm flex-1"
+                      placeholder="0"
+                    />
+                    <button
+                      onClick={() => setPointsToRedeem(maxPointsForDiscount)}
+                      className="text-xs bg-[var(--color-accent)] text-white px-3 py-2 rounded-md hover:opacity-90 transition whitespace-nowrap"
+                    >
+                      Use Max
+                    </button>
+                  </div>
+                  <p className="text-xs text-[var(--color-muted)]">
+                    100 points = $1.00 discount
+                  </p>
+                </div>
+              )}
+
               <div className="flex justify-between text-lg font-semibold mb-6">
                 <span>Total</span>
-                <span>${getTotalPrice().toFixed(2)}</span>
+                <span>${(getTotalPrice() - discountAmount).toFixed(2)}</span>
               </div>
 
               {/* Shipping Info */}

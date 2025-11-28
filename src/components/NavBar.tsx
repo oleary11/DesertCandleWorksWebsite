@@ -1,20 +1,53 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Menu, X, ShoppingCart, ChevronDown } from "lucide-react";
+import { Menu, X, ShoppingCart, ChevronDown, User } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
+
+type UserData = {
+  id: string;
+  email: string;
+  firstName: string;
+  points: number;
+};
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [user, setUser] = useState<UserData | null>(null);
   const totalItems = useCartStore((state) => state.getTotalItems());
 
   // Only render cart count after hydration
   useEffect(() => {
     setMounted(true);
+    loadUser();
+
+    // Poll for user changes every 2 seconds to detect login/logout
+    const interval = setInterval(() => {
+      loadUser();
+    }, 2000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  async function loadUser() {
+    try {
+      const res = await fetch("/api/auth/me");
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data.user);
+      } else {
+        // Not logged in - clear user state
+        setUser(null);
+      }
+    } catch (err) {
+      // Network error - clear user state
+      setUser(null);
+    }
+  }
 
   return (
     <>
@@ -70,6 +103,79 @@ export default function NavBar() {
           <Link className="hover:opacity-80 transition" href="/about">About</Link>
           <Link className="hover:opacity-80 transition" href="/contact">Contact</Link>
           <div className="flex items-center gap-3 ml-2 pl-4 border-l border-[var(--color-line)]">
+            {/* Account Dropdown */}
+            {mounted && (
+              <div
+                className="relative"
+                onMouseEnter={() => setAccountDropdownOpen(true)}
+                onMouseLeave={() => setAccountDropdownOpen(false)}
+              >
+                <button
+                  className="relative text-[var(--color-muted)] hover:text-[var(--color-ink)] transition flex items-center"
+                  aria-label="Account"
+                >
+                  <User className="w-5 h-5" />
+                  {user && user.points > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-[var(--color-accent)] text-[var(--color-accent-ink)] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      ★
+                    </span>
+                  )}
+                </button>
+                {accountDropdownOpen && (
+                  <div className="absolute top-full right-0 pt-2 pb-2 z-50">
+                    <div className="bg-white border border-[var(--color-line)] rounded-lg shadow-lg py-2 min-w-[200px]">
+                      {user ? (
+                        <>
+                          <div className="px-4 py-2 border-b border-[var(--color-line)]">
+                            <p className="text-sm font-medium">{user.firstName}</p>
+                            <p className="text-xs text-[var(--color-muted)]">{user.points} points</p>
+                          </div>
+                          <Link
+                            href="/account"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            className="block px-4 py-2 hover:bg-neutral-50 transition text-sm"
+                          >
+                            My Account
+                          </Link>
+                          <Link
+                            href="/account?tab=orders"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            className="block px-4 py-2 hover:bg-neutral-50 transition text-sm"
+                          >
+                            Orders
+                          </Link>
+                          <Link
+                            href="/account?tab=points"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            className="block px-4 py-2 hover:bg-neutral-50 transition text-sm"
+                          >
+                            Points
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <Link
+                            href="/account/login"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            className="block px-4 py-2 hover:bg-neutral-50 transition text-sm"
+                          >
+                            Sign In
+                          </Link>
+                          <Link
+                            href="/account/register"
+                            onClick={() => setAccountDropdownOpen(false)}
+                            className="block px-4 py-2 hover:bg-neutral-50 transition text-sm"
+                          >
+                            Create Account
+                          </Link>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             <Link
               href="/cart"
               className="relative text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
@@ -132,6 +238,27 @@ export default function NavBar() {
             </Link>
             <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
+            {mounted && (
+              user ? (
+                <Link
+                  href="/account"
+                  onClick={() => setOpen(false)}
+                  className="relative flex items-center gap-2 hover:opacity-80 transition"
+                >
+                  <User className="w-5 h-5" />
+                  <span>{user.firstName} ({user.points} pts)</span>
+                </Link>
+              ) : (
+                <Link
+                  href="/account/login"
+                  onClick={() => setOpen(false)}
+                  className="relative flex items-center gap-2 hover:opacity-80 transition"
+                >
+                  <User className="w-5 h-5" />
+                  <span>Sign In</span>
+                </Link>
+              )
+            )}
             <Link
               href="/cart"
               onClick={() => setOpen(false)}

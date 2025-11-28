@@ -8,7 +8,10 @@
       "Bash(node:*)",
       "Bash(npm run dev:*)",
       "Bash(npm install)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run lint:*)",
+      "Bash(powershell -Command:*)"
     ],
     "deny": [],
     "ask": []
