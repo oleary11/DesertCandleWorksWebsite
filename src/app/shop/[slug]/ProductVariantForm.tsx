@@ -94,6 +94,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   // Request scent modal state
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestEmail, setRequestEmail] = useState("");
+  const [requestWickType, setRequestWickType] = useState("");
+  const [requestScent, setRequestScent] = useState("");
   const [requestStatus, setRequestStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [requestMessage, setRequestMessage] = useState("");
   const [isBuying, setIsBuying] = useState(false);
@@ -234,8 +236,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         body: JSON.stringify({
           email: requestEmail,
           productName: product.name,
-          wickType: selectedWickName,
-          scent: selectedScentName,
+          wickType: requestWickType || "Any",
+          scent: requestScent || "Any available scent",
         }),
       });
 
@@ -247,6 +249,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         setTimeout(() => {
           setShowRequestModal(false);
           setRequestEmail("");
+          setRequestWickType("");
+          setRequestScent("");
           setRequestStatus("idle");
           setRequestMessage("");
         }, 3000);
@@ -426,15 +430,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           value={selectedScent}
           onChange={e => setSelectedScent(e.target.value)}
           className="input w-full"
+          size={1}
         >
-          {currentScents.map(scent => {
-            const available = isScentAvailable(scent.id);
-            return (
+          {currentScents
+            .filter(scent => isScentAvailable(scent.id))
+            .map(scent => (
               <option key={scent.id} value={scent.id}>
-                {scent.name} {!available ? "(Out of stock)" : ""}
+                {scent.name}
               </option>
-            );
-          })}
+            ))}
         </select>
         {/* Display scent notes for selected scent */}
         {(() => {
@@ -571,9 +575,9 @@ export default function ProductVariantForm({ product, variants, globalScents, va
 
           {/* Modal */}
           <div className="relative card max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-2">Request This Scent</h3>
+            <h3 className="text-lg font-semibold mb-2">Request Restock Notification</h3>
             <p className="text-sm text-[var(--color-muted)] mb-4">
-              {product.name} - {selectedWickName} / {selectedScentName}
+              {product.name}
             </p>
 
             {requestStatus === "success" ? (
@@ -582,6 +586,55 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               </div>
             ) : (
               <form onSubmit={handleRequestScent} className="space-y-4">
+                {/* Wick Type Selector */}
+                {wickTypes.length > 0 && (
+                  <div>
+                    <label htmlFor="request-wick" className="block text-sm font-medium mb-1">
+                      Wick Type (Optional)
+                    </label>
+                    <select
+                      id="request-wick"
+                      value={requestWickType}
+                      onChange={(e) => setRequestWickType(e.target.value)}
+                      className="input w-full"
+                      disabled={requestStatus === "loading"}
+                    >
+                      <option value="">Any wick type</option>
+                      {wickTypes.map((wick) => (
+                        <option key={wick.id} value={wick.name}>
+                          {wick.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Scent Selector - Show ALL scents (including out of stock) */}
+                {scents.length > 0 && (
+                  <div>
+                    <label htmlFor="request-scent" className="block text-sm font-medium mb-1">
+                      Scent (Optional)
+                    </label>
+                    <select
+                      id="request-scent"
+                      value={requestScent}
+                      onChange={(e) => setRequestScent(e.target.value)}
+                      className="input w-full"
+                      disabled={requestStatus === "loading"}
+                    >
+                      <option value="">Any scent</option>
+                      {scents
+                        .filter(scent => !scent.experimental)
+                        .map((scent) => (
+                          <option key={scent.id} value={scent.name}>
+                            {scent.name}
+                            {scent.seasonal && " (Seasonal)"}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label htmlFor="request-email" className="block text-sm font-medium mb-1">
                     Email Address
@@ -597,7 +650,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     disabled={requestStatus === "loading"}
                   />
                   <p className="text-xs text-[var(--color-muted)] mt-1">
-                    We&apos;ll notify you when this scent is back in stock and add you to our mailing list.
+                    We&apos;ll notify you when this product is back in stock and add you to our mailing list.
                   </p>
                 </div>
 
@@ -611,6 +664,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     onClick={() => {
                       setShowRequestModal(false);
                       setRequestEmail("");
+                      setRequestWickType("");
+                      setRequestScent("");
                       setRequestStatus("idle");
                       setRequestMessage("");
                     }}
