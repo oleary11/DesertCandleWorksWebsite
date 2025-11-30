@@ -155,6 +155,17 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     );
   };
 
+  // Check if there are any in-stock scents in each category (for disabling buttons)
+  const hasInStockSeasonalScents = useMemo(() =>
+    seasonalScents.some(s => isScentAvailable(s.id)),
+    [seasonalScents, selectedWickType, variants]
+  );
+
+  const hasInStockExperimentalScents = useMemo(() =>
+    experimentalScents.some(s => isScentAvailable(s.id)),
+    [experimentalScents, selectedWickType, variants]
+  );
+
   // Get display names for selected options
   const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
   const selectedScentName = scents.find(s => s.id === selectedScent)?.name || "";
@@ -358,11 +369,14 @@ export default function ProductVariantForm({ product, variants, globalScents, va
             <button
               type="button"
               onClick={() => {
-                setScentGroup("standard");
-                // Auto-select first standard scent when switching
-                const firstStandardScent = standardScents[0]?.id;
-                if (firstStandardScent) {
-                  setSelectedScent(firstStandardScent);
+                // Only auto-select if SWITCHING to a different group
+                if (scentGroup !== "standard") {
+                  setScentGroup("standard");
+                  // Auto-select first IN-STOCK standard scent when switching
+                  const firstInStockStandardScent = standardScents.find(s => isScentAvailable(s.id));
+                  if (firstInStockStandardScent) {
+                    setSelectedScent(firstInStockStandardScent.id);
+                  }
                 }
               }}
               className={`
@@ -379,16 +393,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               <button
                 type="button"
                 onClick={() => {
-                  setScentGroup("seasonal");
-                  // Auto-select first seasonal scent when switching
-                  const firstSeasonalScent = seasonalScents[0]?.id;
-                  if (firstSeasonalScent) {
-                    setSelectedScent(firstSeasonalScent);
+                  // Only auto-select if SWITCHING to a different group
+                  if (scentGroup !== "seasonal" && hasInStockSeasonalScents) {
+                    setScentGroup("seasonal");
+                    // Auto-select first IN-STOCK seasonal scent when switching
+                    const firstInStockSeasonalScent = seasonalScents.find(s => isScentAvailable(s.id));
+                    if (firstInStockSeasonalScent) {
+                      setSelectedScent(firstInStockSeasonalScent.id);
+                    }
                   }
                 }}
+                disabled={!hasInStockSeasonalScents}
                 className={`
                   flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                  ${scentGroup === "seasonal"
+                  ${!hasInStockSeasonalScents
+                    ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                    : scentGroup === "seasonal"
                     ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                     : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                   }
@@ -401,16 +421,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               <button
                 type="button"
                 onClick={() => {
-                  setScentGroup("experimental");
-                  // Auto-select first experimental scent when switching
-                  const firstExperimentalScent = experimentalScents[0]?.id;
-                  if (firstExperimentalScent) {
-                    setSelectedScent(firstExperimentalScent);
+                  // Only auto-select if SWITCHING to a different group
+                  if (scentGroup !== "experimental" && hasInStockExperimentalScents) {
+                    setScentGroup("experimental");
+                    // Auto-select first IN-STOCK experimental scent when switching
+                    const firstInStockExperimentalScent = experimentalScents.find(s => isScentAvailable(s.id));
+                    if (firstInStockExperimentalScent) {
+                      setSelectedScent(firstInStockExperimentalScent.id);
+                    }
                   }
                 }}
+                disabled={!hasInStockExperimentalScents}
                 className={`
                   flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                  ${scentGroup === "experimental"
+                  ${!hasInStockExperimentalScents
+                    ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                    : scentGroup === "experimental"
                     ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                     : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                   }
@@ -520,17 +546,18 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         </button>
       </div>
 
-      {/* Request Scent Button (shown when out of stock) */}
-      {stock <= 0 && (
-        <button
-          type="button"
-          onClick={() => setShowRequestModal(true)}
-          className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium border border-[var(--color-line)]
-          hover:border-[var(--color-accent)] transition cursor-pointer"
-        >
-          Request This Scent
-        </button>
-      )}
+      {/* Request Scent Button (always shown) */}
+      <button
+        type="button"
+        onClick={() => setShowRequestModal(true)}
+        className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium border border-[var(--color-line)]
+        hover:border-[var(--color-accent)] transition cursor-pointer"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Request a scent in this bottle
+      </button>
 
       {/* Sticky Add to Cart Button (Mobile Only) */}
       {showStickyButton && (
