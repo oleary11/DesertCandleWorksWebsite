@@ -39,6 +39,7 @@ type Product = {
   stock: number;
   variantConfig?: VariantConfig;
   alcoholType?: string; // NEW
+  materialCost?: number; // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean; // Controls shop page visibility
 };
 
