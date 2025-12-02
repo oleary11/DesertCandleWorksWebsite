@@ -1187,7 +1187,7 @@ export default function CalculatorPage() {
                 <div className="text-sm font-medium text-green-900">
                   Material Cost: ${newProduct.materialCost?.toFixed(2) || '0.00'}
                 </div>
-                {newProduct.price > 0 && newProduct.materialCost && (
+                {newProduct.price && newProduct.price > 0 && newProduct.materialCost && (
                   <div className="text-xs text-green-700 mt-1">
                     Profit: ${(newProduct.price - newProduct.materialCost).toFixed(2)} (
                     {(((newProduct.price - newProduct.materialCost) / newProduct.price) * 100).toFixed(1)}% margin)
