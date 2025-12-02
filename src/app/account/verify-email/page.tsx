@@ -78,9 +78,15 @@ function VerifyEmailForm() {
             <p className="text-[var(--color-muted)] mb-6">
               Your email has been successfully verified. You can now earn and redeem points on your purchases!
             </p>
-            <Link href="/account" className="btn-primary inline-block px-6 py-3">
+            <button
+              onClick={() => {
+                router.push("/account");
+                router.refresh();
+              }}
+              className="btn-primary inline-block px-6 py-3"
+            >
               Go to My Account
-            </Link>
+            </button>
           </div>
         </div>
       </div>

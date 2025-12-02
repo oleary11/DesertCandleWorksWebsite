@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { User, ShoppingBag, Award, LogOut } from "lucide-react";
 
@@ -38,8 +38,9 @@ type PointsTransaction = {
   createdAt: string;
 };
 
-export default function AccountPage() {
+function AccountPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [user, setUser] = useState<UserData | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [transactions, setTransactions] = useState<PointsTransaction[]>([]);
@@ -60,6 +61,14 @@ export default function AccountPage() {
   const [sendingVerification, setSendingVerification] = useState(false);
   const [verificationMessage, setVerificationMessage] = useState("");
 
+  // Set active tab from URL query parameter
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab === "orders" || tab === "points" || tab === "settings") {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
+
   useEffect(() => {
     loadData();
   }, []);
@@ -67,9 +76,9 @@ export default function AccountPage() {
   async function loadData() {
     try {
       const [userRes, ordersRes, pointsRes] = await Promise.all([
-        fetch("/api/auth/me"),
-        fetch("/api/user/orders"),
-        fetch("/api/user/points"),
+        fetch("/api/auth/me", { cache: "no-store" }),
+        fetch("/api/user/orders", { cache: "no-store" }),
+        fetch("/api/user/points", { cache: "no-store" }),
       ]);
 
       if (!userRes.ok) {
@@ -362,7 +371,7 @@ export default function AccountPage() {
               <div className="card p-12 text-center">
                 <ShoppingBag className="w-12 h-12 text-[var(--color-muted)] mx-auto mb-4" />
                 <p className="text-[var(--color-muted)] mb-4">No orders yet</p>
-                <Link href="/shop" className="btn-primary">
+                <Link href="/shop" className="btn btn-primary !text-white">
                   Start Shopping
                 </Link>
               </div>
@@ -486,7 +495,7 @@ export default function AccountPage() {
                     required
                   />
                 </div>
-                <button type="submit" className="btn-primary">
+                <button type="submit" className="btn btn-primary !text-white">
                   Update Password
                 </button>
               </form>
@@ -553,5 +562,13 @@ export default function AccountPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AccountPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center">Loading...</div>}>
+      <AccountPageContent />
+    </Suspense>
   );
 }

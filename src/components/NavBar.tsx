@@ -111,10 +111,10 @@ export default function NavBar() {
                 onMouseLeave={() => setAccountDropdownOpen(false)}
               >
                 <button
-                  className="relative text-[var(--color-muted)] hover:text-[var(--color-ink)] transition flex items-center"
+                  className="relative flex items-center text-[var(--color-muted)] hover:text-[var(--color-ink)] transition cursor-pointer"
                   aria-label="Account"
                 >
-                  <User className="w-5 h-5" />
+                  <User className="w-5 h-5" style={{ stroke: 'currentColor' }} />
                   {user && user.points > 0 && (
                     <span className="absolute -top-2 -right-2 bg-[var(--color-accent)] text-[var(--color-accent-ink)] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
                       ★

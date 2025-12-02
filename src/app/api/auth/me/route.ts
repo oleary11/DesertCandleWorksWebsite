@@ -23,6 +23,7 @@ export async function GET() {
         firstName: user.firstName,
         lastName: user.lastName,
         points: user.points,
+        emailVerified: user.emailVerified,
         createdAt: user.createdAt,
       },
     });

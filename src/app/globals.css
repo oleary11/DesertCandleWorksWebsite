@@ -133,7 +133,7 @@ p  { line-height: 1.7; }
     color-mix(in oklab, var(--color-accent) 92%, white 8%),
     color-mix(in oklab, var(--color-accent) 78%, black 4%)
   );
-  color: var(--color-accent-ink);
+  color: var(--color-accent-ink) !important;
   box-shadow:
     0 1px 0 rgba(255,255,255,.45) inset,
     inset 0 0 0 1px color-mix(in oklab, var(--color-accent) 40%, transparent),

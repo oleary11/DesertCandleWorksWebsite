@@ -16,11 +16,15 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   console.log("\n========== EMAIL ==========");
   console.log(`To: ${options.to}`);
   console.log(`Subject: ${options.subject}`);
+  if (options.text) {
+    console.log("\n--- Text Content ---");
+    console.log(options.text);
+  }
   console.log("===========================\n");
 
   // Send actual email with Resend
   if (!process.env.RESEND_API_KEY) {
-    console.warn("RESEND_API_KEY not set - email not sent");
+    console.warn("RESEND_API_KEY not set - email not sent (shown above)");
     return;
   }
 
@@ -28,7 +32,7 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
 
   try {
     await resend.emails.send({
-      from: 'Desert Candle Works <onboarding@resend.dev>', // Use your verified domain once set up
+      from: 'Desert Candle Works <noreply@desertcandleworks.com>',
       to: options.to,
       subject: options.subject,
       html: options.html,
