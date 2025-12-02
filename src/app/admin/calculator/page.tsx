@@ -1002,7 +1002,7 @@ export default function CalculatorPage() {
                             </span>
                           ) : (
                             <span className="ml-2 text-amber-600">
-                              • No "Appears As" set
+                              • No &quot;Appears As&quot; set
                             </span>
                           )}
                         </div>

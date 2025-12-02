@@ -696,7 +696,7 @@ export default function AdminScentsPage() {
                   <div>
                     {baseOils.length === 0 ? (
                       <p className="text-sm text-[var(--color-muted)]">
-                        No base oils available. Switch to the "Base Oils" tab to add base oils first.
+                        No base oils available. Switch to the &quot;Base Oils&quot; tab to add base oils first.
                       </p>
                     ) : (
                       <div className="space-y-3">
