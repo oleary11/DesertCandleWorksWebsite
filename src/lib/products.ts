@@ -33,6 +33,8 @@ export type Product = {
   stock: number;            // deprecated for variant products
   variantConfig?: VariantConfig;  // NEW: wick types + global scents → auto-generates variants
   alcoholType?: string;
+  materialCost?: number;    // Cost to make the product (from calculator)
+  visibleOnWebsite?: boolean;  // Controls shop page visibility (default: true)
 };
 
 /**

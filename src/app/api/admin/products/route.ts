@@ -43,6 +43,8 @@ export async function POST(req: NextRequest) {
     stock: Math.max(0, Number(data.stock ?? 0)),
     variantConfig: data.variantConfig,
     alcoholType: data.alcoholType ?? undefined,
+    materialCost: data.materialCost !== undefined ? Number(data.materialCost) : undefined,
+    visibleOnWebsite: data.visibleOnWebsite !== undefined ? coerceBool(data.visibleOnWebsite) : true,
   };
 
   await upsertProduct(product);

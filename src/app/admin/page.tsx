@@ -39,6 +39,7 @@ type Product = {
   stock: number;
   variantConfig?: VariantConfig;
   alcoholType?: string; // NEW
+  visibleOnWebsite?: boolean; // Controls shop page visibility
 };
 
 /* ---------- Helpers ---------- */
@@ -56,6 +57,7 @@ function emptyProduct(): Product {
     youngDumb: false,
     stock: 0,
     alcoholType: "Other", // NEW default
+    visibleOnWebsite: true, // Default to visible
     variantConfig: {
       wickTypes: [{ id: "standard", name: "Standard Wick" }],
       variantData: {},
@@ -413,6 +415,9 @@ export default function AdminPage() {
             Scents
           </a>
           <a href="/admin/alcohol-types" className="btn">Types</a>
+          <a href="/admin/calculator" className="btn">
+            Calculator
+          </a>
           <a href="/admin/settings" className="btn">
             Settings
           </a>
@@ -458,11 +463,13 @@ export default function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-[var(--color-line)]">
+                    <th className="py-2 pr-3">Visible</th>
                     <th className="py-2 pr-3">Image</th>
                     <th className="py-2 pr-3">Name</th>
                     <th className="py-2 pr-3">Slug</th>
                     <th className="py-2 pr-3">Price</th>
-                    <th className="py-2 pr-3">Type</th>{/* NEW */}
+                    <th className="py-2 pr-3">Cost</th>
+                    <th className="py-2 pr-3">Type</th>
                     <th className="py-2 pr-3">Stock</th>
                     <th className="py-2 pr-3">Best</th>
                     <th className="py-2 pr-3">Status</th>
@@ -474,6 +481,17 @@ export default function AdminPage() {
                     const isDraft = hasDraft(p.slug);
                     return (
                       <tr key={p.slug} className="border-b border-[var(--color-line)]">
+                        <td className="py-2 pr-3">
+                          <input
+                            type="checkbox"
+                            checked={p.visibleOnWebsite !== false}
+                            onChange={(e) => {
+                              const updated = { ...p, visibleOnWebsite: e.target.checked };
+                              stageProduct(updated);
+                            }}
+                            title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
+                          />
+                        </td>
                         <td className="py-2 pr-3">
                           {(() => {
                             const img = p.images?.[0] ?? p.image;
@@ -493,7 +511,21 @@ export default function AdminPage() {
                         <td className="py-2 pr-3">{p.name}</td>
                         <td className="py-2 pr-3">{p.slug}</td>
                         <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
-                        <td className="py-2 pr-3">{p.alcoholType ?? "Other"}</td>{/* NEW */}
+                        <td className="py-2 pr-3">
+                          {p.materialCost ? (
+                            <span className="text-sm">
+                              ${p.materialCost.toFixed(2)}
+                              {p.price > 0 && (
+                                <span className="block text-xs text-green-600">
+                                  +{(((p.price - p.materialCost) / p.price) * 100).toFixed(0)}%
+                                </span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-[var(--color-muted)]">—</span>
+                          )}
+                        </td>
+                        <td className="py-2 pr-3">{p.alcoholType ?? "Other"}</td>
                         <td className="py-2 pr-3">
                           <span className="text-sm">
                             {getTotalStock(p)}{" "}
@@ -556,6 +588,17 @@ export default function AdminPage() {
                 return (
                   <div key={p.slug} className="card p-4">
                     <div className="flex items-center gap-3">
+                      <div className="flex-shrink-0">
+                        <input
+                          type="checkbox"
+                          checked={p.visibleOnWebsite !== false}
+                          onChange={(e) => {
+                            const updated = { ...p, visibleOnWebsite: e.target.checked };
+                            stageProduct(updated);
+                          }}
+                          title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
+                        />
+                      </div>
                       <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-white">
                         {(() => {
                           const img = p.images?.[0] ?? p.image;
@@ -900,6 +943,16 @@ export default function AdminPage() {
                   value={editing.seoDescription}
                   onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
                 />
+              </label>
+
+              {/* Visible on Website */}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={editing.visibleOnWebsite !== false}
+                  onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
+                />
+                <span className="text-sm">Show on Website</span>
               </label>
 
               {/* Best Seller */}
