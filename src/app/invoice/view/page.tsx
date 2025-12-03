@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Printer, AlertCircle } from "lucide-react";
@@ -23,7 +23,7 @@ type Order = {
   completedAt?: string;
 };
 
-export default function PublicInvoicePage() {
+function InvoiceContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -325,5 +325,17 @@ export default function PublicInvoicePage() {
         </div>
       </div>
     </>
+  );
+}
+
+export default function PublicInvoicePage() {
+  return (
+    <Suspense fallback={
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-[var(--color-muted)]">Loading invoice...</p>
+      </div>
+    }>
+      <InvoiceContent />
+    </Suspense>
   );
 }
