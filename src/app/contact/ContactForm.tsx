@@ -126,10 +126,10 @@ export default function ContactForm() {
       <p className="text-xs text-center text-neutral-500 mt-6">
         Or email us directly at{" "}
         <a
-          href="mailto:desertcandleworks@gmail.com"
+          href="mailto:contact@desertcandleworks.com"
           className="underline hover:text-[var(--color-ink)]"
         >
-          desertcandleworks@gmail.com
+          contact@desertcandleworks.com
         </a>
       </p>
     </div>

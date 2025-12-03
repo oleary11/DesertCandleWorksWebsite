@@ -273,7 +273,7 @@ export default function InvoicePage({ params }: { params: Promise<{ orderId: str
             <div className="mt-12 pt-6 border-t border-[var(--color-line)] text-center text-sm text-[var(--color-muted)]">
               <p>Thank you for your business!</p>
               <p className="mt-2">
-                Questions? Contact us at support@desertcandleworks.com
+                Questions? Contact us at contact@desertcandleworks.com
               </p>
             </div>
           </div>

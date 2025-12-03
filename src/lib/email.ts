@@ -323,7 +323,7 @@ export async function sendOrderInvoiceEmail(orderId: string): Promise<void> {
             </p>
 
             <p style="font-size: 14px; color: #666;">
-              Questions? Contact us at <a href="mailto:support@desertcandleworks.com" style="color: #d4a574;">support@desertcandleworks.com</a>
+              Questions? Contact us at <a href="mailto:contact@desertcandleworks.com" style="color: #d4a574;">contact@desertcandleworks.com</a>
             </p>
           </div>
           <div class="footer">
@@ -370,7 +370,7 @@ ${invoiceUrl}
 WHAT'S NEXT?
 Your order will be processed and shipped within 2-3 business days. You'll receive a shipping confirmation email with tracking information once your order ships.
 
-Questions? Contact us at support@desertcandleworks.com
+Questions? Contact us at contact@desertcandleworks.com
 
 © ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
 Scottsdale, AZ | www.desertcandleworks.com
