@@ -203,42 +203,46 @@ export default function ProductCard({
           ${product.price}
         </span>
 
-        {/* Quick Add / Request Button - always visible on mobile, appears on hover on desktop */}
+        {/* Quick Add / Request Button - compact icon on mobile, full button on desktop hover */}
         {isOutOfStock ? (
           <button
             onClick={handleRequest}
             className="
-              absolute bottom-3 left-3 right-3
+              absolute bottom-3 right-3
               inline-flex items-center justify-center gap-2
-              px-4 py-2 rounded-lg text-sm font-medium
+              rounded-lg font-medium
               bg-white text-[var(--color-ink)] shadow-lg
-              opacity-100 md:opacity-0 md:group-hover:opacity-100
-              transition-opacity duration-300 z-20
+              transition-all duration-300 z-20
               hover:bg-neutral-50
+              w-10 h-10 md:w-auto md:h-auto
+              md:px-4 md:py-2 md:left-3 md:right-3
+              md:opacity-0 md:group-hover:opacity-100
             "
             aria-label="Request notification"
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg className="w-5 h-5 md:w-4 md:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
             </svg>
-            Request
+            <span className="hidden md:inline text-sm">Request</span>
           </button>
         ) : product.variantConfig && variants.length > 0 ? (
           <button
             onClick={handleQuickAdd}
             className="
-              absolute bottom-3 left-3 right-3
+              absolute bottom-3 right-3
               inline-flex items-center justify-center gap-2
-              px-4 py-2 rounded-lg text-sm font-medium
+              rounded-lg font-medium
               bg-white text-[var(--color-ink)] shadow-lg
-              opacity-100 md:opacity-0 md:group-hover:opacity-100
-              transition-opacity duration-300 z-20
+              transition-all duration-300 z-20
               hover:bg-neutral-50
+              w-10 h-10 md:w-auto md:h-auto
+              md:px-4 md:py-2 md:left-3 md:right-3
+              md:opacity-0 md:group-hover:opacity-100
             "
             aria-label="Quick add to cart"
           >
-            <ShoppingCart className="w-4 h-4" />
-            Quick Add
+            <ShoppingCart className="w-5 h-5 md:w-4 md:h-4" />
+            <span className="hidden md:inline text-sm">Quick Add</span>
           </button>
         ) : null}
       </div>
