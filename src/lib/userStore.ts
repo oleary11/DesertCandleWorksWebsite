@@ -42,11 +42,12 @@ export type PointsTransaction = {
 
 export type Order = {
   id: string; // Stripe checkout session ID
-  userId: string;
+  userId?: string; // Optional - null for guest orders
   email: string;
   totalCents: number;
   pointsEarned: number;
   status: "pending" | "completed" | "cancelled";
+  isGuest: boolean; // True if order was placed without account
   items: Array<{
     productSlug: string;
     productName: string;
@@ -55,6 +56,14 @@ export type Order = {
   }>;
   createdAt: string;
   completedAt?: string;
+};
+
+export type InvoiceAccessToken = {
+  token: string; // Random secure token
+  orderId: string;
+  email: string;
+  expiresAt: string; // ISO timestamp
+  createdAt: string;
 };
 
 // ============ User Management ============
@@ -263,16 +272,16 @@ export async function redeemPoints(
 // ============ Order Management ============
 
 /**
- * Create order record
+ * Create order record (supports both authenticated users and guests)
  */
 export async function createOrder(
-  userId: string,
   email: string,
   checkoutSessionId: string,
   totalCents: number,
-  items: Order["items"]
+  items: Order["items"],
+  userId?: string // Optional - omit for guest orders
 ): Promise<Order> {
-  const pointsEarned = Math.floor(totalCents / 100); // 1 point per penny = 1 point per cent
+  const pointsEarned = Math.round(totalCents / 100); // 1 point per dollar, rounded ($44.99 = 45 points)
 
   const order: Order = {
     id: checkoutSessionId,
@@ -281,18 +290,28 @@ export async function createOrder(
     totalCents,
     pointsEarned,
     status: "pending",
+    isGuest: !userId,
     items,
     createdAt: new Date().toISOString(),
   };
 
   await kv.set(`order:${order.id}`, order);
-  await kv.lpush(`orders:user:${userId}`, order.id);
+
+  // Only add to user's order list if they have an account
+  if (userId) {
+    await kv.lpush(`orders:user:${userId}`, order.id);
+  }
+
+  // Index guest orders by email for retroactive linking
+  if (!userId) {
+    await kv.lpush(`orders:guest:${email.toLowerCase()}`, order.id);
+  }
 
   return order;
 }
 
 /**
- * Complete order and award points
+ * Complete order and award points (only if user has account)
  */
 export async function completeOrder(orderId: string): Promise<void> {
   const order = await kv.get<Order>(`order:${orderId}`);
@@ -307,14 +326,16 @@ export async function completeOrder(orderId: string): Promise<void> {
 
   await kv.set(`order:${orderId}`, updated);
 
-  // Award points
-  await addPoints(
-    order.userId,
-    order.pointsEarned,
-    "earn",
-    `Purchase #${orderId.slice(0, 8)}`,
-    orderId
-  );
+  // Award points only if user has an account
+  if (order.userId) {
+    await addPoints(
+      order.userId,
+      order.pointsEarned,
+      "earn",
+      `Purchase #${orderId.slice(0, 8)}`,
+      orderId
+    );
+  }
 }
 
 /**
@@ -340,10 +361,18 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
 
 /**
  * Create password reset token
+ * Invalidates any existing tokens for this user
  */
 export async function createPasswordResetToken(email: string): Promise<PasswordResetToken | null> {
   const user = await getUserByEmail(email);
   if (!user) return null;
+
+  // Invalidate any existing reset token for this user
+  const existingTokenKey = `password:reset:user:${user.id}`;
+  const oldToken = await kv.get<string>(existingTokenKey);
+  if (oldToken) {
+    await kv.del(`password:reset:${oldToken}`);
+  }
 
   const token = crypto.randomBytes(32).toString("hex");
   const resetToken: PasswordResetToken = {
@@ -356,6 +385,8 @@ export async function createPasswordResetToken(email: string): Promise<PasswordR
 
   // Store token with 1 hour expiration
   await kv.set(`password:reset:${token}`, resetToken, { ex: 3600 });
+  // Track latest token for this user (for invalidation)
+  await kv.set(existingTokenKey, token, { ex: 3600 });
 
   return resetToken;
 }
@@ -390,6 +421,103 @@ export async function resetPasswordWithToken(
   await kv.del(`password:reset:${token}`);
 
   return true;
+}
+
+// ============ Guest Order Invoice Access ============
+
+/**
+ * Create invoice access token for guest orders
+ */
+export async function createInvoiceAccessToken(orderId: string): Promise<InvoiceAccessToken> {
+  const order = await getOrderById(orderId);
+  if (!order) throw new Error("Order not found");
+
+  const token = crypto.randomBytes(32).toString("hex");
+  const accessToken: InvoiceAccessToken = {
+    token,
+    orderId,
+    email: order.email,
+    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    createdAt: new Date().toISOString(),
+  };
+
+  // Store token with 30 day expiration
+  await kv.set(`invoice:token:${token}`, accessToken, { ex: 30 * 24 * 60 * 60 });
+
+  return accessToken;
+}
+
+/**
+ * Get invoice access token
+ */
+export async function getInvoiceAccessToken(token: string): Promise<InvoiceAccessToken | null> {
+  return await kv.get<InvoiceAccessToken>(`invoice:token:${token}`);
+}
+
+/**
+ * Verify invoice access token and return order
+ * Uses constant-time comparison to prevent timing attacks
+ */
+export async function getOrderByToken(token: string): Promise<Order | null> {
+  const accessToken = await getInvoiceAccessToken(token);
+  const isExpired = accessToken ? new Date(accessToken.expiresAt) < new Date() : false;
+
+  // Constant-time check - always evaluate both conditions
+  if (!accessToken || isExpired) {
+    if (isExpired && accessToken) {
+      await kv.del(`invoice:token:${token}`);
+    }
+    return null;
+  }
+
+  return await getOrderById(accessToken.orderId);
+}
+
+/**
+ * Link guest orders to newly created user account
+ * Returns the number of orders linked
+ */
+export async function linkGuestOrdersToUser(email: string, userId: string): Promise<number> {
+  const normalizedEmail = email.toLowerCase().trim();
+
+  // Get all guest orders for this email
+  const guestOrderIds = await kv.lrange<string>(`orders:guest:${normalizedEmail}`, 0, -1);
+  if (!guestOrderIds || guestOrderIds.length === 0) return 0;
+
+  let linkedCount = 0;
+
+  for (const orderId of guestOrderIds) {
+    const order = await getOrderById(orderId);
+    if (!order || !order.isGuest) continue;
+
+    // Update order to link to user
+    const updated: Order = {
+      ...order,
+      userId,
+      isGuest: false,
+    };
+
+    await kv.set(`order:${orderId}`, updated);
+    await kv.lpush(`orders:user:${userId}`, orderId);
+
+    // Award retroactive points if order is completed
+    if (order.status === "completed") {
+      await addPoints(
+        userId,
+        order.pointsEarned,
+        "earn",
+        `Retroactive points for order #${orderId.slice(0, 8)}`,
+        orderId
+      );
+    }
+
+    linkedCount++;
+  }
+
+  // Remove guest order index (orders are now in user's list)
+  await kv.del(`orders:guest:${normalizedEmail}`);
+
+  return linkedCount;
 }
 
 // ============ Email Verification ============

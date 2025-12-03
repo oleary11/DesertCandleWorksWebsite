@@ -23,7 +23,8 @@ export type Product = {
   slug: string;
   name: string;
   price: number;
-  image?: string;
+  image?: string;           // Deprecated: Use images array instead (kept for backward compatibility)
+  images?: string[];        // Multiple product images (primary image is first)
   sku: string;
   stripePriceId?: string;   // Now used for ALL products (single price per product)
   seoDescription: string;
@@ -32,7 +33,29 @@ export type Product = {
   stock: number;            // deprecated for variant products
   variantConfig?: VariantConfig;  // NEW: wick types + global scents → auto-generates variants
   alcoholType?: string;
+  materialCost?: number;    // Cost to make the product (from calculator)
+  visibleOnWebsite?: boolean;  // Controls shop page visibility (default: true)
 };
+
+/**
+ * Get the primary image for a product (first image in array or fallback to legacy image field)
+ */
+export function getPrimaryImage(product: Product): string | undefined {
+  return product.images?.[0] ?? product.image;
+}
+
+/**
+ * Get all images for a product (returns array, handles backward compatibility)
+ */
+export function getAllImages(product: Product): string[] {
+  if (product.images && product.images.length > 0) {
+    return product.images;
+  }
+  if (product.image) {
+    return [product.image];
+  }
+  return [];
+}
 
 /**
  * Generate all variant combinations from wick types + scents

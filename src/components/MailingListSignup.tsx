@@ -26,7 +26,7 @@ export default function MailingListSignup() {
       const data = await res.json();
       if (data.ok) {
         setStatus("success");
-        setMessage("Thanks! Please check your email to confirm.");
+        setMessage("Thanks for subscribing! You're all set.");
         setEmail("");
       } else {
         setStatus("error");

@@ -47,6 +47,7 @@ function AccountPageContent() {
   const [activeTab, setActiveTab] = useState<"overview" | "orders" | "points" | "settings">("overview");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
 
   // Password change
   const [passwordForm, setPasswordForm] = useState({ currentPassword: "", newPassword: "", confirmPassword: "" });
@@ -56,6 +57,12 @@ function AccountPageContent() {
   // Delete account
   const [deletePassword, setDeletePassword] = useState("");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showFinalDeleteModal, setShowFinalDeleteModal] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  // Logout
+  const [loggingOut, setLoggingOut] = useState(false);
 
   // Email verification
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -71,6 +78,15 @@ function AccountPageContent() {
 
   useEffect(() => {
     loadData();
+
+    // Check for registration success message
+    const message = sessionStorage.getItem('registrationSuccess');
+    if (message) {
+      setSuccessMessage(message);
+      sessionStorage.removeItem('registrationSuccess');
+      // Clear message after 10 seconds
+      setTimeout(() => setSuccessMessage(""), 10000);
+    }
   }, []);
 
   async function loadData() {
@@ -101,9 +117,15 @@ function AccountPageContent() {
   }
 
   async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
+    setLoggingOut(true);
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      router.push("/");
+      router.refresh();
+    } catch (err) {
+      console.error("Logout error:", err);
+      setLoggingOut(false);
+    }
   }
 
   async function handlePasswordChange(e: React.FormEvent) {
@@ -145,15 +167,18 @@ function AccountPageContent() {
     }
   }
 
-  async function handleDeleteAccount() {
+  function showDeleteModal() {
     if (!deletePassword) {
-      alert("Please enter your password");
+      setDeleteError("Please enter your password");
       return;
     }
+    setDeleteError("");
+    setShowFinalDeleteModal(true);
+  }
 
-    if (!confirm("Are you sure? This action cannot be undone.")) {
-      return;
-    }
+  async function handleDeleteAccount() {
+    setDeletingAccount(true);
+    setDeleteError("");
 
     try {
       const res = await fetch("/api/user/delete", {
@@ -165,14 +190,17 @@ function AccountPageContent() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.error || "Failed to delete account");
+        setDeleteError(data.error || "Failed to delete account");
+        setDeletingAccount(false);
         return;
       }
 
+      // Success - redirect to home
       router.push("/");
       router.refresh();
     } catch (err) {
-      alert("Network error. Please try again.");
+      setDeleteError("Network error. Please try again.");
+      setDeletingAccount(false);
     }
   }
 
@@ -217,7 +245,19 @@ function AccountPageContent() {
   if (!user) return null;
 
   return (
-    <div className="min-h-[80vh] px-6 py-12">
+    <div className="min-h-[80vh] px-6 py-12 relative">
+      {/* Global Loading Overlay */}
+      {(loggingOut || deletingAccount) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl p-6 flex flex-col items-center gap-4">
+            <div className="w-12 h-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin" />
+            <p className="text-lg font-medium">
+              {loggingOut ? "Signing out..." : "Deleting account..."}
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="max-w-6xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -226,6 +266,28 @@ function AccountPageContent() {
           </h1>
           <p className="text-[var(--color-muted)]">Manage your account and track your rewards</p>
         </div>
+
+        {/* Success Message Banner (for registration with linked orders) */}
+        {successMessage && (
+          <div className="card p-4 mb-6 bg-green-50 border-green-200">
+            <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-green-500 text-white flex items-center justify-center font-bold text-sm">
+                ✓
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-green-900 mb-1">Account Created Successfully!</p>
+                <p className="text-xs text-green-800">{successMessage}</p>
+              </div>
+              <button
+                onClick={() => setSuccessMessage("")}
+                className="text-green-600 hover:text-green-800 transition"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Email Verification Banner */}
         {!user.emailVerified && (
@@ -260,7 +322,7 @@ function AccountPageContent() {
                 {user.points.toLocaleString()}
               </p>
               <p className="text-sm text-[var(--color-muted)] mt-2">
-                = ${(user.points / 100).toFixed(2)} in rewards
+                = ${((user.points * 5) / 100).toFixed(2)} in rewards
               </p>
             </div>
             <Award className="w-16 h-16 text-[var(--color-accent)] opacity-20" />
@@ -268,11 +330,11 @@ function AccountPageContent() {
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-[var(--color-line)] mb-8">
-          <div className="flex gap-6">
+        <div className="border-b border-[var(--color-line)] mb-8 -mx-6 px-6 overflow-x-auto">
+          <div className="flex gap-6 min-w-max">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition ${
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition whitespace-nowrap ${
                 activeTab === "overview"
                   ? "border-[var(--color-accent)] text-[var(--color-ink)]"
                   : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-ink)]"
@@ -282,7 +344,7 @@ function AccountPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("orders")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition ${
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition whitespace-nowrap ${
                 activeTab === "orders"
                   ? "border-[var(--color-accent)] text-[var(--color-ink)]"
                   : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-ink)]"
@@ -292,7 +354,7 @@ function AccountPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("points")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition ${
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition whitespace-nowrap ${
                 activeTab === "points"
                   ? "border-[var(--color-accent)] text-[var(--color-ink)]"
                   : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-ink)]"
@@ -302,7 +364,7 @@ function AccountPageContent() {
             </button>
             <button
               onClick={() => setActiveTab("settings")}
-              className={`pb-3 px-1 text-sm font-medium border-b-2 transition ${
+              className={`pb-3 px-1 text-sm font-medium border-b-2 transition whitespace-nowrap ${
                 activeTab === "settings"
                   ? "border-[var(--color-accent)] text-[var(--color-ink)]"
                   : "border-transparent text-[var(--color-muted)] hover:text-[var(--color-ink)]"
@@ -407,11 +469,19 @@ function AccountPageContent() {
                       </div>
                     ))}
                   </div>
-                  <div className="mt-4 pt-4 border-t border-[var(--color-line)] flex items-center gap-2 text-sm">
-                    <Award className="w-4 h-4 text-[var(--color-accent)]" />
-                    <span className="font-medium text-[var(--color-accent)]">
-                      +{order.pointsEarned} points earned
-                    </span>
+                  <div className="mt-4 pt-4 border-t border-[var(--color-line)] flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm">
+                      <Award className="w-4 h-4 text-[var(--color-accent)]" />
+                      <span className="font-medium text-[var(--color-accent)]">
+                        +{order.pointsEarned} points earned
+                      </span>
+                    </div>
+                    <Link
+                      href={`/account/invoice/${order.id}`}
+                      className="text-sm font-medium text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] transition underline"
+                    >
+                      View Invoice
+                    </Link>
                   </div>
                 </div>
               ))
@@ -506,10 +576,20 @@ function AccountPageContent() {
               <h2 className="text-lg font-semibold mb-4">Sign Out</h2>
               <button
                 onClick={handleLogout}
-                className="btn flex items-center gap-2"
+                disabled={loggingOut}
+                className="btn flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <LogOut className="w-4 h-4" />
-                Sign Out
+                {loggingOut ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-[var(--color-ink)] border-t-transparent rounded-full animate-spin" />
+                    Signing out...
+                  </>
+                ) : (
+                  <>
+                    <LogOut className="w-4 h-4" />
+                    Sign Out
+                  </>
+                )}
               </button>
             </div>
 
@@ -528,6 +608,11 @@ function AccountPageContent() {
                 </button>
               ) : (
                 <div className="space-y-4 max-w-md">
+                  {deleteError && (
+                    <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800">
+                      {deleteError}
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium mb-2">Enter your password to confirm</label>
                     <input
@@ -540,15 +625,16 @@ function AccountPageContent() {
                   </div>
                   <div className="flex gap-3">
                     <button
-                      onClick={handleDeleteAccount}
+                      onClick={showDeleteModal}
                       className="btn bg-red-600 text-white hover:bg-red-700"
                     >
-                      Confirm Deletion
+                      Delete Account
                     </button>
                     <button
                       onClick={() => {
                         setShowDeleteConfirm(false);
                         setDeletePassword("");
+                        setDeleteError("");
                       }}
                       className="btn"
                     >
@@ -557,6 +643,61 @@ function AccountPageContent() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Final Delete Confirmation Modal */}
+        {showFinalDeleteModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => !deletingAccount && setShowFinalDeleteModal(false)}
+            />
+
+            {/* Modal */}
+            <div className="relative card max-w-md w-full p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold mb-2 text-red-600">Are you absolutely sure?</h3>
+              <p className="text-sm text-[var(--color-muted)] mb-4">
+                This action <strong>cannot be undone</strong>. This will permanently delete your account and remove your access to order history and points.
+              </p>
+              <p className="text-sm text-[var(--color-muted)] mb-6">
+                Your order records will be preserved for business purposes, but you won&apos;t be able to access them anymore.
+              </p>
+
+              {deleteError && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded text-sm text-red-800 mb-4">
+                  {deleteError}
+                </div>
+              )}
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => {
+                    setShowFinalDeleteModal(false);
+                    setDeleteError("");
+                  }}
+                  disabled={deletingAccount}
+                  className="btn disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={deletingAccount}
+                  className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {deletingAccount ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    "Yes, delete my account"
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}

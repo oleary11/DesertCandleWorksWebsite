@@ -29,11 +29,20 @@ export async function POST(req: NextRequest) {
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
+
+    // SECURITY: Idempotency check - prevent webhook replay attacks
+    // Check if this order was already processed by checking if it exists and is completed
+    const { getOrderById } = await import("@/lib/userStore");
+    const existingOrder = await getOrderById(session.id);
+    if (existingOrder && existingOrder.status === "completed") {
+      console.log(`[Webhook] Order ${session.id} already processed - skipping (replay protection)`);
+      return NextResponse.json({ received: true, skipped: "already_processed" }, { status: 200 });
+    }
+
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
     const priceToProduct = await getPriceToProduct();
 
     const customerEmail = session.customer_details?.email || "";
-    const totalCents = session.amount_total || 0;
     const pointsRedeemed = session.metadata?.pointsRedeemed ? parseInt(session.metadata.pointsRedeemed) : 0;
     const sessionUserId = session.metadata?.userId || "";
     const orderItems: Array<{
@@ -42,6 +51,9 @@ export async function POST(req: NextRequest) {
       quantity: number;
       priceCents: number;
     }> = [];
+
+    // Calculate product subtotal (EXCLUDING shipping and tax)
+    let productSubtotalCents = 0;
 
     // Process line items for stock and order details
     for (let index = 0; index < lineItems.data.length; index++) {
@@ -53,13 +65,18 @@ export async function POST(req: NextRequest) {
       const productInfo = priceToProduct.get(priceId);
 
       if (productInfo && qty > 0) {
+        const itemTotal = item.amount_total || 0;
+
         // Add to order items
         orderItems.push({
           productSlug: productInfo.slug,
           productName: productInfo.name,
           quantity: qty,
-          priceCents: (item.amount_total || 0),
+          priceCents: itemTotal,
         });
+
+        // Add to product subtotal (for points calculation)
+        productSubtotalCents += itemTotal;
 
         // Check if there's variant info in session metadata
         const variantId = session.metadata?.[`item_${index}_variant`];
@@ -82,7 +99,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Handle points/rewards if user is logged in
+    // Handle order creation and points/rewards
     if (customerEmail) {
       try {
         const user = await getUserByEmail(customerEmail);
@@ -99,16 +116,59 @@ export async function POST(req: NextRequest) {
           }
 
           // User has an account - create order and award points
+          // IMPORTANT: Use productSubtotalCents (products only, no shipping/tax) for points
           console.log(`Creating order for user ${user.id} (${customerEmail})`);
-          await createOrder(user.id, customerEmail, session.id, totalCents, orderItems);
+          await createOrder(customerEmail, session.id, productSubtotalCents, orderItems, user.id);
           await completeOrder(session.id);
-          console.log(`Awarded ${Math.floor(totalCents / 100)} points to ${customerEmail}`);
+          console.log(`Awarded ${Math.round(productSubtotalCents / 100)} points to ${customerEmail}`);
         } else {
-          // Guest checkout - no points awarded
-          console.log(`Guest checkout for ${customerEmail} - no points awarded`);
+          // Guest checkout - create order without userId
+          console.log(`Guest checkout for ${customerEmail} - creating guest order`);
+          await createOrder(customerEmail, session.id, productSubtotalCents, orderItems);
+          await completeOrder(session.id);
+          console.log(`Guest order created for ${customerEmail}`);
+
+          // Add guest to mailing list (don't block order processing if this fails)
+          try {
+            const buttondownKey = process.env.BUTTONDOWN_API_KEY;
+            if (buttondownKey) {
+              const mailingListRes = await fetch("https://api.buttondown.email/v1/subscribers", {
+                method: "POST",
+                headers: {
+                  Authorization: `Token ${buttondownKey}`,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  email_address: customerEmail,
+                  type: "regular" // Bypass confirmation email
+                }),
+              });
+
+              if (mailingListRes.ok) {
+                console.log(`[Webhook] Added guest ${customerEmail} to mailing list`);
+              } else {
+                const errorText = await mailingListRes.text();
+                if (!errorText.toLowerCase().includes("already")) {
+                  console.error("[Webhook] Failed to add guest to mailing list:", errorText);
+                }
+              }
+            }
+          } catch (mailingErr) {
+            console.error("[Webhook] Failed to add guest to mailing list:", mailingErr);
+          }
+        }
+
+        // Send invoice email to all customers (guest or not)
+        try {
+          const { sendOrderInvoiceEmail } = await import("@/lib/email");
+          await sendOrderInvoiceEmail(session.id);
+          console.log(`Invoice email sent to ${customerEmail}`);
+        } catch (emailErr) {
+          console.error(`Failed to send invoice email to ${customerEmail}:`, emailErr);
+          // Don't throw - order is already created
         }
       } catch (err) {
-        console.error(`Failed to process points for ${customerEmail}:`, err);
+        console.error(`Failed to process order for ${customerEmail}:`, err);
       }
     }
   }

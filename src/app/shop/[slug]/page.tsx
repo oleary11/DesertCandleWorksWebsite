@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getResolvedProduct } from "@/lib/liveProducts";
 import { getTotalStockForProduct } from "@/lib/productsStore";
-import { generateVariants } from "@/lib/products";
+import { generateVariants, getAllImages } from "@/lib/products";
 import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
 import ProductActions from "./ProductActions";
@@ -10,7 +10,7 @@ import ProductBreadcrumbs from "@/components/ProductBreadcrumbs";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import ProductPageTracker from "@/components/ProductPageTracker";
 import ShareButtons from "@/components/ShareButtons";
-import ProductImageMagnifier from "./ProductImageMagnifier";
+import ProductImageGallery from "./ProductImageGallery";
 
 type Props = { params: Promise<{ slug: string }> };
 
@@ -20,6 +20,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
 
   if (!p) return { title: "Not found" };
+
+  const images = getAllImages(p);
+  const primaryImage = images[0];
 
   return {
     title: `${p.name} | Scottsdale Handmade Candles`,
@@ -38,7 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${p.name} | Scottsdale Handmade Candles`,
       description: `${p.seoDescription} Made in Scottsdale, Arizona.`,
-      images: p.image ? [{ url: p.image, width: 1200, height: 630 }] : [],
+      images: primaryImage ? [{ url: primaryImage, width: 1200, height: 630 }] : [],
       type: "website",
       url: `${base}/shop/${p.slug}`,
     },
@@ -46,7 +49,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title: `${p.name} | Desert Candle Works`,
       description: p.seoDescription,
-      images: p.image ? [p.image] : [],
+      images: primaryImage ? [primaryImage] : [],
     },
     metadataBase: new URL(base),
   };
@@ -91,11 +94,13 @@ export default async function ProductPage({ params }: Props) {
     ],
   };
 
+  const productImages = getAllImages(p);
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
     name: p.name,
-    image: p.image ? [p.image] : [],
+    image: productImages.length > 0 ? productImages : [],
     description: p.seoDescription,
     sku: p.sku,
     brand: { "@type": "Brand", name: "Desert Candle Works" },
@@ -137,14 +142,7 @@ export default async function ProductPage({ params }: Props) {
       </div>
 
       <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
-        <div className="relative w-3/5 mx-auto aspect-[3/5] md:w-3/4 md:aspect-[2/3] max-h-[70svh] md:max-h-[75svh] rounded-lg overflow-hidden">
-          {p.image && (
-            <ProductImageMagnifier
-              src={p.image}
-              alt={`${p.name} - Hand-poured soy candle in upcycled liquor bottle`}
-            />
-          )}
-        </div>
+        <ProductImageGallery images={getAllImages(p)} productName={p.name} />
 
         <div>
           <div className="flex items-start justify-between gap-4 mb-2">

@@ -57,12 +57,12 @@ export default function RegisterPage() {
         return;
       }
 
-      // Success - send verification email and redirect to account page
-      try {
-        await fetch("/api/auth/send-verification", { method: "POST" });
-      } catch (err) {
-        // If verification email fails, still proceed (user can resend later)
-        console.error("Failed to send verification email:", err);
+      // Success - verification email sent automatically on backend
+      // Show success message if past orders were linked
+      if (data.linkedOrders && data.linkedOrders > 0) {
+        const message = `Welcome! We found ${data.linkedOrders} previous order${data.linkedOrders > 1 ? 's' : ''} and linked ${data.linkedOrders > 1 ? 'them' : 'it'} to your new account. Check your order history to see your retroactive points!`;
+        // Store message in sessionStorage to show on account page
+        sessionStorage.setItem('registrationSuccess', message);
       }
 
       router.push("/account");
@@ -160,9 +160,13 @@ export default function RegisterPage() {
 
             <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
               <p className="text-sm text-amber-900">
-                <strong>Earn 1 point per penny spent!</strong> Redeem points for discounts on future orders.
+                <strong>Earn 1 point per dollar spent!</strong> Redeem 100 points for $5 off future orders.
               </p>
             </div>
+
+            <p className="text-xs text-[var(--color-muted)] text-center">
+              By creating an account, you&apos;ll be added to our mailing list to receive updates, promotions, and exclusive offers.
+            </p>
 
             <button
               type="submit"

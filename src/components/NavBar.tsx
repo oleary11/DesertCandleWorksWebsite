@@ -230,7 +230,7 @@ export default function NavBar() {
         <div className="md:hidden border-t border-[var(--color-line)] bg-white/95 backdrop-blur-sm">
           <nav className="flex flex-col items-center py-5 space-y-4 text-sm">
             <Link href="/" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Home</Link>
-            <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">All Candles</Link>
+            <Link href="/shop" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Shop All Candles</Link>
             <Link href="/shop/young-dumb" onClick={() => setOpen(false)} className="hover:opacity-80 transition">
               <span className="bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent font-semibold">
                 Young & Dumb

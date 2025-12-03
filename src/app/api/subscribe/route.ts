@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { validateEmail } from "@/lib/validation";
 
 export const runtime = "nodejs";
 
@@ -36,10 +37,16 @@ export async function POST(req: NextRequest) {
       email_address = typeof v === "string" ? v : null;
     }
 
-    email_address = email_address?.trim() || null;
     if (!email_address) {
       return NextResponse.json({ ok: false, error: "Email is required." }, { status: 400 });
     }
+
+    // Validate and normalize email
+    const emailValidation = validateEmail(email_address);
+    if (!emailValidation.valid) {
+      return NextResponse.json({ ok: false, error: emailValidation.error }, { status: 400 });
+    }
+    const normalizedEmail = emailValidation.normalized;
 
     const API_KEY = process.env.BUTTONDOWN_API_KEY;
     if (!API_KEY) {
@@ -54,7 +61,10 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
         Accept: "application/json",
       },
-      body: JSON.stringify({ email_address }),
+      body: JSON.stringify({
+        email_address: normalizedEmail,
+        type: "regular" // Bypass confirmation email
+      }),
     });
 
     const text = await bdRes.text();

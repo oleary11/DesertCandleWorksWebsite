@@ -37,14 +37,17 @@ export const generateMetadata = (): Metadata => {
 };
 
 export default async function ShopPage() {
-  const [products, globalScents, alcoholTypes] = await Promise.all([
+  const [allProducts, globalScents, alcoholTypes] = await Promise.all([
     listResolvedProducts(),
     getAllScents(),
     getAlcoholTypes(),
   ]);
 
+  // Filter out products where visibleOnWebsite is explicitly false
+  const visibleProducts = allProducts.filter(p => p.visibleOnWebsite !== false);
+
   const productsWithStock = await Promise.all(
-    products.map(async (p) => {
+    visibleProducts.map(async (p) => {
       const computedStock = await getTotalStockForProduct(p);
       return { ...p, _computedStock: computedStock };
     })

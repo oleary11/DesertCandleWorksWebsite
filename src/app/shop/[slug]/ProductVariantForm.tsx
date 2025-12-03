@@ -94,29 +94,16 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   // Request scent modal state
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestEmail, setRequestEmail] = useState("");
+  const [requestWickType, setRequestWickType] = useState("");
+  const [requestScent, setRequestScent] = useState("");
   const [requestStatus, setRequestStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [requestMessage, setRequestMessage] = useState("");
   const [isBuying, setIsBuying] = useState(false);
   const [addToCartMessage, setAddToCartMessage] = useState("");
-  const [showStickyButton, setShowStickyButton] = useState(false);
 
   // Cart store
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
-
-  // Show sticky button when user scrolls past the main add to cart buttons
-  useEffect(() => {
-    const handleScroll = () => {
-      const scrollPosition = window.scrollY + window.innerHeight;
-      const pageHeight = document.documentElement.scrollHeight;
-      // Show sticky button when scrolled past 50% of the page
-      setShowStickyButton(window.scrollY > 400 && scrollPosition < pageHeight - 100);
-    };
-
-    window.addEventListener('scroll', handleScroll);
-    handleScroll(); // Check initial position
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   // Get the current scent list based on selected group
   const currentScents = useMemo(() => {
@@ -152,6 +139,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       v => v.wickType === selectedWickType && v.scent === scentId && v.stock > 0
     );
   };
+
+  // Check if there are any in-stock scents in each category (for disabling buttons)
+  const hasInStockStandardScents = useMemo(() =>
+    standardScents.some(s => isScentAvailable(s.id)),
+    [standardScents, selectedWickType, variants]
+  );
+
+  const hasInStockSeasonalScents = useMemo(() =>
+    seasonalScents.some(s => isScentAvailable(s.id)),
+    [seasonalScents, selectedWickType, variants]
+  );
+
+  const hasInStockExperimentalScents = useMemo(() =>
+    experimentalScents.some(s => isScentAvailable(s.id)),
+    [experimentalScents, selectedWickType, variants]
+  );
 
   // Get display names for selected options
   const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
@@ -234,8 +237,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         body: JSON.stringify({
           email: requestEmail,
           productName: product.name,
-          wickType: selectedWickName,
-          scent: selectedScentName,
+          wickType: requestWickType || "Any",
+          scent: requestScent || "Any available scent",
         }),
       });
 
@@ -247,6 +250,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         setTimeout(() => {
           setShowRequestModal(false);
           setRequestEmail("");
+          setRequestWickType("");
+          setRequestScent("");
           setRequestStatus("idle");
           setRequestMessage("");
         }, 3000);
@@ -354,16 +359,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
             <button
               type="button"
               onClick={() => {
-                setScentGroup("standard");
-                // Auto-select first standard scent when switching
-                const firstStandardScent = standardScents[0]?.id;
-                if (firstStandardScent) {
-                  setSelectedScent(firstStandardScent);
+                // Only auto-select if SWITCHING to a different group
+                if (scentGroup !== "standard" && hasInStockStandardScents) {
+                  setScentGroup("standard");
+                  // Auto-select first IN-STOCK standard scent when switching
+                  const firstInStockStandardScent = standardScents.find(s => isScentAvailable(s.id));
+                  if (firstInStockStandardScent) {
+                    setSelectedScent(firstInStockStandardScent.id);
+                  }
                 }
               }}
+              disabled={!hasInStockStandardScents}
               className={`
                 flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                ${scentGroup === "standard"
+                ${!hasInStockStandardScents
+                  ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                  : scentGroup === "standard"
                   ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                   : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                 }
@@ -375,16 +386,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               <button
                 type="button"
                 onClick={() => {
-                  setScentGroup("seasonal");
-                  // Auto-select first seasonal scent when switching
-                  const firstSeasonalScent = seasonalScents[0]?.id;
-                  if (firstSeasonalScent) {
-                    setSelectedScent(firstSeasonalScent);
+                  // Only auto-select if SWITCHING to a different group
+                  if (scentGroup !== "seasonal" && hasInStockSeasonalScents) {
+                    setScentGroup("seasonal");
+                    // Auto-select first IN-STOCK seasonal scent when switching
+                    const firstInStockSeasonalScent = seasonalScents.find(s => isScentAvailable(s.id));
+                    if (firstInStockSeasonalScent) {
+                      setSelectedScent(firstInStockSeasonalScent.id);
+                    }
                   }
                 }}
+                disabled={!hasInStockSeasonalScents}
                 className={`
                   flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                  ${scentGroup === "seasonal"
+                  ${!hasInStockSeasonalScents
+                    ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                    : scentGroup === "seasonal"
                     ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                     : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                   }
@@ -397,16 +414,22 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               <button
                 type="button"
                 onClick={() => {
-                  setScentGroup("experimental");
-                  // Auto-select first experimental scent when switching
-                  const firstExperimentalScent = experimentalScents[0]?.id;
-                  if (firstExperimentalScent) {
-                    setSelectedScent(firstExperimentalScent);
+                  // Only auto-select if SWITCHING to a different group
+                  if (scentGroup !== "experimental" && hasInStockExperimentalScents) {
+                    setScentGroup("experimental");
+                    // Auto-select first IN-STOCK experimental scent when switching
+                    const firstInStockExperimentalScent = experimentalScents.find(s => isScentAvailable(s.id));
+                    if (firstInStockExperimentalScent) {
+                      setSelectedScent(firstInStockExperimentalScent.id);
+                    }
                   }
                 }}
+                disabled={!hasInStockExperimentalScents}
                 className={`
                   flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                  ${scentGroup === "experimental"
+                  ${!hasInStockExperimentalScents
+                    ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                    : scentGroup === "experimental"
                     ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                     : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                   }
@@ -426,15 +449,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           value={selectedScent}
           onChange={e => setSelectedScent(e.target.value)}
           className="input w-full"
+          size={1}
         >
-          {currentScents.map(scent => {
-            const available = isScentAvailable(scent.id);
-            return (
+          {currentScents
+            .filter(scent => isScentAvailable(scent.id))
+            .map(scent => (
               <option key={scent.id} value={scent.id}>
-                {scent.name} {!available ? "(Out of stock)" : ""}
+                {scent.name}
               </option>
-            );
-          })}
+            ))}
         </select>
         {/* Display scent notes for selected scent */}
         {(() => {
@@ -516,42 +539,41 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         </button>
       </div>
 
-      {/* Request Scent Button (shown when out of stock) */}
-      {stock <= 0 && (
-        <button
-          type="button"
-          onClick={() => setShowRequestModal(true)}
-          className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium border border-[var(--color-line)]
-          hover:border-[var(--color-accent)] transition cursor-pointer"
-        >
-          Request This Scent
-        </button>
-      )}
+      {/* Request Scent Button (always shown) */}
+      <button
+        type="button"
+        onClick={() => setShowRequestModal(true)}
+        className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium border border-[var(--color-line)]
+        hover:border-[var(--color-accent)] transition cursor-pointer"
+      >
+        <svg className="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        Request a scent in this bottle
+      </button>
 
-      {/* Sticky Add to Cart Button (Mobile Only) */}
-      {showStickyButton && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-white border-t border-[var(--color-line)] shadow-[0_-4px_16px_rgba(0,0,0,0.1)] md:hidden animate-in slide-in-from-bottom duration-200">
-          <div className="flex gap-3 max-w-xl mx-auto">
-            <button
-              onClick={handleAddToCart}
-              disabled={!canBuy || remainingStock <= 0}
-              className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-medium
-              [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-              text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
-              hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] transition
-              ${!canBuy || remainingStock <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
-            >
-              <ShoppingCart className="w-5 h-5" />
-              <span className="flex flex-col items-start">
-                <span className="text-xs leading-none mb-0.5">${product.price}</span>
-                <span className="leading-none">
-                  {remainingStock <= 0 && currentQuantityInCart > 0 ? "Max in Cart" : "Add to Cart"}
-                </span>
+      {/* Sticky Add to Cart Button (Mobile Only) - Always shown */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-white border-t border-[var(--color-line)] shadow-[0_-4px_16px_rgba(0,0,0,0.1)] md:hidden">
+        <div className="flex gap-3 max-w-xl mx-auto">
+          <button
+            onClick={handleAddToCart}
+            disabled={!canBuy || remainingStock <= 0}
+            className={`flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-medium
+            [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
+            text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
+            hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] transition
+            ${!canBuy || remainingStock <= 0 ? "opacity-50 cursor-not-allowed" : ""}`}
+          >
+            <ShoppingCart className="w-5 h-5" />
+            <span className="flex flex-col items-start">
+              <span className="text-xs leading-none mb-0.5">${product.price}</span>
+              <span className="leading-none">
+                {remainingStock <= 0 && currentQuantityInCart > 0 ? "Max in Cart" : "Add to Cart"}
               </span>
-            </button>
-          </div>
+            </span>
+          </button>
         </div>
-      )}
+      </div>
 
       {/* Request Scent Modal */}
       {showRequestModal && (
@@ -571,9 +593,9 @@ export default function ProductVariantForm({ product, variants, globalScents, va
 
           {/* Modal */}
           <div className="relative card max-w-md w-full p-6">
-            <h3 className="text-lg font-semibold mb-2">Request This Scent</h3>
+            <h3 className="text-lg font-semibold mb-2">Request Restock Notification</h3>
             <p className="text-sm text-[var(--color-muted)] mb-4">
-              {product.name} - {selectedWickName} / {selectedScentName}
+              {product.name}
             </p>
 
             {requestStatus === "success" ? (
@@ -582,6 +604,55 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               </div>
             ) : (
               <form onSubmit={handleRequestScent} className="space-y-4">
+                {/* Wick Type Selector */}
+                {wickTypes.length > 0 && (
+                  <div>
+                    <label htmlFor="request-wick" className="block text-sm font-medium mb-1">
+                      Wick Type (Optional)
+                    </label>
+                    <select
+                      id="request-wick"
+                      value={requestWickType}
+                      onChange={(e) => setRequestWickType(e.target.value)}
+                      className="input w-full"
+                      disabled={requestStatus === "loading"}
+                    >
+                      <option value="">Any wick type</option>
+                      {wickTypes.map((wick) => (
+                        <option key={wick.id} value={wick.name}>
+                          {wick.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Scent Selector - Show ALL scents (including out of stock) */}
+                {scents.length > 0 && (
+                  <div>
+                    <label htmlFor="request-scent" className="block text-sm font-medium mb-1">
+                      Scent (Optional)
+                    </label>
+                    <select
+                      id="request-scent"
+                      value={requestScent}
+                      onChange={(e) => setRequestScent(e.target.value)}
+                      className="input w-full"
+                      disabled={requestStatus === "loading"}
+                    >
+                      <option value="">Any scent</option>
+                      {scents
+                        .filter(scent => !scent.experimental)
+                        .map((scent) => (
+                          <option key={scent.id} value={scent.name}>
+                            {scent.name}
+                            {scent.seasonal && " (Seasonal)"}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                )}
+
                 <div>
                   <label htmlFor="request-email" className="block text-sm font-medium mb-1">
                     Email Address
@@ -597,7 +668,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     disabled={requestStatus === "loading"}
                   />
                   <p className="text-xs text-[var(--color-muted)] mt-1">
-                    We&apos;ll notify you when this scent is back in stock and add you to our mailing list.
+                    We&apos;ll notify you when this product is back in stock and add you to our mailing list.
                   </p>
                 </div>
 
@@ -611,6 +682,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     onClick={() => {
                       setShowRequestModal(false);
                       setRequestEmail("");
+                      setRequestWickType("");
+                      setRequestScent("");
                       setRequestStatus("idle");
                       setRequestMessage("");
                     }}

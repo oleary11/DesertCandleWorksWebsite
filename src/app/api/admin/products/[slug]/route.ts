@@ -38,6 +38,9 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if ("bestSeller" in patch) {
     merged.bestSeller = coerceBool(patch.bestSeller);
   }
+  if ("youngDumb" in patch) {
+    merged.youngDumb = coerceBool(patch.youngDumb);
+  }
   if ("price" in patch && merged.price != null) merged.price = Number(merged.price);
   if ("stock" in patch && merged.stock != null)
     merged.stock = Math.max(0, Number(merged.stock));

@@ -111,7 +111,7 @@ export default function CartPage() {
     Math.floor(getTotalPrice() * 100) // Can't use more points than order total (in cents)
   );
 
-  const discountAmount = pointsToRedeem / 100; // Convert points to dollars
+  const discountAmount = (pointsToRedeem * 5) / 100; // Convert points to dollars (1 point = $0.05)
 
   if (items.length === 0) {
     return (
@@ -289,7 +289,7 @@ export default function CartPage() {
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-sm font-medium">Redeem Points</span>
                     <span className="text-xs text-[var(--color-muted)]">
-                      {user.points.toLocaleString()} available
+                      {user.points.toLocaleString()} available (${((user.points * 5) / 100).toFixed(2)})
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-2">
@@ -310,7 +310,7 @@ export default function CartPage() {
                     </button>
                   </div>
                   <p className="text-xs text-[var(--color-muted)]">
-                    100 points = $1.00 discount
+                    100 points = $5.00 discount
                   </p>
                 </div>
               )}
@@ -319,6 +319,31 @@ export default function CartPage() {
                 <span>Total</span>
                 <span>${(getTotalPrice() - discountAmount).toFixed(2)}</span>
               </div>
+
+              {/* Guest Checkout - Encourage Account Creation */}
+              {!user && (
+                <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
+                  <div className="flex items-start gap-3">
+                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm">
+                      💡
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-amber-900 mb-1">
+                        Create an account to earn points!
+                      </p>
+                      <p className="text-xs text-amber-800 mb-2">
+                        You&apos;ll earn <strong>{Math.round(getTotalPrice())} points</strong> (${((Math.round(getTotalPrice()) * 5) / 100).toFixed(2)} value) on this ${getTotalPrice().toFixed(2)} order.
+                      </p>
+                      <Link
+                        href="/account/register"
+                        className="inline-flex items-center text-xs font-medium text-amber-900 hover:text-amber-950 underline"
+                      >
+                        Sign up now →
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Shipping Info */}
               <div className="mb-6 p-3 bg-neutral-50 rounded-lg border border-[var(--color-line)]">

@@ -28,6 +28,8 @@ export default function TestOrderPage() {
   const [items, setItems] = useState<OrderItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; message?: string; error?: string } | null>(null);
+  const [isGuest, setIsGuest] = useState(false);
+  const [sendEmail, setSendEmail] = useState(false);
 
   useEffect(() => {
     loadProducts();
@@ -101,6 +103,8 @@ export default function TestOrderPage() {
             variantId: item.variantId || undefined,
           })),
           totalCents,
+          isGuest,
+          sendEmail,
         }),
       });
 
@@ -137,7 +141,8 @@ export default function TestOrderPage() {
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-900">
           <strong>Test the order and points system</strong> without going through Stripe checkout.
-          This will create a real order, decrement stock, and award points to the user.
+          This will create a real order and decrement stock. Enable "Guest Checkout" to test orders without user accounts,
+          or leave it unchecked to award points to authenticated users.
         </p>
       </div>
 
@@ -152,10 +157,10 @@ export default function TestOrderPage() {
 
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
-        {/* User Email */}
-        <div className="card p-6">
+        {/* User Email & Options */}
+        <div className="card p-6 space-y-4">
           <label className="block">
-            <div className="text-sm font-medium mb-2">User Email</div>
+            <div className="text-sm font-medium mb-2">Customer Email</div>
             <input
               type="email"
               className="input w-full"
@@ -165,9 +170,43 @@ export default function TestOrderPage() {
               required
             />
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              The user must have an account with this email address
+              {isGuest
+                ? "Email for guest checkout - no account required"
+                : "The user must have an account with this email address"}
             </p>
           </label>
+
+          <div className="space-y-3 pt-3 border-t border-[var(--color-line)]">
+            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-neutral-50">
+              <input
+                type="checkbox"
+                checked={isGuest}
+                onChange={(e) => setIsGuest(e.target.checked)}
+                className="w-5 h-5 rounded border-[var(--color-line)] flex-shrink-0"
+              />
+              <div>
+                <div className="text-sm font-medium">Guest Checkout</div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  Create order without user account (no points awarded)
+                </div>
+              </div>
+            </label>
+
+            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-neutral-50">
+              <input
+                type="checkbox"
+                checked={sendEmail}
+                onChange={(e) => setSendEmail(e.target.checked)}
+                className="w-5 h-5 rounded border-[var(--color-line)] flex-shrink-0"
+              />
+              <div>
+                <div className="text-sm font-medium">Send Invoice Email</div>
+                <div className="text-xs text-[var(--color-muted)]">
+                  Send order confirmation email with invoice link
+                </div>
+              </div>
+            </label>
+          </div>
         </div>
 
         {/* Order Items */}
@@ -286,9 +325,11 @@ export default function TestOrderPage() {
                 <span>Total Amount:</span>
                 <span className="font-semibold">${(totalCents / 100).toFixed(2)}</span>
               </div>
-              <div className="flex justify-between text-green-700">
+              <div className={`flex justify-between ${isGuest ? 'text-[var(--color-muted)]' : 'text-green-700'}`}>
                 <span>Points to Award:</span>
-                <span className="font-semibold">{pointsToEarn} points</span>
+                <span className="font-semibold">
+                  {isGuest ? '0 points (guest)' : `${pointsToEarn} points`}
+                </span>
               </div>
             </div>
           </div>

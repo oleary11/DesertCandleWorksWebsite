@@ -210,9 +210,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
       m.get(key)!.push(p);
     }
 
-    // keep graceful name sort inside each group
+    // Sort inside each group: in-stock first, then by name
     for (const [key, list] of m) {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => {
+        // In-stock items first
+        const aInStock = a._computedStock > 0 ? 1 : 0;
+        const bInStock = b._computedStock > 0 ? 1 : 0;
+        if (aInStock !== bInStock) return bInStock - aInStock;
+        // Then alphabetically
+        return a.name.localeCompare(b.name);
+      });
       m.set(key, list);
     }
 

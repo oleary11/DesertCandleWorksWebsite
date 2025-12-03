@@ -6,9 +6,16 @@ import { incrStock, incrVariantStock } from "@/lib/productsStore";
 /**
  * Admin-only endpoint to create test orders for testing the order/points system
  * POST /api/admin/test-order
+ *
+ * Request body:
+ * - email: Customer email
+ * - items: Array of { productSlug, productName, quantity, priceCents, variantId? }
+ * - totalCents: Order total in cents
+ * - isGuest: (optional) Set to true to test guest checkout, false/omit for authenticated user
+ * - sendEmail: (optional) Set to true to send invoice email
  */
 export async function POST(req: NextRequest) {
-  const authed = await isAdminAuthed(req);
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -19,6 +26,8 @@ export async function POST(req: NextRequest) {
       email,
       items, // Array of { productSlug, productName, quantity, priceCents, variantId? }
       totalCents,
+      isGuest = false, // Optional: test guest checkout
+      sendEmail = false, // Optional: send invoice email
     } = body;
 
     if (!email || !items || !totalCents) {
@@ -28,13 +37,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Get user by email
-    const user = await getUserByEmail(email);
-    if (!user) {
-      return NextResponse.json(
-        { error: `No user found with email: ${email}` },
-        { status: 404 }
-      );
+    // Get user by email (only if not testing guest checkout)
+    let user = null;
+    if (!isGuest) {
+      user = await getUserByEmail(email);
+      if (!user) {
+        return NextResponse.json(
+          { error: `No user found with email: ${email}. Set "isGuest": true to test guest checkout.` },
+          { status: 404 }
+        );
+      }
     }
 
     // Generate a mock checkout session ID
@@ -56,21 +68,52 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create the order
-    console.log(`[Test Order] Creating order for user ${user.id} (${email})`);
-    const order = await createOrder(user.id, email, mockSessionId, totalCents, items);
+    // Create the order (guest or authenticated)
+    if (isGuest) {
+      console.log(`[Test Order] Creating GUEST order for ${email}`);
+      await createOrder(email, mockSessionId, totalCents, items); // No userId = guest
+    } else {
+      console.log(`[Test Order] Creating order for user ${user!.id} (${email})`);
+      await createOrder(email, mockSessionId, totalCents, items, user!.id);
+    }
 
-    // Complete the order and award points
+    // Complete the order and award points (if authenticated)
     await completeOrder(mockSessionId);
 
-    const pointsEarned = Math.floor(totalCents / 100);
-    console.log(`[Test Order] Awarded ${pointsEarned} points to ${email}`);
+    const pointsEarned = Math.round(totalCents / 100); // 1 point per dollar, rounded
+
+    if (isGuest) {
+      console.log(`[Test Order] Guest order created - no points awarded`);
+    } else {
+      console.log(`[Test Order] Awarded ${pointsEarned} points to ${email}`);
+    }
+
+    // Optionally send invoice email
+    let emailSent = false;
+    if (sendEmail) {
+      try {
+        const { sendOrderInvoiceEmail } = await import("@/lib/email");
+        await sendOrderInvoiceEmail(mockSessionId);
+        emailSent = true;
+        console.log(`[Test Order] Invoice email sent to ${email}`);
+      } catch (emailErr) {
+        console.error(`[Test Order] Failed to send invoice email:`, emailErr);
+      }
+    }
+
+    // Get the created order
+    const { getOrderById } = await import("@/lib/userStore");
+    const order = await getOrderById(mockSessionId);
 
     return NextResponse.json({
       success: true,
       order,
-      pointsEarned,
-      message: `Test order created for ${email}. Awarded ${pointsEarned} points.`,
+      pointsEarned: isGuest ? 0 : pointsEarned,
+      isGuest,
+      emailSent,
+      message: isGuest
+        ? `Test GUEST order created for ${email}. No points awarded.${emailSent ? ' Invoice email sent.' : ''}`
+        : `Test order created for ${email}. Awarded ${pointsEarned} points.${emailSent ? ' Invoice email sent.' : ''}`,
     });
   } catch (error) {
     console.error("[Test Order] Error:", error);
