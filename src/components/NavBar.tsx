@@ -214,15 +214,29 @@ export default function NavBar() {
           </div>
         </nav>
 
-        {/* Mobile toggle */}
-        <button
-          onClick={() => setOpen((v) => !v)}
-          className="md:hidden p-2 text-[var(--color-ink)] hover:opacity-80 transition"
-          aria-label="Toggle menu"
-          aria-expanded={open}
-        >
-          {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-        </button>
+        {/* Mobile cart + menu toggle */}
+        <div className="md:hidden flex items-center gap-3">
+          <Link
+            href="/cart"
+            className="relative p-2 text-[var(--color-ink)] hover:opacity-80 transition"
+            aria-label="Shopping cart"
+          >
+            <ShoppingCart className="w-6 h-6" />
+            {mounted && totalItems > 0 && (
+              <span className="absolute top-0 right-0 bg-[var(--color-accent)] text-[var(--color-accent-ink)] text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                {totalItems}
+              </span>
+            )}
+          </Link>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="p-2 text-[var(--color-ink)] hover:opacity-80 transition"
+            aria-label="Toggle menu"
+            aria-expanded={open}
+          >
+            {open ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
+        </div>
       </div>
 
       {/* Mobile dropdown */}
