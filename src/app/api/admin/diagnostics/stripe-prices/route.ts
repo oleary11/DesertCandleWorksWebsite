@@ -24,7 +24,7 @@ type PriceTestResult = {
  * GET /api/admin/diagnostics/stripe-prices
  */
 export async function GET(req: NextRequest) {
-  const authed = await isAdminAuthed(req);
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
