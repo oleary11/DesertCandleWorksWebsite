@@ -67,10 +67,13 @@ export async function POST(req: NextRequest) {
       if (productInfo && qty > 0) {
         const itemTotal = item.amount_total || 0;
 
+        // Get product name from session metadata (stored during checkout)
+        const productName = session.metadata?.[`item_${index}_name`] || item.description || "Unknown Product";
+
         // Add to order items
         orderItems.push({
           productSlug: productInfo.slug,
-          productName: productInfo.name,
+          productName,
           quantity: qty,
           priceCents: itemTotal,
         });

@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
         throw new Error(`Price ${item.price} has no unit_amount`);
       }
 
-      // Store price ID and variant info in session metadata for webhook
+      // Store price ID, variant info, and product name in session metadata for webhook
       sessionMetadata[`item_${index}_price`] = item.price;
       if (item.metadata?.variantId) {
         sessionMetadata[`item_${index}_variant`] =
@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
 
       // Build custom product name with variant details
       const productName = item.metadata?.productName || "Candle";
+      sessionMetadata[`item_${index}_name`] = productName;
       let description = "";
       let imageUrl: string | undefined;
 
