@@ -117,7 +117,7 @@ export default function TestOrderPage() {
       } else {
         setResult({ error: data.error || "Failed to create test order" });
       }
-    } catch (err) {
+    } catch {
       setResult({ error: "Network error" });
     } finally {
       setLoading(false);
@@ -141,7 +141,7 @@ export default function TestOrderPage() {
       <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
         <p className="text-sm text-blue-900">
           <strong>Test the order and points system</strong> without going through Stripe checkout.
-          This will create a real order and decrement stock. Enable "Guest Checkout" to test orders without user accounts,
+          This will create a real order and decrement stock. Enable &quot;Guest Checkout&quot; to test orders without user accounts,
           or leave it unchecked to award points to authenticated users.
         </p>
       </div>
@@ -219,7 +219,7 @@ export default function TestOrderPage() {
           </div>
 
           {items.length === 0 ? (
-            <p className="text-[var(--color-muted)] text-center py-8">No items yet. Click "Add Item" to get started.</p>
+            <p className="text-[var(--color-muted)] text-center py-8">No items yet. Click &quot;Add Item&quot; to get started.</p>
           ) : (
             <div className="space-y-4">
               {items.map((item, index) => {
