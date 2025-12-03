@@ -139,25 +139,6 @@ export default function ProductCard({
           <div className="absolute inset-0 bg-neutral-400/70 rounded-t-2xl" />
         )}
 
-        {/* Best Seller Badge - positioned to not overlap with price on mobile */}
-        {product.bestSeller && (
-          <span
-            className="
-              absolute top-3 left-3
-              px-2 py-1 text-[10px] sm:text-xs font-bold
-              rounded-full
-              bg-gradient-to-r from-amber-500 to-orange-500
-              text-white
-              shadow-lg
-              z-10
-              max-w-[calc(100%-5rem)]
-            "
-          >
-            <span className="hidden sm:inline">⭐ Best Seller</span>
-            <span className="sm:hidden">⭐ Best</span>
-          </span>
-        )}
-
         {/* Stock status badge - positioned to not overlap price */}
         {isOutOfStock && (
           <span
