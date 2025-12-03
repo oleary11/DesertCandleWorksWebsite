@@ -135,6 +135,22 @@ export default function QuickAddModal({
     );
   };
 
+  // Check if there are any in-stock scents in each category (for disabling buttons)
+  const hasInStockStandardScents = useMemo(() =>
+    standardScents.some(s => isScentAvailable(s.id)),
+    [standardScents, selectedWickType, variants]
+  );
+
+  const hasInStockSeasonalScents = useMemo(() =>
+    seasonalScents.some(s => isScentAvailable(s.id)),
+    [seasonalScents, selectedWickType, variants]
+  );
+
+  const hasInStockExperimentalScents = useMemo(() =>
+    experimentalScents.some(s => isScentAvailable(s.id)),
+    [experimentalScents, selectedWickType, variants]
+  );
+
   const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
   const selectedScentName = globalScents.find(s => s.id === selectedScent)?.name || "";
 
@@ -240,13 +256,22 @@ export default function QuickAddModal({
                 <button
                   type="button"
                   onClick={() => {
-                    setScentGroup("standard");
-                    const firstStandardScent = standardScents[0]?.id;
-                    if (firstStandardScent) setSelectedScent(firstStandardScent);
+                    // Only switch if SWITCHING to a different group and has stock
+                    if (scentGroup !== "standard" && hasInStockStandardScents) {
+                      setScentGroup("standard");
+                      // Auto-select first IN-STOCK standard scent when switching
+                      const firstInStockStandardScent = standardScents.find(s => isScentAvailable(s.id));
+                      if (firstInStockStandardScent) {
+                        setSelectedScent(firstInStockStandardScent.id);
+                      }
+                    }
                   }}
+                  disabled={!hasInStockStandardScents}
                   className={`
                     flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
-                    ${scentGroup === "standard"
+                    ${!hasInStockStandardScents
+                      ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                      : scentGroup === "standard"
                       ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                       : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                     }
@@ -258,13 +283,22 @@ export default function QuickAddModal({
                   <button
                     type="button"
                     onClick={() => {
-                      setScentGroup("seasonal");
-                      const firstSeasonalScent = seasonalScents[0]?.id;
-                      if (firstSeasonalScent) setSelectedScent(firstSeasonalScent);
+                      // Only switch if SWITCHING to a different group and has stock
+                      if (scentGroup !== "seasonal" && hasInStockSeasonalScents) {
+                        setScentGroup("seasonal");
+                        // Auto-select first IN-STOCK seasonal scent when switching
+                        const firstInStockSeasonalScent = seasonalScents.find(s => isScentAvailable(s.id));
+                        if (firstInStockSeasonalScent) {
+                          setSelectedScent(firstInStockSeasonalScent.id);
+                        }
+                      }
                     }}
+                    disabled={!hasInStockSeasonalScents}
                     className={`
                       flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
-                      ${scentGroup === "seasonal"
+                      ${!hasInStockSeasonalScents
+                        ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                        : scentGroup === "seasonal"
                         ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                         : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                       }
@@ -277,13 +311,22 @@ export default function QuickAddModal({
                   <button
                     type="button"
                     onClick={() => {
-                      setScentGroup("experimental");
-                      const firstExperimentalScent = experimentalScents[0]?.id;
-                      if (firstExperimentalScent) setSelectedScent(firstExperimentalScent);
+                      // Only switch if SWITCHING to a different group and has stock
+                      if (scentGroup !== "experimental" && hasInStockExperimentalScents) {
+                        setScentGroup("experimental");
+                        // Auto-select first IN-STOCK experimental scent when switching
+                        const firstInStockExperimentalScent = experimentalScents.find(s => isScentAvailable(s.id));
+                        if (firstInStockExperimentalScent) {
+                          setSelectedScent(firstInStockExperimentalScent.id);
+                        }
+                      }
                     }}
+                    disabled={!hasInStockExperimentalScents}
                     className={`
                       flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
-                      ${scentGroup === "experimental"
+                      ${!hasInStockExperimentalScents
+                        ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                        : scentGroup === "experimental"
                         ? "border-2 border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                         : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                       }

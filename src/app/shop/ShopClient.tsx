@@ -7,7 +7,7 @@ import type { Product } from "@/lib/products";
 import { generateVariants } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
-import { Truck, Search, CheckCircle, XCircle } from "lucide-react";
+import { Truck, Search, CheckCircle, XCircle, SlidersHorizontal, X } from "lucide-react";
 
 type ProductWithStock = Product & { _computedStock: number };
 
@@ -34,6 +34,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   // Price range from products
   const priceRange = useMemo(() => {
@@ -331,11 +332,34 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         </div>
       </div>
 
-      {/* Mobile Filters */}
-      <div className="lg:hidden px-6 mb-8">
-        {/* Price Range Filter - Mobile */}
-        <div className="mb-6 p-4 rounded-lg border border-[var(--color-line)]">
-          <h3 className="text-sm font-semibold mb-3">Price Range</h3>
+      {/* Mobile Filters Toggle Button */}
+      <div className="lg:hidden px-6 mb-6">
+        <button
+          onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-[var(--color-line)] bg-white hover:border-[var(--color-accent)] transition shadow-sm"
+        >
+          <div className="flex items-center gap-3">
+            <SlidersHorizontal className="w-5 h-5 text-[var(--color-ink)]" />
+            <span className="font-medium text-[var(--color-ink)]">
+              Filters & Sort
+            </span>
+          </div>
+          {mobileFiltersOpen ? (
+            <X className="w-5 h-5 text-[var(--color-muted)]" />
+          ) : (
+            <svg className="w-5 h-5 text-[var(--color-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          )}
+        </button>
+      </div>
+
+      {/* Mobile Filters Panel (Collapsible) */}
+      {mobileFiltersOpen && (
+        <div className="lg:hidden px-6 mb-8 animate-in slide-in-from-top-4 duration-200">
+          {/* Price Range Filter - Mobile */}
+          <div className="mb-6 p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
+            <h3 className="text-sm font-semibold mb-3">Price Range</h3>
           <div className="space-y-3">
             <div className="flex items-center justify-center gap-2 text-sm">
               <span className="font-medium">${priceMin}</span>
@@ -518,7 +542,8 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
             Out of Stock
           </button>
         </div>
-      </div>
+        </div>
+      )}
 
       {/* Main Content with Sidebar */}
       <div className="px-6">

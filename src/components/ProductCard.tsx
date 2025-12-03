@@ -203,7 +203,7 @@ export default function ProductCard({
           ${product.price}
         </span>
 
-        {/* Quick Add / Request Button - appears on hover */}
+        {/* Quick Add / Request Button - always visible on mobile, appears on hover on desktop */}
         {isOutOfStock ? (
           <button
             onClick={handleRequest}
@@ -212,7 +212,7 @@ export default function ProductCard({
               inline-flex items-center justify-center gap-2
               px-4 py-2 rounded-lg text-sm font-medium
               bg-white text-[var(--color-ink)] shadow-lg
-              opacity-0 group-hover:opacity-100
+              opacity-100 md:opacity-0 md:group-hover:opacity-100
               transition-opacity duration-300 z-20
               hover:bg-neutral-50
             "
@@ -231,7 +231,7 @@ export default function ProductCard({
               inline-flex items-center justify-center gap-2
               px-4 py-2 rounded-lg text-sm font-medium
               bg-white text-[var(--color-ink)] shadow-lg
-              opacity-0 group-hover:opacity-100
+              opacity-100 md:opacity-0 md:group-hover:opacity-100
               transition-opacity duration-300 z-20
               hover:bg-neutral-50
             "
