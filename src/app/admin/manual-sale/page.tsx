@@ -30,6 +30,7 @@ export default function ManualSalePage() {
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
   const [notes, setNotes] = useState("");
+  const [decrementStock, setDecrementStock] = useState(true);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -130,6 +131,7 @@ export default function ManualSalePage() {
           customerEmail: customerEmail || undefined,
           paymentMethod,
           notes: notes || undefined,
+          decrementStock,
         }),
       });
 
@@ -145,6 +147,7 @@ export default function ManualSalePage() {
       setCustomerEmail("");
       setPaymentMethod("cash");
       setNotes("");
+      setDecrementStock(true);
       // Reload products to get updated stock
       loadProducts();
     } catch (err) {
@@ -368,6 +371,39 @@ export default function ManualSalePage() {
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
+            </div>
+
+            <div className="mt-4">
+              <label className="flex items-start gap-3 cursor-pointer group p-3 border border-[var(--color-line)] rounded-lg hover:border-[var(--color-accent)] transition">
+                <div className="relative flex items-center justify-center mt-0.5">
+                  <input
+                    type="checkbox"
+                    checked={decrementStock}
+                    onChange={(e) => setDecrementStock(e.target.checked)}
+                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
+                  />
+                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
+                    {decrementStock && (
+                      <svg
+                        className="w-3 h-3 text-white"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    )}
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <div className="text-sm font-medium">Decrement Stock</div>
+                  <p className="text-xs text-[var(--color-muted)] mt-1">
+                    Uncheck this if the sale was made-to-order or custom (not from existing inventory).
+                    Check this if you sold from your current stock.
+                  </p>
+                </div>
+              </label>
             </div>
           </div>
 

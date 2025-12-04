@@ -19,6 +19,7 @@ type ManualSaleRequest = {
   customerEmail?: string;
   paymentMethod: "cash" | "card" | "other";
   notes?: string;
+  decrementStock?: boolean;
 };
 
 export async function POST(req: NextRequest) {
@@ -71,25 +72,29 @@ export async function POST(req: NextRequest) {
     // Use provided email or default to admin/manual
     const customerEmail = body.customerEmail || "manual-sale@admin.local";
 
-    // Process stock decrements
-    for (const item of body.items) {
-      try {
-        if (item.variantId) {
-          // Decrement variant stock
-          console.log(`[Manual Sale] Decrementing variant stock: ${item.productSlug} variant ${item.variantId} x${item.quantity}`);
-          await incrVariantStock(item.productSlug, item.variantId, -item.quantity);
-        } else {
-          // Decrement base stock
-          console.log(`[Manual Sale] Decrementing base stock: ${item.productSlug} x${item.quantity}`);
-          await incrStock(item.productSlug, -item.quantity);
+    // Process stock decrements (only if requested)
+    if (body.decrementStock) {
+      for (const item of body.items) {
+        try {
+          if (item.variantId) {
+            // Decrement variant stock
+            console.log(`[Manual Sale] Decrementing variant stock: ${item.productSlug} variant ${item.variantId} x${item.quantity}`);
+            await incrVariantStock(item.productSlug, item.variantId, -item.quantity);
+          } else {
+            // Decrement base stock
+            console.log(`[Manual Sale] Decrementing base stock: ${item.productSlug} x${item.quantity}`);
+            await incrStock(item.productSlug, -item.quantity);
+          }
+        } catch (err) {
+          console.error(`[Manual Sale] Stock decrement failed for ${item.productSlug} ${item.variantId ? `variant ${item.variantId}` : ''} x${item.quantity}`, err);
+          return NextResponse.json(
+            { error: `Failed to decrement stock for ${item.productName}: ${String(err)}` },
+            { status: 400 }
+          );
         }
-      } catch (err) {
-        console.error(`[Manual Sale] Stock decrement failed for ${item.productSlug} ${item.variantId ? `variant ${item.variantId}` : ''} x${item.quantity}`, err);
-        return NextResponse.json(
-          { error: `Failed to decrement stock for ${item.productName}: ${String(err)}` },
-          { status: 400 }
-        );
       }
+    } else {
+      console.log(`[Manual Sale] Skipping stock decrement (custom order or made-to-order)`);
     }
 
     // Create order record

@@ -153,6 +153,15 @@ export default function AdminPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // New filter and sort states
+  const [visibleFilter, setVisibleFilter] = useState<"all" | "visible" | "hidden">("all");
+  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
+  const [bestFilter, setBestFilter] = useState<"all" | "best" | "not-best">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
+  const [sortBy, setSortBy] = useState<"name" | "price" | "stock" | "best" | "status" | "none">("none");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+
   // Staged local drafts keyed by slug (full product objects)
   const [staged, setStaged] = useState<Record<string, Product>>({});
   const [slugTouched, setSlugTouched] = useState(false);
@@ -189,15 +198,134 @@ export default function AdminPage() {
   }, [items, staged]);
 
   const filtered = useMemo(() => {
+    let result = [...merged];
+
+    // Text search filter
     const q = filter.trim().toLowerCase();
-    if (!q) return merged;
-    return merged.filter(
-      (p) =>
-        p.slug.toLowerCase().includes(q) ||
-        p.name.toLowerCase().includes(q) ||
-        p.sku.toLowerCase().includes(q)
-    );
-  }, [merged, filter]);
+    if (q) {
+      result = result.filter(
+        (p) =>
+          p.slug.toLowerCase().includes(q) ||
+          p.name.toLowerCase().includes(q) ||
+          p.sku.toLowerCase().includes(q)
+      );
+    }
+
+    // Visible filter
+    if (visibleFilter === "visible") {
+      result = result.filter((p) => p.visibleOnWebsite !== false);
+    } else if (visibleFilter === "hidden") {
+      result = result.filter((p) => p.visibleOnWebsite === false);
+    }
+
+    // Type filter
+    if (typeFilter !== "all") {
+      result = result.filter((p) => (p.alcoholType || "Other") === typeFilter);
+    }
+
+    // Stock filter
+    if (stockFilter === "in-stock") {
+      result = result.filter((p) => getTotalStock(p) > 0);
+    } else if (stockFilter === "out-of-stock") {
+      result = result.filter((p) => getTotalStock(p) === 0);
+    }
+
+    // Best seller filter
+    if (bestFilter === "best") {
+      result = result.filter((p) => p.bestSeller === true);
+    } else if (bestFilter === "not-best") {
+      result = result.filter((p) => p.bestSeller !== true);
+    }
+
+    // Status filter
+    if (statusFilter === "published") {
+      result = result.filter((p) => !hasDraft(p.slug));
+    } else if (statusFilter === "draft") {
+      result = result.filter((p) => hasDraft(p.slug));
+    }
+
+    // Sorting
+    if (sortBy !== "none") {
+      result.sort((a, b) => {
+        let comparison = 0;
+
+        switch (sortBy) {
+          case "name":
+            comparison = a.name.localeCompare(b.name);
+            break;
+          case "price":
+            comparison = a.price - b.price;
+            break;
+          case "stock":
+            comparison = getTotalStock(a) - getTotalStock(b);
+            break;
+          case "best":
+            comparison = (a.bestSeller ? 1 : 0) - (b.bestSeller ? 1 : 0);
+            break;
+          case "status":
+            comparison = (hasDraft(a.slug) ? 1 : 0) - (hasDraft(b.slug) ? 1 : 0);
+            break;
+        }
+
+        return sortDirection === "asc" ? comparison : -comparison;
+      });
+    }
+
+    return result;
+  }, [merged, filter, visibleFilter, typeFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, staged]);
+
+  /* ---------- CSV Export ---------- */
+
+  function exportToCSV() {
+    const headers = [
+      "Visible",
+      "Name",
+      "Slug",
+      "SKU",
+      "Price",
+      "Material Cost",
+      "Type",
+      "Stock",
+      "Best Seller",
+      "Young & Dumb",
+      "Status",
+      "Stripe Price ID",
+      "SEO Description",
+      "Image",
+    ];
+
+    const rows = filtered.map((p) => [
+      p.visibleOnWebsite !== false ? "Yes" : "No",
+      p.name,
+      p.slug,
+      p.sku || "",
+      p.price.toFixed(2),
+      p.materialCost ? p.materialCost.toFixed(2) : "",
+      p.alcoholType || "Other",
+      getTotalStock(p).toString(),
+      p.bestSeller ? "Yes" : "No",
+      p.youngDumb ? "Yes" : "No",
+      hasDraft(p.slug) ? "Draft" : "Published",
+      p.stripePriceId || "",
+      p.seoDescription || "",
+      p.images?.[0] || p.image || "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `products-export-${new Date().toISOString().split("T")[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 
   /* ---------- Drafting & Publishing ---------- */
 
@@ -447,26 +575,153 @@ export default function AdminPage() {
       </div>
 
       {/* Filter + New */}
-      <div className="mt-4 flex flex-col sm:flex-row gap-3 sm:items-center">
-        <input
-          className="input w-full sm:max-w-sm"
-          placeholder="Filter by name, slug, SKU…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
-        <button
-          className="btn btn-primary w-full sm:w-auto"
-          onClick={() => {
-            const p = emptyProduct();
-            p.sku = nextSku; // default auto-increment
-            setEditing(p);
-            setSlugTouched(false);
-            setSlugError(null);
-            setError(null);
-          }}
-        >
-          + New product
-        </button>
+      {/* Search and Controls */}
+      <div className="mt-4 space-y-4">
+        {/* Search and Primary Actions */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <input
+            className="input flex-1 sm:max-w-md"
+            placeholder="Search by name, slug, or SKU…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+          <button
+            className="btn bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
+            onClick={exportToCSV}
+            disabled={filtered.length === 0}
+          >
+            Export to CSV ({filtered.length})
+          </button>
+          <button
+            className="btn btn-primary w-full sm:w-auto"
+            onClick={() => {
+              const p = emptyProduct();
+              p.sku = nextSku; // default auto-increment
+              setEditing(p);
+              setSlugTouched(false);
+              setSlugError(null);
+              setError(null);
+            }}
+          >
+            + New product
+          </button>
+        </div>
+
+        {/* Filters */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+          {/* Visible Filter */}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Visibility</label>
+            <select
+              className="input w-full text-sm"
+              value={visibleFilter}
+              onChange={(e) => setVisibleFilter(e.target.value as typeof visibleFilter)}
+            >
+              <option value="all">All</option>
+              <option value="visible">Visible</option>
+              <option value="hidden">Hidden</option>
+            </select>
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Type</label>
+            <select
+              className="input w-full text-sm"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+            >
+              <option value="all">All Types</option>
+              {alcoholTypes.map((type) => (
+                <option key={type.id} value={type.name}>
+                  {type.name}
+                </option>
+              ))}
+              <option value="Other">Other</option>
+            </select>
+          </div>
+
+          {/* Stock Filter */}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Stock</label>
+            <select
+              className="input w-full text-sm"
+              value={stockFilter}
+              onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
+            >
+              <option value="all">All</option>
+              <option value="in-stock">In Stock</option>
+              <option value="out-of-stock">Out of Stock</option>
+            </select>
+          </div>
+
+          {/* Best Seller Filter */}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Best Seller</label>
+            <select
+              className="input w-full text-sm"
+              value={bestFilter}
+              onChange={(e) => setBestFilter(e.target.value as typeof bestFilter)}
+            >
+              <option value="all">All</option>
+              <option value="best">Best Sellers</option>
+              <option value="not-best">Not Best Sellers</option>
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Status</label>
+            <select
+              className="input w-full text-sm"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
+            >
+              <option value="all">All</option>
+              <option value="published">Published</option>
+              <option value="draft">Draft</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Sort Controls */}
+        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+          <span className="text-xs font-medium text-[var(--color-muted)]">Sort by:</span>
+          <select
+            className="input w-full sm:w-auto text-sm"
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+          >
+            <option value="none">Default</option>
+            <option value="name">Name</option>
+            <option value="price">Price</option>
+            <option value="stock">Stock</option>
+            <option value="best">Best Seller</option>
+            <option value="status">Status</option>
+          </select>
+          <button
+            className="btn w-full sm:w-auto"
+            onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
+            disabled={sortBy === "none"}
+          >
+            {sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"}
+          </button>
+          <button
+            className="btn w-full sm:w-auto text-sm"
+            onClick={() => {
+              setFilter("");
+              setVisibleFilter("all");
+              setTypeFilter("all");
+              setStockFilter("all");
+              setBestFilter("all");
+              setStatusFilter("all");
+              setSortBy("none");
+              setSortDirection("asc");
+            }}
+          >
+            Clear All Filters
+          </button>
+        </div>
       </div>
 
       {/* Content */}
