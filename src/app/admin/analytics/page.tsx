@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, DollarSign, Package, ShoppingCart } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, ShoppingCart, Calendar } from "lucide-react";
 
 type Order = {
   id: string;
@@ -31,6 +31,13 @@ type Product = {
   stock?: number;
 };
 
+type ComparisonData = {
+  revenue: number;
+  orders: number;
+  units: number;
+  averageOrderValue: number;
+};
+
 type AnalyticsData = {
   totalRevenue: number;
   totalOrders: number;
@@ -56,24 +63,181 @@ type AnalyticsData = {
     profit: number;
     marginPercent: number;
   }>;
+  dateRange?: { startDate: string; endDate: string } | null;
+  comparison?: ComparisonData | null;
 };
+
+type DatePreset = "today" | "week" | "month" | "lastMonth" | "ytd" | "allTime" | "custom";
 
 export default function AdminAnalyticsPage() {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [datePreset, setDatePreset] = useState<DatePreset>("allTime");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     loadAnalytics();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate, showComparison]);
+
+  // Helper functions for date calculations
+  function getDateRange(preset: DatePreset): { start: string; end: string } | null {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (preset) {
+      case "today":
+        return {
+          start: today.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      case "week": {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // Sunday
+        return {
+          start: weekStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "month": {
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        return {
+          start: monthStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "lastMonth": {
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        return {
+          start: lastMonthStart.toISOString().split("T")[0],
+          end: lastMonthEnd.toISOString().split("T")[0],
+        };
+      }
+      case "ytd": {
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        return {
+          start: yearStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "allTime":
+        return null;
+      case "custom":
+        return null;
+    }
+  }
+
+  function getComparisonRange(preset: DatePreset): { start: string; end: string } | null {
+    if (preset === "allTime" || preset === "custom") return null;
+
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (preset) {
+      case "today": {
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return {
+          start: yesterday.toISOString().split("T")[0],
+          end: yesterday.toISOString().split("T")[0],
+        };
+      }
+      case "week": {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // This week's Sunday
+        const prevWeekEnd = new Date(weekStart);
+        prevWeekEnd.setDate(prevWeekEnd.getDate() - 1); // Last Saturday
+        const prevWeekStart = new Date(prevWeekEnd);
+        prevWeekStart.setDate(prevWeekStart.getDate() - 6); // Previous Sunday
+        return {
+          start: prevWeekStart.toISOString().split("T")[0],
+          end: prevWeekEnd.toISOString().split("T")[0],
+        };
+      }
+      case "month": {
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        return {
+          start: lastMonthStart.toISOString().split("T")[0],
+          end: lastMonthEnd.toISOString().split("T")[0],
+        };
+      }
+      case "lastMonth": {
+        const twoMonthsAgoStart = new Date(today.getFullYear(), today.getMonth() - 2, 1);
+        const twoMonthsAgoEnd = new Date(today.getFullYear(), today.getMonth() - 1, 0);
+        return {
+          start: twoMonthsAgoStart.toISOString().split("T")[0],
+          end: twoMonthsAgoEnd.toISOString().split("T")[0],
+        };
+      }
+      case "ytd": {
+        const lastYearStart = new Date(today.getFullYear() - 1, 0, 1);
+        const lastYearEnd = new Date(today.getFullYear() - 1, 11, 31);
+        return {
+          start: lastYearStart.toISOString().split("T")[0],
+          end: lastYearEnd.toISOString().split("T")[0],
+        };
+      }
+    }
+    return null;
+  }
+
+  function handlePresetChange(preset: DatePreset) {
+    setDatePreset(preset);
+    const range = getDateRange(preset);
+    if (range) {
+      setStartDate(range.start);
+      setEndDate(range.end);
+    } else if (preset === "allTime") {
+      setStartDate("");
+      setEndDate("");
+      setShowComparison(false);
+    }
+  }
 
   async function loadAnalytics() {
     try {
-      const res = await fetch("/api/admin/analytics");
+      setLoading(true);
+      let url = "/api/admin/analytics";
+      const params = new URLSearchParams();
+
+      console.log("[Analytics] Loading with dates:", { startDate, endDate, showComparison, datePreset });
+
+      if (startDate && endDate) {
+        params.append("startDate", startDate);
+        params.append("endDate", endDate);
+
+        if (showComparison) {
+          const compRange = getComparisonRange(datePreset);
+          console.log("[Analytics] Comparison range:", compRange);
+          if (compRange) {
+            params.append("compareStartDate", compRange.start);
+            params.append("compareEndDate", compRange.end);
+          }
+        }
+      }
+
+      if (params.toString()) {
+        url += `?${params.toString()}`;
+      }
+
+      console.log("[Analytics] Fetching:", url);
+
+      const res = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
       if (!res.ok) {
         throw new Error("Failed to load analytics");
       }
       const data = await res.json();
+      console.log("[Analytics] Data received:", data);
       setAnalytics(data);
     } catch (err) {
       setError("Failed to load analytics data");
@@ -81,6 +245,16 @@ export default function AdminAnalyticsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function calculatePercentageChange(current: number, previous: number): number {
+    if (previous === 0) return current > 0 ? 100 : 0;
+    return ((current - previous) / previous) * 100;
+  }
+
+  function formatPercentageChange(change: number): string {
+    const formatted = Math.abs(change).toFixed(1);
+    return change > 0 ? `+${formatted}%` : `-${formatted}%`;
   }
 
   if (loading) {
@@ -124,8 +298,107 @@ export default function AdminAnalyticsPage() {
           </p>
         </div>
 
+        {/* Date Range Controls */}
+        <div className="card p-6 bg-white mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-[var(--color-muted)]" />
+            <h2 className="text-lg font-semibold">Date Range</h2>
+          </div>
+
+          {/* Preset Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              className={`btn ${datePreset === "today" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("today")}
+            >
+              Today
+            </button>
+            <button
+              className={`btn ${datePreset === "week" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("week")}
+            >
+              This Week
+            </button>
+            <button
+              className={`btn ${datePreset === "month" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("month")}
+            >
+              This Month
+            </button>
+            <button
+              className={`btn ${datePreset === "lastMonth" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("lastMonth")}
+            >
+              Last Month
+            </button>
+            <button
+              className={`btn ${datePreset === "ytd" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("ytd")}
+            >
+              Year to Date
+            </button>
+            <button
+              className={`btn ${datePreset === "allTime" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("allTime")}
+            >
+              All Time
+            </button>
+            <button
+              className={`btn ${datePreset === "custom" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => setDatePreset("custom")}
+            >
+              Custom Range
+            </button>
+          </div>
+
+          {/* Custom Date Pickers */}
+          {datePreset === "custom" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Start Date</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">End Date</label>
+                <input
+                  type="date"
+                  className="input w-full"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Comparison Toggle */}
+          {datePreset !== "allTime" && (
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={showComparison}
+                onChange={(e) => setShowComparison(e.target.checked)}
+                className="w-4 h-4"
+              />
+              <span className="text-sm">
+                Show comparison to previous period
+                {datePreset === "month" && " (vs last month)"}
+                {datePreset === "week" && " (vs last week)"}
+                {datePreset === "ytd" && " (vs last year)"}
+                {datePreset === "today" && " (vs yesterday)"}
+                {datePreset === "lastMonth" && " (vs two months ago)"}
+              </span>
+            </label>
+          )}
+        </div>
+
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Revenue Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
@@ -134,8 +407,25 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm font-medium text-[var(--color-muted)]">Total Revenue</span>
             </div>
             <p className="text-3xl font-bold">${(analytics.totalRevenue / 100).toFixed(2)}</p>
+            {analytics.comparison && (
+              <div className="mt-2">
+                <span
+                  className={`text-sm font-medium ${
+                    calculatePercentageChange(analytics.totalRevenue, analytics.comparison.revenue) >= 0
+                      ? "text-green-600"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {formatPercentageChange(
+                    calculatePercentageChange(analytics.totalRevenue, analytics.comparison.revenue)
+                  )}{" "}
+                  vs previous period
+                </span>
+              </div>
+            )}
           </div>
 
+          {/* Orders Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
@@ -144,8 +434,25 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm font-medium text-[var(--color-muted)]">Total Orders</span>
             </div>
             <p className="text-3xl font-bold">{analytics.totalOrders}</p>
+            {analytics.comparison && (
+              <div className="mt-2">
+                <span
+                  className={`text-sm font-medium ${
+                    calculatePercentageChange(analytics.totalOrders, analytics.comparison.orders) >= 0
+                      ? "text-green-600"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {formatPercentageChange(
+                    calculatePercentageChange(analytics.totalOrders, analytics.comparison.orders)
+                  )}{" "}
+                  vs previous period
+                </span>
+              </div>
+            )}
           </div>
 
+          {/* Units Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
@@ -154,8 +461,25 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm font-medium text-[var(--color-muted)]">Units Sold</span>
             </div>
             <p className="text-3xl font-bold">{analytics.totalUnits}</p>
+            {analytics.comparison && (
+              <div className="mt-2">
+                <span
+                  className={`text-sm font-medium ${
+                    calculatePercentageChange(analytics.totalUnits, analytics.comparison.units) >= 0
+                      ? "text-green-600"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {formatPercentageChange(
+                    calculatePercentageChange(analytics.totalUnits, analytics.comparison.units)
+                  )}{" "}
+                  vs previous period
+                </span>
+              </div>
+            )}
           </div>
 
+          {/* AOV Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
@@ -164,6 +488,22 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm font-medium text-[var(--color-muted)]">Avg Order Value</span>
             </div>
             <p className="text-3xl font-bold">${(analytics.averageOrderValue / 100).toFixed(2)}</p>
+            {analytics.comparison && (
+              <div className="mt-2">
+                <span
+                  className={`text-sm font-medium ${
+                    calculatePercentageChange(analytics.averageOrderValue, analytics.comparison.averageOrderValue) >= 0
+                      ? "text-green-600"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {formatPercentageChange(
+                    calculatePercentageChange(analytics.averageOrderValue, analytics.comparison.averageOrderValue)
+                  )}{" "}
+                  vs previous period
+                </span>
+              </div>
+            )}
           </div>
         </div>
 

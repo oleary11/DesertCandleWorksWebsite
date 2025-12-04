@@ -1,11 +1,11 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { getAllOrders } from "@/lib/userStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 
 export const runtime = "nodejs";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
   if (!isAdmin) {
@@ -13,6 +13,13 @@ export async function GET() {
   }
 
   try {
+    // Get date range from query params
+    const { searchParams } = new URL(req.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+    const compareStartDate = searchParams.get("compareStartDate");
+    const compareEndDate = searchParams.get("compareEndDate");
+
     // Fetch all orders and products
     const [orders, products] = await Promise.all([
       getAllOrders(),
@@ -20,7 +27,63 @@ export async function GET() {
     ]);
 
     // Filter to completed orders only
-    const completedOrders = orders.filter((o) => o.status === "completed");
+    let completedOrders = orders.filter((o) => o.status === "completed");
+
+    console.log("[Analytics API] Total completed orders:", completedOrders.length);
+    console.log("[Analytics API] Date filter:", { startDate, endDate });
+
+    // Apply date range filter if provided
+    if (startDate && endDate) {
+      // Parse dates and set to start/end of day in UTC
+      const start = new Date(startDate + "T00:00:00.000Z");
+      const end = new Date(endDate + "T23:59:59.999Z");
+
+      console.log("[Analytics API] Date range:", { start, end });
+
+      const beforeFilter = completedOrders.length;
+      completedOrders = completedOrders.filter((o) => {
+        const orderDate = new Date(o.completedAt || o.createdAt);
+        const included = orderDate >= start && orderDate <= end;
+        if (!included) {
+          console.log("[Analytics API] Excluding order:", {
+            id: o.id,
+            orderDate: orderDate.toISOString(),
+            completedAt: o.completedAt,
+            createdAt: o.createdAt,
+          });
+        }
+        return included;
+      });
+
+      console.log("[Analytics API] Orders after filter:", completedOrders.length, "filtered out:", beforeFilter - completedOrders.length);
+    }
+
+    // Calculate comparison period data if requested
+    let comparisonData = null;
+    if (compareStartDate && compareEndDate) {
+      const compStart = new Date(compareStartDate + "T00:00:00.000Z");
+      const compEnd = new Date(compareEndDate + "T23:59:59.999Z");
+
+      const compOrders = orders.filter((o) => {
+        if (o.status !== "completed") return false;
+        const orderDate = new Date(o.completedAt || o.createdAt);
+        return orderDate >= compStart && orderDate <= compEnd;
+      });
+
+      const compRevenue = compOrders.reduce((sum, o) => sum + o.totalCents, 0);
+      const compOrderCount = compOrders.length;
+      const compUnits = compOrders.reduce(
+        (sum, o) => sum + o.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
+        0
+      );
+
+      comparisonData = {
+        revenue: compRevenue,
+        orders: compOrderCount,
+        units: compUnits,
+        averageOrderValue: compOrderCount > 0 ? compRevenue / compOrderCount : 0,
+      };
+    }
 
     // Calculate overall metrics
     const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalCents, 0);
@@ -133,6 +196,8 @@ export async function GET() {
       productSales,
       alcoholTypeSales,
       profitMargins,
+      dateRange: startDate && endDate ? { startDate, endDate } : null,
+      comparison: comparisonData,
     });
   } catch (error) {
     console.error("[Analytics] Error:", error);
