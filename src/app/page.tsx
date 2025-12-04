@@ -157,7 +157,7 @@ export default async function Home() {
             <p className="mt-2 text-sm text-[var(--color-muted)]">
               We test fresh pairings and tweak ratios. These pours are{" "}
               <span className="font-medium">small-batch</span> and only appear on{" "}
-              <span className="font-medium">select candles</span>. When they're gone, they're gone.
+              <span className="font-medium">select candles</span>. When they&rsquo;re gone, they&rsquo;re gone.
             </p>
             <p className="mt-3 text-xs text-[var(--color-muted)]/80">
               Check product pages for notes on current batches.
