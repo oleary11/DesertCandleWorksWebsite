@@ -29,7 +29,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("in-stock");
   const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
-  const [showExperimentalOnly, setShowExperimentalOnly] = useState(false);
+  const [showLimitedOnly, setShowLimitedOnly] = useState(false);
   const [showYoungDumbOnly, setShowYoungDumbOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
@@ -90,14 +90,14 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     }
   }, []);
 
-  // Seasonal & Experimental sets
+  // Seasonal & Limited sets
   const seasonalScents = useMemo(() => globalScents.filter((s) => s.seasonal), [globalScents]);
-  const experimentalScents = useMemo(
-    () => globalScents.filter((s) => s.experimental),
+  const limitedScents = useMemo(
+    () => globalScents.filter((s) => s.limited),
     [globalScents]
   );
   const hasSeasonalScents = seasonalScents.length > 0;
-  const hasExperimentalScents = experimentalScents.length > 0;
+  const hasLimitedScents = limitedScents.length > 0;
 
   // Base filter/sort (before grouping)
   const filteredAndSortedProducts = useMemo(() => {
@@ -127,16 +127,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
       });
     }
 
-    // Experimental filter
-    if (showExperimentalOnly) {
-      const experimentalScentIds = new Set(experimentalScents.map((s) => s.id));
+    // Limited filter
+    if (showLimitedOnly) {
+      const limitedScentIds = new Set(limitedScents.map((s) => s.id));
       filtered = filtered.filter((p) => {
         if (!p.variantConfig) return false;
         const { variantData } = p.variantConfig;
         return Object.keys(variantData).some((variantId) => {
           const parts = variantId.split("-");
           const scentId = parts.slice(1).join("-");
-          return experimentalScentIds.has(scentId);
+          return limitedScentIds.has(scentId);
         });
       });
     }
@@ -185,10 +185,10 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     sortBy,
     filterBy,
     showSeasonalOnly,
-    showExperimentalOnly,
+    showLimitedOnly,
     showYoungDumbOnly,
     seasonalScents,
-    experimentalScents,
+    limitedScents,
     searchQuery,
     priceMin,
     priceMax,
@@ -400,7 +400,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         </div>
 
         {/* Collection Filters - Mobile */}
-        {(hasSeasonalScents || hasExperimentalScents) && (
+        {(hasSeasonalScents || hasLimitedScents) && (
           <div className="mb-6 space-y-3">
             {hasSeasonalScents && (
               <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
@@ -428,17 +428,17 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                 <span className="text-sm whitespace-nowrap">Seasonal Scents</span>
               </label>
             )}
-            {hasExperimentalScents && (
+            {hasLimitedScents && (
               <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
                 <div className="relative flex items-center justify-center">
                   <input
                     type="checkbox"
-                    checked={showExperimentalOnly}
-                    onChange={(e) => setShowExperimentalOnly(e.target.checked)}
+                    checked={showLimitedOnly}
+                    onChange={(e) => setShowLimitedOnly(e.target.checked)}
                     className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
                   />
                   <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                    {showExperimentalOnly && (
+                    {showLimitedOnly && (
                       <svg
                         className="w-3 h-3 text-white"
                         fill="none"
@@ -451,7 +451,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                     )}
                   </div>
                 </div>
-                <span className="text-sm whitespace-nowrap">Experimental Scents</span>
+                <span className="text-sm whitespace-nowrap">Limited Scents</span>
               </label>
             )}
             {/* Young & Dumb - Mobile */}
@@ -553,7 +553,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
             <aside className="hidden lg:block lg:w-64 flex-shrink-0">
               <div className="space-y-6">
                 {/* Collections */}
-                {(hasSeasonalScents || hasExperimentalScents) && (
+                {(hasSeasonalScents || hasLimitedScents) && (
                   <div>
                     <h3 className="text-sm font-semibold mb-3">Collections</h3>
                     <div className="space-y-2">
@@ -585,17 +585,17 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                           </span>
                         </label>
                       )}
-                      {hasExperimentalScents && (
+                      {hasLimitedScents && (
                         <label className="flex items-start gap-3 cursor-pointer group">
                           <div className="relative flex items-center justify-center mt-0.5">
                             <input
                               type="checkbox"
-                              checked={showExperimentalOnly}
-                              onChange={(e) => setShowExperimentalOnly(e.target.checked)}
+                              checked={showLimitedOnly}
+                              onChange={(e) => setShowLimitedOnly(e.target.checked)}
                               className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
                             />
                             <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                              {showExperimentalOnly && (
+                              {showLimitedOnly && (
                                 <svg
                                   className="w-3 h-3 text-white"
                                   fill="none"
@@ -609,7 +609,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                             </div>
                           </div>
                           <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                            Experimental Scents
+                            Limited Scents
                           </span>
                         </label>
                       )}
@@ -779,7 +779,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                       setFilterBy("all");
                       setSortBy("name-asc");
                       setShowSeasonalOnly(false);
-                      setShowExperimentalOnly(false);
+                      setShowLimitedOnly(false);
                       setShowYoungDumbOnly(false);
                       setSearchQuery("");
                       setPriceMin(priceRange.min);

@@ -313,7 +313,7 @@ export default function ProductCard({
                 )}
 
                 {/* Scent Selector (if global scents available) */}
-                {globalScents.filter(s => !s.experimental).length > 0 && (
+                {globalScents.filter(s => !s.limited).length > 0 && (
                   <div>
                     <label htmlFor="request-scent" className="block text-sm font-medium mb-1">
                       Scent (Optional)
@@ -327,7 +327,7 @@ export default function ProductCard({
                     >
                       <option value="">Any scent</option>
                       {globalScents
-                        .filter(scent => !scent.experimental)
+                        .filter(scent => !scent.limited)
                         .map((scent) => (
                           <option key={scent.id} value={scent.name}>
                             {scent.name}

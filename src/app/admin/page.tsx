@@ -14,7 +14,7 @@ type WickType = {
 type GlobalScent = {
   id: string;
   name: string;
-  experimental: boolean;
+  limited: boolean;
   enabledProducts?: string[];
   sortOrder?: number;
 };
@@ -120,9 +120,9 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
     stock: number;
   }> = [];
 
-  // Filter scents based on experimental flag and enabled products
+  // Filter scents based on limited flag and enabled products
   const availableScents = globalScents.filter((scent) => {
-    if (!scent.experimental) return true;
+    if (!scent.limited) return true;
     return scent.enabledProducts?.includes(p.slug) ?? false;
   });
 
@@ -430,6 +430,9 @@ export default function AdminPage() {
           </a>
           <a href="/admin/test-order" className="btn">
             Test Order
+          </a>
+          <a href="/admin/stripe-sync" className="btn">
+            Stripe Sync
           </a>
           <a href="/admin/diagnostics/stripe-prices" className="btn">
             Stripe Diagnostics
@@ -1119,7 +1122,7 @@ export default function AdminPage() {
                     <div>
                       {(() => {
                         const availableScents = globalScents.filter((scent) => {
-                          if (!scent.experimental) return true;
+                          if (!scent.limited) return true;
                           return scent.enabledProducts?.includes(editing.slug) ?? false;
                         });
                         const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);

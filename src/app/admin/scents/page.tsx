@@ -13,7 +13,7 @@ type ScentComposition = {
 type GlobalScent = {
   id: string;
   name: string;
-  experimental: boolean;
+  limited: boolean;
   enabledProducts?: string[];
   sortOrder?: number;
   notes?: string[];
@@ -180,7 +180,7 @@ export default function AdminScentsPage() {
     setEditing({
       id: "",
       name: "",
-      experimental: false,
+      limited: false,
       enabledProducts: [],
       sortOrder: maxSortOrder + 1,
       notes: [],
@@ -320,7 +320,7 @@ export default function AdminScentsPage() {
           {/* Info Banner */}
           <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
             <p className="text-sm text-blue-900">
-              <strong>Global scents</strong> are automatically available for all candles. Mark a scent as <strong>experimental</strong> to limit it to specific products only.
+              <strong>Favorites scents</strong> are automatically available for all candles. Mark a scent as <strong>Limited</strong> to restrict it to specific products only.
             </p>
           </div>
 
@@ -360,8 +360,8 @@ export default function AdminScentsPage() {
               <div className="flex-1">
                 <div className="flex items-center gap-2 mb-1">
                   <h3 className="font-medium">{scent.name}</h3>
-                  {scent.experimental && (
-                    <span className="badge bg-amber-100 text-amber-800 text-xs">Experimental</span>
+                  {scent.limited && (
+                    <span className="badge bg-amber-100 text-amber-800 text-xs">Limited</span>
                   )}
                   {scent.seasonal && (
                     <span className="badge bg-blue-100 text-blue-800 text-xs">Seasonal</span>
@@ -369,13 +369,13 @@ export default function AdminScentsPage() {
                 </div>
                 <p className="text-sm text-[var(--color-muted)]">
                   ID: <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded">{scent.id}</code>
-                  {scent.experimental && scent.enabledProducts && scent.enabledProducts.length > 0 && (
+                  {scent.limited && scent.enabledProducts && scent.enabledProducts.length > 0 && (
                     <span className="ml-2">
                       · Enabled on {scent.enabledProducts.length} product{scent.enabledProducts.length !== 1 ? 's' : ''}
                     </span>
                   )}
-                  {!scent.experimental && (
-                    <span className="ml-2">· Available on all products</span>
+                  {!scent.limited && (
+                    <span className="ml-2">· Favorites - Available on all products</span>
                   )}
                 </p>
                 {scent.notes && scent.notes.length > 0 && (
@@ -797,22 +797,22 @@ export default function AdminScentsPage() {
                 )}
               </div>
 
-              {/* Experimental Toggle */}
+              {/* Limited Toggle */}
               <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg">
                 <input
                   type="checkbox"
-                  checked={editing.experimental}
+                  checked={editing.limited}
                   onChange={(e) => setEditing({
                     ...editing,
-                    experimental: e.target.checked,
+                    limited: e.target.checked,
                     enabledProducts: e.target.checked ? editing.enabledProducts : []
                   })}
                   className="mt-1"
                 />
                 <div className="flex-1">
-                  <div className="text-sm font-medium">Experimental Scent</div>
+                  <div className="text-sm font-medium">Limited Scent</div>
                   <p className="text-xs text-[var(--color-muted)] mt-1">
-                    When checked, this scent will only appear on selected products. When unchecked, it will be available for all products.
+                    When checked, this scent will only appear on selected products. When unchecked, it will be a Favorites scent available for all products.
                   </p>
                 </div>
               </label>
@@ -836,8 +836,8 @@ export default function AdminScentsPage() {
                 </div>
               </label>
 
-              {/* Product Selection (only if experimental) */}
-              {editing.experimental && (
+              {/* Product Selection (only if limited) */}
+              {editing.limited && (
                 <div className="border border-[var(--color-line)] rounded-lg p-4">
                   <h3 className="text-sm font-medium mb-3">Enabled Products</h3>
                   {products.length === 0 ? (

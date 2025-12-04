@@ -21,26 +21,26 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
 
   const hasVariants = !!product.variantConfig && variants.length > 0;
 
-  // Separate scents into standard, seasonal, and experimental
-  const standardScents = useMemo(() => globalScents.filter(s => !s.seasonal && !s.experimental), [globalScents]);
+  // Separate scents into favorites, seasonal, and limited
+  const favoritesScents = useMemo(() => globalScents.filter(s => !s.seasonal && !s.limited), [globalScents]);
   const seasonalScents = useMemo(() => globalScents.filter(s => s.seasonal), [globalScents]);
-  const experimentalScents = useMemo(() => globalScents.filter(s => s.experimental), [globalScents]);
+  const limitedScents = useMemo(() => globalScents.filter(s => s.limited), [globalScents]);
 
   // Seasonal scents are available for ALL products
   const hasSeasonalScents = seasonalScents.length > 0;
 
-  // Experimental scents only show if THIS product has them configured in variantData
-  const hasExperimentalScents = useMemo(() => {
+  // Limited scents only show if THIS product has them configured in variantData
+  const hasLimitedScents = useMemo(() => {
     if (!product.variantConfig) return false;
     const { variantData } = product.variantConfig;
 
-    // Check if any variantData key contains an experimental scent
+    // Check if any variantData key contains a limited scent
     return Object.keys(variantData).some(variantId => {
       const parts = variantId.split('-');
       const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
-      return experimentalScents.some(s => s.id === scentId);
+      return limitedScents.some(s => s.id === scentId);
     });
-  }, [product.variantConfig, experimentalScents]);
+  }, [product.variantConfig, limitedScents]);
 
   // Find first in-stock variant to use as default
   const getDefaultVariant = () => {
@@ -48,25 +48,25 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
 
     const wickTypes = product.variantConfig!.wickTypes;
 
-    // Try to find in-stock variant in order of preference: standard > seasonal > experimental
-    const inStockStandard = variants.find(v =>
-      v.stock > 0 && standardScents.some(s => s.id === v.scent)
+    // Try to find in-stock variant in order of preference: favorites > seasonal > limited
+    const inStockFavorites = variants.find(v =>
+      v.stock > 0 && favoritesScents.some(s => s.id === v.scent)
     );
     const inStockSeasonal = variants.find(v =>
       v.stock > 0 && seasonalScents.some(s => s.id === v.scent)
     );
-    const inStockExperimental = variants.find(v =>
-      v.stock > 0 && experimentalScents.some(s => s.id === v.scent)
+    const inStockLimited = variants.find(v =>
+      v.stock > 0 && limitedScents.some(s => s.id === v.scent)
     );
 
-    const inStockVariant = inStockStandard || inStockSeasonal || inStockExperimental;
+    const inStockVariant = inStockFavorites || inStockSeasonal || inStockLimited;
 
     if (inStockVariant) {
-      let scentGroup: "standard" | "seasonal" | "experimental" = "standard";
+      let scentGroup: "favorites" | "seasonal" | "limited" = "favorites";
       if (seasonalScents.some(s => s.id === inStockVariant.scent)) {
         scentGroup = "seasonal";
-      } else if (experimentalScents.some(s => s.id === inStockVariant.scent)) {
-        scentGroup = "experimental";
+      } else if (limitedScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "limited";
       }
 
       return {
@@ -77,18 +77,18 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
     }
 
     // Fallback to first variant if nothing in stock
-    let fallbackScentGroup: "standard" | "seasonal" | "experimental" = "standard";
-    if (standardScents.length > 0) {
-      fallbackScentGroup = "standard";
+    let fallbackScentGroup: "favorites" | "seasonal" | "limited" = "favorites";
+    if (favoritesScents.length > 0) {
+      fallbackScentGroup = "favorites";
     } else if (seasonalScents.length > 0) {
       fallbackScentGroup = "seasonal";
     } else {
-      fallbackScentGroup = "experimental";
+      fallbackScentGroup = "limited";
     }
 
     return {
       wickType: wickTypes[0]?.id || "",
-      scent: standardScents[0]?.id || seasonalScents[0]?.id || experimentalScents[0]?.id || globalScents[0]?.id || "",
+      scent: favoritesScents[0]?.id || seasonalScents[0]?.id || limitedScents[0]?.id || globalScents[0]?.id || "",
       scentGroup: fallbackScentGroup
     };
   };
@@ -96,15 +96,15 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
   const defaultVariant = getDefaultVariant();
 
   const [selectedWickType, setSelectedWickType] = useState(defaultVariant?.wickType || "");
-  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal" | "experimental">(defaultVariant?.scentGroup || "standard");
+  const [scentGroup, setScentGroup] = useState<"favorites" | "seasonal" | "limited">(defaultVariant?.scentGroup || "favorites");
   const [selectedScent, setSelectedScent] = useState(defaultVariant?.scent || "");
 
   // Get the current scent list based on selected group
   const currentScents = useMemo(() => {
-    if (scentGroup === "standard") return standardScents;
+    if (scentGroup === "favorites") return favoritesScents;
     if (scentGroup === "seasonal") return seasonalScents;
-    return experimentalScents;
-  }, [scentGroup, standardScents, seasonalScents, experimentalScents]);
+    return limitedScents;
+  }, [scentGroup, favoritesScents, seasonalScents, limitedScents]);
 
   // Find the matching variant
   const selectedVariant = useMemo(() => {
@@ -267,26 +267,26 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
                 </div>
 
                 {/* Scent Group Toggle */}
-                {(hasSeasonalScents || hasExperimentalScents) && (
+                {(hasSeasonalScents || hasLimitedScents) && (
                   <div>
                     <label className="block text-sm font-medium mb-2">Scent Collection</label>
                     <div className="flex gap-2">
                       <button
                         type="button"
                         onClick={() => {
-                          setScentGroup("standard");
-                          const firstStandardScent = standardScents[0]?.id;
-                          if (firstStandardScent) setSelectedScent(firstStandardScent);
+                          setScentGroup("favorites");
+                          const firstFavoritesScent = favoritesScents[0]?.id;
+                          if (firstFavoritesScent) setSelectedScent(firstFavoritesScent);
                         }}
                         className={`
                           flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition
-                          ${scentGroup === "standard"
+                          ${scentGroup === "favorites"
                             ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                             : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                           }
                         `}
                       >
-                        Standard
+                        Favorites
                       </button>
                       {hasSeasonalScents && (
                         <button
@@ -307,23 +307,23 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
                           Seasonal
                         </button>
                       )}
-                      {hasExperimentalScents && (
+                      {hasLimitedScents && (
                         <button
                           type="button"
                           onClick={() => {
-                            setScentGroup("experimental");
-                            const firstExperimentalScent = experimentalScents[0]?.id;
-                            if (firstExperimentalScent) setSelectedScent(firstExperimentalScent);
+                            setScentGroup("limited");
+                            const firstLimitedScent = limitedScents[0]?.id;
+                            if (firstLimitedScent) setSelectedScent(firstLimitedScent);
                           }}
                           className={`
                             flex-1 inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-medium transition
-                            ${scentGroup === "experimental"
+                            ${scentGroup === "limited"
                               ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                               : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                             }
                           `}
                         >
-                          Experimental
+                          Limited
                         </button>
                       )}
                     </div>

@@ -21,8 +21,8 @@ export interface ScentComposition {
 export interface GlobalScent {
   id: string; // e.g., "vanilla", "lavender"
   name: string; // e.g., "Vanilla", "Lavender"
-  experimental: boolean; // if true, only show on specific products
-  enabledProducts?: string[]; // product slugs if experimental (empty = all products if not experimental)
+  limited: boolean; // if true, only show on specific products
+  enabledProducts?: string[]; // product slugs if limited (empty = all products if not limited)
   sortOrder?: number; // optional sort order for display
   notes?: string[]; // scent notes/components (e.g., ["Leather", "Bonfire Embers"])
   seasonal?: boolean; // if true, marks this scent as seasonal (for filtering in shop)
@@ -71,10 +71,10 @@ export async function getScentsForProduct(productSlug: string): Promise<GlobalSc
   const allScents = await getAllScents();
 
   return allScents.filter((scent) => {
-    // Non-experimental scents are available for all products
-    if (!scent.experimental) return true;
+    // Favorites scents are available for all products
+    if (!scent.limited) return true;
 
-    // Experimental scents only available for specific products
+    // Limited scents only available for specific products
     return scent.enabledProducts?.includes(productSlug) ?? false;
   });
 }
@@ -129,10 +129,10 @@ export async function initializeDefaultScents(): Promise<void> {
   if (existing.length > 0) return;
 
   const defaultScents: GlobalScent[] = [
-    { id: "unscented", name: "Unscented", experimental: false, sortOrder: 0 },
-    { id: "vanilla", name: "Vanilla", experimental: false, sortOrder: 1 },
-    { id: "lavender", name: "Lavender", experimental: false, sortOrder: 2 },
-    { id: "cinnamon", name: "Cinnamon", experimental: false, sortOrder: 3 },
+    { id: "unscented", name: "Unscented", limited: false, sortOrder: 0 },
+    { id: "vanilla", name: "Vanilla", limited: false, sortOrder: 1 },
+    { id: "lavender", name: "Lavender", limited: false, sortOrder: 2 },
+    { id: "cinnamon", name: "Cinnamon", limited: false, sortOrder: 3 },
   ];
 
   for (const scent of defaultScents) {

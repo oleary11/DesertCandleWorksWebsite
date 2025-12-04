@@ -17,47 +17,47 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const { wickTypes } = variantConfig;
   const scents = globalScents; // Use global scents instead of per-product scents
 
-  // Separate scents into standard, seasonal, and experimental
-  const standardScents = useMemo(() => scents.filter(s => !s.seasonal && !s.experimental), [scents]);
+  // Separate scents into favorites, seasonal, and limited
+  const favoritesScents = useMemo(() => scents.filter(s => !s.seasonal && !s.limited), [scents]);
   const seasonalScents = useMemo(() => scents.filter(s => s.seasonal), [scents]);
-  const experimentalScents = useMemo(() => scents.filter(s => s.experimental), [scents]);
+  const limitedScents = useMemo(() => scents.filter(s => s.limited), [scents]);
 
   // Seasonal scents are available for ALL products
   const hasSeasonalScents = seasonalScents.length > 0;
 
-  // Experimental scents only show if THIS product has them configured in variantData
-  const hasExperimentalScents = useMemo(() => {
+  // Limited scents only show if THIS product has them configured in variantData
+  const hasLimitedScents = useMemo(() => {
     const { variantData } = variantConfig;
 
-    // Check if any variantData key contains an experimental scent
+    // Check if any variantData key contains a limited scent
     return Object.keys(variantData).some(variantId => {
       const parts = variantId.split('-');
       const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
-      return experimentalScents.some(s => s.id === scentId);
+      return limitedScents.some(s => s.id === scentId);
     });
-  }, [variantConfig, experimentalScents]);
+  }, [variantConfig, limitedScents]);
 
   // Find first in-stock variant to use as default
   const getDefaultVariant = () => {
-    // Try to find in-stock variant in order of preference: standard > seasonal > experimental
-    const inStockStandard = variants.find(v =>
-      v.stock > 0 && standardScents.some(s => s.id === v.scent)
+    // Try to find in-stock variant in order of preference: favorites > seasonal > limited
+    const inStockFavorites = variants.find(v =>
+      v.stock > 0 && favoritesScents.some(s => s.id === v.scent)
     );
     const inStockSeasonal = variants.find(v =>
       v.stock > 0 && seasonalScents.some(s => s.id === v.scent)
     );
-    const inStockExperimental = variants.find(v =>
-      v.stock > 0 && experimentalScents.some(s => s.id === v.scent)
+    const inStockLimited = variants.find(v =>
+      v.stock > 0 && limitedScents.some(s => s.id === v.scent)
     );
 
-    const inStockVariant = inStockStandard || inStockSeasonal || inStockExperimental;
+    const inStockVariant = inStockFavorites || inStockSeasonal || inStockLimited;
 
     if (inStockVariant) {
-      let scentGroup: "standard" | "seasonal" | "experimental" = "standard";
+      let scentGroup: "favorites" | "seasonal" | "limited" = "favorites";
       if (seasonalScents.some(s => s.id === inStockVariant.scent)) {
         scentGroup = "seasonal";
-      } else if (experimentalScents.some(s => s.id === inStockVariant.scent)) {
-        scentGroup = "experimental";
+      } else if (limitedScents.some(s => s.id === inStockVariant.scent)) {
+        scentGroup = "limited";
       }
 
       return {
@@ -68,18 +68,18 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     }
 
     // Fallback to first variant if nothing in stock
-    let fallbackScentGroup: "standard" | "seasonal" | "experimental" = "standard";
-    if (standardScents.length > 0) {
-      fallbackScentGroup = "standard";
+    let fallbackScentGroup: "favorites" | "seasonal" | "limited" = "favorites";
+    if (favoritesScents.length > 0) {
+      fallbackScentGroup = "favorites";
     } else if (seasonalScents.length > 0) {
       fallbackScentGroup = "seasonal";
     } else {
-      fallbackScentGroup = "experimental";
+      fallbackScentGroup = "limited";
     }
 
     return {
       wickType: wickTypes[0]?.id || "",
-      scent: standardScents[0]?.id || seasonalScents[0]?.id || experimentalScents[0]?.id || scents[0]?.id || "",
+      scent: favoritesScents[0]?.id || seasonalScents[0]?.id || limitedScents[0]?.id || scents[0]?.id || "",
       scentGroup: fallbackScentGroup
     };
   };
@@ -88,7 +88,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
 
   // Selected options
   const [selectedWickType, setSelectedWickType] = useState(defaultVariant.wickType);
-  const [scentGroup, setScentGroup] = useState<"standard" | "seasonal" | "experimental">(defaultVariant.scentGroup);
+  const [scentGroup, setScentGroup] = useState<"favorites" | "seasonal" | "limited">(defaultVariant.scentGroup);
   const [selectedScent, setSelectedScent] = useState(defaultVariant.scent);
 
   // Request scent modal state
@@ -107,10 +107,10 @@ export default function ProductVariantForm({ product, variants, globalScents, va
 
   // Get the current scent list based on selected group
   const currentScents = useMemo(() => {
-    if (scentGroup === "standard") return standardScents;
+    if (scentGroup === "favorites") return favoritesScents;
     if (scentGroup === "seasonal") return seasonalScents;
-    return experimentalScents;
-  }, [scentGroup, standardScents, seasonalScents, experimentalScents]);
+    return limitedScents;
+  }, [scentGroup, favoritesScents, seasonalScents, limitedScents]);
 
   // Find the matching variant
   const selectedVariant = useMemo(() => {
@@ -141,9 +141,9 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   };
 
   // Check if there are any in-stock scents in each category (for disabling buttons)
-  const hasInStockStandardScents = useMemo(() =>
-    standardScents.some(s => isScentAvailable(s.id)),
-    [standardScents, selectedWickType, variants]
+  const hasInStockFavoritesScents = useMemo(() =>
+    favoritesScents.some(s => isScentAvailable(s.id)),
+    [favoritesScents, selectedWickType, variants]
   );
 
   const hasInStockSeasonalScents = useMemo(() =>
@@ -151,9 +151,9 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     [seasonalScents, selectedWickType, variants]
   );
 
-  const hasInStockExperimentalScents = useMemo(() =>
-    experimentalScents.some(s => isScentAvailable(s.id)),
-    [experimentalScents, selectedWickType, variants]
+  const hasInStockLimitedScents = useMemo(() =>
+    limitedScents.some(s => isScentAvailable(s.id)),
+    [limitedScents, selectedWickType, variants]
   );
 
   // Get display names for selected options
@@ -351,8 +351,8 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         </div>
       </div>
 
-      {/* Scent Group Toggle (show if there are seasonal or experimental scents) */}
-      {(hasSeasonalScents || hasExperimentalScents) && (
+      {/* Scent Group Toggle (show if there are seasonal or limited scents) */}
+      {(hasSeasonalScents || hasLimitedScents) && (
         <div>
           <label className="block text-sm font-medium mb-2">Scent Collection</label>
           <div className="flex gap-2">
@@ -360,27 +360,27 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               type="button"
               onClick={() => {
                 // Only auto-select if SWITCHING to a different group
-                if (scentGroup !== "standard" && hasInStockStandardScents) {
-                  setScentGroup("standard");
-                  // Auto-select first IN-STOCK standard scent when switching
-                  const firstInStockStandardScent = standardScents.find(s => isScentAvailable(s.id));
-                  if (firstInStockStandardScent) {
-                    setSelectedScent(firstInStockStandardScent.id);
+                if (scentGroup !== "favorites" && hasInStockFavoritesScents) {
+                  setScentGroup("favorites");
+                  // Auto-select first IN-STOCK favorites scent when switching
+                  const firstInStockFavoritesScent = favoritesScents.find(s => isScentAvailable(s.id));
+                  if (firstInStockFavoritesScent) {
+                    setSelectedScent(firstInStockFavoritesScent.id);
                   }
                 }
               }}
-              disabled={!hasInStockStandardScents}
+              disabled={!hasInStockFavoritesScents}
               className={`
                 flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                ${!hasInStockStandardScents
+                ${!hasInStockFavoritesScents
                   ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
-                  : scentGroup === "standard"
+                  : scentGroup === "favorites"
                   ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                   : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                 }
               `}
             >
-              Standard
+              Favorites
             </button>
             {hasSeasonalScents && (
               <button
@@ -410,32 +410,32 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 Seasonal
               </button>
             )}
-            {hasExperimentalScents && (
+            {hasLimitedScents && (
               <button
                 type="button"
                 onClick={() => {
                   // Only auto-select if SWITCHING to a different group
-                  if (scentGroup !== "experimental" && hasInStockExperimentalScents) {
-                    setScentGroup("experimental");
-                    // Auto-select first IN-STOCK experimental scent when switching
-                    const firstInStockExperimentalScent = experimentalScents.find(s => isScentAvailable(s.id));
-                    if (firstInStockExperimentalScent) {
-                      setSelectedScent(firstInStockExperimentalScent.id);
+                  if (scentGroup !== "limited" && hasInStockLimitedScents) {
+                    setScentGroup("limited");
+                    // Auto-select first IN-STOCK limited scent when switching
+                    const firstInStockLimitedScent = limitedScents.find(s => isScentAvailable(s.id));
+                    if (firstInStockLimitedScent) {
+                      setSelectedScent(firstInStockLimitedScent.id);
                     }
                   }
                 }}
-                disabled={!hasInStockExperimentalScents}
+                disabled={!hasInStockLimitedScents}
                 className={`
                   flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
-                  ${!hasInStockExperimentalScents
+                  ${!hasInStockLimitedScents
                     ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
-                    : scentGroup === "experimental"
+                    : scentGroup === "limited"
                     ? "border-2 !border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]"
                     : "border-2 border-[var(--color-line)] hover:border-[var(--color-accent)]"
                   }
                 `}
               >
-                Experimental
+                Limited
               </button>
             )}
           </div>
@@ -642,7 +642,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     >
                       <option value="">Any scent</option>
                       {scents
-                        .filter(scent => !scent.experimental)
+                        .filter(scent => !scent.limited)
                         .map((scent) => (
                           <option key={scent.id} value={scent.name}>
                             {scent.name}

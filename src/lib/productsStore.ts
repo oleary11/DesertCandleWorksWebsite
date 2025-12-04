@@ -81,8 +81,8 @@ export async function incrStock(slug: string, delta: number): Promise<number> {
 
 /**
  * Get total stock across all variants (or fallback to base stock)
- * NOTE: This function counts ALL variants including experimental scents.
- * For accurate stock counts that respect experimental scent filtering,
+ * NOTE: This function counts ALL variants including limited scents.
+ * For accurate stock counts that respect limited scent filtering,
  * use getTotalStockForProduct() instead.
  */
 export function getTotalStock(p: Product): number {
@@ -99,7 +99,7 @@ export function getTotalStock(p: Product): number {
 }
 
 /**
- * Get total stock for a product, filtering out experimental scents
+ * Get total stock for a product, filtering out limited scents
  * This is async because it needs to fetch and filter global scents
  * Use this in server components for accurate stock counts
  */
@@ -112,7 +112,7 @@ export async function getTotalStockForProduct(p: Product): Promise<number> {
     // Import dynamically to avoid circular dependency
     const { getScentsForProduct } = await import("@/lib/scents");
 
-    // Get allowed scents for this product (filters experimental)
+    // Get allowed scents for this product (filters limited)
     const allowedScents = await getScentsForProduct(p.slug);
 
     // If no scents returned, fall back to counting all variants

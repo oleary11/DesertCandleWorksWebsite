@@ -61,7 +61,7 @@ export function getAllImages(product: Product): string[] {
  * Generate all variant combinations from wick types + scents
  * NOTE: This now requires global scents to be passed in separately
  * @param product - The product with wick types
- * @param globalScents - All scents available for this product (filtered by experimental flag)
+ * @param globalScents - All scents available for this product (filtered by limited flag)
  */
 export function generateVariants(product: Product, globalScents?: Array<{id: string, name: string}>): ProductVariant[] {
   if (!product.variantConfig) return [];
