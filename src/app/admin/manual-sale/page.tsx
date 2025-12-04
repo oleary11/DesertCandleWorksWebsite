@@ -44,7 +44,7 @@ export default function ManualSalePage() {
       const res = await fetch("/api/admin/products");
       if (!res.ok) throw new Error("Failed to load products");
       const data = await res.json();
-      setProducts(data.products || []);
+      setProducts(data.items || []);
     } catch (err) {
       setError("Failed to load products");
       console.error(err);
