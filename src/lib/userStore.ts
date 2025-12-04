@@ -297,6 +297,9 @@ export async function createOrder(
 
   await kv.set(`order:${order.id}`, order);
 
+  // Add to global orders index for analytics
+  await kv.sadd("orders:index", order.id);
+
   // Only add to user's order list if they have an account
   if (userId) {
     await kv.lpush(`orders:user:${userId}`, order.id);
@@ -355,6 +358,22 @@ export async function getUserOrders(userId: string, limit = 50): Promise<Order[]
  */
 export async function getOrderById(orderId: string): Promise<Order | null> {
   return await kv.get<Order>(`order:${orderId}`);
+}
+
+/**
+ * Get all orders (for admin analytics)
+ */
+export async function getAllOrders(): Promise<Order[]> {
+  const orderIds = await kv.smembers("orders:index");
+  if (!orderIds || orderIds.length === 0) return [];
+
+  const orders = await Promise.all(
+    orderIds.map((id) => kv.get<Order>(`order:${id}`))
+  );
+
+  return orders
+    .filter((o): o is Order => o !== null)
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
 // ============ Password Reset ============

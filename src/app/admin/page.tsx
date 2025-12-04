@@ -416,6 +416,15 @@ export default function AdminPage() {
             Scents
           </a>
           <a href="/admin/alcohol-types" className="btn">Types</a>
+          <a href="/admin/analytics" className="btn">
+            Analytics
+          </a>
+          <a href="/admin/orders" className="btn">
+            Orders
+          </a>
+          <a href="/admin/manual-sale" className="btn">
+            Manual Sale
+          </a>
           <a href="/admin/calculator" className="btn">
             Calculator
           </a>
