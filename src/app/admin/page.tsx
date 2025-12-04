@@ -274,6 +274,41 @@ export default function AdminPage() {
     return result;
   }, [merged, filter, visibleFilter, typeFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, staged]);
 
+  /* ---------- Sorting Helper ---------- */
+
+  function handleSort(column: typeof sortBy) {
+    if (column === "none") return;
+
+    if (sortBy === column) {
+      // Toggle direction if clicking the same column
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      // New column, default to ascending
+      setSortBy(column);
+      setSortDirection("asc");
+    }
+  }
+
+  function SortableHeader({ column, children }: { column: typeof sortBy; children: React.ReactNode }) {
+    if (column === "none") {
+      return <th className="py-2 pr-3">{children}</th>;
+    }
+
+    const isActive = sortBy === column;
+    const arrow = isActive ? (sortDirection === "asc" ? " ↑" : " ↓") : "";
+
+    return (
+      <th className="py-2 pr-3">
+        <button
+          className="text-left font-semibold hover:text-[var(--color-accent)] transition-colors"
+          onClick={() => handleSort(column)}
+        >
+          {children}{arrow}
+        </button>
+      </th>
+    );
+  }
+
   /* ---------- CSV Export ---------- */
 
   function exportToCSV() {
@@ -684,28 +719,8 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Sort Controls */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          <span className="text-xs font-medium text-[var(--color-muted)]">Sort by:</span>
-          <select
-            className="input w-full sm:w-auto text-sm"
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
-          >
-            <option value="none">Default</option>
-            <option value="name">Name</option>
-            <option value="price">Price</option>
-            <option value="stock">Stock</option>
-            <option value="best">Best Seller</option>
-            <option value="status">Status</option>
-          </select>
-          <button
-            className="btn w-full sm:w-auto"
-            onClick={() => setSortDirection(sortDirection === "asc" ? "desc" : "asc")}
-            disabled={sortBy === "none"}
-          >
-            {sortDirection === "asc" ? "↑ Ascending" : "↓ Descending"}
-          </button>
+        {/* Clear Filters */}
+        <div className="flex justify-end">
           <button
             className="btn w-full sm:w-auto text-sm"
             onClick={() => {
@@ -737,17 +752,17 @@ export default function AdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left border-b border-[var(--color-line)]">
-                    <th className="py-2 pr-3">Visible</th>
-                    <th className="py-2 pr-3">Image</th>
-                    <th className="py-2 pr-3">Name</th>
-                    <th className="py-2 pr-3">Slug</th>
-                    <th className="py-2 pr-3">Price</th>
-                    <th className="py-2 pr-3">Cost</th>
-                    <th className="py-2 pr-3">Type</th>
-                    <th className="py-2 pr-3">Stock</th>
-                    <th className="py-2 pr-3">Best</th>
-                    <th className="py-2 pr-3">Status</th>
-                    <th className="py-2 pr-3">Actions</th>
+                    <SortableHeader column="none">Visible</SortableHeader>
+                    <SortableHeader column="none">Image</SortableHeader>
+                    <SortableHeader column="name">Name</SortableHeader>
+                    <SortableHeader column="none">Slug</SortableHeader>
+                    <SortableHeader column="price">Price</SortableHeader>
+                    <SortableHeader column="none">Cost</SortableHeader>
+                    <SortableHeader column="none">Type</SortableHeader>
+                    <SortableHeader column="stock">Stock</SortableHeader>
+                    <SortableHeader column="best">Best</SortableHeader>
+                    <SortableHeader column="status">Status</SortableHeader>
+                    <SortableHeader column="none">Actions</SortableHeader>
                   </tr>
                 </thead>
                 <tbody>
