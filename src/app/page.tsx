@@ -119,7 +119,7 @@ export default async function Home() {
           Our lineup rotates through{" "}
           <span className="font-medium text-[var(--color-ink)]">Signature</span> blends,
           small-batch{" "}
-          <span className="font-medium text-[var(--color-ink)]">Experimental</span> pours on select bottles,
+          <span className="font-medium text-[var(--color-ink)]">Limited</span> pours on select bottles,
           and limited-time{" "}
           <span className="font-medium text-[var(--color-ink)]">Seasonal</span> scents available across all bottles.
         </p>
@@ -147,20 +147,20 @@ export default async function Home() {
             </ul>
           </div>
 
-          {/* Experimental */}
+          {/* Limited */}
           <div className="card rounded-2xl p-6 sm:p-7 card--mist">
             <div className="flex items-center gap-2">
-              <span className="badge badge--mist">Experimental</span>
+              <span className="badge badge--mist">Limited</span>
               <span className="text-xs text-[var(--color-muted)]/70">Small Batch</span>
             </div>
             <h3 className="mt-3 text-lg font-semibold">New Combos, Limited Runs</h3>
             <p className="mt-2 text-sm text-[var(--color-muted)]">
               We test fresh pairings and tweak ratios. These pours are{" "}
               <span className="font-medium">small-batch</span> and only appear on{" "}
-              <span className="font-medium">select candles</span>. When they’re gone, they’re gone.
+              <span className="font-medium">select candles</span>. When they're gone, they're gone.
             </p>
             <p className="mt-3 text-xs text-[var(--color-muted)]/80">
-              Check product pages for notes on current experiments.
+              Check product pages for notes on current batches.
             </p>
           </div>
 
