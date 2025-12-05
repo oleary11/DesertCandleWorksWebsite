@@ -14,7 +14,10 @@ import {
   RefreshCw,
   Stethoscope,
   TestTube,
-  LogOut
+  LogOut,
+  Users,
+  Mail,
+  Wrench
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -150,12 +153,55 @@ export default function AdminHomePage() {
               </div>
             </div>
           </Link>
+
+          {/* Admin Users */}
+          <Link href="/admin/users" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                <Users className="w-6 h-6 text-purple-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Admin Users</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Manage admin accounts and permissions
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Order Invoices */}
+          <Link href="/admin/invoices" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
+                <Mail className="w-6 h-6 text-indigo-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Order Invoices</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Search orders and send invoice emails
+                </p>
+              </div>
+            </div>
+          </Link>
         </div>
 
         {/* Utilities Section */}
         <div className="mb-8">
           <h2 className="text-xl font-semibold mb-4">Utilities & Tools</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Activity Logs */}
+            <Link href="/admin/activity-logs" className="card p-4 bg-white hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                  <FileText className="w-5 h-5 text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Activity Logs</h3>
+                  <p className="text-xs text-[var(--color-muted)]">View admin actions & logins</p>
+                </div>
+              </div>
+            </Link>
+
             {/* Stripe Sync */}
             <Link href="/admin/stripe-sync" className="card p-4 bg-white hover:shadow-md transition-shadow">
               <div className="flex items-center gap-3">
@@ -191,6 +237,19 @@ export default function AdminHomePage() {
                 <div>
                   <h3 className="font-medium">Test Order</h3>
                   <p className="text-xs text-[var(--color-muted)]">Create test transactions</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* Repair Order */}
+            <Link href="/admin/repair-order" className="card p-4 bg-white hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
+                  <Wrench className="w-5 h-5 text-orange-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Repair Order</h3>
+                  <p className="text-xs text-[var(--color-muted)]">Fix incomplete orders</p>
                 </div>
               </div>
             </Link>

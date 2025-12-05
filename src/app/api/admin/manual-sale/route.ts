@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { createOrder, completeOrder } from "@/lib/userStore";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
+import { logAdminAction } from "@/lib/adminLogs";
 import crypto from "crypto";
 
 export const runtime = "nodejs";
@@ -23,6 +24,9 @@ type ManualSaleRequest = {
 };
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
   // Check admin auth
   const isAdmin = await isAdminAuthed();
   if (!isAdmin) {
@@ -34,6 +38,14 @@ export async function POST(req: NextRequest) {
 
     // Validate request
     if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      await logAdminAction({
+        action: "manual-sale.create",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: "missing_items" },
+      });
       return NextResponse.json(
         { error: "Items array is required and must not be empty" },
         { status: 400 }
@@ -41,6 +53,14 @@ export async function POST(req: NextRequest) {
     }
 
     if (!body.paymentMethod) {
+      await logAdminAction({
+        action: "manual-sale.create",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: "missing_payment_method" },
+      });
       return NextResponse.json(
         { error: "Payment method is required" },
         { status: 400 }
@@ -50,12 +70,28 @@ export async function POST(req: NextRequest) {
     // Validate each item
     for (const item of body.items) {
       if (!item.productSlug || !item.productName || !item.quantity || item.quantity < 1) {
+        await logAdminAction({
+          action: "manual-sale.create",
+          adminEmail: "admin",
+          ip,
+          userAgent,
+          success: false,
+          details: { reason: "invalid_item", item },
+        });
         return NextResponse.json(
           { error: "Each item must have productSlug, productName, and quantity >= 1" },
           { status: 400 }
         );
       }
       if (typeof item.priceCents !== "number" || item.priceCents < 0) {
+        await logAdminAction({
+          action: "manual-sale.create",
+          adminEmail: "admin",
+          ip,
+          userAgent,
+          success: false,
+          details: { reason: "invalid_price", item },
+        });
         return NextResponse.json(
           { error: "Each item must have a valid priceCents value" },
           { status: 400 }
@@ -121,6 +157,29 @@ export async function POST(req: NextRequest) {
       console.log(`[Manual Sale] Notes: ${body.notes}`);
     }
 
+    await logAdminAction({
+      action: "manual-sale.create",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: true,
+      details: {
+        orderId,
+        totalCents,
+        paymentMethod: body.paymentMethod,
+        itemCount: body.items.length,
+        items: body.items.map(i => ({
+          productSlug: i.productSlug,
+          productName: i.productName,
+          quantity: i.quantity,
+          priceCents: i.priceCents,
+          variantId: i.variantId,
+        })),
+        decrementStock: body.decrementStock,
+        notes: body.notes,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       orderId,
@@ -129,6 +188,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Manual Sale] Error:", error);
+    await logAdminAction({
+      action: "manual-sale.create",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: false,
+      details: { error: String(error) },
+    });
     return NextResponse.json(
       { error: "Failed to record manual sale", details: String(error) },
       { status: 500 }

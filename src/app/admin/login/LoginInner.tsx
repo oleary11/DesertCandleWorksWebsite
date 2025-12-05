@@ -9,6 +9,7 @@ export default function LoginInner() {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -25,8 +26,10 @@ export default function LoginInner() {
     if (res.ok) {
       if (j?.requiresTwoFactor) {
         // Password correct, but need 2FA code
-        // Store password so we can send it again with 2FA token
+        // Store email and password so we can send them again with 2FA token
+        const emailValue = fd.get("email")?.toString() || "";
         const passwordValue = fd.get("password")?.toString() || "";
+        setEmail(emailValue);
         setPassword(passwordValue);
         setNeedsTwoFactor(true);
         setError(null);
@@ -49,9 +52,9 @@ export default function LoginInner() {
     }
   }
 
-  // Optional: autofocus password
+  // Optional: autofocus email field
   useEffect(() => {
-    (document.getElementById("pw") as HTMLInputElement | null)?.focus();
+    (document.getElementById("email") as HTMLInputElement | null)?.focus();
   }, []);
 
   return (
@@ -61,26 +64,43 @@ export default function LoginInner() {
         <p className="text-sm text-[var(--color-muted)] mt-1">
           {needsTwoFactor
             ? "Enter your 2FA code to continue"
-            : "Enter the admin password to continue"}
+            : "Enter your admin credentials to continue"}
         </p>
 
         <form className="mt-4 space-y-4" onSubmit={onSubmit}>
           <input type="hidden" name="next" value={next} />
 
           {!needsTwoFactor ? (
-            <label className="block">
-              <div className="text-xs mb-1">Password</div>
-              <input
-                id="pw"
-                className="input w-full"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-              />
-            </label>
+            <>
+              <label className="block">
+                <div className="text-xs mb-1">Email</div>
+                <input
+                  id="email"
+                  className="input w-full"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                />
+              </label>
+
+              <label className="block">
+                <div className="text-xs mb-1">Password</div>
+                <input
+                  id="pw"
+                  className="input w-full"
+                  name="password"
+                  type="password"
+                  autoComplete="current-password"
+                  required
+                />
+              </label>
+            </>
           ) : (
-            <input type="hidden" name="password" value={password} />
+            <>
+              <input type="hidden" name="email" value={email} />
+              <input type="hidden" name="password" value={password} />
+            </>
           )}
 
           {needsTwoFactor && (
@@ -91,11 +111,9 @@ export default function LoginInner() {
                 className="input w-full"
                 name="twoFactorToken"
                 type="text"
-                placeholder="Enter 6-digit code"
+                placeholder="Enter 6-digit code or backup code"
                 autoComplete="one-time-code"
                 required
-                maxLength={6}
-                pattern="[0-9]{6}"
               />
               <div className="text-xs text-[var(--color-muted)] mt-1">
                 Enter the code from your authenticator app or a backup code
@@ -118,7 +136,7 @@ export default function LoginInner() {
               }}
               className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] w-full text-center"
             >
-              ← Back to password
+              ← Back to login
             </button>
           )}
         </form>

@@ -6,6 +6,7 @@ const MAX_LOGS = 1000; // Keep last 1000 log entries
 export interface AdminLogEntry {
   timestamp: string;
   action: string;
+  adminEmail?: string; // Track which admin performed the action
   ip: string;
   userAgent: string;
   details?: Record<string, unknown>;
@@ -22,11 +23,13 @@ export async function logAdminAction(entry: Omit<AdminLogEntry, "timestamp">): P
   };
 
   try {
-    // Add to Redis list
-    await redis.lpush(LOGS_KEY, JSON.stringify(logEntry));
+    // Add to Redis list - Vercel KV handles serialization automatically
+    await redis.lpush(LOGS_KEY, logEntry);
 
     // Trim to keep only last MAX_LOGS entries
     await redis.ltrim(LOGS_KEY, 0, MAX_LOGS - 1);
+
+    console.log("[Admin Log]", logEntry.action, logEntry.adminEmail, logEntry.success ? "✓" : "✗");
   } catch (error) {
     console.error("Failed to log admin action:", error);
   }
@@ -38,7 +41,15 @@ export async function logAdminAction(entry: Omit<AdminLogEntry, "timestamp">): P
 export async function getAdminLogs(limit: number = 50): Promise<AdminLogEntry[]> {
   try {
     const logs = await redis.lrange(LOGS_KEY, 0, limit - 1);
-    return logs.map((log) => JSON.parse(log as string));
+    // Vercel KV returns objects directly, not JSON strings
+    return logs.map((log) => {
+      // If it's already an object, return it
+      if (typeof log === 'object' && log !== null) {
+        return log as AdminLogEntry;
+      }
+      // Otherwise try to parse it
+      return JSON.parse(log as string) as AdminLogEntry;
+    });
   } catch (error) {
     console.error("Failed to get admin logs:", error);
     return [];

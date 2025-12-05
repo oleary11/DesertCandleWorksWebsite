@@ -12,8 +12,15 @@ const COOKIE_NAME = "admin_session";
 export async function middleware(req: NextRequest) {
   const { pathname, search } = new URL(req.url);
 
-  // Allow hitting the login routes without a cookie
-  if (pathname.startsWith("/admin/login") || pathname.startsWith("/api/admin/login") || pathname.startsWith("/api/admin/logout")) {
+  // Allow hitting these routes without authentication
+  const publicPaths = [
+    "/admin/login",
+    "/api/admin/login",
+    "/api/admin/logout",
+    "/api/admin/users", // Allow unauthenticated first-time setup
+  ];
+
+  if (publicPaths.some(path => pathname.startsWith(path))) {
     return NextResponse.next();
   }
 

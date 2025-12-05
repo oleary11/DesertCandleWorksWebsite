@@ -178,14 +178,19 @@ Once verified, you'll be able to earn and redeem points on your purchases!
 
 /**
  * Send order invoice email (for both guests and registered users)
+ * @param orderId - The order ID to send invoice for
+ * @param customEmail - Optional custom email to override the order's email (for manual sales)
  */
-export async function sendOrderInvoiceEmail(orderId: string): Promise<void> {
+export async function sendOrderInvoiceEmail(orderId: string, customEmail?: string): Promise<void> {
   const { getOrderById, createInvoiceAccessToken } = await import("@/lib/userStore");
   const order = await getOrderById(orderId);
 
   if (!order) {
     throw new Error("Order not found");
   }
+
+  // Use custom email if provided, otherwise use order email
+  const recipientEmail = customEmail || order.email;
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
@@ -377,7 +382,7 @@ Scottsdale, AZ | www.desertcandleworks.com
   `;
 
   await sendEmail({
-    to: order.email,
+    to: recipientEmail,
     subject: `Order Confirmation #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
     html,
     text,

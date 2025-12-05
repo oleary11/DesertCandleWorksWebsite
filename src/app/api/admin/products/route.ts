@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { upsertProduct, type Product } from "@/lib/productsStore";
+import { upsertProduct, type Product, getProduct } from "@/lib/productsStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
   const data = (await req.json().catch(() => ({}))) as Partial<Product>;
   console.log("[API POST /api/admin/products] Received data:", JSON.stringify(data, null, 2));
 
@@ -25,6 +29,16 @@ export async function POST(req: NextRequest) {
   for (const k of required) {
     if (data[k] == null || data[k] === "") {
       console.error(`[API POST /api/admin/products] Missing required field: ${k}`);
+
+      await logAdminAction({
+        action: "product.create",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: `missing_${k}`, slug: data.slug },
+      });
+
       return NextResponse.json({ error: `Missing ${k}` }, { status: 400 });
     }
   }
@@ -48,6 +62,22 @@ export async function POST(req: NextRequest) {
   };
 
   await upsertProduct(product);
+
+  // Log successful product creation
+  await logAdminAction({
+    action: "product.create",
+    adminEmail: "admin",
+    ip,
+    userAgent,
+    success: true,
+    details: {
+      slug: product.slug,
+      name: product.name,
+      price: product.price,
+      sku: product.sku,
+      alcoholType: product.alcoholType,
+    },
+  });
 
   // Revalidate cached pages (wrapped in try-catch for Turbopack compatibility)
   try {

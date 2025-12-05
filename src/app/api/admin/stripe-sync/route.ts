@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import Stripe from "stripe";
 import { getOrderById } from "@/lib/userStore";
+import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
 
@@ -61,6 +62,9 @@ export async function GET() {
  * POST: Manually process a specific Stripe session through webhook logic
  */
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
   const isAdmin = await isAdminAuthed();
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -76,6 +80,14 @@ export async function POST(req: NextRequest) {
     const { sessionId } = body;
 
     if (!sessionId) {
+      await logAdminAction({
+        action: "stripe-sync.process",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: "missing_session_id" },
+      });
       return NextResponse.json({ error: "sessionId required" }, { status: 400 });
     }
 
@@ -85,6 +97,14 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.retrieve(sessionId);
 
     if (session.status !== "complete") {
+      await logAdminAction({
+        action: "stripe-sync.process",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: "session_not_complete", sessionId, status: session.status },
+      });
       return NextResponse.json(
         { error: "Session is not completed" },
         { status: 400 }
@@ -94,6 +114,14 @@ export async function POST(req: NextRequest) {
     // Check if already processed
     const existingOrder = await getOrderById(session.id);
     if (existingOrder && existingOrder.status === "completed") {
+      await logAdminAction({
+        action: "stripe-sync.process",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: true,
+        details: { reason: "already_processed", sessionId, skipped: true },
+      });
       return NextResponse.json({
         message: "Order already exists and is completed",
         order: existingOrder,
@@ -228,6 +256,22 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    await logAdminAction({
+      action: "stripe-sync.process",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: true,
+      details: {
+        sessionId: session.id,
+        customerEmail,
+        totalCents: productSubtotalCents,
+        itemCount: orderItems.length,
+        items: orderItems,
+        pointsRedeemed,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       message: "Order synced successfully from Stripe",
@@ -238,6 +282,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Stripe Sync] Error:", error);
+    await logAdminAction({
+      action: "stripe-sync.process",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: false,
+      details: { error: String(error) },
+    });
     return NextResponse.json(
       { error: "Failed to sync order", details: String(error) },
       { status: 500 }

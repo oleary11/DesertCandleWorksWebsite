@@ -98,7 +98,29 @@ export async function POST(req: NextRequest) {
           console.error(`Stock decrement failed for ${productInfo.slug} ${variantId ? `variant ${variantId}` : ''} x${qty}`, err);
         }
       } else {
-        console.warn(`No product mapping found for price ${priceId} at line item ${index}`);
+        // UNMAPPED PRODUCT - Track it anyway with special slug
+        console.warn(`No product mapping found for price ${priceId} at line item ${index} - tracking as unmapped`);
+
+        if (qty > 0) {
+          const itemTotal = item.amount_total || 0;
+          const productName = item.description || "Unmapped Product";
+
+          // Create unmapped product slug using price ID
+          const unmappedSlug = `unmapped-${priceId}`;
+
+          // Add to order items with special unmapped slug
+          orderItems.push({
+            productSlug: unmappedSlug,
+            productName: `${productName} (Not Listed)`,
+            quantity: qty,
+            priceCents: itemTotal,
+          });
+
+          // Add to product subtotal (for points calculation)
+          productSubtotalCents += itemTotal;
+
+          console.log(`Tracked unmapped product: ${productName} (price: ${priceId}) - can be mapped later`);
+        }
       }
     }
 

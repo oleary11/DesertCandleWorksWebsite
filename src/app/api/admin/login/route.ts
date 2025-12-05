@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminSession, destroyAdminSession } from "@/lib/adminSession";
-import { timingSafeEqual } from "crypto";
-import { verifyTwoFactorToken, isTwoFactorEnabled } from "@/lib/twoFactor";
+import { authenticateAdminUser, verifyAdminTwoFactorToken, updateAdminLastLogin } from "@/lib/adminUsers";
 import { logAdminAction } from "@/lib/adminLogs";
 import { checkRateLimit, resetRateLimit } from "@/lib/rateLimit";
 
@@ -30,101 +29,89 @@ export async function POST(req: NextRequest) {
   }
 
   const ctype = req.headers.get("content-type") || "";
+  let email = "";
   let password = "";
   let twoFactorToken = "";
   let next = "/admin";
 
   if (ctype.includes("application/json")) {
     const body = (await req.json().catch(() => ({}))) as {
+      email?: string;
       password?: string;
       twoFactorToken?: string;
       next?: string;
     };
+    email = (body.email ?? "").toString();
     password = (body.password ?? "").toString();
     twoFactorToken = (body.twoFactorToken ?? "").toString();
     next = (body.next ?? "/admin").toString();
   } else {
     const form = await req.formData();
+    email = (form.get("email") ?? "").toString();
     password = (form.get("password") ?? "").toString();
     twoFactorToken = (form.get("twoFactorToken") ?? "").toString();
     next = (form.get("next") ?? "/admin").toString();
   }
 
-  const expected = process.env.ADMIN_PASSWORD || "";
-  if (!expected) {
+  // Validate input
+  if (!email || !password) {
     await logAdminAction({
       action: "login",
+      adminEmail: email || undefined,
       ip,
       userAgent,
       success: false,
-      details: { reason: "server_config_error" },
+      details: { reason: "missing_credentials" },
     });
 
     return NextResponse.json(
-      { error: "Admin password not configured on server" },
-      { status: 500 }
+      { error: "Email and password are required" },
+      { status: 400 }
     );
   }
 
-  // Timing-safe comparison to prevent timing attacks
-  const passwordBuffer = Buffer.from(password);
-  const expectedBuffer = Buffer.from(expected);
+  // Authenticate admin user
+  const user = await authenticateAdminUser(email, password);
 
-  // Pad to same length to prevent timing leaks
-  const maxLength = Math.max(passwordBuffer.length, expectedBuffer.length);
-  const paddedPassword = Buffer.alloc(maxLength);
-  const paddedExpected = Buffer.alloc(maxLength);
-
-  passwordBuffer.copy(paddedPassword);
-  expectedBuffer.copy(paddedExpected);
-
-  let isValid = false;
-  try {
-    isValid = timingSafeEqual(paddedPassword, paddedExpected) && password.length === expected.length;
-  } catch {
-    isValid = false;
-  }
-
-  if (!isValid) {
+  if (!user) {
     await logAdminAction({
       action: "login",
+      adminEmail: email,
       ip,
       userAgent,
       success: false,
-      details: { reason: "invalid_password" },
+      details: { reason: "invalid_credentials" },
     });
 
     // Add delay to slow down brute force
     await new Promise(resolve => setTimeout(resolve, 1000));
-    return NextResponse.json({ error: "Invalid password" }, { status: 401 });
+    return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
   }
 
-  // Check if 2FA is enabled
-  const twoFactorEnabled = await isTwoFactorEnabled();
+  // 2FA is MANDATORY - check if token provided
+  if (!twoFactorToken) {
+    // Credentials correct but need 2FA token
+    return NextResponse.json({
+      requiresTwoFactor: true,
+      userId: user.id, // Needed for 2FA verification
+      message: "Please enter your 2FA code",
+    });
+  }
 
-  if (twoFactorEnabled) {
-    if (!twoFactorToken) {
-      // Password correct but need 2FA token
-      return NextResponse.json({
-        requiresTwoFactor: true,
-        message: "Please enter your 2FA code",
-      });
-    }
+  // Verify 2FA token (mandatory for all admin users)
+  const isValidToken = await verifyAdminTwoFactorToken(user.id, twoFactorToken);
+  if (!isValidToken) {
+    await logAdminAction({
+      action: "login",
+      adminEmail: email,
+      ip,
+      userAgent,
+      success: false,
+      details: { reason: "invalid_2fa_token" },
+    });
 
-    // Verify 2FA token
-    const isValidToken = await verifyTwoFactorToken(twoFactorToken);
-    if (!isValidToken) {
-      await logAdminAction({
-        action: "login",
-        ip,
-        userAgent,
-        success: false,
-        details: { reason: "invalid_2fa_token" },
-      });
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      return NextResponse.json({ error: "Invalid 2FA code" }, { status: 401 });
-    }
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    return NextResponse.json({ error: "Invalid 2FA code" }, { status: 401 });
   }
 
   // Destroy any existing session (session rotation)
@@ -133,16 +120,20 @@ export async function POST(req: NextRequest) {
   // Reset rate limit on successful login
   await resetRateLimit(ip);
 
-  // Create new session with UUID token in Redis
-  await createAdminSession();
+  // Update last login time
+  await updateAdminLastLogin(user.id);
+
+  // Create new session with user info
+  await createAdminSession(user.id, user.email, user.role);
 
   // Log successful login
   await logAdminAction({
     action: "login",
+    adminEmail: user.email,
     ip,
     userAgent,
     success: true,
-    details: { twoFactorUsed: twoFactorEnabled },
+    details: { role: user.role },
   });
 
   const res = NextResponse.json({ redirect: next });

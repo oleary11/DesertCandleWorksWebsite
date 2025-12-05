@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { createOrder, completeOrder, getUserByEmail } from "@/lib/userStore";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
+import { logAdminAction } from "@/lib/adminLogs";
 
 /**
  * Admin-only endpoint to create test orders for testing the order/points system
@@ -15,6 +16,9 @@ import { incrStock, incrVariantStock } from "@/lib/productsStore";
  * - sendEmail: (optional) Set to true to send invoice email
  */
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const userAgent = req.headers.get("user-agent") || "unknown";
+
   const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -31,6 +35,14 @@ export async function POST(req: NextRequest) {
     } = body;
 
     if (!email || !items || !totalCents) {
+      await logAdminAction({
+        action: "test-order.create",
+        adminEmail: "admin",
+        ip,
+        userAgent,
+        success: false,
+        details: { reason: "missing_fields", email, hasItems: !!items, hasTotalCents: !!totalCents },
+      });
       return NextResponse.json(
         { error: "Missing required fields: email, items, totalCents" },
         { status: 400 }
@@ -42,6 +54,14 @@ export async function POST(req: NextRequest) {
     if (!isGuest) {
       user = await getUserByEmail(email);
       if (!user) {
+        await logAdminAction({
+          action: "test-order.create",
+          adminEmail: "admin",
+          ip,
+          userAgent,
+          success: false,
+          details: { reason: "user_not_found", email },
+        });
         return NextResponse.json(
           { error: `No user found with email: ${email}. Set "isGuest": true to test guest checkout.` },
           { status: 404 }
@@ -105,6 +125,24 @@ export async function POST(req: NextRequest) {
     const { getOrderById } = await import("@/lib/userStore");
     const order = await getOrderById(mockSessionId);
 
+    await logAdminAction({
+      action: "test-order.create",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: true,
+      details: {
+        orderId: mockSessionId,
+        email,
+        totalCents,
+        itemCount: items.length,
+        items,
+        isGuest,
+        pointsEarned: isGuest ? 0 : pointsEarned,
+        emailSent,
+      },
+    });
+
     return NextResponse.json({
       success: true,
       order,
@@ -117,6 +155,14 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[Test Order] Error:", error);
+    await logAdminAction({
+      action: "test-order.create",
+      adminEmail: "admin",
+      ip,
+      userAgent,
+      success: false,
+      details: { error: error instanceof Error ? error.message : String(error) },
+    });
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Failed to create test order" },
       { status: 500 }

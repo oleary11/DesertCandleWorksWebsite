@@ -197,6 +197,21 @@ export default function AdminOrdersPage() {
                   {/* Order Details (Expanded) */}
                   {expandedOrderId === order.id && (
                     <div className="p-4 border-t border-[var(--color-line)]">
+                      {/* Full Order ID */}
+                      <div className="mb-4 p-3 bg-neutral-100 rounded">
+                        <p className="text-xs text-[var(--color-muted)] mb-1">Full Order ID (click to copy):</p>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(order.id);
+                          }}
+                          className="font-mono text-sm text-[var(--color-ink)] hover:text-[var(--color-accent)] break-all text-left w-full"
+                          title="Click to copy"
+                        >
+                          {order.id}
+                        </button>
+                      </div>
+
                       <h3 className="font-bold mb-2">Order Items:</h3>
                       <div className="space-y-2">
                         {order.items.map((item, idx) => (
