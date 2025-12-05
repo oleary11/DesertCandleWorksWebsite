@@ -151,7 +151,7 @@ export default function RepairOrderPage() {
                 required
               />
               <p className="text-xs text-[var(--color-muted)] mt-1">
-                Use "unmapped-[price_id]" for products not on website
+                Use &quot;unmapped-[price_id]&quot; for products not on website
               </p>
             </div>
 
@@ -214,7 +214,7 @@ export default function RepairOrderPage() {
 
         {/* Quick Fill for Sharon's Order */}
         <div className="card p-4 bg-blue-50 border border-blue-200 mt-6">
-          <p className="text-sm text-blue-900 font-semibold mb-2">Quick Fill: Sharon's Missing Angels Envy</p>
+          <p className="text-sm text-blue-900 font-semibold mb-2">Quick Fill: Sharon&apos;s Missing Angels Envy</p>
           <button
             onClick={() => {
               setOrderId("cs_live_b1oV3rNcTWzgv3LZTu3fnGHZSVpK2QawPB9XuVlg4xfi6bAt8ODAIFF1vD");

@@ -215,7 +215,7 @@ export default function AdminInvoicesPage() {
               {order.email === "manual-sale@admin.local" && (
                 <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded">
                   <p className="text-sm text-amber-900 mb-2">
-                    This is a manual sale. Enter the customer's email address to send the invoice:
+                    This is a manual sale. Enter the customer&apos;s email address to send the invoice:
                   </p>
                   <input
                     type="email"
