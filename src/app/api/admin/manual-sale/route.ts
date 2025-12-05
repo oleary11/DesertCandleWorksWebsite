@@ -99,8 +99,9 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate a unique order ID for manual sales
-    const orderId = `manual-${crypto.randomBytes(16).toString("hex")}`;
+    // Generate a unique order ID for manual sales (uppercase alphanumeric)
+    const randomBytes = crypto.randomBytes(16).toString("hex").toUpperCase();
+    const orderId = `MS${randomBytes}`;
 
     // Calculate total
     const totalCents = body.items.reduce((sum, item) => sum + item.priceCents, 0);

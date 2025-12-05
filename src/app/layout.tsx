@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import NavBar from "../components/NavBar";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
 
@@ -165,20 +166,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-dvh w-full overflow-x-clip bg-[var(--color-bg)] text-[var(--color-ink)] antialiased flex flex-col">
-        <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
-          <NavBar />
-        </header>
+        <AuthProvider>
+          <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
+            <NavBar />
+          </header>
 
-        <main className="w-full flex-1">{children}</main>
+          <main className="w-full flex-1">{children}</main>
 
-        <footer className="w-full border-t border-[var(--color-line)] mt-auto">
-          <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-[var(--color-muted)] text-center">
-            © {new Date().getFullYear()} Desert Candle Works ·{" "}
-            <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
-            {" · "}
-            <span>Scottsdale, AZ</span>
-          </div>
-        </footer>
+          <footer className="w-full border-t border-[var(--color-line)] mt-auto">
+            <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-[var(--color-muted)] text-center">
+              © {new Date().getFullYear()} Desert Candle Works ·{" "}
+              <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
+              {" · "}
+              <span>Scottsdale, AZ</span>
+            </div>
+          </footer>
+        </AuthProvider>
       </body>
     </html>
   );

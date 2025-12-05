@@ -4,50 +4,20 @@ import { useState, useEffect } from "react";
 import { Menu, X, ShoppingCart, ChevronDown, User } from "lucide-react";
 import Link from "next/link";
 import { useCartStore } from "@/lib/cartStore";
-
-type UserData = {
-  id: string;
-  email: string;
-  firstName: string;
-  points: number;
-};
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function NavBar() {
   const [open, setOpen] = useState(false);
   const [shopDropdownOpen, setShopDropdownOpen] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user } = useAuth();
   const totalItems = useCartStore((state) => state.getTotalItems());
 
   // Only render cart count after hydration
   useEffect(() => {
     setMounted(true);
-    loadUser();
-
-    // Poll for user changes every 2 seconds to detect login/logout
-    const interval = setInterval(() => {
-      loadUser();
-    }, 2000);
-
-    return () => clearInterval(interval);
   }, []);
-
-  async function loadUser() {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      } else {
-        // Not logged in - clear user state
-        setUser(null);
-      }
-    } catch (err) {
-      // Network error - clear user state
-      setUser(null);
-    }
-  }
 
   return (
     <>

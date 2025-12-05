@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -65,6 +67,8 @@ export default function RegisterPage() {
         sessionStorage.setItem('registrationSuccess', message);
       }
 
+      // Refresh auth context and redirect
+      await refreshUser();
       router.push("/account");
       router.refresh();
     } catch (err) {

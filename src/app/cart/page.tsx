@@ -4,38 +4,16 @@ import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Minus, Plus } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
-
-type UserData = {
-  id: string;
-  email: string;
-  firstName: string;
-  points: number;
-};
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
-  const [user, setUser] = useState<UserData | null>(null);
+  const { user } = useAuth();
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
-
-  useEffect(() => {
-    loadUser();
-  }, []);
-
-  async function loadUser() {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (res.ok) {
-        const data = await res.json();
-        setUser(data.user);
-      }
-    } catch (err) {
-      // Not logged in - that's ok
-    }
-  }
 
   const handleRemoveItem = (slug: string, variantId: string | undefined, name: string) => {
     setItemToRemove({ slug, variantId, name });

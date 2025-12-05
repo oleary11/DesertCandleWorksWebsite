@@ -16,8 +16,7 @@ import {
   TestTube,
   LogOut,
   Users,
-  Mail,
-  Wrench
+  Mail
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -237,19 +236,6 @@ export default function AdminHomePage() {
                 <div>
                   <h3 className="font-medium">Test Order</h3>
                   <p className="text-xs text-[var(--color-muted)]">Create test transactions</p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Repair Order */}
-            <Link href="/admin/repair-order" className="card p-4 bg-white hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center flex-shrink-0">
-                  <Wrench className="w-5 h-5 text-orange-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium">Repair Order</h3>
-                  <p className="text-xs text-[var(--color-muted)]">Fix incomplete orders</p>
                 </div>
               </div>
             </Link>

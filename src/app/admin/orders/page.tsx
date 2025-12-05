@@ -27,6 +27,9 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "pending">("all");
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   useEffect(() => {
     loadOrders();
@@ -54,6 +57,43 @@ export default function AdminOrdersPage() {
     return new Date(isoString).toLocaleString();
   }
 
+  function copyOrderId(orderId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    navigator.clipboard.writeText(orderId);
+    setCopiedId(orderId);
+    setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  // Calculate Stripe fee for an order (2.9% + $0.30)
+  function calculateStripeFee(amountCents: number): number {
+    return Math.round(amountCents * 0.029) + 30; // 2.9% + 30 cents
+  }
+
+  // Helper function to check if an order is a manual sale
+  function isManualSale(orderId: string): boolean {
+    return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
+  }
+
+  // Filter and search orders
+  const filteredOrders = orders.filter((order) => {
+    // Status filter
+    if (statusFilter !== "all" && order.status !== statusFilter) {
+      return false;
+    }
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      return (
+        order.id.toLowerCase().includes(query) ||
+        order.email.toLowerCase().includes(query) ||
+        order.items.some((item) => item.productName.toLowerCase().includes(query))
+      );
+    }
+
+    return true;
+  });
+
   if (loading) {
     return (
       <div className="min-h-screen p-6">
@@ -77,8 +117,8 @@ export default function AdminOrdersPage() {
     );
   }
 
-  const completedOrders = orders.filter((o) => o.status === "completed");
-  const pendingOrders = orders.filter((o) => o.status === "pending");
+  const completedOrders = filteredOrders.filter((o) => o.status === "completed");
+  const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
   const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalCents, 0);
 
   return (
@@ -132,31 +172,67 @@ export default function AdminOrdersPage() {
           </div>
         </div>
 
+        {/* Search and Filter */}
+        <div className="card p-6 bg-white mb-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            {/* Search */}
+            <div className="flex-1">
+              <input
+                type="text"
+                placeholder="Search by order ID, email, or product..."
+                className="input w-full"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+
+            {/* Status Filter */}
+            <div className="flex gap-2">
+              <button
+                onClick={() => setStatusFilter("all")}
+                className={`btn ${statusFilter === "all" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              >
+                All ({orders.length})
+              </button>
+              <button
+                onClick={() => setStatusFilter("completed")}
+                className={`btn ${statusFilter === "completed" ? "bg-green-600 text-white" : ""}`}
+              >
+                Completed ({orders.filter((o) => o.status === "completed").length})
+              </button>
+              <button
+                onClick={() => setStatusFilter("pending")}
+                className={`btn ${statusFilter === "pending" ? "bg-amber-600 text-white" : ""}`}
+              >
+                Pending ({orders.filter((o) => o.status === "pending").length})
+              </button>
+            </div>
+          </div>
+        </div>
+
         {/* Orders List */}
-        {orders.length === 0 ? (
+        {filteredOrders.length === 0 ? (
           <div className="card p-8 bg-white text-center">
-            <p className="text-[var(--color-muted)]">No orders found</p>
+            <p className="text-[var(--color-muted)]">
+              {searchQuery || statusFilter !== "all" ? "No orders match your filters" : "No orders found"}
+            </p>
           </div>
         ) : (
           <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">Order History</h2>
+            <h2 className="text-xl font-bold mb-4">
+              Order History ({filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"})
+            </h2>
             <div className="space-y-4">
-              {orders.map((order) => (
+              {filteredOrders.map((order) => (
                 <div
                   key={order.id}
                   className="border border-[var(--color-line)] rounded-lg overflow-hidden"
                 >
                   {/* Order Header */}
-                  <button
-                    onClick={() => toggleOrderExpansion(order.id)}
-                    className="w-full p-4 bg-neutral-50 hover:bg-neutral-100 text-left"
-                  >
-                    <div className="flex flex-wrap items-center justify-between gap-4">
+                  <div className="p-4 bg-neutral-50">
+                    <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className="font-mono text-sm text-[var(--color-muted)]">
-                            {order.id.slice(0, 20)}...
-                          </span>
+                        <div className="flex items-center gap-2 mb-2">
                           <span
                             className={`badge text-xs ${
                               order.status === "completed"
@@ -166,12 +242,27 @@ export default function AdminOrdersPage() {
                           >
                             {order.status}
                           </span>
-                          {order.id.startsWith("manual-") && (
+                          {isManualSale(order.id) && (
                             <span className="badge text-xs bg-blue-100 text-blue-700">
                               Manual Sale
                             </span>
                           )}
                         </div>
+
+                        {/* Order ID with Copy Button */}
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="font-mono text-xs text-[var(--color-muted)] break-all">
+                            {order.id}
+                          </span>
+                          <button
+                            onClick={(e) => copyOrderId(order.id, e)}
+                            className="btn btn-sm px-2 py-1 text-xs flex-shrink-0"
+                            title="Copy Order ID"
+                          >
+                            {copiedId === order.id ? "Copied!" : "Copy"}
+                          </button>
+                        </div>
+
                         <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
                           <span className="flex items-center gap-1">
                             <User className="w-3 h-3" />
@@ -187,31 +278,29 @@ export default function AdminOrdersPage() {
                         <div className="text-xl font-bold">
                           ${(order.totalCents / 100).toFixed(2)}
                         </div>
+                        {!isManualSale(order.id) && (
+                          <div className="text-xs text-amber-600">
+                            Stripe fee: -${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}
+                          </div>
+                        )}
                         <div className="text-sm text-[var(--color-muted)]">
                           {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
                         </div>
                       </div>
                     </div>
-                  </button>
+
+                    {/* Expand Button */}
+                    <button
+                      onClick={() => toggleOrderExpansion(order.id)}
+                      className="w-full text-sm text-[var(--color-accent)] hover:underline"
+                    >
+                      {expandedOrderId === order.id ? "Hide Details" : "Show Details"}
+                    </button>
+                  </div>
 
                   {/* Order Details (Expanded) */}
                   {expandedOrderId === order.id && (
                     <div className="p-4 border-t border-[var(--color-line)]">
-                      {/* Full Order ID */}
-                      <div className="mb-4 p-3 bg-neutral-100 rounded">
-                        <p className="text-xs text-[var(--color-muted)] mb-1">Full Order ID (click to copy):</p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            navigator.clipboard.writeText(order.id);
-                          }}
-                          className="font-mono text-sm text-[var(--color-ink)] hover:text-[var(--color-accent)] break-all text-left w-full"
-                          title="Click to copy"
-                        >
-                          {order.id}
-                        </button>
-                      </div>
-
                       <h3 className="font-bold mb-2">Order Items:</h3>
                       <div className="space-y-2">
                         {order.items.map((item, idx) => (
@@ -229,6 +318,33 @@ export default function AdminOrdersPage() {
                           </div>
                         ))}
                       </div>
+
+                      {/* Financial Breakdown */}
+                      <div className="mt-4 pt-4 border-t border-[var(--color-line)] space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-[var(--color-muted)]">Subtotal:</span>
+                          <span className="font-medium">${(order.totalCents / 100).toFixed(2)}</span>
+                        </div>
+                        {!isManualSale(order.id) && (
+                          <>
+                            <div className="flex justify-between text-amber-600">
+                              <span>Stripe Fee (2.9% + $0.30):</span>
+                              <span className="font-medium">-${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
+                              <span>Net Revenue:</span>
+                              <span>${((order.totalCents - calculateStripeFee(order.totalCents)) / 100).toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
+                        {isManualSale(order.id) && (
+                          <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
+                            <span>Net Revenue (No Fees):</span>
+                            <span>${(order.totalCents / 100).toFixed(2)}</span>
+                          </div>
+                        )}
+                      </div>
+
                       {order.completedAt && (
                         <div className="mt-4 pt-4 border-t border-[var(--color-line)] text-sm text-[var(--color-muted)]">
                           Completed: {formatDate(order.completedAt)}

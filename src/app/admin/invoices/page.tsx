@@ -272,9 +272,15 @@ export default function AdminInvoicesPage() {
                     <div className="flex-1">
                       <p className="font-medium">{item.productName}</p>
                       {item.productSlug.startsWith("unmapped-") && (
-                        <p className="text-xs text-amber-600 mt-1">
-                          ⚠️ Not listed on website - can be mapped to a product later
-                        </p>
+                        <div className="text-xs text-amber-600 mt-1 p-2 bg-amber-50 rounded">
+                          <p className="font-semibold">⚠️ Not listed on website</p>
+                          <p className="text-[var(--color-muted)] mt-1">
+                            To link future sales: Add this product to your website via <strong>/admin/products</strong>, then set its <strong>Stripe Price ID</strong> to match this unmapped product&apos;s ID. Future orders will automatically link to the real product.
+                          </p>
+                          <p className="text-[var(--color-muted)] mt-1 font-mono text-xs">
+                            Unmapped ID: {item.productSlug}
+                          </p>
+                        </div>
                       )}
                     </div>
                     <div className="text-right">

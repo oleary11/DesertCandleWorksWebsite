@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { refreshUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -31,7 +33,8 @@ export default function LoginPage() {
         return;
       }
 
-      // Success - redirect to account page
+      // Success - refresh auth context and redirect
+      await refreshUser();
       router.push("/account");
       router.refresh();
     } catch (err) {

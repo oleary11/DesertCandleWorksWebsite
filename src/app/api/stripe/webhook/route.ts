@@ -35,8 +35,18 @@ export async function POST(req: NextRequest) {
     const { getOrderById } = await import("@/lib/userStore");
     const existingOrder = await getOrderById(session.id);
     if (existingOrder && existingOrder.status === "completed") {
-      console.log(`[Webhook] Order ${session.id} already processed - skipping (replay protection)`);
-      return NextResponse.json({ received: true, skipped: "already_processed" }, { status: 200 });
+      // Verify order completeness by checking item count and total
+      const sessionTotal = session.amount_total || 0;
+      const orderTotal = existingOrder.totalCents;
+
+      // If totals match, order is complete and correct - skip reprocessing
+      if (orderTotal === sessionTotal) {
+        console.log(`[Webhook] Order ${session.id} already processed correctly - skipping (replay protection)`);
+        return NextResponse.json({ received: true, skipped: "already_processed" }, { status: 200 });
+      }
+
+      // If totals don't match, order may be incomplete - log warning and reprocess
+      console.warn(`[Webhook] Order ${session.id} exists but totals don't match (Stripe: ${sessionTotal}, DB: ${orderTotal}) - reprocessing to fix`);
     }
 
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);

@@ -33,13 +33,27 @@ type Product = {
 
 type ComparisonData = {
   revenue: number;
+  netRevenue: number;
+  stripeFees: number;
   orders: number;
   units: number;
   averageOrderValue: number;
 };
 
+type ProfitMargin = {
+  slug: string;
+  name: string;
+  revenue: number;
+  cost: number;
+  stripeFees: number;
+  profit: number;
+  marginPercent: number;
+};
+
 type AnalyticsData = {
   totalRevenue: number;
+  netRevenue: number;
+  stripeFees: number;
   totalOrders: number;
   totalUnits: number;
   averageOrderValue: number;
@@ -55,14 +69,7 @@ type AnalyticsData = {
     units: number;
     revenue: number;
   }>;
-  profitMargins: Array<{
-    slug: string;
-    name: string;
-    revenue: number;
-    cost: number;
-    profit: number;
-    marginPercent: number;
-  }>;
+  profitMargins: ProfitMargin[];
   dateRange?: { startDate: string; endDate: string } | null;
   comparison?: ComparisonData | null;
 };
@@ -397,16 +404,19 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Revenue Card */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+          {/* Gross Revenue Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-green-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Revenue</span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Gross Revenue</span>
             </div>
             <p className="text-3xl font-bold">${(analytics.totalRevenue / 100).toFixed(2)}</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">
+              Stripe fees: -${(analytics.stripeFees / 100).toFixed(2)}
+            </p>
             {analytics.comparison && (
               <div className="mt-2">
                 <span
@@ -418,6 +428,34 @@ export default function AdminAnalyticsPage() {
                 >
                   {formatPercentageChange(
                     calculatePercentageChange(analytics.totalRevenue, analytics.comparison.revenue)
+                  )}{" "}
+                  vs previous period
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Net Revenue Card */}
+          <div className="card p-6 bg-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-600" />
+              </div>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Net Revenue</span>
+            </div>
+            <p className="text-3xl font-bold">${(analytics.netRevenue / 100).toFixed(2)}</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">After Stripe fees</p>
+            {analytics.comparison && (
+              <div className="mt-2">
+                <span
+                  className={`text-sm font-medium ${
+                    calculatePercentageChange(analytics.netRevenue, analytics.comparison.netRevenue) >= 0
+                      ? "text-green-600"
+                      : "text-rose-600"
+                  }`}
+                >
+                  {formatPercentageChange(
+                    calculatePercentageChange(analytics.netRevenue, analytics.comparison.netRevenue)
                   )}{" "}
                   vs previous period
                 </span>
@@ -574,7 +612,7 @@ export default function AdminAnalyticsPage() {
           <div className="card p-6 bg-white">
             <h2 className="text-xl font-bold mb-4">Profit Margins</h2>
             <p className="text-sm text-[var(--color-muted)] mb-4">
-              Products with cost data configured
+              Products with cost data configured (includes Stripe fees)
             </p>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -582,8 +620,9 @@ export default function AdminAnalyticsPage() {
                   <tr className="border-b border-[var(--color-line)]">
                     <th className="text-left py-3 text-sm font-semibold">Product</th>
                     <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                    <th className="text-right py-3 text-sm font-semibold">Cost</th>
-                    <th className="text-right py-3 text-sm font-semibold">Profit</th>
+                    <th className="text-right py-3 text-sm font-semibold">Material Cost</th>
+                    <th className="text-right py-3 text-sm font-semibold">Stripe Fees</th>
+                    <th className="text-right py-3 text-sm font-semibold">Net Profit</th>
                     <th className="text-right py-3 text-sm font-semibold">Margin</th>
                   </tr>
                 </thead>
@@ -596,6 +635,9 @@ export default function AdminAnalyticsPage() {
                       </td>
                       <td className="py-3 text-sm text-right text-rose-600">
                         -${(product.cost / 100).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-sm text-right text-amber-600">
+                        -${(product.stripeFees / 100).toFixed(2)}
                       </td>
                       <td className="py-3 text-sm text-right font-medium text-green-600">
                         ${(product.profit / 100).toFixed(2)}

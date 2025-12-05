@@ -25,8 +25,25 @@ export async function GET(req: NextRequest) {
 
   try {
     if (orderId) {
-      // Search by order ID
-      const order = await getOrderById(orderId);
+      // Search by order ID (supports both full and partial matches)
+      // First try exact match for performance
+      let order = await getOrderById(orderId);
+
+      // If no exact match, search for partial match
+      if (!order) {
+        const { redis } = await import("@/lib/redis");
+        const orderIds = await redis.smembers("orders:index");
+
+        for (const id of orderIds) {
+          // Case-insensitive partial match
+          if (id.toLowerCase().includes(orderId.toLowerCase())) {
+            order = await getOrderById(id);
+            if (order) {
+              break; // Use first match
+            }
+          }
+        }
+      }
 
       if (!order) {
         await logAdminAction({
@@ -47,7 +64,7 @@ export async function GET(req: NextRequest) {
         ip,
         userAgent,
         success: true,
-        details: { orderId, customerEmail: order.email },
+        details: { orderId: order.id, customerEmail: order.email },
       });
 
       // Transform order to match frontend interface (id -> orderId)

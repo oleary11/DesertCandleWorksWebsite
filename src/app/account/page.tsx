@@ -4,6 +4,7 @@ import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { User, ShoppingBag, Award, LogOut } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
 
 type UserData = {
   id: string;
@@ -41,6 +42,7 @@ type PointsTransaction = {
 function AccountPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user: authUser, refreshUser, logout: logoutAuth } = useAuth();
   const [user, setUser] = useState<UserData | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [transactions, setTransactions] = useState<PointsTransaction[]>([]);
@@ -91,6 +93,9 @@ function AccountPageContent() {
 
   async function loadData() {
     try {
+      // Refresh auth context user data
+      await refreshUser();
+
       const [userRes, ordersRes, pointsRes] = await Promise.all([
         fetch("/api/auth/me", { cache: "no-store" }),
         fetch("/api/user/orders", { cache: "no-store" }),
@@ -120,6 +125,7 @@ function AccountPageContent() {
     setLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      logoutAuth(); // Clear auth context
       router.push("/");
       router.refresh();
     } catch (err) {

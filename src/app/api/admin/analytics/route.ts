@@ -5,6 +5,11 @@ import { listResolvedProducts } from "@/lib/resolvedProducts";
 
 export const runtime = "nodejs";
 
+// Helper function to check if an order is a manual sale
+function isManualSale(orderId: string): boolean {
+  return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
+}
+
 export async function GET(req: NextRequest) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
@@ -58,6 +63,12 @@ export async function GET(req: NextRequest) {
       console.log("[Analytics API] Orders after filter:", completedOrders.length, "filtered out:", beforeFilter - completedOrders.length);
     }
 
+    // Helper function to calculate Stripe fees
+    // Stripe charges 2.9% + $0.30 per successful transaction
+    function calculateStripeFee(amountCents: number): number {
+      return Math.round(amountCents * 0.029) + 30; // 2.9% + 30 cents
+    }
+
     // Calculate comparison period data if requested
     let comparisonData = null;
     if (compareStartDate && compareEndDate) {
@@ -70,7 +81,17 @@ export async function GET(req: NextRequest) {
         return orderDate >= compStart && orderDate <= compEnd;
       });
 
-      const compRevenue = compOrders.reduce((sum, o) => sum + o.totalCents, 0);
+      let compRevenue = 0;
+      let compStripeFees = 0;
+
+      for (const order of compOrders) {
+        compRevenue += order.totalCents;
+        if (!isManualSale(order.id)) {
+          compStripeFees += calculateStripeFee(order.totalCents);
+        }
+      }
+
+      const compNetRevenue = compRevenue - compStripeFees;
       const compOrderCount = compOrders.length;
       const compUnits = compOrders.reduce(
         (sum, o) => sum + o.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
@@ -79,14 +100,30 @@ export async function GET(req: NextRequest) {
 
       comparisonData = {
         revenue: compRevenue,
+        netRevenue: compNetRevenue,
+        stripeFees: compStripeFees,
         orders: compOrderCount,
         units: compUnits,
         averageOrderValue: compOrderCount > 0 ? compRevenue / compOrderCount : 0,
       };
     }
 
-    // Calculate overall metrics
-    const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalCents, 0);
+    // Calculate overall metrics with Stripe fees
+    let totalRevenue = 0;
+    let totalStripeFees = 0;
+    let stripeRevenue = 0; // Track revenue from Stripe orders only
+
+    for (const order of completedOrders) {
+      totalRevenue += order.totalCents;
+
+      // Only apply Stripe fees to Stripe orders (not manual sales)
+      if (!isManualSale(order.id)) {
+        totalStripeFees += calculateStripeFee(order.totalCents);
+        stripeRevenue += order.totalCents;
+      }
+    }
+
+    const netRevenue = totalRevenue - totalStripeFees;
     const totalOrders = completedOrders.length;
     const totalUnits = completedOrders.reduce(
       (sum, o) => sum + o.items.reduce((itemSum, item) => itemSum + item.quantity, 0),
@@ -97,13 +134,22 @@ export async function GET(req: NextRequest) {
     // Build a map of product info
     const productMap = new Map(products.map((p) => [p.slug, p]));
 
-    // Calculate sales by product
+    // Calculate sales by product, tracking Stripe vs manual revenue separately
     const productSalesMap = new Map<
       string,
-      { slug: string; name: string; units: number; revenue: number; alcoholType?: string }
+      {
+        slug: string;
+        name: string;
+        units: number;
+        revenue: number;
+        stripeRevenue: number; // Track Stripe revenue separately
+        alcoholType?: string;
+      }
     >();
 
     for (const order of completedOrders) {
+      const isStripeOrder = !isManualSale(order.id);
+
       for (const item of order.items) {
         const existing = productSalesMap.get(item.productSlug);
         const product = productMap.get(item.productSlug);
@@ -111,12 +157,16 @@ export async function GET(req: NextRequest) {
         if (existing) {
           existing.units += item.quantity;
           existing.revenue += item.priceCents;
+          if (isStripeOrder) {
+            existing.stripeRevenue += item.priceCents;
+          }
         } else {
           productSalesMap.set(item.productSlug, {
             slug: item.productSlug,
             name: item.productName,
             units: item.quantity,
             revenue: item.priceCents,
+            stripeRevenue: isStripeOrder ? item.priceCents : 0,
             alcoholType: product?.alcoholType,
           });
         }
@@ -161,6 +211,7 @@ export async function GET(req: NextRequest) {
       name: string;
       revenue: number;
       cost: number;
+      stripeFees: number;
       profit: number;
       marginPercent: number;
     }> = [];
@@ -171,7 +222,13 @@ export async function GET(req: NextRequest) {
         // materialCost is in dollars, convert to cents
         const costPerUnitCents = Math.round(product.materialCost * 100);
         const totalCost = costPerUnitCents * productSale.units;
-        const profit = productSale.revenue - totalCost;
+
+        // Calculate Stripe fees for this product's Stripe revenue only
+        // Manual sales don't incur Stripe fees, so we only apply fees to stripeRevenue
+        const stripeOrderRatio = stripeRevenue > 0 ? totalStripeFees / stripeRevenue : 0;
+        const productStripeFees = Math.round(productSale.stripeRevenue * stripeOrderRatio);
+
+        const profit = productSale.revenue - totalCost - productStripeFees;
         const marginPercent = productSale.revenue > 0 ? (profit / productSale.revenue) * 100 : 0;
 
         profitMargins.push({
@@ -179,6 +236,7 @@ export async function GET(req: NextRequest) {
           name: productSale.name,
           revenue: productSale.revenue,
           cost: totalCost,
+          stripeFees: productStripeFees,
           profit,
           marginPercent,
         });
@@ -190,6 +248,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       totalRevenue,
+      netRevenue,
+      stripeFees: totalStripeFees,
       totalOrders,
       totalUnits,
       averageOrderValue,
