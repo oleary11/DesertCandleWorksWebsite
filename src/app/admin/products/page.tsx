@@ -159,7 +159,7 @@ export default function AdminProductsPage() {
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
   const [bestFilter, setBestFilter] = useState<"all" | "best" | "not-best">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
-  const [sortBy, setSortBy] = useState<"name" | "price" | "stock" | "best" | "status" | "none">("none");
+  const [sortBy, setSortBy] = useState<"name" | "price" | "cost" | "stock" | "best" | "status" | "none">("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
 
@@ -272,6 +272,9 @@ export default function AdminProductsPage() {
           case "price":
             comparison = a.price - b.price;
             break;
+          case "cost":
+            comparison = (a.materialCost || 0) - (b.materialCost || 0);
+            break;
           case "stock":
             comparison = getTotalStock(a) - getTotalStock(b);
             break;
@@ -337,38 +340,61 @@ export default function AdminProductsPage() {
 
   function exportToCSV() {
     const headers = [
-      "Visible",
       "Name",
       "Slug",
       "SKU",
       "Price",
       "Material Cost",
-      "Type",
-      "Stock",
+      "Alcohol Type",
+      "Stock (Total)",
+      "Base Stock",
+      "Visible on Website",
       "Best Seller",
       "Young & Dumb",
       "Status",
       "Stripe Price ID",
-      "SEO Description",
-      "Image",
+      "Description",
+      "Has Variants",
+      "Wick Types",
+      "Variant Stock Details",
     ];
 
-    const rows = filtered.map((p) => [
-      p.visibleOnWebsite !== false ? "Yes" : "No",
-      p.name,
-      p.slug,
-      p.sku || "",
-      p.price.toFixed(2),
-      p.materialCost ? p.materialCost.toFixed(2) : "",
-      p.alcoholType || "Other",
-      getTotalStock(p).toString(),
-      p.bestSeller ? "Yes" : "No",
-      p.youngDumb ? "Yes" : "No",
-      hasDraft(p.slug) ? "Draft" : "Published",
-      p.stripePriceId || "",
-      p.seoDescription || "",
-      p.images?.[0] || p.image || "",
-    ]);
+    const rows = filtered.map((p) => {
+      // Get wick types if product has variants
+      const wickTypes = p.variantConfig?.wickTypes
+        ? p.variantConfig.wickTypes.map((w) => w.name).join("; ")
+        : "";
+
+      // Get variant stock details
+      let variantStockDetails = "";
+      if (p.variantConfig) {
+        const variants = generateVariantsForDisplay(p, globalScents);
+        variantStockDetails = variants
+          .filter((v) => v.stock > 0)
+          .map((v) => `${v.wickName}/${v.scentName}: ${v.stock}`)
+          .join("; ");
+      }
+
+      return [
+        p.name,
+        p.slug,
+        p.sku || "",
+        p.price.toFixed(2),
+        p.materialCost ? p.materialCost.toFixed(2) : "",
+        p.alcoholType || "Other",
+        getTotalStock(p).toString(),
+        p.stock.toString(),
+        p.visibleOnWebsite !== false ? "Yes" : "No",
+        p.bestSeller ? "Yes" : "No",
+        p.youngDumb ? "Yes" : "No",
+        hasDraft(p.slug) ? "Draft" : "Published",
+        p.stripePriceId || "",
+        p.seoDescription || "",
+        p.variantConfig ? "Yes" : "No",
+        wickTypes,
+        variantStockDetails,
+      ];
+    });
 
     const csvContent = [
       headers.join(","),
@@ -790,7 +816,7 @@ export default function AdminProductsPage() {
                     <SortableHeader column="name">Name</SortableHeader>
                     <SortableHeader column="none">Slug</SortableHeader>
                     <SortableHeader column="price">Price</SortableHeader>
-                    <SortableHeader column="none">Cost</SortableHeader>
+                    <SortableHeader column="cost">Cost</SortableHeader>
                     <SortableHeader column="none">Type</SortableHeader>
                     <SortableHeader column="stock">Stock</SortableHeader>
                     <SortableHeader column="best">Best</SortableHeader>
