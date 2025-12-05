@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed, getAdminSession } from "@/lib/adminSession";
-import { getOrderById, getUserByEmail } from "@/lib/userStore";
+import { getOrderById } from "@/lib/userStore";
 import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";

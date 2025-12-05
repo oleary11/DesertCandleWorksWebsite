@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { revalidatePath } from "next/cache";
-import { upsertProduct, type Product, getProduct } from "@/lib/productsStore";
+import { upsertProduct, type Product } from "@/lib/productsStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { logAdminAction } from "@/lib/adminLogs";
 
