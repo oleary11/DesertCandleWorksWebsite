@@ -46,6 +46,8 @@ export type Order = {
   email: string;
   totalCents: number;
   pointsEarned: number;
+  pointsRedeemed?: number; // Points used for discount
+  promotionId?: string; // Promotion code applied
   status: "pending" | "completed" | "cancelled";
   isGuest: boolean; // True if order was placed without account
   items: Array<{

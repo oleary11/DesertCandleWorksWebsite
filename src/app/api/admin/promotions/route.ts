@@ -125,25 +125,22 @@ export async function POST(req: NextRequest) {
       stripeCouponId = coupon.id;
 
       // Create promotion code
-      const promoCodeParams = {
+      const promoCodeParams: Stripe.PromotionCodeCreateParams = {
         coupon: stripeCouponId,
         code: code.toUpperCase(),
         active: active !== false,
-      } as unknown as Stripe.PromotionCodeCreateParams;
+      };
 
       if (minOrderAmountCents) {
         promoCodeParams.restrictions = {
-          ...(promoCodeParams.restrictions ?? {}),
           minimum_amount: minOrderAmountCents,
           minimum_amount_currency: "usd",
         };
       }
 
       if (userTargeting === "first_time") {
-        promoCodeParams.restrictions = {
-          ...(promoCodeParams.restrictions ?? {}),
-          first_time_transaction: true,
-        };
+        if (!promoCodeParams.restrictions) promoCodeParams.restrictions = {};
+        promoCodeParams.restrictions.first_time_transaction = true;
       }
 
       const promoCode = await stripe.promotionCodes.create(promoCodeParams);
