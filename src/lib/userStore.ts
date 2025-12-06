@@ -133,7 +133,7 @@ export async function getUserByEmail(email: string): Promise<User | null> {
  * List all users (for admin purposes)
  */
 export async function listAllUsers(): Promise<User[]> {
-  const userIds = await kv.smembers<string>("users:index");
+  const userIds = await kv.smembers("users:index");
   if (!userIds || userIds.length === 0) return [];
 
   const users = await Promise.all(
