@@ -32,7 +32,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ promotions });
   } catch (error) {
     console.error("[Promotions API] GET error:", error);
-    return NextResponse.json({ error: "Failed to fetch promotions" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Failed to fetch promotions" },
+      { status: 500 }
+    );
   }
 }
 
@@ -86,7 +89,9 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = getStripe();
-    const promotionId = `promo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const promotionId = `promo_${Date.now()}_${Math.random()
+      .toString(36)
+      .substring(7)}`;
 
     let stripeCouponId: string | undefined;
     let stripePromotionCodeId: string | undefined;
@@ -111,29 +116,34 @@ export async function POST(req: NextRequest) {
       }
 
       if (expiresAt) {
-        couponParams.redeem_by = Math.floor(new Date(expiresAt).getTime() / 1000);
+        couponParams.redeem_by = Math.floor(
+          new Date(expiresAt).getTime() / 1000
+        );
       }
 
       const coupon = await stripe.coupons.create(couponParams);
       stripeCouponId = coupon.id;
 
       // Create promotion code
-      const promoCodeParams: any = {
+      const promoCodeParams = {
         coupon: stripeCouponId,
         code: code.toUpperCase(),
         active: active !== false,
-      };
+      } as unknown as Stripe.PromotionCodeCreateParams;
 
       if (minOrderAmountCents) {
         promoCodeParams.restrictions = {
+          ...(promoCodeParams.restrictions ?? {}),
           minimum_amount: minOrderAmountCents,
           minimum_amount_currency: "usd",
         };
       }
 
       if (userTargeting === "first_time") {
-        if (!promoCodeParams.restrictions) promoCodeParams.restrictions = {};
-        promoCodeParams.restrictions.first_time_transaction = true;
+        promoCodeParams.restrictions = {
+          ...(promoCodeParams.restrictions ?? {}),
+          first_time_transaction: true,
+        };
       }
 
       const promoCode = await stripe.promotionCodes.create(promoCodeParams);
@@ -194,12 +204,18 @@ export async function PATCH(req: NextRequest) {
     const { id, ...updates } = body;
 
     if (!id) {
-      return NextResponse.json({ error: "Promotion ID required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Promotion ID required" },
+        { status: 400 }
+      );
     }
 
     const existing = await getPromotionById(id);
     if (!existing) {
-      return NextResponse.json({ error: "Promotion not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Promotion not found" },
+        { status: 404 }
+      );
     }
 
     // Update Stripe promotion code if active status changed
@@ -235,12 +251,18 @@ export async function DELETE(req: NextRequest) {
     const id = searchParams.get("id");
 
     if (!id) {
-      return NextResponse.json({ error: "Promotion ID required" }, { status: 400 });
+      return NextResponse.json(
+        { error: "Promotion ID required" },
+        { status: 400 }
+      );
     }
 
     const existing = await getPromotionById(id);
     if (!existing) {
-      return NextResponse.json({ error: "Promotion not found" }, { status: 404 });
+      return NextResponse.json(
+        { error: "Promotion not found" },
+        { status: 404 }
+      );
     }
 
     // Deactivate Stripe promotion code (don't delete to preserve history)
