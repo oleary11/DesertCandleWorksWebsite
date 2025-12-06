@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
 import { getUserByEmail, createOrder, completeOrder, redeemPoints } from "@/lib/userStore";
+import { incrementRedemptions } from "@/lib/promotionsStore";
 
 export const runtime = "nodejs";
 
@@ -55,6 +56,7 @@ export async function POST(req: NextRequest) {
     const customerEmail = session.customer_details?.email || "";
     const pointsRedeemed = session.metadata?.pointsRedeemed ? parseInt(session.metadata.pointsRedeemed) : 0;
     const sessionUserId = session.metadata?.userId || "";
+    const promotionId = session.metadata?.promotionId || "";
     const orderItems: Array<{
       productSlug: string;
       productName: string;
@@ -156,12 +158,32 @@ export async function POST(req: NextRequest) {
           await createOrder(customerEmail, session.id, productSubtotalCents, orderItems, user.id);
           await completeOrder(session.id);
           console.log(`Awarded ${Math.round(productSubtotalCents / 100)} points to ${customerEmail}`);
+
+          // Increment promotion redemption count if promotion was used
+          if (promotionId) {
+            try {
+              await incrementRedemptions(promotionId);
+              console.log(`Incremented redemption count for promotion ${promotionId}`);
+            } catch (err) {
+              console.error(`Failed to increment promotion redemptions:`, err);
+            }
+          }
         } else {
           // Guest checkout - create order without userId
           console.log(`Guest checkout for ${customerEmail} - creating guest order`);
           await createOrder(customerEmail, session.id, productSubtotalCents, orderItems);
           await completeOrder(session.id);
           console.log(`Guest order created for ${customerEmail}`);
+
+          // Increment promotion redemption count if promotion was used
+          if (promotionId) {
+            try {
+              await incrementRedemptions(promotionId);
+              console.log(`Incremented redemption count for promotion ${promotionId}`);
+            } catch (err) {
+              console.error(`Failed to increment promotion redemptions:`, err);
+            }
+          }
 
           // Add guest to mailing list (don't block order processing if this fails)
           try {

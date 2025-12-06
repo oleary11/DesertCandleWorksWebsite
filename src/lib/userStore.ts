@@ -128,6 +128,21 @@ export async function getUserByEmail(email: string): Promise<User | null> {
 }
 
 /**
+ * List all users (for admin purposes)
+ */
+export async function listAllUsers(): Promise<User[]> {
+  const userIds = await kv.smembers<string>("users:index");
+  if (!userIds || userIds.length === 0) return [];
+
+  const users = await Promise.all(
+    userIds.map(async (userId) => await getUserById(userId))
+  );
+
+  // Filter out nulls and return
+  return users.filter((user): user is User => user !== null);
+}
+
+/**
  * Verify user password
  */
 export async function verifyPassword(email: string, password: string): Promise<User | null> {

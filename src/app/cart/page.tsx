@@ -3,10 +3,19 @@
 import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
-import { Trash2, Minus, Plus } from "lucide-react";
-import { useState } from "react";
+import { Trash2, Minus, Plus, Tag, X } from "lucide-react";
+import { useState, useEffect } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
 import { useAuth } from "@/contexts/AuthContext";
+
+type AppliedPromotion = {
+  id: string;
+  code: string;
+  name: string;
+  type: string;
+  discountPercent?: number;
+  discountAmountCents?: number;
+};
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
@@ -14,6 +23,103 @@ export default function CartPage() {
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
   const { user } = useAuth();
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
+
+  // Promotion state
+  const [promoCode, setPromoCode] = useState("");
+  const [applyingPromo, setApplyingPromo] = useState(false);
+  const [promoError, setPromoError] = useState("");
+  const [appliedPromotion, setAppliedPromotion] = useState<AppliedPromotion | null>(null);
+  const [automaticPromotion, setAutomaticPromotion] = useState<AppliedPromotion | null>(null);
+
+  // Check for automatic promotions on cart change
+  useEffect(() => {
+    checkAutomaticPromotions();
+  }, [items]);
+
+  async function checkAutomaticPromotions() {
+    // Don't check if manual promo already applied
+    if (appliedPromotion) return;
+    if (items.length === 0) return;
+
+    try {
+      const cartItems = items.map((item) => ({
+        productSlug: item.productSlug,
+        quantity: item.quantity,
+        priceCents: Math.round(item.price * 100),
+      }));
+
+      const res = await fetch("/api/promotions/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ cartItems }),
+      });
+
+      const data = await res.json();
+
+      if (data.valid && data.promotion) {
+        setAutomaticPromotion(data.promotion);
+      } else {
+        setAutomaticPromotion(null);
+      }
+    } catch (err) {
+      console.error("Failed to check automatic promotions:", err);
+    }
+  }
+
+  async function applyPromoCode() {
+    if (!promoCode.trim()) return;
+
+    setApplyingPromo(true);
+    setPromoError("");
+
+    try {
+      const cartItems = items.map((item) => ({
+        productSlug: item.productSlug,
+        quantity: item.quantity,
+        priceCents: Math.round(item.price * 100),
+      }));
+
+      const res = await fetch("/api/promotions/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: promoCode.toUpperCase(), cartItems }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.valid) {
+        setPromoError(data.error || "Invalid promotion code");
+        setApplyingPromo(false);
+        return;
+      }
+
+      setAppliedPromotion(data.promotion);
+      setAutomaticPromotion(null); // Clear automatic when manual applied
+      setPromoCode("");
+    } catch (err) {
+      setPromoError("Failed to apply promotion");
+    } finally {
+      setApplyingPromo(false);
+    }
+  }
+
+  function removePromotion() {
+    setAppliedPromotion(null);
+    setAutomaticPromotion(null);
+    setPromoError("");
+    // Don't auto-check for promotions after manual removal
+    // User can manually apply a different code if they want
+  }
+
+  function getActivePromotion(): AppliedPromotion | null {
+    return appliedPromotion || automaticPromotion;
+  }
+
+  function getDiscountAmount(): number {
+    const activePromo = getActivePromotion();
+    if (!activePromo) return 0;
+    return (activePromo.discountAmountCents || 0) / 100;
+  }
 
   const handleRemoveItem = (slug: string, variantId: string | undefined, name: string) => {
     setItemToRemove({ slug, variantId, name });
@@ -52,12 +158,15 @@ export default function CartPage() {
         },
       }));
 
+      const activePromo = getActivePromotion();
+
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lineItems,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
+          promotionId: activePromo?.id,
         }),
       });
 
@@ -233,11 +342,78 @@ export default function CartPage() {
             <div className="card p-6 sticky top-24">
               <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
 
+              {/* Promo Code Input */}
+              <div className="mb-4 pb-4 border-b border-[var(--color-line)]">
+                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
+                  <Tag className="w-4 h-4" />
+                  Promo Code
+                </label>
+
+                {getActivePromotion() ? (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-green-600" />
+                        <span className="font-mono font-bold text-sm">
+                          {getActivePromotion()!.code}
+                        </span>
+                        {!appliedPromotion && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
+                            Auto-applied
+                          </span>
+                        )}
+                      </div>
+                      <button
+                        onClick={removePromotion}
+                        className="p-1 hover:bg-green-100 rounded transition"
+                        title="Remove promo code"
+                      >
+                        <X className="w-4 h-4 text-green-600" />
+                      </button>
+                    </div>
+                    <p className="text-xs text-green-700">{getActivePromotion()!.name}</p>
+                  </div>
+                ) : (
+                  <>
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="input flex-1 text-sm uppercase"
+                        placeholder="Enter code"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        onKeyDown={(e) => e.key === "Enter" && applyPromoCode()}
+                        disabled={applyingPromo}
+                      />
+                      <button
+                        onClick={applyPromoCode}
+                        disabled={!promoCode.trim() || applyingPromo}
+                        className="btn btn-sm px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {applyingPromo ? "..." : "Apply"}
+                      </button>
+                    </div>
+                    {promoError && (
+                      <p className="text-xs text-rose-600 mt-2">{promoError}</p>
+                    )}
+                  </>
+                )}
+              </div>
+
               <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-line)]">
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--color-muted)]">Subtotal</span>
                   <span className="font-medium">${getTotalPrice().toFixed(2)}</span>
                 </div>
+                {getActivePromotion() && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>
+                      Promotion
+                      {getActivePromotion()!.discountPercent && ` (${getActivePromotion()!.discountPercent}% off)`}
+                    </span>
+                    <span className="font-medium">-${getDiscountAmount().toFixed(2)}</span>
+                  </div>
+                )}
                 {pointsToRedeem > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span>Points Discount</span>
@@ -295,7 +471,7 @@ export default function CartPage() {
 
               <div className="flex justify-between text-lg font-semibold mb-6">
                 <span>Total</span>
-                <span>${(getTotalPrice() - discountAmount).toFixed(2)}</span>
+                <span>${(getTotalPrice() - getDiscountAmount() - discountAmount).toFixed(2)}</span>
               </div>
 
               {/* Guest Checkout - Encourage Account Creation */}

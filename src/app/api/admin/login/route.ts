@@ -70,6 +70,11 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // SECURITY: Validate redirect URL to prevent open redirect attacks
+  if (next && (!next.startsWith("/admin") && !next.startsWith("/api/admin"))) {
+    next = "/admin"; // Only allow admin paths
+  }
+
   // Authenticate admin user
   const user = await authenticateAdminUser(email, password);
 

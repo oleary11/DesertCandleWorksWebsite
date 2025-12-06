@@ -2,6 +2,8 @@ import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 import { getUserSession } from "@/lib/userSession";
 import { getUserById } from "@/lib/userStore";
+import { getPromotionById } from "@/lib/promotionsStore";
+import { validatePromotion } from "@/lib/promotionValidator";
 
 export const runtime = "nodejs";
 
@@ -49,7 +51,8 @@ export async function POST(req: NextRequest) {
     let extendedLineItems: ExtendedLineItem[] = [];
     let pointsToRedeem: number | undefined;
 
-    // Parse body for line items + optional pointsToRedeem
+    // Parse body for line items + optional pointsToRedeem + promotionId
+    let promotionId: string | undefined;
     if (ct.includes("application/json")) {
       const body: unknown = await req.json();
       if (body && typeof body === "object" && "lineItems" in body) {
@@ -64,6 +67,13 @@ export async function POST(req: NextRequest) {
             "number"
         ) {
           pointsToRedeem = (body as { pointsToRedeem: number }).pointsToRedeem;
+        }
+
+        if (
+          "promotionId" in body &&
+          typeof (body as { promotionId: unknown }).promotionId === "string"
+        ) {
+          promotionId = (body as { promotionId: string }).promotionId;
         }
       }
     } else {
@@ -85,6 +95,9 @@ export async function POST(req: NextRequest) {
     let userEmail: string | undefined;
     let discountAmountCents = 0;
     let userId: string | undefined;
+    let promotionDiscountCents = 0;
+    let appliedPromotionId: string | undefined;
+    let stripePromotionCodeId: string | undefined;
 
     if (userSession) {
       const user = await getUserById(userSession.userId);
@@ -139,6 +152,9 @@ export async function POST(req: NextRequest) {
     if (pointsToRedeem && userId) {
       sessionMetadata.pointsRedeemed = pointsToRedeem.toString();
       sessionMetadata.userId = userId;
+    }
+    if (appliedPromotionId) {
+      sessionMetadata.promotionId = appliedPromotionId;
     }
 
     // Build line items with custom names
@@ -214,13 +230,66 @@ export async function POST(req: NextRequest) {
       return sum + unitAmount * quantity;
     }, 0);
 
-    // SECURITY: Validate points redemption doesn't exceed order total
-    // Cap discount at subtotal to prevent negative pricing or wasted points
-    if (discountAmountCents > subtotal) {
-      const maxPointsAllowed = Math.floor(subtotal / 5); // Max points that can be redeemed for this order
+    // Validate and apply promotion if provided
+    if (promotionId) {
+      const promotion = await getPromotionById(promotionId);
+
+      if (!promotion) {
+        return NextResponse.json(
+          { error: "Invalid promotion" },
+          { status: 400 }
+        );
+      }
+
+      // Build cart items from line items for validation
+      const cartItems = extendedLineItems.map((item, index) => {
+        const priceDetails = priceDetailsArray[index];
+        const productSlug = item.metadata?.variantId?.split("-")[0] || "unknown";
+
+        return {
+          productSlug,
+          quantity: item.quantity,
+          priceCents: priceDetails.unit_amount || 0,
+        };
+      });
+
+      // Validate promotion
+      const validation = await validatePromotion(promotionId, {
+        userId,
+        isGuest: !userId,
+        cartItems,
+        subtotalCents: subtotal,
+      });
+
+      if (!validation.valid) {
+        return NextResponse.json(
+          { error: validation.error || "Promotion is not valid" },
+          { status: 400 }
+        );
+      }
+
+      // Apply promotion discount
+      promotionDiscountCents = validation.discountAmountCents || 0;
+      appliedPromotionId = promotionId;
+      stripePromotionCodeId = promotion.stripePromotionCodeId;
+    }
+
+    // SECURITY: Validate combined discounts don't exceed order total
+    const totalDiscountCents = discountAmountCents + promotionDiscountCents;
+    if (totalDiscountCents > subtotal) {
+      // If promotion discount alone exceeds subtotal, it's invalid
+      if (promotionDiscountCents >= subtotal) {
+        return NextResponse.json(
+          { error: "Promotion discount exceeds order total" },
+          { status: 400 }
+        );
+      }
+
+      // Cap points at remaining amount after promotion
+      const maxPointsAllowed = Math.floor((subtotal - promotionDiscountCents) / 5);
       return NextResponse.json(
         {
-          error: `Order total is $${(subtotal / 100).toFixed(2)}. You can redeem a maximum of ${maxPointsAllowed} points ($${(maxPointsAllowed * 5 / 100).toFixed(2)}) for this order.`
+          error: `After applying the promotion, you can redeem a maximum of ${maxPointsAllowed} points ($${(maxPointsAllowed * 5 / 100).toFixed(2)}) for this order.`
         },
         { status: 400 }
       );
@@ -271,14 +340,42 @@ export async function POST(req: NextRequest) {
             },
           ];
 
-    // Create discount coupon if redeeming points
+    // Create discount coupon (Stripe only allows 1 discount per session)
     let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
-    if (discountAmountCents > 0) {
+
+    // IMPORTANT: Stripe only allows ONE discount, so combine points + promotions into single coupon
+    if (discountAmountCents > 0 && promotionDiscountCents > 0) {
+      // Both points and promotion - combine into single coupon
+      const totalDiscount = discountAmountCents + promotionDiscountCents;
+      const promotion = appliedPromotionId ? await getPromotionById(appliedPromotionId) : null;
+
+      const coupon = await stripe.coupons.create({
+        amount_off: totalDiscount,
+        currency: "usd",
+        duration: "once",
+        name: `${promotion?.name || "Promotion"} + Points (${pointsToRedeem})`,
+      });
+
+      discounts = [{ coupon: coupon.id }];
+    } else if (discountAmountCents > 0) {
+      // Only points redemption
       const coupon = await stripe.coupons.create({
         amount_off: discountAmountCents,
         currency: "usd",
         duration: "once",
         name: `Points Redemption (${pointsToRedeem} points)`,
+      });
+
+      discounts = [{ coupon: coupon.id }];
+    } else if (promotionDiscountCents > 0) {
+      // Only promotion discount
+      const promotion = appliedPromotionId ? await getPromotionById(appliedPromotionId) : null;
+
+      const coupon = await stripe.coupons.create({
+        amount_off: promotionDiscountCents,
+        currency: "usd",
+        duration: "once",
+        name: promotion?.name || "Promotion Discount",
       });
 
       discounts = [{ coupon: coupon.id }];
