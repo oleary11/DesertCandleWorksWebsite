@@ -237,9 +237,29 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
 
   if (twoFactorSetup) {
     return (
-      <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
-        <div className="card p-6 max-w-2xl w-full bg-white max-h-[90vh] overflow-y-auto">
-          <h2 className="text-2xl font-bold mb-4">Admin User Created Successfully</h2>
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="absolute inset-0" onClick={onClose} />
+        <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+          {/* Header */}
+          <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--color-ink)]">Admin User Created Successfully</h2>
+              <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                Save these 2FA details securely
+              </p>
+            </div>
+            <button
+              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+              onClick={onClose}
+            >
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-6">
 
           <div className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 p-4 rounded">
@@ -284,8 +304,12 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
                 ))}
               </div>
             </div>
+          </div>
+          </div>
 
-            <button onClick={onClose} className="btn btn-primary w-full">
+          {/* Footer */}
+          <div className="flex items-center justify-end px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+            <button onClick={onClose} className="btn btn-primary">
               Close
             </button>
           </div>
@@ -295,11 +319,30 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-6 z-50">
-      <div className="card p-6 max-w-md w-full bg-white">
-        <h2 className="text-2xl font-bold mb-4">Create Admin User</h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="absolute inset-0" onClick={onClose} />
+      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+          <div>
+            <h2 className="text-xl font-semibold text-[var(--color-ink)]">Create Admin User</h2>
+            <p className="text-sm text-[var(--color-muted)] mt-0.5">
+              Add a new administrator with 2FA enabled
+            </p>
+          </div>
+          <button
+            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+            onClick={onClose}
+          >
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
           <label className="block">
             <div className="text-sm font-medium mb-1">Email</div>
             <input
@@ -341,20 +384,26 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
             </p>
           </label>
 
-          {error && <p className="text-rose-600 text-sm">{error}</p>}
+          {error && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
+              <p className="text-sm text-rose-900">{error}</p>
+            </div>
+          )}
+          </div>
 
-          <div className="flex gap-2">
+          {/* Footer */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
             <button
               type="button"
               onClick={onClose}
-              className="btn flex-1"
+              className="btn hover:bg-white transition-colors"
               disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary flex-1"
+              className="btn btn-primary"
               disabled={submitting}
             >
               {submitting ? "Creating..." : "Create Admin"}

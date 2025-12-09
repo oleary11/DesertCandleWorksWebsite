@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number; archived?: boolean };
 
@@ -130,10 +132,13 @@ export default function AlcoholTypesAdminPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Alcohol Types</h1>
-        <div className="flex gap-2">
-          <a className="btn" href="/admin">← Back</a>
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link href="/admin" className="btn">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <h1 className="text-2xl font-semibold">Alcohol Types</h1>
         </div>
       </div>
 

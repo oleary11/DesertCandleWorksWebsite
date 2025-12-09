@@ -275,24 +275,36 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40">
-      <div className="card max-w-4xl w-full p-6 bg-white max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold">
-            {isEditing ? "Edit Promotion" : "Create Promotion"}
-          </h2>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="absolute inset-0" onClick={onClose} />
+
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+          <div>
+            <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+              {isEditing ? "Edit Promotion" : "Create Promotion"}
+            </h2>
+            <p className="text-sm text-[var(--color-muted)] mt-0.5">
+              {isEditing ? "Update promotion details and settings" : "Create a new discount code or promotional campaign"}
+            </p>
+          </div>
           <button
+            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
             onClick={onClose}
-            className="p-2 hover:bg-neutral-100 rounded-lg transition"
           >
-            <X className="w-5 h-5" />
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+          {/* Content */}
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
           {error && (
-            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-sm text-red-800">
-              {error}
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
+              <p className="text-sm text-rose-900">{error}</p>
             </div>
           )}
 
@@ -766,20 +778,21 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
               Active (promotion can be used)
             </label>
           </div>
+          </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-4 border-t">
+          {/* Footer */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
             <button
               type="button"
               onClick={onClose}
-              className="btn flex-1"
+              className="btn hover:bg-white transition-colors"
               disabled={loading}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn bg-[var(--color-accent)] text-white flex-1"
+              className="btn btn-primary"
               disabled={loading}
             >
               {loading ? "Saving..." : isEditing ? "Update Promotion" : "Create Promotion"}

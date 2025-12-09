@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 /* ---------- Types ---------- */
 type AlcoholType = { id: string; name: string; sortOrder?: number };
@@ -613,10 +615,10 @@ export default function AdminProductsPage() {
     <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
       {/* Top bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div>
-          <a href="/admin" className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-2 inline-block">
-            ← Back to Admin
-          </a>
+        <div className="flex items-center gap-3">
+          <Link href="/admin" className="btn">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
           <h1 className="text-2xl font-semibold">Products</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">

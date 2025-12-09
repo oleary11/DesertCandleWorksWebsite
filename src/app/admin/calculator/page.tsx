@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 /* ---------- Types ---------- */
 type Product = {
@@ -481,12 +483,12 @@ export default function CalculatorPage() {
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-        <h1 className="text-2xl font-semibold">Cost Calculator</h1>
-        <div className="flex gap-2">
-          <a href="/admin" className="btn">
-            ← Back to Admin
-          </a>
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <Link href="/admin" className="btn">
+            <ArrowLeft className="w-4 h-4" />
+          </Link>
+          <h1 className="text-2xl font-semibold">Cost Calculator</h1>
         </div>
       </div>
 
@@ -1094,10 +1096,10 @@ export default function CalculatorPage() {
 
       {/* Product Creation Modal */}
       {showProductModal && newProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0"
             onClick={() => {
               setShowProductModal(false);
               setNewProduct(null);
@@ -1105,21 +1107,30 @@ export default function CalculatorPage() {
           />
 
           {/* Modal */}
-          <div className="relative card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">Create Product from Calculation</h2>
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--color-ink)]">Create Product from Calculation</h2>
+                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                  Product details auto-filled from cost calculation
+                </p>
+              </div>
               <button
-                className="btn"
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
                 onClick={() => {
                   setShowProductModal(false);
                   setNewProduct(null);
                 }}
               >
-                Close
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            <div className="space-y-4">
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
               {/* Product Name */}
               <label className="block">
                 <div className="text-sm font-medium mb-2">Product Name</div>
@@ -1355,11 +1366,12 @@ export default function CalculatorPage() {
                 </div>
               )}
             </div>
+            </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--color-line)]">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
               <button
-                className="btn"
+                className="btn hover:bg-white transition-colors"
                 onClick={() => {
                   setShowProductModal(false);
                   setNewProduct(null);
