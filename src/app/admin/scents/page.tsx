@@ -537,10 +537,10 @@ export default function AdminScentsPage() {
 
       {/* Edit/Create Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           {/* Backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0"
             onClick={() => {
               setEditing(null);
               setNotesInput("");
@@ -549,30 +549,49 @@ export default function AdminScentsPage() {
           />
 
           {/* Modal */}
-          <div className="relative card w-full max-w-2xl max-h-[90vh] overflow-y-auto p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold">
-                {scents.find(s => s.id === editing.id) ? "Edit Scent" : "New Scent"}
-              </h2>
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+                  {scents.find(s => s.id === editing.id) ? "Edit Scent" : "New Scent"}
+                </h2>
+                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                  Configure scent details, cost calculation, and product availability
+                </p>
+              </div>
               <button
-                className="btn"
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
                 onClick={() => {
                   setEditing(null);
                   setNotesInput("");
                   setError(null);
                 }}
               >
-                Close
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            {error && (
-              <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg">
-                <p className="text-sm text-rose-900">{error}</p>
-              </div>
-            )}
+            {/* Scrollable Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              {error && (
+                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg">
+                  <p className="text-sm text-rose-900">{error}</p>
+                </div>
+              )}
 
-            <div className="space-y-4">
+              {/* ---------- Basic Information Section ---------- */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Basic Information</h3>
+                </div>
+
+                <div className="space-y-4">
               {/* Name */}
               <label className="block">
                 <div className="text-sm font-medium mb-1">Display Name</div>
@@ -643,10 +662,20 @@ export default function AdminScentsPage() {
                   Lower numbers appear first. Leave at 0 for alphabetical sorting.
                 </p>
               </label>
+                </div>
+              </div>
 
-              {/* Cost Calculation */}
-              <div className="border border-[var(--color-line)] rounded-lg p-4">
-                <h3 className="text-sm font-medium mb-3">Cost Calculation (Admin Only)</h3>
+              {/* ---------- Cost Calculation Section ---------- */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Cost Calculation</h3>
+                  <span className="text-xs text-[var(--color-muted)]">(Admin Only)</span>
+                </div>
+
+                <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
 
                 {/* Cost Mode Selector */}
                 <div className="mb-3">
@@ -699,75 +728,82 @@ export default function AdminScentsPage() {
                         No base oils available. Switch to the &quot;Base Oils&quot; tab to add base oils first.
                       </p>
                     ) : (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <p className="text-xs text-[var(--color-muted)]">
                           Build this scent from base fragrance oils. Percentages must total 100%.
                         </p>
 
-                        {(editing.composition || []).map((comp, idx) => (
-                          <div key={idx} className="border border-[var(--color-line)] rounded-lg p-3 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <div className="text-xs font-medium text-[var(--color-muted)]">
-                                Component {idx + 1}
+                        {/* Base Oil Components Grid */}
+                        {(editing.composition || []).length > 0 && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            {(editing.composition || []).map((comp, idx) => (
+                              <div key={idx} className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="text-xs font-medium text-neutral-900">
+                                    Component {idx + 1}
+                                  </div>
+                                  <button
+                                    type="button"
+                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                    onClick={() => {
+                                      const newComp = [...(editing.composition || [])];
+                                      newComp.splice(idx, 1);
+                                      setEditing({ ...editing, composition: newComp });
+                                    }}
+                                  >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                  </button>
+                                </div>
+
+                                <div className="space-y-2">
+                                  <label className="block">
+                                    <div className="text-xs font-medium mb-1 text-neutral-600">Base Oil</div>
+                                    <select
+                                      className="input text-sm w-full"
+                                      value={comp.baseOilId}
+                                      onChange={(e) => {
+                                        const newComp = [...(editing.composition || [])];
+                                        newComp[idx] = { ...comp, baseOilId: e.target.value };
+                                        setEditing({ ...editing, composition: newComp });
+                                      }}
+                                    >
+                                      <option value="">Select...</option>
+                                      {baseOils.map((oil) => (
+                                        <option key={oil.id} value={oil.id}>
+                                          {oil.name} (${oil.costPerOz.toFixed(2)}/oz)
+                                        </option>
+                                      ))}
+                                    </select>
+                                  </label>
+
+                                  <label className="block">
+                                    <div className="text-xs font-medium mb-1 text-neutral-600">Percentage (%)</div>
+                                    <input
+                                      className="input text-sm w-full"
+                                      type="number"
+                                      step="1"
+                                      min="0"
+                                      max="100"
+                                      value={comp.percentage || ""}
+                                      onChange={(e) => {
+                                        const newComp = [...(editing.composition || [])];
+                                        newComp[idx] = { ...comp, percentage: e.target.value === "" ? 0 : Number(e.target.value) };
+                                        setEditing({ ...editing, composition: newComp });
+                                      }}
+                                      placeholder="e.g., 60"
+                                    />
+                                  </label>
+                                </div>
                               </div>
-                              <button
-                                type="button"
-                                className="btn text-xs px-2 py-1"
-                                onClick={() => {
-                                  const newComp = [...(editing.composition || [])];
-                                  newComp.splice(idx, 1);
-                                  setEditing({ ...editing, composition: newComp });
-                                }}
-                              >
-                                Remove
-                              </button>
-                            </div>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <label className="block">
-                                <div className="text-xs font-medium mb-1">Base Oil</div>
-                                <select
-                                  className="input text-sm w-full"
-                                  value={comp.baseOilId}
-                                  onChange={(e) => {
-                                    const newComp = [...(editing.composition || [])];
-                                    newComp[idx] = { ...comp, baseOilId: e.target.value };
-                                    setEditing({ ...editing, composition: newComp });
-                                  }}
-                                >
-                                  <option value="">Select base oil...</option>
-                                  {baseOils.map((oil) => (
-                                    <option key={oil.id} value={oil.id}>
-                                      {oil.name} (${oil.costPerOz.toFixed(2)}/oz)
-                                    </option>
-                                  ))}
-                                </select>
-                              </label>
-
-                              <label className="block">
-                                <div className="text-xs font-medium mb-1">Percentage (%)</div>
-                                <input
-                                  className="input text-sm w-full"
-                                  type="number"
-                                  step="1"
-                                  min="0"
-                                  max="100"
-                                  value={comp.percentage || ""}
-                                  onChange={(e) => {
-                                    const newComp = [...(editing.composition || [])];
-                                    newComp[idx] = { ...comp, percentage: e.target.value === "" ? 0 : Number(e.target.value) };
-                                    setEditing({ ...editing, composition: newComp });
-                                  }}
-                                  placeholder="e.g., 60"
-                                />
-                              </label>
-                            </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
 
                         <button
                           type="button"
-                          className="btn text-sm w-full"
+                          className="btn text-sm w-full hover:bg-neutral-100 transition-colors"
                           onClick={() => {
                             setEditing({
                               ...editing,
@@ -780,14 +816,17 @@ export default function AdminScentsPage() {
 
                         {/* Show total percentage */}
                         {editing.composition && editing.composition.length > 0 && (
-                          <div className="p-3 bg-neutral-50 rounded-lg">
-                            <div className="text-sm font-medium">
-                              Total: {editing.composition.reduce((sum, c) => sum + c.percentage, 0)}%
-                              {Math.abs(editing.composition.reduce((sum, c) => sum + c.percentage, 0) - 100) > 0.01 ? (
-                                <span className="text-amber-600 ml-2">⚠ Must total 100%</span>
-                              ) : (
-                                <span className="text-green-600 ml-2">✓ Valid</span>
-                              )}
+                          <div className="p-3 bg-white rounded-lg border-2 border-neutral-200">
+                            <div className="text-sm font-medium flex items-center justify-between">
+                              <span>Total Percentage:</span>
+                              <span className="text-lg">
+                                {editing.composition.reduce((sum, c) => sum + c.percentage, 0)}%
+                                {Math.abs(editing.composition.reduce((sum, c) => sum + c.percentage, 0) - 100) > 0.01 ? (
+                                  <span className="text-amber-600 ml-2 text-xs">⚠ Must equal 100%</span>
+                                ) : (
+                                  <span className="text-green-600 ml-2 text-xs">✓ Valid</span>
+                                )}
+                              </span>
                             </div>
                           </div>
                         )}
@@ -795,10 +834,21 @@ export default function AdminScentsPage() {
                     )}
                   </div>
                 )}
+                </div>
               </div>
 
+              {/* ---------- Scent Settings Section ---------- */}
+              <div className="mb-8">
+                <div className="flex items-center gap-2 mb-4">
+                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                  </svg>
+                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Scent Settings</h3>
+                </div>
+
+                <div className="space-y-3">
               {/* Limited Toggle */}
-              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg">
+              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg bg-white hover:bg-neutral-50 transition-colors cursor-pointer">
                 <input
                   type="checkbox"
                   checked={editing.limited}
@@ -818,7 +868,7 @@ export default function AdminScentsPage() {
               </label>
 
               {/* Seasonal Toggle */}
-              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg">
+              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg bg-white hover:bg-neutral-50 transition-colors cursor-pointer">
                 <input
                   type="checkbox"
                   checked={editing.seasonal ?? false}
@@ -835,11 +885,23 @@ export default function AdminScentsPage() {
                   </p>
                 </div>
               </label>
+                </div>
+              </div>
 
-              {/* Product Selection (only if limited) */}
+              {/* ---------- Product Selection Section (only if limited) ---------- */}
               {editing.limited && (
-                <div className="border border-[var(--color-line)] rounded-lg p-4">
-                  <h3 className="text-sm font-medium mb-3">Enabled Products</h3>
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                    </svg>
+                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Enabled Products</h3>
+                    <span className="text-xs text-[var(--color-muted)]">
+                      ({editing.enabledProducts?.length ?? 0} selected)
+                    </span>
+                  </div>
+
+                <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
                   {products.length === 0 ? (
                     <p className="text-sm text-[var(--color-muted)]">No products available</p>
                   ) : (
@@ -863,17 +925,15 @@ export default function AdminScentsPage() {
                       })}
                     </div>
                   )}
-                  <p className="text-xs text-[var(--color-muted)] mt-3">
-                    Selected: {editing.enabledProducts?.length ?? 0} product{editing.enabledProducts?.length !== 1 ? 's' : ''}
-                  </p>
+                </div>
                 </div>
               )}
             </div>
 
             {/* Footer */}
-            <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-[var(--color-line)]">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
               <button
-                className="btn"
+                className="btn hover:bg-white transition-colors"
                 onClick={() => {
                   setEditing(null);
                   setNotesInput("");
