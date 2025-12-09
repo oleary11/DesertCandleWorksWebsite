@@ -162,12 +162,12 @@ export default async function Home() {
             </span>
           </h2>
           <p className="text-base sm:text-lg leading-relaxed text-[var(--color-muted)] max-w-3xl mx-auto">
-            Our lineup rotates through{" "}
+            Our lineup features core{" "}
             <span className="font-semibold text-[var(--color-ink)]">Signature</span> blends,
             small-batch{" "}
             <span className="font-semibold text-[var(--color-ink)]">Limited</span> pours on select bottles,
             and limited-time{" "}
-            <span className="font-semibold text-[var(--color-ink)]">Seasonal</span> scents available across all bottles.
+            <span className="font-semibold text-[var(--color-ink)]">Seasonal</span> scents on select bottles.
           </p>
         </div>
 
@@ -199,7 +199,7 @@ export default async function Home() {
 
               {/* Description */}
               <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
-                Our core, desert-inspired blends cycle in and out through the year.
+                Our core, desert-inspired blends that are always in rotation.
               </p>
 
               {/* Scent list */}
@@ -295,7 +295,7 @@ export default async function Home() {
               {/* Description */}
               <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
                 Timed to the season and available{" "}
-                <span className="font-semibold text-[var(--color-ink)]">across all bottle styles</span> during the run.
+                <span className="font-semibold text-[var(--color-ink)]">on select bottles</span> during the run.
               </p>
 
               {/* Additional info */}
