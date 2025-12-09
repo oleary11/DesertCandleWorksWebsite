@@ -318,16 +318,16 @@ export default function AdminProductsPage() {
     className?: string;
   }) {
     if (column === "none") {
-      return <th className={`py-2 pr-3 ${className}`}>{children}</th>;
+      return <th className={`py-3 text-xs font-semibold text-neutral-600 uppercase tracking-wide ${className}`}>{children}</th>;
     }
 
     const isActive = sortBy === column;
     const arrow = isActive ? (sortDirection === "asc" ? " ↑" : " ↓") : "";
 
     return (
-      <th className={`py-2 pr-3 ${className}`}>
+      <th className={`py-3 ${className}`}>
         <button
-          className="text-left font-semibold hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
+          className="w-full text-xs font-semibold text-neutral-600 uppercase tracking-wide hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
           onClick={() => handleSort(column)}
         >
           {children}{arrow}
@@ -610,7 +610,7 @@ export default function AdminProductsPage() {
 
   /* ---------- UI ---------- */
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+    <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
       {/* Top bar */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div>
@@ -799,155 +799,198 @@ export default function AdminProductsPage() {
       </div>
 
       {/* Content */}
-      <div className="mt-4">
+      <div className="mt-6">
         {loading ? (
-          <p>Loading…</p>
+          <div className="flex items-center justify-center py-12">
+            <p className="text-[var(--color-muted)]">Loading products…</p>
+          </div>
         ) : filtered.length === 0 ? (
-          <p className="text-[var(--color-muted)]">No products.</p>
+          <div className="text-center py-12">
+            <p className="text-[var(--color-muted)]">No products found</p>
+          </div>
         ) : (
           <>
-            {/* Desktop/tablet table */}
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left border-b border-[var(--color-line)]">
-                    <SortableHeader column="none">Visible</SortableHeader>
-                    <SortableHeader column="none">Image</SortableHeader>
-                    <SortableHeader column="name">Name</SortableHeader>
-                    <SortableHeader column="none">Slug</SortableHeader>
-                    <SortableHeader column="price">Price</SortableHeader>
-                    <SortableHeader column="cost">Cost</SortableHeader>
-                    <SortableHeader column="none">Type</SortableHeader>
-                    <SortableHeader column="stock">Stock</SortableHeader>
-                    <SortableHeader column="best">Best</SortableHeader>
-                    <SortableHeader column="status">Status</SortableHeader>
-                    <SortableHeader column="none">Actions</SortableHeader>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((p) => {
-                    const isDraft = hasDraft(p.slug);
-                    return (
-                      <tr key={p.slug} className="border-b border-[var(--color-line)]">
-                        <td className="py-2 pr-3">
-                          <input
-                            type="checkbox"
-                            checked={p.visibleOnWebsite !== false}
-                            onChange={(e) => {
-                              const updated = { ...p, visibleOnWebsite: e.target.checked };
-                              stageProduct(updated);
-                            }}
-                            title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
-                          />
-                        </td>
-                        <td className="py-2 pr-3">
-                          {(() => {
-                            const img = p.images?.[0] ?? p.image;
-                            return img ? (
-                              <Image
-                                src={img}
-                                alt=""
-                                width={48}
-                                height={48}
-                                className="object-contain"
-                              />
-                            ) : (
-                              <span>—</span>
-                            );
-                          })()}
-                        </td>
-                        <td className="py-2 pr-3">{p.name}</td>
-                        <td className="py-2 pr-3">{p.slug}</td>
-                        <td className="py-2 pr-3">${p.price.toFixed(2)}</td>
-                        <td className="py-2 pr-3">
-                          {p.materialCost ? (
-                            <span className="text-sm">
-                              ${p.materialCost.toFixed(2)}
-                              {p.price > 0 && (
-                                <span className="block text-xs text-green-600">
-                                  +{(((p.price - p.materialCost) / p.price) * 100).toFixed(0)}%
-                                </span>
-                              )}
-                            </span>
-                          ) : (
-                            <span className="text-[var(--color-muted)]">—</span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-3">{p.alcoholType ?? "Other"}</td>
-                        <td className="py-2 pr-3">
-                          <span className="text-sm">
-                            {getTotalStock(p)}{" "}
-                            <span className="text-[var(--color-muted)]">(variants)</span>
-                          </span>
-                        </td>
-                        <td className="py-2 pr-3">{p.bestSeller ? "★" : "—"}</td>
-                        <td className="py-2 pr-3">
-                          {isDraft ? (
-                            <span className="badge">Draft</span>
-                          ) : (
-                            <span className="text-xs text-[var(--color-muted)]">Published</span>
-                          )}
-                        </td>
-                        <td className="py-2 pr-3">
-                          <div className="flex flex-wrap gap-2">
-                            <button
-                              className="btn"
-                              onClick={() => {
-                                setEditing(p);
-                                setSlugTouched(true);
-                                setSlugError(null);
-                                setError(null);
+            {/* Desktop table */}
+            <div className="hidden lg:block">
+              <div className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-white shadow-sm">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100 border-b border-[var(--color-line)]">
+                    <tr>
+                      <SortableHeader column="none" className="w-20 text-center border-r border-[var(--color-line)]">
+                        Visible
+                      </SortableHeader>
+                      <SortableHeader column="none" className="w-24 text-center border-r border-[var(--color-line)]">Image</SortableHeader>
+                      <SortableHeader column="name" className="text-center border-r border-[var(--color-line)]">Name</SortableHeader>
+                      <SortableHeader column="price" className="w-28 text-center border-r border-[var(--color-line)]">Price</SortableHeader>
+                      <SortableHeader column="cost" className="w-36 text-center border-r border-[var(--color-line)]">Cost</SortableHeader>
+                      <SortableHeader column="none" className="w-36 text-center border-r border-[var(--color-line)]">Type</SortableHeader>
+                      <SortableHeader column="stock" className="w-28 text-center border-r border-[var(--color-line)]">Stock</SortableHeader>
+                      <SortableHeader column="best" className="w-20 text-center border-r border-[var(--color-line)]">Best</SortableHeader>
+                      <SortableHeader column="status" className="w-32 text-center border-r border-[var(--color-line)]">Status</SortableHeader>
+                      <SortableHeader column="none" className="text-center">Actions</SortableHeader>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-[var(--color-line)]">
+                    {filtered.map((p) => {
+                      const isDraft = hasDraft(p.slug);
+                      const profitMargin = p.materialCost && p.price > 0
+                        ? (((p.price - p.materialCost) / p.price) * 100).toFixed(0)
+                        : null;
+
+                      return (
+                        <tr key={p.slug} className="group hover:bg-neutral-50/50 transition-colors">
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            <input
+                              type="checkbox"
+                              checked={p.visibleOnWebsite !== false}
+                              onChange={(e) => {
+                                const updated = { ...p, visibleOnWebsite: e.target.checked };
+                                stageProduct(updated);
                               }}
-                            >
-                              Edit
-                            </button>
-
+                              className="w-4 h-4 text-[var(--color-accent)] rounded border-neutral-300 focus:ring-2 focus:ring-[var(--color-accent)]"
+                              title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
+                            />
+                          </td>
+                          <td className="py-5 border-r border-[var(--color-line)]">
+                            <div className="flex justify-center">
+                              {(() => {
+                                const img = p.images?.[0] ?? p.image;
+                                return img ? (
+                                  <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-100">
+                                    <Image
+                                      src={img}
+                                      alt={p.name}
+                                      fill
+                                      sizes="64px"
+                                      className="object-contain p-1"
+                                    />
+                                  </div>
+                                ) : (
+                                  <div className="w-16 h-16 rounded-lg bg-neutral-100 flex items-center justify-center">
+                                    <svg className="w-8 h-8 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          </td>
+                          <td className="py-5 px-4 text-center border-r border-[var(--color-line)]">
+                            <div className="font-medium text-[var(--color-ink)] text-sm">{p.name}</div>
+                            <div className="text-xs text-[var(--color-muted)] mt-1">{p.slug}</div>
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            <div className="font-semibold text-[var(--color-ink)] text-sm">${p.price.toFixed(2)}</div>
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            {p.materialCost ? (
+                              <div>
+                                <div className="font-medium text-[var(--color-ink)] text-sm">${p.materialCost.toFixed(2)}</div>
+                                {profitMargin && (
+                                  <div className="text-xs text-green-600 font-medium mt-0.5">+{profitMargin}%</div>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[var(--color-muted)]">—</span>
+                            )}
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">
+                              {p.alcoholType ?? "Other"}
+                            </span>
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            <div className="font-semibold text-[var(--color-ink)] text-sm">{getTotalStock(p)}</div>
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
+                            {p.bestSeller ? (
+                              <span className="text-amber-500" title="Best Seller">
+                                <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
+                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                                </svg>
+                              </span>
+                            ) : (
+                              <span className="text-neutral-300">—</span>
+                            )}
+                          </td>
+                          <td className="py-5 text-center border-r border-[var(--color-line)]">
                             {isDraft ? (
-                              <>
-                                <button
-                                  className="btn btn-primary"
-                                  disabled={saving}
-                                  onClick={() => publishOne(p.slug)}
-                                >
-                                  {saving ? "Publishing…" : "Publish"}
-                                </button>
-                                <button className="btn" onClick={() => discardDraft(p.slug)}>
-                                  Discard
-                                </button>
-                              </>
-                            ) : null}
+                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
+                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                                Draft
+                              </span>
+                            ) : (
+                              <span className="text-xs text-[var(--color-muted)]">Published</span>
+                            )}
+                          </td>
+                          <td className="py-5 px-4 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                className="btn text-sm px-4 py-2"
+                                onClick={() => {
+                                  setEditing(p);
+                                  setSlugTouched(true);
+                                  setSlugError(null);
+                                  setError(null);
+                                }}
+                              >
+                                Edit
+                              </button>
 
-                            <button className="btn" onClick={() => void deleteProduct(p.slug)}>
-                              Delete
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                              {isDraft && (
+                                <>
+                                  <button
+                                    className="btn btn-primary text-sm px-4 py-2"
+                                    disabled={saving}
+                                    onClick={() => publishOne(p.slug)}
+                                  >
+                                    {saving ? "…" : "Publish"}
+                                  </button>
+                                  <button
+                                    className="btn text-sm px-4 py-2"
+                                    onClick={() => discardDraft(p.slug)}
+                                  >
+                                    Discard
+                                  </button>
+                                </>
+                              )}
+
+                              <button
+                                className="btn text-sm px-4 py-2 text-red-600 hover:bg-red-50"
+                                onClick={() => void deleteProduct(p.slug)}
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            {/* Mobile card list */}
-            <div className="md:hidden grid grid-cols-1 gap-3">
+            {/* Mobile/Tablet card list */}
+            <div className="lg:hidden space-y-3">
               {filtered.map((p) => {
                 const isDraft = hasDraft(p.slug);
                 return (
                   <div key={p.slug} className="card p-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex-shrink-0">
-                        <input
-                          type="checkbox"
-                          checked={p.visibleOnWebsite !== false}
-                          onChange={(e) => {
-                            const updated = { ...p, visibleOnWebsite: e.target.checked };
-                            stageProduct(updated);
-                          }}
-                          title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
-                        />
-                      </div>
-                      <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-white">
+                    <div className="flex items-start gap-3 mb-3">
+                      <input
+                        type="checkbox"
+                        checked={p.visibleOnWebsite !== false}
+                        onChange={(e) => {
+                          const updated = { ...p, visibleOnWebsite: e.target.checked };
+                          stageProduct(updated);
+                        }}
+                        className="mt-1 w-4 h-4 text-[var(--color-accent)] rounded"
+                        title={p.visibleOnWebsite !== false ? "Visible" : "Hidden"}
+                      />
+                      <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-neutral-100">
                         {(() => {
                           const img = p.images?.[0] ?? p.image;
                           return img ? (
@@ -956,57 +999,51 @@ export default function AdminProductsPage() {
                         })()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-medium truncate">{p.name}</h3>
-                          {p.bestSeller ? <span className="badge">Best</span> : null}
-                          {isDraft ? <span className="badge">Draft</span> : null}
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-semibold text-[var(--color-ink)] truncate">{p.name}</h3>
+                          {p.bestSeller && <span className="text-amber-500">★</span>}
                         </div>
-                        <div className="text-xs text-[var(--color-muted)] truncate">
-                          {p.slug} · ${p.price.toFixed(2)} · {p.alcoholType ?? "Other"}
+                        <div className="text-xs text-[var(--color-muted)]">{p.slug}</div>
+                        <div className="flex items-center gap-3 mt-2 text-sm">
+                          <span className="font-semibold">${p.price.toFixed(2)}</span>
+                          <span className="text-[var(--color-muted)]">·</span>
+                          <span>Stock: {getTotalStock(p)}</span>
+                          {isDraft && <span className="badge">Draft</span>}
                         </div>
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between gap-3">
-                      {/* Stock control */}
-                      <div className="text-sm">
-                        Stock: {getTotalStock(p)}{" "}
-                        <span className="text-[var(--color-muted)]">(variants)</span>
-                      </div>
+                    <div className="flex flex-wrap gap-2 pt-3 border-t border-[var(--color-line)]">
+                      <button
+                        className="btn text-xs px-3 py-2 flex-1"
+                        onClick={() => {
+                          setEditing(p);
+                          setSlugTouched(true);
+                          setSlugError(null);
+                          setError(null);
+                        }}
+                      >
+                        Edit
+                      </button>
 
-                      {/* Row actions */}
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <button
-                          className="btn h-10"
-                          onClick={() => {
-                            setEditing(p);
-                            setSlugTouched(true);
-                            setSlugError(null);
-                            setError(null);
-                          }}
-                        >
-                          Edit
-                        </button>
+                      {isDraft && (
+                        <>
+                          <button
+                            className="btn btn-primary text-xs px-3 py-2"
+                            disabled={saving}
+                            onClick={() => publishOne(p.slug)}
+                          >
+                            {saving ? "…" : "Publish"}
+                          </button>
+                          <button className="btn text-xs px-3 py-2" onClick={() => discardDraft(p.slug)}>
+                            Discard
+                          </button>
+                        </>
+                      )}
 
-                        {isDraft ? (
-                          <>
-                            <button
-                              className="btn btn-primary h-10"
-                              disabled={saving}
-                              onClick={() => publishOne(p.slug)}
-                            >
-                              {saving ? "…" : "Publish"}
-                            </button>
-                            <button className="btn h-10" onClick={() => discardDraft(p.slug)}>
-                              Discard
-                            </button>
-                          </>
-                        ) : null}
-
-                        <button className="btn h-10" onClick={() => void deleteProduct(p.slug)}>
-                          Delete
-                        </button>
-                      </div>
+                      <button className="btn text-xs px-3 py-2 text-red-600" onClick={() => void deleteProduct(p.slug)}>
+                        Delete
+                      </button>
                     </div>
                   </div>
                 );
@@ -1018,10 +1055,10 @@ export default function AdminProductsPage() {
 
       {/* ---------- Edit/Create Modal (scrollable on mobile) ---------- */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
           {/* backdrop */}
           <div
-            className="absolute inset-0 bg-black/40"
+            className="absolute inset-0"
             onClick={() => {
               setEditing(null);
               setSlugTouched(false);
@@ -1030,20 +1067,19 @@ export default function AdminProductsPage() {
             }}
           />
           {/* panel */}
-          <div
-            className="
-              relative card w-[92vw] max-w-[720px]
-              h-[92svh] sm:h-auto sm:max-h-[90svh]
-              overflow-y-auto
-              p-5 sm:p-6
-            "
-          >
-            <div className="sticky top-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-b border-[var(--color-line)] px-5 sm:px-6 py-3 z-10 flex items-center justify-between">
-              <h2 className="text-lg sm:text-xl font-semibold">
-                {isServerItem(editing.slug) ? "Edit product (staged)" : "New product (staged)"}
-              </h2>
+          <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+                  {isServerItem(editing.slug) ? "Edit Product" : "New Product"}
+                </h2>
+                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                  {isServerItem(editing.slug) ? "Changes are staged until published" : "Configure product details and variants"}
+                </p>
+              </div>
               <button
-                className="btn"
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
                 onClick={() => {
                   setEditing(null);
                   setSlugTouched(false);
@@ -1052,19 +1088,38 @@ export default function AdminProductsPage() {
                 }}
                 aria-label="Close"
               >
-                Close
+                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
               </button>
             </div>
 
-            {error && <p className="text-rose-600 text-sm mt-3">{error}</p>}
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              {error && (
+                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
+                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <p className="text-sm text-red-800">{error}</p>
+                </div>
+              )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              {/* Name */}
-              <label className="block">
-                <div className="text-xs mb-1">Name</div>
-                <input
-                  className="input"
-                  value={editing.name}
+              {/* Basic Information Section */}
+              <div className="mb-8">
+                <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Basic Information
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Name */}
+                  <label className="block">
+                    <div className="text-xs font-medium text-neutral-700 mb-2">Product Name</div>
+                    <input
+                      className="input"
+                      value={editing.name}
                   onChange={(e) => {
                     const name = e.target.value;
                     setEditing((prev) => {
@@ -1084,9 +1139,9 @@ export default function AdminProductsPage() {
                 />
               </label>
 
-              {/* Slug */}
-              <label className="block">
-                <div className="text-xs mb-1">Slug</div>
+                  {/* Slug */}
+                  <label className="block">
+                    <div className="text-xs font-medium text-neutral-700 mb-2">URL Slug</div>
                 <input
                   className="input"
                   value={editing.slug}
@@ -1347,188 +1402,206 @@ export default function AdminProductsPage() {
                 />
               </label>
             </div>
+          </div>
 
-            {/* ---------- Variants Section ---------- */}
-            <div className="mt-6 border-t border-[var(--color-line)] pt-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold">Product Variants</h3>
-                <p className="text-xs text-[var(--color-muted)]">
-                  All products use the global scents system
-                </p>
-              </div>
+              {/* ---------- Variants Section ---------- */}
+              <div className="mb-8">
+                <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
+                  <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                  </svg>
+                  Product Variants
+                </h3>
 
-              {(() => {
-                // Auto-initialize variantConfig if it doesn't exist
-                if (!editing.variantConfig) {
-                  setEditing({
-                    ...editing,
-                    variantConfig: {
-                      wickTypes: [{ id: "standard", name: "Standard Wick" }],
-                      variantData: {},
-                    },
+                {(() => {
+                  // Auto-initialize variantConfig if it doesn't exist
+                  if (!editing.variantConfig) {
+                    setEditing({
+                      ...editing,
+                      variantConfig: {
+                        wickTypes: [{ id: "standard", name: "Standard Wick" }],
+                        variantData: {},
+                      },
+                    });
+                    return null;
+                  }
+
+                  const availableScents = globalScents.filter((scent) => {
+                    if (!scent.limited) return true;
+                    return scent.enabledProducts?.includes(editing.slug) ?? false;
                   });
-                  return null;
-                }
-                return (
-                  <div className="space-y-4">
-                    {/* Wick Types */}
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <h4 className="text-xs font-medium">Wick Types</h4>
-                        <button
-                          type="button"
-                          className="btn text-xs"
-                          onClick={() => {
-                            const newId = `wick-${Date.now()}`;
-                            setEditing({
-                              ...editing,
-                              variantConfig: {
-                                ...editing.variantConfig!,
-                                wickTypes: [
-                                  ...editing.variantConfig!.wickTypes,
-                                  { id: newId, name: "New Wick Type" },
-                                ],
-                              },
-                            });
-                          }}
-                        >
-                          + Add Wick Type
-                        </button>
+                  const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Wick Types Configuration */}
+                      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-medium text-neutral-900">Wick Types</h4>
+                          <button
+                            type="button"
+                            className="btn btn-primary text-xs px-3 py-1.5"
+                            onClick={() => {
+                              const newId = `wick-${Date.now()}`;
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  wickTypes: [
+                                    ...editing.variantConfig!.wickTypes,
+                                    { id: newId, name: "New Wick Type" },
+                                  ],
+                                },
+                              });
+                            }}
+                          >
+                            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Wick
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {editing.variantConfig.wickTypes.map((wick, idx) => (
+                            <div key={wick.id} className="flex items-center gap-2 bg-white rounded-lg p-3 border border-neutral-200">
+                              <input
+                                className="input text-sm flex-1"
+                                value={wick.name}
+                                onChange={(e) => {
+                                  const newWicks = [...editing.variantConfig!.wickTypes];
+                                  newWicks[idx] = { ...wick, name: e.target.value };
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      wickTypes: newWicks,
+                                    },
+                                  });
+                                }}
+                                placeholder="e.g., Wood Wick"
+                              />
+                              <button
+                                type="button"
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                onClick={() => {
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      wickTypes: editing.variantConfig!.wickTypes.filter((_, i) => i !== idx),
+                                    },
+                                  });
+                                }}
+                                title="Remove wick type"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
                       </div>
-                      <div className="space-y-2">
-                        {editing.variantConfig.wickTypes.map((wick, idx) => (
-                          <div key={wick.id} className="flex items-center gap-2">
-                            <input
-                              className="input text-sm flex-1"
-                              value={wick.name}
-                              onChange={(e) => {
-                                const newWicks = [...editing.variantConfig!.wickTypes];
-                                newWicks[idx] = { ...wick, name: e.target.value };
-                                setEditing({
-                                  ...editing,
-                                  variantConfig: {
-                                    ...editing.variantConfig!,
-                                    wickTypes: newWicks,
-                                  },
-                                });
-                              }}
-                              placeholder="e.g., Wood Wick"
-                            />
-                            <button
-                              type="button"
-                              className="btn text-xs"
-                              onClick={() => {
-                                setEditing({
-                                  ...editing,
-                                  variantConfig: {
-                                    ...editing.variantConfig!,
-                                    wickTypes: editing.variantConfig!.wickTypes.filter(
-                                      (_, i) => i !== idx
-                                    ),
-                                  },
-                                });
-                              }}
-                            >
-                              Remove
-                            </button>
+
+                      {/* Scents Info Banner */}
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
+                        <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-blue-900 mb-1">Global Scents System</p>
+                          <p className="text-xs text-blue-800">
+                            Scents are managed globally and automatically appear as variants.{" "}
+                            <a href="/admin/scents" className="font-medium underline hover:text-blue-900">
+                              Manage scents →
+                            </a>
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Variant Stock Grid */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-medium text-neutral-900">
+                            Inventory ({variantsForDisplay.length} variants)
+                          </h4>
+                          <div className="text-xs text-neutral-500">
+                            {editing.variantConfig.wickTypes.length} wick × {availableScents.length} scents
                           </div>
-                        ))}
+                        </div>
+
+                        {availableScents.length === 0 ? (
+                          <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                            <svg className="w-8 h-8 text-amber-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <p className="text-sm font-medium text-amber-900 mb-1">No scents available</p>
+                            <p className="text-xs text-amber-800">
+                              <a href="/admin/scents" className="underline font-medium">
+                                Add scents
+                              </a>{" "}
+                              to create product variants
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="max-h-[400px] overflow-y-auto border border-neutral-200 rounded-xl">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4">
+                              {variantsForDisplay.map((v) => (
+                                <div key={v.id} className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all">
+                                  <div className="text-xs font-medium text-neutral-900 mb-2 line-clamp-2" title={`${v.wickName} / ${v.scentName}`}>
+                                    {v.scentName}
+                                  </div>
+                                  <div className="text-xs text-neutral-500 mb-2 truncate">{v.wickName}</div>
+                                  <input
+                                    className="input text-sm w-full"
+                                    type="number"
+                                    min="0"
+                                    value={v.stock}
+                                    placeholder="Stock"
+                                    onChange={(e) => {
+                                      const newData = { ...editing.variantConfig!.variantData };
+                                      newData[v.id] = {
+                                        stock: e.target.value === "" ? 0 : Number(e.target.value),
+                                      };
+                                      setEditing({
+                                        ...editing,
+                                        variantConfig: {
+                                          ...editing.variantConfig!,
+                                          variantData: newData,
+                                        },
+                                      });
+                                    }}
+                                    onBlur={(e) => {
+                                      const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                      const newData = { ...editing.variantConfig!.variantData };
+                                      newData[v.id] = {
+                                        stock: Math.max(0, val),
+                                      };
+                                      setEditing({
+                                        ...editing,
+                                        variantConfig: {
+                                          ...editing.variantConfig!,
+                                          variantData: newData,
+                                        },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-
-                    {/* Scents are now managed globally - show info */}
-                    <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                      <p className="text-xs text-blue-900">
-                        <strong>Scents are now global.</strong> All scents from the global scents list
-                        will automatically appear as variants for this product.
-                        <a href="/admin/scents" className="underline ml-1">
-                          Manage scents →
-                        </a>
-                      </p>
-                    </div>
-
-                    {/* Generated Variants Grid */}
-                    <div>
-                      {(() => {
-                        const availableScents = globalScents.filter((scent) => {
-                          if (!scent.limited) return true;
-                          return scent.enabledProducts?.includes(editing.slug) ?? false;
-                        });
-                        const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
-
-                        return (
-                          <>
-                            <h4 className="text-xs font-medium mb-2">
-                              Generated Variants ({editing.variantConfig.wickTypes.length} wick types ×{" "}
-                              {availableScents.length} available scents = {variantsForDisplay.length} total)
-                            </h4>
-                            {availableScents.length === 0 ? (
-                              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
-                                <p className="text-xs text-amber-900">
-                                  No scents available for this product.{" "}
-                                  <a href="/admin/scents" className="underline">
-                                    Manage scents →
-                                  </a>
-                                </p>
-                              </div>
-                            ) : (
-                              <div className="max-h-96 overflow-y-auto space-y-2 border border-[var(--color-line)] rounded-lg p-2">
-                                {variantsForDisplay.map((v) => (
-                                  <div key={v.id} className="card p-2">
-                                    <div className="text-xs font-medium mb-1">
-                                      {v.wickName} / {v.scentName}
-                                    </div>
-                                    <label className="block">
-                                      <div className="text-xs mb-1">Stock</div>
-                                      <input
-                                        className="input text-xs"
-                                        type="number"
-                                        value={v.stock}
-                                        onChange={(e) => {
-                                          const newData = { ...editing.variantConfig!.variantData };
-                                          newData[v.id] = {
-                                            stock: e.target.value === "" ? 0 : Number(e.target.value),
-                                          };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              variantData: newData,
-                                            },
-                                          });
-                                        }}
-                                        onBlur={(e) => {
-                                          const val = e.target.value === "" ? 0 : Number(e.target.value);
-                                          const newData = { ...editing.variantConfig!.variantData };
-                                          newData[v.id] = {
-                                            stock: Math.max(0, val),
-                                          };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              variantData: newData,
-                                            },
-                                          });
-                                        }}
-                                      />
-                                    </label>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                );
-              })()}
+                  );
+                })()}
+              </div>
             </div>
 
-            <div className="sticky bottom-0 -mx-5 sm:-mx-6 bg-[var(--color-surface)]/80 backdrop-blur supports-[backdrop-filter]:bg-[var(--color-surface)]/70 border-t border-[var(--color-line)] px-5 sm:px-6 py-3 mt-6 flex justify-end gap-2">
+            {/* Footer */}
+            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
               <button
-                className="btn"
+                className="btn text-sm px-4 py-2"
                 onClick={() => {
                   setEditing(null);
                   setSlugTouched(false);
@@ -1536,19 +1609,24 @@ export default function AdminProductsPage() {
                   setError(null);
                 }}
               >
+                <svg className="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
                 Cancel
               </button>
 
-              {/* SAVE → STAGE ONLY (no publish here) */}
               <button
-                className="btn btn-primary"
+                className="btn btn-primary text-sm px-6 py-2"
                 onClick={() => {
                   if (!editing) return;
                   stageProduct(editing);
                   setEditing(null);
                 }}
               >
-                Save draft
+                <svg className="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                Save Draft
               </button>
             </div>
           </div>

@@ -297,8 +297,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         <div className="mx-auto max-w-6xl px-6 text-center">
           <h1>Shop Scottsdale Candles</h1>
           <p className="mt-3 text-[var(--color-muted)]">
-            Hand-poured soy candles made locally in Arizona. Upcycled bottles, wood wicks, and
-            desert-inspired scents.
+            100% natural soy coconut wax candles made in Arizona. Clean burning, smokeless, and eco-friendly. Upcycled bottles, wood wicks, and desert-inspired scents.
           </p>
           <p className="mt-2 text-sm text-[var(--color-muted)]">
             Showing {displayCount} of {productCount} {productCount === 1 ? "candle" : "candles"} (

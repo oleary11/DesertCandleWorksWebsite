@@ -3,21 +3,26 @@ import type { Metadata } from "next";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "About Us | Hand-Poured Candles Made in Scottsdale, Arizona",
+  title: "About Us | All-Natural, Eco-Friendly Candles Made in Scottsdale, Arizona",
   description:
-    "Learn how Desert Candle Works creates hand-poured soy candles in Scottsdale, AZ. Our story, upcycling process, and small-batch candle making with local Arizona bottles.",
+    "Discover Desert Candle Works' commitment to sustainability and natural ingredients. 100% soy coconut wax candles in upcycled bottles—clean burning, smokeless, and environmentally friendly. Made in Scottsdale, AZ.",
   keywords: [
-    "Scottsdale candle maker",
-    "Arizona candle company",
-    "handmade candles Scottsdale",
-    "local candle business",
-    "upcycled candles Arizona",
-    "small batch candles",
+    "natural candles Scottsdale",
+    "eco-friendly candles Arizona",
+    "sustainable candles Phoenix",
+    "soy coconut wax candles Arizona",
+    "coconut wax candles Scottsdale",
+    "upcycled candles Scottsdale",
+    "clean burning candles",
+    "smokeless candles",
+    "all-natural candles Arizona",
+    "environmentally friendly candles",
+    "zero waste candles",
   ],
   alternates: { canonical: "/about" },
   openGraph: {
-    title: "About Desert Candle Works | Scottsdale Candle Makers",
-    description: "Hand-poured soy candles made in Scottsdale, Arizona. Learn our upcycling process and small-batch candle making story.",
+    title: "About Desert Candle Works | All-Natural, Eco-Friendly Candles",
+    description: "100% natural soy coconut wax candles in upcycled bottles. Clean burning, smokeless, and environmentally friendly. Made in Scottsdale, Arizona.",
     type: "website",
   },
 };
@@ -26,27 +31,27 @@ export const metadata: Metadata = {
 const TIMELINE: Array<{title: string; text: string; image: string; alt: string}> = [
   {
     title: "Why We Started",
-    text: "We love great design, great bottles, and great candles. Tossing beautiful glass felt wrong—so we began giving bottles a second life with warm, desert-inspired scents.",
+    text: "We love great design, great bottles, and great candles. Tossing beautiful glass into landfills felt wrong—environmentally and aesthetically. We started Desert Candle Works to save these bottles and create clean-burning, all-natural candles that are better for you and the planet.",
     image: "/images/why.png",
-    alt: "Beautiful upcycled liquor bottles transformed into handmade candles",
+    alt: "Beautiful upcycled liquor bottles transformed into eco-friendly natural candles",
   },
   {
-    title: "How We Began",
-    text: "We reached out to local bars and restaurants in Scottsdale to rescue their empty bottles. After a few late-night pickups and lots of label-saving experiments, Desert Candle Works was born.",
+    title: "Rescuing Bottles from Landfills",
+    text: "We partner with local bars and restaurants in Scottsdale to rescue their empty bottles before they hit the trash. Every bottle we save is one less piece of glass waste in Arizona landfills. After a few late-night pickups and lots of label-saving experiments, Desert Candle Works was born.",
     image: "/images/bottles.jpg",
-    alt: "Collection of empty liquor bottles being rescued from local Scottsdale bars",
+    alt: "Collection of empty liquor bottles being rescued from local Scottsdale bars to reduce waste",
   },
   {
     title: "Cutting & Finishing",
-    text: "Each bottle is measured, cut on a wet tile saw, and hand-sanded. We sand the rim through multiple grits for a smooth, comfortable edge that looks as good as it feels.",
+    text: "Each bottle is measured, cut on a wet tile saw, and hand-sanded through multiple grits for a smooth, comfortable edge. This process gives discarded glass beautiful new purpose while reducing environmental waste.",
     image: "/images/cuttingbottles.png",
-    alt: "Bottle being precisely cut on a wet tile saw for candle making",
+    alt: "Sustainable bottle upcycling process - cutting bottles for eco-friendly candles",
   },
   {
-    title: "Pouring Small Batches",
-    text: "We melt premium soy wax, set centered wicks, and pour in small batches—testing every vessel for clean, even burns with a soft crackle when wood wicks are used.",
+    title: "100% Natural Soy Coconut Wax Blend",
+    text: "We use only premium, all-natural soy coconut wax—a renewable, biodegradable blend that's completely petroleum-free. Our candles burn clean with zero toxic fumes, no black soot, and no smoke. Just pure, natural fragrance from sustainable ingredients that are safe for your family, pets, and the environment.",
     image: "/images/desert-bg.jpg",
-    alt: "Small batch candle making process with premium soy wax",
+    alt: "All-natural soy coconut wax candle making - clean burning and eco-friendly",
   },
 ];
 
@@ -56,10 +61,13 @@ export default function About() {
       {/* Hero Intro */}
       <div className="mx-auto max-w-4xl text-center py-20 px-6">
         <h1 className="text-4xl font-bold tracking-tight mb-4 text-[var(--color-ink)]">
-          Our Story
+          Our Story: Natural Ingredients, Sustainable Impact
         </h1>
-        <p className="text-lg text-neutral-700">
-          We hand-pour warm, desert-inspired candles into upcycled bottles in small batches.
+        <p className="text-lg text-neutral-700 mb-4">
+          We create 100% natural soy coconut wax candles that are clean burning, smokeless, and safe for your home.
+        </p>
+        <p className="text-base text-neutral-600">
+          Every candle saves beautiful bottles from landfills—hand-poured in small batches with premium, eco-friendly ingredients.
         </p>
       </div>
 

@@ -271,6 +271,35 @@ button, .btn, .btn-primary, .btn-ghost {
   50%      { border-color: currentColor }
 }
 
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes expandWidth {
+  from {
+    width: 0;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes caretBlink {
+  0%, 50% {
+    opacity: 1;
+  }
+  51%, 100% {
+    opacity: 0;
+  }
+}
+
 /* sharper, safer line height for tall script glyphs */
 .script-hero {
   font-size: clamp(2.5rem, 7vw, 5.5rem);
