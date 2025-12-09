@@ -48,37 +48,28 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
           sizes="100vw"
           quality={90}
         />
-        <div
-          className="
-            absolute inset-0 z-10
-            flex items-center justify-center text-center
-            hero-blend
-          "
-        >
-          <div className="px-6 max-w-4xl mx-auto">
-            <h1
-              className={`${megastina.className} script-title script-hero text-[var(--color-ink)] mb-4 drop-shadow-sm`}
-            >
-              Desert Candle Works
-            </h1>
-            <p
-              className="
-                text-base sm:text-lg md:text-xl
-                text-[var(--color-ink)] font-medium tracking-wide
-                px-4 leading-relaxed drop-shadow-sm max-w-2xl mx-auto
-              "
-            >
-              All-natural soy coconut wax candles, poured by hand in Scottsdale
-            </p>
+        <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
+        <div className="relative z-10 px-6">
+          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
+            All-Natural Candles in Scottsdale, Arizona
+          </h1>
+          <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg text-[var(--color-muted)]">
+            100% natural soy coconut wax candles in upcycled liquor bottles. Clean burning, smokeless, and eco-friendly. Desert-inspired scents made with premium natural ingredients.
+          </p>
+          <div className="mt-8">
             <Link
               href="/shop"
               className="
-                inline-block mt-8 px-8 py-3.5 btn btn-primary
-                text-base font-semibold shadow-lg hover:shadow-xl
-                transition-all duration-300
+                btn-cta inline-flex items-center justify-center rounded-2xl px-10 py-4 text-base sm:text-lg font-semibold
+                border-0 text-white
+                [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
+                shadow-[0_2px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(212,165,116,.25),0_8px_20px_rgba(20,16,12,.12)]
+                hover:shadow-[0_2px_0_rgba(255,255,255,.6)_inset,0_16px_50px_rgba(212,165,116,.35),0_12px_30px_rgba(20,16,12,.16)]
+                hover:-translate-y-1 transition-all duration-200
+                hover:scale-105
               "
             >
-              Shop Now
+              Shop Candles
             </Link>
           </div>
         </div>
@@ -347,7 +338,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
                   Seasonal
                 </span>
-                <span className="text-xs text-[var(--color-muted)]">Here for a Season</span>
+                <span className="text-xs text-[var(--color-muted)]">Limited Time</span>
               </div>
 
               {/* Title */}
@@ -369,19 +360,41 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             </div>
           </div>
         </div>
+
+        {/* Shop Button */}
+        <div className="mt-12 text-center">
+          <Link
+            href="/shop"
+            className="
+              inline-flex items-center justify-center rounded-2xl px-10 py-4 text-base sm:text-lg font-semibold
+              border-0 !text-white
+              [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
+              shadow-[0_2px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(212,165,116,.25),0_8px_20px_rgba(20,16,12,.12)]
+              hover:shadow-[0_2px_0_rgba(255,255,255,.6)_inset,0_16px_50px_rgba(212,165,116,.35),0_12px_30px_rgba(20,16,12,.16)]
+              hover:-translate-y-1 transition-all duration-200
+              hover:scale-105
+            "
+          >
+            Shop Our Scents
+          </Link>
+        </div>
       </section>
 
-      {/* MAILING LIST */}
-      <section
-        ref={mailingListSection.ref as React.RefObject<HTMLElement>}
-        className={`mx-auto max-w-7xl px-6 py-16 transition-all duration-1000 ${
+      <div className="mx-auto max-w-4xl px-6 my-3">
+        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
+      </div>
+
+      <div
+        className={`pb-6 transition-all duration-1000 ${
           mailingListSection.isVisible
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-10"
         }`}
       >
-        <MailingListSignup />
-      </section>
+        <div ref={mailingListSection.ref as React.RefObject<HTMLDivElement>}>
+          <MailingListSignup />
+        </div>
+      </div>
     </>
   );
 }
