@@ -256,7 +256,7 @@ export default async function Home() {
               <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
                 We test fresh pairings and tweak ratios. These pours are{" "}
                 <span className="font-semibold text-[var(--color-ink)]">small-batch</span> and only appear on{" "}
-                <span className="font-semibold text-[var(--color-ink)]">select candles</span>. When they're gone, they're gone.
+                <span className="font-semibold text-[var(--color-ink)]">select candles</span>. When they&apos;re gone, they&apos;re gone.
               </p>
 
               {/* Additional info */}
