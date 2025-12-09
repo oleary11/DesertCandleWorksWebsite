@@ -146,12 +146,12 @@ export default async function Home() {
       </div>
 
       {/* Divider line between Best Sellers and Our Smells */}
-      <div className="mx-auto max-w-4xl px-6 my-10">
+      <div className="mx-auto max-w-4xl px-6 my-4">
         <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
       </div>
-      
+
       {/* OUR SMELLS SECTION */}
-      <section className="mx-auto max-w-7xl px-6 py-16">
+      <section className="mx-auto max-w-7xl px-6 pt-6 pb-16">
         {/* Header */}
         <div className="text-center mb-12">
           <h2 className={`${megastina.className} script-title script-hero mb-10 animate-[fadeInUp_0.8s_ease-out] relative inline-block`} style={{ color: "var(--color-ink)" }}>
