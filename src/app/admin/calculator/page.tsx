@@ -690,6 +690,9 @@ export default function CalculatorPage() {
                 value={selectedContainerId}
                 onChange={(e) => {
                   const value = e.target.value;
+                  
+                  setWickCounts({});
+
                   if (value === "__add__") {
                     setActiveTab("containers");
                     setSelectedContainerId("");
