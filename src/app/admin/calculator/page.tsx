@@ -80,6 +80,16 @@ type CalculationResult = {
   costPerWaxOz: number;
 };
 
+type BatchItem = {
+  containerId: string;
+  containerName: string;
+  waterOz: number;
+  scentId: string;
+  scentName: string;
+  wickCounts: Record<string, number>;
+  results: CalculationResult;
+};
+
 /* ---------- Helper Functions ---------- */
 function slugify(name: string): string {
   return name
@@ -185,6 +195,10 @@ export default function CalculatorPage() {
   const [newProduct, setNewProduct] = useState<Partial<Product> | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [initialStock, setInitialStock] = useState<number>(1);
+
+  // Batch tracking state
+  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  const [showExistingProductModal, setShowExistingProductModal] = useState(false);
 
   // Load all data
   async function loadData() {
@@ -478,6 +492,73 @@ export default function CalculatorPage() {
     setSavingProduct(false);
   }
 
+  /* ---------- Batch Functions ---------- */
+  function addToBatch() {
+    if (!results || !selectedScent) return;
+
+    const selectedContainer = containers.find((c) => c.id === selectedContainerId);
+    const containerName = selectedContainer?.name || `Custom (${waterOz}oz)`;
+    const scentName = scents.find((s) => s.id === selectedScentId)?.name || "";
+
+    // Check if batch already has items with different scent
+    if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
+      const shouldClear = confirm(
+        `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`
+      );
+      if (shouldClear) {
+        setBatchItems([]);
+      } else {
+        return;
+      }
+    }
+
+    const newItem: BatchItem = {
+      containerId: selectedContainerId || `custom-${waterOz}`,
+      containerName,
+      waterOz,
+      scentId: selectedScentId,
+      scentName,
+      wickCounts: { ...wickCounts },
+      results: { ...results },
+    };
+
+    setBatchItems([...batchItems, newItem]);
+  }
+
+  function clearBatch() {
+    if (batchItems.length > 0) {
+      if (confirm('Clear all items from batch?')) {
+        setBatchItems([]);
+      }
+    }
+  }
+
+  function removeBatchItem(index: number) {
+    setBatchItems(batchItems.filter((_, i) => i !== index));
+  }
+
+  // Calculate batch totals
+  const batchTotals = batchItems.reduce(
+    (acc, item) => ({
+      waxOz: acc.waxOz + item.results.waxOz,
+      fragranceOz: acc.fragranceOz + item.results.fragranceOz,
+      totalCost: acc.totalCost + item.results.totalMaterialCost,
+    }),
+    { waxOz: 0, fragranceOz: 0, totalCost: 0 }
+  );
+
+  // Calculate base oil totals for batch
+  const batchBaseOilTotals = batchItems.reduce((acc, item) => {
+    const scent = scents.find((s) => s.id === item.scentId);
+    if (scent?.composition) {
+      scent.composition.forEach((comp) => {
+        const oilOz = item.results.fragranceOz * (comp.percentage / 100);
+        acc[comp.baseOilId] = (acc[comp.baseOilId] || 0) + oilOz;
+      });
+    }
+    return acc;
+  }, {} as Record<string, number>);
+
   if (loading) return <div className="p-6">Loading...</div>;
 
   return (
@@ -510,9 +591,96 @@ export default function CalculatorPage() {
 
       {/* Calculator Tab */}
       {activeTab === "calculator" && (
-        <div className="space-y-6">
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold mb-4">Cost Calculator</h2>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Batch Sidebar */}
+          <div className="lg:col-span-1">
+            <div className="card p-4 sticky top-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-lg font-semibold">Current Batch</h3>
+                {batchItems.length > 0 && (
+                  <button
+                    onClick={clearBatch}
+                    className="text-xs text-rose-600 hover:text-rose-700"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              {batchItems.length === 0 ? (
+                <div className="text-sm text-[var(--color-muted)] text-center py-8">
+                  No items in batch yet. Calculate a candle and add it to batch.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {/* Batch Items List */}
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {batchItems.map((item, idx) => (
+                      <div key={idx} className="bg-[var(--color-background)] p-2 rounded text-xs">
+                        <div className="flex items-start justify-between gap-1">
+                          <div className="flex-1 min-w-0">
+                            <div className="font-medium truncate">{item.containerName}</div>
+                            <div className="text-[var(--color-muted)] truncate">{item.scentName}</div>
+                          </div>
+                          <button
+                            onClick={() => removeBatchItem(idx)}
+                            className="text-rose-600 hover:text-rose-700 flex-shrink-0"
+                          >
+                            ×
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Batch Totals */}
+                  <div className="border-t border-[var(--color-line)] pt-3">
+                    <div className="text-sm font-semibold mb-2">Batch Totals</div>
+                    <div className="space-y-1 text-xs">
+                      <div className="flex justify-between">
+                        <span>Candles:</span>
+                        <span className="font-medium">{batchItems.length}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Wax:</span>
+                        <span className="font-medium">{batchTotals.waxOz.toFixed(2)} oz</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Total Fragrance:</span>
+                        <span className="font-medium">{batchTotals.fragranceOz.toFixed(2)} oz</span>
+                      </div>
+
+                      {/* Base Oil Breakdown */}
+                      {Object.keys(batchBaseOilTotals).length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-[var(--color-line)]">
+                          <div className="font-medium mb-1">Base Oils Needed:</div>
+                          {Object.entries(batchBaseOilTotals).map(([oilId, oz]) => {
+                            const oil = baseOils.find((o) => o.id === oilId);
+                            return oil ? (
+                              <div key={oilId} className="flex justify-between text-[var(--color-muted)]">
+                                <span>{oil.name}:</span>
+                                <span>{oz.toFixed(2)} oz</span>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+
+                      <div className="flex justify-between border-t border-[var(--color-line)] pt-1 mt-1 font-semibold">
+                        <span>Total Cost:</span>
+                        <span>${batchTotals.totalCost.toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Main Calculator */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="card p-6">
+              <h2 className="text-xl font-semibold mb-4">Cost Calculator</h2>
 
             {/* Container Selection */}
             <div className="mb-4">
@@ -714,6 +882,20 @@ export default function CalculatorPage() {
                       <span>Fragrance ({results.fragranceOz.toFixed(2)} oz × ${scentCostPerOz.toFixed(2)}/oz)</span>
                       <span className="font-medium">${results.fragranceCost.toFixed(2)}</span>
                     </div>
+                    {selectedScent?.composition && selectedScent.composition.length > 0 && (
+                      <div className="ml-4 space-y-1 text-xs text-[var(--color-muted)] border-l-2 border-[var(--color-line)] pl-2 mt-1">
+                        {selectedScent.composition.map((comp) => {
+                          const baseOil = baseOils.find((oil) => oil.id === comp.baseOilId);
+                          const oilOz = results.fragranceOz * (comp.percentage / 100);
+                          return baseOil ? (
+                            <div key={comp.baseOilId} className="flex justify-between">
+                              <span>↳ {baseOil.name} ({comp.percentage}%)</span>
+                              <span>{oilOz.toFixed(2)} oz</span>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
                     {results.wickCost > 0 && (
                       <div className="flex justify-between">
                         <span>Wicks</span>
@@ -733,17 +915,33 @@ export default function CalculatorPage() {
                   </div>
                 </div>
 
-                {/* Add to Product Button */}
-                <div className="mt-6">
+                {/* Action Buttons */}
+                <div className="mt-6 space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <button
+                      className="btn btn-primary"
+                      onClick={openProductModal}
+                      disabled={!selectedScent || loading}
+                    >
+                      📦 New Product
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={() => setShowExistingProductModal(true)}
+                      disabled={!selectedScent || loading}
+                    >
+                      ➕ Add to Existing
+                    </button>
+                  </div>
                   <button
-                    className="btn btn-primary w-full"
-                    onClick={openProductModal}
+                    className="btn w-full bg-blue-50 hover:bg-blue-100 border-blue-200"
+                    onClick={addToBatch}
                     disabled={!selectedScent || loading}
                   >
-                    📦 Add to Product Inventory
+                    📋 Add to Batch
                   </button>
-                  <p className="text-xs text-[var(--color-muted)] text-center mt-2">
-                    Create a new product with this calculated cost and configuration
+                  <p className="text-xs text-[var(--color-muted)] text-center">
+                    Create new product, add to existing, or batch multiple candles
                   </p>
                 </div>
               </div>
@@ -752,6 +950,7 @@ export default function CalculatorPage() {
                 Select a container (or enter water capacity) and scent to see results
               </div>
             )}
+          </div>
           </div>
         </div>
       )}
@@ -1366,7 +1565,6 @@ export default function CalculatorPage() {
                 </div>
               )}
             </div>
-            </div>
 
             {/* Footer */}
             <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
@@ -1385,6 +1583,158 @@ export default function CalculatorPage() {
                 disabled={savingProduct || !newProduct.name || !newProduct.slug || !newProduct.price || newProduct.price <= 0}
               >
                 {savingProduct ? "Creating..." : "Create Product"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add to Existing Product Modal */}
+      {showExistingProductModal && results && selectedScent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div className="absolute inset-0" onClick={() => setShowExistingProductModal(false)} />
+
+          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+              <div>
+                <h2 className="text-xl font-semibold text-[var(--color-ink)]">Add to Existing Product</h2>
+                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                  Select a product to add this scent/wick combination
+                </p>
+              </div>
+              <button
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                onClick={() => setShowExistingProductModal(false)}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-y-auto px-6 py-6">
+              <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
+                <div className="font-medium text-blue-900">Adding:</div>
+                <div className="text-blue-700">
+                  Scent: {selectedScent.name}
+                  {Object.entries(wickCounts).some(([_, count]) => count > 0) && (
+                    <div className="mt-1">
+                      Wicks: {Object.entries(wickCounts)
+                        .filter(([_, count]) => count > 0)
+                        .map(([wickId, count]) => {
+                          const wick = wicks.find((w) => w.id === wickId);
+                          return wick ? `${wick.name} (${count})` : '';
+                        })
+                        .filter(Boolean)
+                        .join(', ')}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {allProducts.length === 0 ? (
+                  <div className="text-center py-8 text-[var(--color-muted)]">
+                    No products found. Create a new product first.
+                  </div>
+                ) : (
+                  allProducts.map((product) => (
+                    <button
+                      key={product.slug}
+                      onClick={async () => {
+                        // Build variant data from current calculation
+                        const selectedWickTypes = Object.entries(wickCounts)
+                          .filter(([_, count]) => count > 0)
+                          .map(([wickId]) => {
+                            const wick = wicks.find((w) => w.id === wickId);
+                            if (!wick) return null;
+                            const displayName = wick.appearAs || wick.name;
+                            const variantId = (wick.appearAs || wick.name)
+                              .toLowerCase()
+                              .replace(/\s+/g, "-")
+                              .replace(/[^a-z0-9-]/g, "");
+                            return { id: variantId, name: displayName };
+                          })
+                          .filter((w) => w !== null) as Array<{ id: string; name: string }>;
+
+                        const uniqueWickTypes = Array.from(
+                          new Map(selectedWickTypes.map(w => [w.id, w])).values()
+                        );
+
+                        // Update product with new variant
+                        const updatedVariantConfig = product.variantConfig || { wickTypes: [], variantData: {} };
+
+                        // Merge wick types
+                        const existingWickIds = new Set(updatedVariantConfig.wickTypes.map(w => w.id));
+                        uniqueWickTypes.forEach(wick => {
+                          if (!existingWickIds.has(wick.id)) {
+                            updatedVariantConfig.wickTypes.push(wick);
+                          }
+                        });
+
+                        // Add variant data (increment stock by 1 for this scent+wick combo)
+                        uniqueWickTypes.forEach(wickType => {
+                          const variantId = `${wickType.id}-${selectedScentId}`;
+                          if (updatedVariantConfig.variantData[variantId]) {
+                            updatedVariantConfig.variantData[variantId].stock += 1;
+                          } else {
+                            updatedVariantConfig.variantData[variantId] = { stock: 1 };
+                          }
+                        });
+
+                        // Save updated product
+                        const res = await fetch(`/api/admin/products/${product.slug}`, {
+                          method: "PATCH",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            variantConfig: updatedVariantConfig,
+                          }),
+                        });
+
+                        if (res.ok) {
+                          alert(`Added ${selectedScent.name} variant to ${product.name}`);
+                          setShowExistingProductModal(false);
+                          void loadData(); // Refresh products
+                        } else {
+                          const error = await res.json();
+                          alert(`Failed: ${error.error || "Unknown error"}`);
+                        }
+                      }}
+                      className="w-full text-left p-4 border-2 border-[var(--color-line)] rounded-xl hover:border-[var(--color-accent)] hover:bg-amber-50/30 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md group"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="font-semibold text-base group-hover:text-[var(--color-accent)] transition-colors">{product.name}</div>
+                          <div className="text-sm text-[var(--color-muted)] mt-1">
+                            SKU: {product.sku} | Price: ${product.price.toFixed(2)}
+                          </div>
+                          {product.variantConfig && (
+                            <div className="text-xs text-[var(--color-muted)] mt-1">
+                              Wicks: {product.variantConfig.wickTypes.map(w => w.name).join(', ')}
+                            </div>
+                          )}
+                        </div>
+                        <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                        </div>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center justify-end px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+              <button
+                onClick={() => setShowExistingProductModal(false)}
+                className="btn hover:bg-white transition-colors"
+              >
+                Cancel
               </button>
             </div>
           </div>

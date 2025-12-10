@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   try {
     const promotions = await listPromotions();
     return NextResponse.json({ promotions });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Promotions API] GET error:", error);
     return NextResponse.json(
       { error: "Failed to fetch promotions" },
@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     await createPromotion(promotion);
 
     return NextResponse.json({ promotion }, { status: 201 });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Promotions API] POST error:", error);
     return NextResponse.json(
       { error: "Failed to create promotion" },
@@ -229,7 +229,7 @@ export async function PATCH(req: NextRequest) {
     const updated = await getPromotionById(id);
 
     return NextResponse.json({ promotion: updated });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Promotions API] PATCH error:", error);
     return NextResponse.json(
       { error: "Failed to update promotion" },
@@ -275,7 +275,7 @@ export async function DELETE(req: NextRequest) {
     await deletePromotion(id);
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Promotions API] DELETE error:", error);
     return NextResponse.json(
       { error: "Failed to delete promotion" },

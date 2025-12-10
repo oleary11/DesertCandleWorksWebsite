@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Search, Users, Package } from "lucide-react";
+import { Search, Users, Package } from "lucide-react";
 import { Promotion, PromotionType, PromotionTrigger, UserTargeting } from "@/lib/promotions";
 
 type Product = {

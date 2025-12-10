@@ -75,10 +75,59 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
         </div>
       </section>
 
+      {/* ECO-FRIENDLY & ALL-NATURAL BENEFITS */}
+      <section className="mx-auto max-w-6xl px-6 py-16">
+        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
+          {/* All-Natural Ingredients */}
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
+              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">100% Natural Soy Coconut Wax</h3>
+            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
+              Made from a premium blend of renewable soy and coconut wax—no paraffin, no petroleum. Clean burning with zero toxic fumes. Safe for you, your family, and your pets.
+            </p>
+          </div>
+
+          {/* Clean & Smokeless */}
+          <div className="text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
+              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">Clean & Smokeless Burn</h3>
+            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
+              Premium soy coconut wax burns cleaner and longer than traditional candles. No black soot, no smoke, no harsh chemicals—just pure, natural fragrance.
+            </p>
+          </div>
+
+          {/* Eco-Friendly Upcycling */}
+          <div className="text-center sm:col-span-2 lg:col-span-1">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
+              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">Eco-Friendly Upcycled Bottles</h3>
+            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
+              We rescue beautiful bottles from Scottsdale bars and restaurants, giving them new life instead of the landfill. Each candle saves glass waste and reduces environmental impact.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Divider */}
+      <div className="mx-auto max-w-4xl px-6 mb-6">
+        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
+      </div>
+
       {/* BEST SELLERS */}
       <section
         ref={bestSellersSection.ref as React.RefObject<HTMLElement>}
-        className={`mx-auto max-w-7xl px-6 pt-16 transition-all duration-1000 ${
+        className={`mx-auto max-w-7xl px-6 pt-6 pb-8 transition-all duration-1000 ${
           bestSellersSection.isVisible
             ? "opacity-100 translate-y-0"
             : "opacity-0 translate-y-10"
