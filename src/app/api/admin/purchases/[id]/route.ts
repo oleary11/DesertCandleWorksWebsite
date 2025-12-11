@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
@@ -15,7 +15,8 @@ export async function GET(
   }
 
   try {
-    const purchase = await getPurchaseById(params.id);
+    const { id } = await params;
+    const purchase = await getPurchaseById(id);
 
     if (!purchase) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
@@ -33,7 +34,7 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
@@ -42,6 +43,7 @@ export async function PATCH(
   }
 
   try {
+    const { id } = await params;
     const body = await req.json();
 
     // Validate items if provided
@@ -108,7 +110,7 @@ export async function PATCH(
     if (body.receiptImageUrl !== undefined) updates.receiptImageUrl = body.receiptImageUrl;
     if (body.notes !== undefined) updates.notes = body.notes?.trim();
 
-    const purchase = await updatePurchase(params.id, updates);
+    const purchase = await updatePurchase(id, updates);
 
     if (!purchase) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
@@ -126,7 +128,7 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
@@ -135,7 +137,8 @@ export async function DELETE(
   }
 
   try {
-    const success = await deletePurchase(params.id);
+    const { id } = await params;
+    const success = await deletePurchase(id);
 
     if (!success) {
       return NextResponse.json({ error: "Purchase not found" }, { status: 404 });

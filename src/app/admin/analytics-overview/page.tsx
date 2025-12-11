@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, DollarSign, TrendingUp, TrendingDown, Package, Receipt, PieChart, Calendar } from "lucide-react";
+import { ArrowLeft, DollarSign, TrendingUp, TrendingDown, Receipt, PieChart } from "lucide-react";
 
 type SalesAnalytics = {
   totalRevenue: number;
