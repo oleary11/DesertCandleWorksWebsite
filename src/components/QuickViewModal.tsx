@@ -369,7 +369,7 @@ export default function QuickViewModal({ product, variants = [], globalScents = 
             <p className="text-sm mb-6">
               {stock <= 0 ? (
                 <span className="text-rose-600 font-medium">Out of stock</span>
-              ) : stock < 3 ? (
+              ) : stock === 1 ? (
                 <span className="text-rose-600 font-medium">Only {stock} left — almost gone</span>
               ) : (
                 <span className="text-[var(--color-muted)]">{stock} in stock</span>

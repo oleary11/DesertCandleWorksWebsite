@@ -108,7 +108,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     if (filterBy === "in-stock") {
       filtered = filtered.filter((p) => p._computedStock > 0);
     } else if (filterBy === "low-stock") {
-      filtered = filtered.filter((p) => p._computedStock > 0 && p._computedStock <= 3);
+      filtered = filtered.filter((p) => p._computedStock === 1);
     } else if (filterBy === "out-of-stock") {
       filtered = filtered.filter((p) => p._computedStock === 0);
     }

@@ -26,7 +26,7 @@ export default function ProductCard({
 }: ProductCardProps) {
   // Use pre-computed stock if available, otherwise fall back to base stock
   const stock = product._computedStock ?? product.stock ?? 0;
-  const isLowStock = stock > 0 && stock <= 3;
+  const isLowStock = stock === 1;
   const isOutOfStock = stock === 0;
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);

@@ -9,6 +9,9 @@ type Order = {
   userId?: string;
   email: string;
   totalCents: number;
+  productSubtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
   pointsEarned: number;
   status: string;
   isGuest: boolean;
@@ -72,6 +75,25 @@ export default function AdminOrdersPage() {
   // Helper function to check if an order is a manual sale
   function isManualSale(orderId: string): boolean {
     return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
+  }
+
+  // Calculate shipping cost for old orders that don't have it stored
+  function getShippingCost(order: Order): number {
+    // If shipping is already stored, use it
+    if (order.shippingCents !== undefined) {
+      return order.shippingCents;
+    }
+
+    // For old orders, calculate shipping as: total - products - tax
+    if (order.productSubtotalCents) {
+      const taxAmount = order.taxCents ?? 0;
+      const calculatedShipping = order.totalCents - order.productSubtotalCents - taxAmount;
+      // Ensure it's not negative
+      return calculatedShipping > 0 ? calculatedShipping : 0;
+    }
+
+    // If we don't have enough data, return 0
+    return 0;
   }
 
   // Filter and search orders
@@ -322,8 +344,27 @@ export default function AdminOrdersPage() {
                       {/* Financial Breakdown */}
                       <div className="mt-4 pt-4 border-t border-[var(--color-line)] space-y-2 text-sm">
                         <div className="flex justify-between">
-                          <span className="text-[var(--color-muted)]">Subtotal:</span>
-                          <span className="font-medium">${(order.totalCents / 100).toFixed(2)}</span>
+                          <span className="text-[var(--color-muted)]">Product Subtotal:</span>
+                          <span className="font-medium">${((order.productSubtotalCents ?? order.totalCents) / 100).toFixed(2)}</span>
+                        </div>
+                        {(() => {
+                          const shippingCost = getShippingCost(order);
+                          return shippingCost > 0 && (
+                            <div className="flex justify-between">
+                              <span className="text-[var(--color-muted)]">Shipping:</span>
+                              <span className="font-medium">${(shippingCost / 100).toFixed(2)}</span>
+                            </div>
+                          );
+                        })()}
+                        {order.taxCents !== undefined && order.taxCents > 0 && (
+                          <div className="flex justify-between">
+                            <span className="text-[var(--color-muted)]">Tax:</span>
+                            <span className="font-medium">${(order.taxCents / 100).toFixed(2)}</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold">
+                          <span>Order Total:</span>
+                          <span>${(order.totalCents / 100).toFixed(2)}</span>
                         </div>
                         {!isManualSale(order.id) && (
                           <>

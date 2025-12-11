@@ -44,7 +44,10 @@ export type Order = {
   id: string; // Stripe checkout session ID
   userId?: string; // Optional - null for guest orders
   email: string;
-  totalCents: number;
+  totalCents: number; // Full order total (products + shipping + tax)
+  productSubtotalCents?: number; // Products only (for points calculation)
+  shippingCents?: number; // Shipping cost
+  taxCents?: number; // Tax amount
   pointsEarned: number;
   pointsRedeemed?: number; // Points used for discount
   promotionId?: string; // Promotion code applied
@@ -296,15 +299,23 @@ export async function createOrder(
   checkoutSessionId: string,
   totalCents: number,
   items: Order["items"],
-  userId?: string // Optional - omit for guest orders
+  userId?: string, // Optional - omit for guest orders
+  productSubtotalCents?: number, // Product subtotal (for points calculation)
+  shippingCents?: number, // Shipping cost
+  taxCents?: number // Tax amount
 ): Promise<Order> {
-  const pointsEarned = Math.round(totalCents / 100); // 1 point per dollar, rounded ($44.99 = 45 points)
+  // Calculate points based on product subtotal only (not shipping/tax)
+  const pointsBase = productSubtotalCents ?? totalCents;
+  const pointsEarned = Math.round(pointsBase / 100); // 1 point per dollar, rounded ($44.99 = 45 points)
 
   const order: Order = {
     id: checkoutSessionId,
     userId,
     email,
     totalCents,
+    productSubtotalCents,
+    shippingCents,
+    taxCents,
     pointsEarned,
     status: "pending",
     isGuest: !userId,

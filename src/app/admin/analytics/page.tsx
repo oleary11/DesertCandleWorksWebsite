@@ -52,6 +52,8 @@ type ProfitMargin = {
 
 type AnalyticsData = {
   totalRevenue: number;
+  totalProductRevenue: number;
+  totalShippingRevenue: number;
   netRevenue: number;
   stripeFees: number;
   totalOrders: number;
@@ -62,6 +64,8 @@ type AnalyticsData = {
     name: string;
     units: number;
     revenue: number;
+    stripeFees: number;
+    shippingCost: number;
     alcoholType?: string;
   }>;
   alcoholTypeSales: Array<{
@@ -415,7 +419,7 @@ export default function AdminAnalyticsPage() {
             </div>
             <p className="text-3xl font-bold">${(analytics.totalRevenue / 100).toFixed(2)}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              Stripe fees: -${(analytics.stripeFees / 100).toFixed(2)}
+              Products: ${(analytics.totalProductRevenue / 100).toFixed(2)} | Shipping: ${(analytics.totalShippingRevenue / 100).toFixed(2)}
             </p>
             {analytics.comparison && (
               <div className="mt-2">
@@ -545,9 +549,9 @@ export default function AdminAnalyticsPage() {
           </div>
         </div>
 
-        {/* Best Selling Products */}
+        {/* Sales By Product */}
         <div className="card p-6 bg-white mb-8">
-          <h2 className="text-xl font-bold mb-4">Best Selling Products</h2>
+          <h2 className="text-xl font-bold mb-4">Sales By Product</h2>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -555,22 +559,33 @@ export default function AdminAnalyticsPage() {
                   <th className="text-left py-3 text-sm font-semibold">Product</th>
                   <th className="text-left py-3 text-sm font-semibold">Alcohol Type</th>
                   <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
-                  <th className="text-right py-3 text-sm font-semibold">Revenue</th>
+                  <th className="text-right py-3 text-sm font-semibold">Gross Revenue</th>
+                  <th className="text-right py-3 text-sm font-semibold">Net Revenue</th>
+                  <th className="text-right py-3 text-sm font-semibold">Shipping Cost</th>
                 </tr>
               </thead>
               <tbody>
-                {analytics.productSales.slice(0, 10).map((product) => (
-                  <tr key={product.slug} className="border-b border-[var(--color-line)]">
-                    <td className="py-3 text-sm">{product.name}</td>
-                    <td className="py-3 text-sm text-[var(--color-muted)]">
-                      {product.alcoholType || "N/A"}
-                    </td>
-                    <td className="py-3 text-sm text-right font-medium">{product.units}</td>
-                    <td className="py-3 text-sm text-right font-medium">
-                      ${(product.revenue / 100).toFixed(2)}
-                    </td>
-                  </tr>
-                ))}
+                {analytics.productSales.slice(0, 10).map((product) => {
+                  const netRevenue = product.revenue - product.stripeFees;
+                  return (
+                    <tr key={product.slug} className="border-b border-[var(--color-line)]">
+                      <td className="py-3 text-sm">{product.name}</td>
+                      <td className="py-3 text-sm text-[var(--color-muted)]">
+                        {product.alcoholType || "N/A"}
+                      </td>
+                      <td className="py-3 text-sm text-right font-medium">{product.units}</td>
+                      <td className="py-3 text-sm text-right font-medium">
+                        ${(product.revenue / 100).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-sm text-right font-medium text-green-600">
+                        ${(netRevenue / 100).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-sm text-right text-[var(--color-muted)]">
+                        ${(product.shippingCost / 100).toFixed(2)}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

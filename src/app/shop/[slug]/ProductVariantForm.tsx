@@ -302,7 +302,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                       <td className="py-2 text-right">
                         {variant.stock <= 0 ? (
                           <span className="text-rose-600 text-xs">Out of stock</span>
-                        ) : variant.stock < 3 ? (
+                        ) : variant.stock === 1 ? (
                           <span className="text-amber-600 font-medium">{variant.stock}</span>
                         ) : (
                           <span className="text-[var(--color-muted)]">{variant.stock}</span>
@@ -479,7 +479,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       <p className="text-sm">
         {stock <= 0 ? (
           <span className="text-rose-600 font-medium">Out of stock</span>
-        ) : stock < 3 ? (
+        ) : stock === 1 ? (
           <span className="text-rose-600 font-medium">Only {stock} left — almost gone</span>
         ) : (
           <span className="text-[var(--color-muted)]">{stock} in stock</span>

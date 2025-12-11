@@ -362,7 +362,7 @@ export default function QuickAddModal({
           <p className="text-sm mb-4">
             {stock <= 0 ? (
               <span className="text-rose-600 font-medium">Out of stock</span>
-            ) : stock < 3 ? (
+            ) : stock === 1 ? (
               <span className="text-amber-600 font-medium">Only {stock} left</span>
             ) : (
               <span className="text-green-600 font-medium">{stock} in stock</span>

@@ -82,7 +82,7 @@ export default function ProductActions({ product, stock }: Props) {
       <p className="mt-6 text-sm">
         {stock <= 0 ? (
           <span className="text-rose-600 font-medium">Out of stock</span>
-        ) : stock < 3 ? (
+        ) : stock === 1 ? (
           <span className="text-rose-600 font-medium">Only {stock} left — almost gone</span>
         ) : (
           <span className="text-[var(--color-muted)]">{stock} in stock</span>

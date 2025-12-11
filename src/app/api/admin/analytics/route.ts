@@ -108,13 +108,30 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Calculate overall metrics with Stripe fees
+    // Calculate overall metrics with Stripe fees, separating products and shipping
     let totalRevenue = 0;
+    let totalProductRevenue = 0;
+    let totalShippingRevenue = 0;
     let totalStripeFees = 0;
     let stripeRevenue = 0; // Track revenue from Stripe orders only
 
     for (const order of completedOrders) {
       totalRevenue += order.totalCents;
+
+      // Track product revenue separately from shipping
+      const productRevenue = order.productSubtotalCents ?? order.totalCents;
+      totalProductRevenue += productRevenue;
+
+      // Track shipping revenue separately (handle old orders that don't have it stored)
+      let shippingRevenue = order.shippingCents ?? 0;
+      if (shippingRevenue === 0 && order.productSubtotalCents) {
+        // For old orders, calculate shipping as: total - products - tax
+        const taxAmount = order.taxCents ?? 0;
+        shippingRevenue = order.totalCents - order.productSubtotalCents - taxAmount;
+        // Ensure it's not negative
+        if (shippingRevenue < 0) shippingRevenue = 0;
+      }
+      totalShippingRevenue += shippingRevenue;
 
       // Only apply Stripe fees to Stripe orders (not manual sales)
       if (!isManualSale(order.id)) {
@@ -134,7 +151,7 @@ export async function GET(req: NextRequest) {
     // Build a map of product info
     const productMap = new Map(products.map((p) => [p.slug, p]));
 
-    // Calculate sales by product, tracking Stripe vs manual revenue separately
+    // Calculate sales by product, tracking Stripe fees and shipping per product
     const productSalesMap = new Map<
       string,
       {
@@ -143,20 +160,43 @@ export async function GET(req: NextRequest) {
         units: number;
         revenue: number;
         stripeRevenue: number; // Track Stripe revenue separately
+        stripeFees: number; // Per-product Stripe fees
+        shippingCost: number; // Per-product shipping cost
         alcoholType?: string;
       }
     >();
 
     for (const order of completedOrders) {
       const isStripeOrder = !isManualSale(order.id);
+      const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+      const orderStripeFee = isStripeOrder ? calculateStripeFee(order.totalCents) : 0;
+
+      // Calculate shipping cost (handle old orders that don't have it stored)
+      let orderShippingCost = order.shippingCents ?? 0;
+      if (orderShippingCost === 0 && order.productSubtotalCents) {
+        // For old orders, calculate shipping as: total - products - tax
+        const taxAmount = order.taxCents ?? 0;
+        orderShippingCost = order.totalCents - order.productSubtotalCents - taxAmount;
+        // Ensure it's not negative
+        if (orderShippingCost < 0) orderShippingCost = 0;
+      }
 
       for (const item of order.items) {
         const existing = productSalesMap.get(item.productSlug);
         const product = productMap.get(item.productSlug);
 
+        // Calculate this item's share of the order's Stripe fee and shipping
+        // Divide by total items in the order (factoring in quantities)
+        // Guard against division by zero
+        const itemShare = orderItemCount > 0 ? item.quantity / orderItemCount : 0;
+        const itemStripeFee = Math.round(orderStripeFee * itemShare);
+        const itemShippingCost = Math.round(orderShippingCost * itemShare);
+
         if (existing) {
           existing.units += item.quantity;
           existing.revenue += item.priceCents;
+          existing.stripeFees += itemStripeFee;
+          existing.shippingCost += itemShippingCost;
           if (isStripeOrder) {
             existing.stripeRevenue += item.priceCents;
           }
@@ -167,6 +207,8 @@ export async function GET(req: NextRequest) {
             units: item.quantity,
             revenue: item.priceCents,
             stripeRevenue: isStripeOrder ? item.priceCents : 0,
+            stripeFees: itemStripeFee,
+            shippingCost: itemShippingCost,
             alcoholType: product?.alcoholType,
           });
         }
@@ -248,6 +290,8 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       totalRevenue,
+      totalProductRevenue,
+      totalShippingRevenue,
       netRevenue,
       stripeFees: totalStripeFees,
       totalOrders,
