@@ -10,14 +10,14 @@ import {
   Palette,
   Wine,
   FileText,
-  CreditCard,
   RefreshCw,
   Stethoscope,
   TestTube,
   LogOut,
   Users,
   Mail,
-  Tag
+  Tag,
+  Receipt
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -49,16 +49,16 @@ export default function AdminHomePage() {
             </div>
           </Link>
 
-          {/* Analytics */}
-          <Link href="/admin/analytics" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+          {/* Analytics Overview */}
+          <Link href="/admin/analytics-overview" className="card p-6 bg-white hover:shadow-lg transition-shadow">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center flex-shrink-0">
                 <DollarSign className="w-6 h-6 text-green-600" />
               </div>
               <div>
-                <h2 className="text-lg font-semibold mb-1">Sales Analytics</h2>
+                <h2 className="text-lg font-semibold mb-1">Business Overview</h2>
                 <p className="text-sm text-[var(--color-muted)]">
-                  View revenue, sales trends, and performance metrics
+                  Revenue vs costs, profit margins, and profitability
                 </p>
               </div>
             </div>
@@ -149,6 +149,21 @@ export default function AdminHomePage() {
                 <h2 className="text-lg font-semibold mb-1">Cost Calculator</h2>
                 <p className="text-sm text-[var(--color-muted)]">
                   Calculate material costs and profit margins
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Purchases / Cost of Goods */}
+          <Link href="/admin/purchases" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-emerald-100 flex items-center justify-center flex-shrink-0">
+                <Receipt className="w-6 h-6 text-emerald-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Cost of Goods</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Track purchases, receipts, and inventory costs
                 </p>
               </div>
             </div>

@@ -285,8 +285,8 @@ export default function AdminAnalyticsPage() {
       <div className="min-h-screen p-6">
         <div className="max-w-7xl mx-auto">
           <p className="text-rose-600">{error}</p>
-          <Link href="/admin" className="btn mt-4">
-            Back to Admin
+          <Link href="/admin/analytics-overview" className="btn mt-4">
+            Back to Overview
           </Link>
         </div>
       </div>
@@ -299,11 +299,11 @@ export default function AdminAnalyticsPage() {
         {/* Header */}
         <div className="mb-8">
           <Link
-            href="/admin"
+            href="/admin/analytics-overview"
             className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
           >
             <ArrowLeft className="w-4 h-4" />
-            Back to Admin
+            Back to Overview
           </Link>
           <h1 className="text-3xl font-bold">Sales Analytics</h1>
           <p className="text-[var(--color-muted)] mt-1">
