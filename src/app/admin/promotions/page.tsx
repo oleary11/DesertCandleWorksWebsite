@@ -5,8 +5,10 @@ import Link from "next/link";
 import { ArrowLeft, Plus, Edit, Trash2, Calendar, Tag, TrendingUp } from "lucide-react";
 import { Promotion, PromotionType } from "@/lib/promotions";
 import PromotionModal from "@/components/PromotionModal";
+import { useModal } from "@/hooks/useModal";
 
 export default function AdminPromotionsPage() {
+  const { showAlert, showConfirm } = useModal();
   const [promotions, setPromotions] = useState<Promotion[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -42,13 +44,14 @@ export default function AdminPromotionsPage() {
       if (!res.ok) throw new Error("Failed to update promotion");
       await loadPromotions();
     } catch (err) {
-      alert("Failed to update promotion");
+      await showAlert("Failed to update promotion", "Error");
       console.error(err);
     }
   }
 
   async function deletePromotion(id: string) {
-    if (!confirm("Are you sure you want to delete this promotion?")) return;
+    const confirmed = await showConfirm("Are you sure you want to delete this promotion?", "Confirm Delete");
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/admin/promotions?id=${id}`, {
@@ -58,7 +61,7 @@ export default function AdminPromotionsPage() {
       if (!res.ok) throw new Error("Failed to delete promotion");
       await loadPromotions();
     } catch (err) {
-      alert("Failed to delete promotion");
+      await showAlert("Failed to delete promotion", "Error");
       console.error(err);
     }
   }

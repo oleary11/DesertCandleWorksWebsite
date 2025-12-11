@@ -3,6 +3,7 @@
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 /* ---------- Types ---------- */
 type ScentComposition = {
@@ -35,6 +36,7 @@ type Product = {
 
 /* ---------- Component ---------- */
 export default function AdminScentsPage() {
+  const { showAlert, showConfirm } = useModal();
   const [scents, setScents] = useState<GlobalScent[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [baseOils, setBaseOils] = useState<BaseOil[]>([]);
@@ -153,7 +155,8 @@ export default function AdminScentsPage() {
   }
 
   async function handleDelete(id: string) {
-    if (!confirm(`Delete scent "${id}"? This will affect all products using this scent.`)) return;
+    const confirmed = await showConfirm(`Delete scent "${id}"? This will affect all products using this scent.`, "Confirm Delete");
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/admin/scents?id=${id}`, {
@@ -162,14 +165,14 @@ export default function AdminScentsPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || "Failed to delete scent");
+        await showAlert(data.error || "Failed to delete scent", "Error");
         return;
       }
 
       await loadScents();
     } catch (err) {
       console.error("Delete error:", err);
-      alert("Failed to delete scent");
+      await showAlert("Failed to delete scent", "Error");
     }
   }
 
@@ -247,7 +250,7 @@ export default function AdminScentsPage() {
       await loadScents();
     } catch (err) {
       console.error("Failed to reorder scents:", err);
-      alert("Failed to reorder scents");
+      await showAlert("Failed to reorder scents", "Error");
     }
   }
 
@@ -273,12 +276,13 @@ export default function AdminScentsPage() {
       setEditingOil(null);
       setNewOil({ name: "", costPerOz: 0 });
     } else {
-      alert("Failed to save base oil");
+      await showAlert("Failed to save base oil", "Error");
     }
   }
 
   async function deleteOil(id: string) {
-    if (!confirm("Delete this base oil?")) return;
+    const confirmed = await showConfirm("Delete this base oil?", "Confirm Delete");
+    if (!confirmed) return;
     const res = await fetch(`/api/admin/base-oils?id=${id}`, { method: "DELETE" });
     if (res.ok) await loadBaseOils();
   }
@@ -443,9 +447,9 @@ export default function AdminScentsPage() {
             </div>
             <button
               className="btn btn-primary"
-              onClick={() => {
+              onClick={async () => {
                 if (!newOil.name || !newOil.costPerOz) {
-                  alert("Please fill in name and cost");
+                  await showAlert("Please fill in name and cost", "Validation Error");
                   return;
                 }
                 saveOil({

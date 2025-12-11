@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 /* ---------- Types ---------- */
 type AlcoholType = { id: string; name: string; sortOrder?: number };
@@ -146,6 +147,7 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
 
 /* ---------- Component ---------- */
 export default function AdminProductsPage() {
+  const { showAlert, showConfirm, showPrompt } = useModal();
   const [items, setItems] = useState<Product[]>([]);
   const [globalScents, setGlobalScents] = useState<GlobalScent[]>([]);
   const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]); // NEW
@@ -466,7 +468,7 @@ export default function AdminProductsPage() {
       console.error("[Admin] Publish failed:", j);
       const errorMsg = j.error || `Publish failed (${res.status})`;
       setError(errorMsg);
-      alert(`Failed to publish product:\n\n${errorMsg}`);
+      await showAlert(`Failed to publish product:\n\n${errorMsg}`, "Error");
     } else {
       console.log("[Admin] Publish successful");
       discardDraft(slug);
@@ -491,7 +493,7 @@ export default function AdminProductsPage() {
         const j = (await res.json().catch(() => ({}))) as { error?: string };
         const errorMsg = j.error || `Publish failed for ${slug}`;
         setError(errorMsg);
-        alert(`Failed to publish product "${slug}":\n\n${errorMsg}`);
+        await showAlert(`Failed to publish product "${slug}":\n\n${errorMsg}`, "Error");
         setSaving(false);
         return; // stop on first failure
       }
@@ -503,7 +505,8 @@ export default function AdminProductsPage() {
 
   // Delete (server)
   async function deleteProduct(slug: string) {
-    if (!confirm(`Delete ${slug}?`)) return;
+    const confirmed = await showConfirm(`Delete ${slug}?`, "Confirm Delete");
+    if (!confirmed) return;
     discardDraft(slug);
     const res = await fetch(`/api/admin/products/${slug}`, { method: "DELETE" });
     if (res.ok) await load();
@@ -540,7 +543,7 @@ export default function AdminProductsPage() {
         if (!res.ok) {
           const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
           console.error("[Admin] Upload failed:", errorData);
-          alert(`Upload failed for ${file.name}: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`);
+          await showAlert(`Upload failed for ${file.name}: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`, "Upload Error");
           continue; // Continue with other files
         }
 
@@ -561,7 +564,7 @@ export default function AdminProductsPage() {
       }
     } catch (error) {
       console.error("[Admin] Upload error:", error);
-      alert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`);
+      await showAlert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`, "Upload Error");
     }
   }
 
@@ -1227,7 +1230,7 @@ export default function AdminProductsPage() {
                     onChange={async (e) => {
                       const v = e.target.value;
                       if (v === "__new__") {
-                        const name = window.prompt("Enter new alcohol type (e.g., Tequila):");
+                        const name = await showPrompt("Enter new alcohol type (e.g., Tequila):", "New Alcohol Type");
                         if (name && name.trim()) {
                           const res = await fetch("/api/admin/alcohol-types", {
                             method: "POST",
@@ -1238,7 +1241,7 @@ export default function AdminProductsPage() {
                             await load();
                             setEditing((prev) => (prev ? { ...prev, alcoholType: name.trim() } : prev));
                           } else {
-                            alert("Failed to create type");
+                            await showAlert("Failed to create type", "Error");
                           }
                         }
                         return;

@@ -7,6 +7,7 @@ import { Trash2, Minus, Plus, Tag, X } from "lucide-react";
 import { useState, useEffect } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
 import { useAuth } from "@/contexts/AuthContext";
+import { useModal } from "@/hooks/useModal";
 
 type AppliedPromotion = {
   id: string;
@@ -18,6 +19,7 @@ type AppliedPromotion = {
 };
 
 export default function CartPage() {
+  const { showAlert } = useModal();
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
@@ -173,7 +175,7 @@ export default function CartPage() {
       const data = await res.json();
 
       if (data.error) {
-        alert(data.error);
+        await showAlert(data.error, "Error");
         setIsCheckingOut(false);
         return;
       }
@@ -182,12 +184,12 @@ export default function CartPage() {
         // Redirect to Stripe checkout
         window.location.href = data.url;
       } else {
-        alert("Failed to create checkout session");
+        await showAlert("Failed to create checkout session", "Error");
         setIsCheckingOut(false);
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      alert("An error occurred during checkout");
+      await showAlert("An error occurred during checkout", "Error");
       setIsCheckingOut(false);
     }
   };

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 /* ---------- Types ---------- */
 type Product = {
@@ -168,6 +169,7 @@ function calculateScentCost(scent: GlobalScent, baseOils: BaseOil[]): number {
 
 /* ---------- Component ---------- */
 export default function CalculatorPage() {
+  const { showAlert, showConfirm } = useModal();
   const [containers, setContainers] = useState<Container[]>([]);
   const [baseOils, setBaseOils] = useState<BaseOil[]>([]);
   const [wicks, setWicks] = useState<WickType[]>([]);
@@ -286,12 +288,13 @@ export default function CalculatorPage() {
         costPerUnit: 0,
       });
     } else {
-      alert("Failed to save container");
+      await showAlert("Failed to save container", "Error");
     }
   }
 
   async function deleteContainer(id: string) {
-    if (!confirm("Delete this container?")) return;
+    const confirmed = await showConfirm("Delete this container?", "Confirm Delete");
+    if (!confirmed) return;
     const res = await fetch(`/api/admin/containers?id=${id}`, { method: "DELETE" });
     if (res.ok) await loadData();
   }
@@ -313,12 +316,13 @@ export default function CalculatorPage() {
       setEditingWick(null);
       setNewWick({ name: "", costPerWick: 0, appearAs: "" });
     } else {
-      alert("Failed to save wick type");
+      await showAlert("Failed to save wick type", "Error");
     }
   }
 
   async function deleteWick(id: string) {
-    if (!confirm("Delete this wick type?")) return;
+    const confirmed = await showConfirm("Delete this wick type?", "Confirm Delete");
+    if (!confirmed) return;
     const res = await fetch(`/api/admin/wick-types?id=${id}`, { method: "DELETE" });
     if (res.ok) await loadData();
   }
@@ -332,9 +336,9 @@ export default function CalculatorPage() {
     });
 
     if (res.ok) {
-      alert("Settings saved!");
+      await showAlert("Settings saved successfully!", "Success");
     } else {
-      alert("Failed to save settings");
+      await showAlert("Failed to save settings", "Error");
     }
   }
 
@@ -428,7 +432,7 @@ export default function CalculatorPage() {
         const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
 
         if (!res.ok) {
-          alert(`Upload failed for ${file.name}`);
+          await showAlert(`Upload failed for ${file.name}`, "Upload Error");
           continue;
         }
 
@@ -444,7 +448,7 @@ export default function CalculatorPage() {
         });
       }
     } catch (error) {
-      alert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`);
+      await showAlert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`, "Upload Error");
     }
   }
 
@@ -461,12 +465,12 @@ export default function CalculatorPage() {
 
   async function saveProduct() {
     if (!newProduct || !newProduct.name || !newProduct.slug) {
-      alert("Please fill in name and slug");
+      await showAlert("Please fill in name and slug", "Validation Error");
       return;
     }
 
     if (!newProduct.price || newProduct.price <= 0) {
-      alert("Please set a retail price greater than $0");
+      await showAlert("Please set a retail price greater than $0", "Validation Error");
       return;
     }
 
@@ -479,38 +483,26 @@ export default function CalculatorPage() {
     });
 
     if (res.ok) {
-      alert("Product created successfully!");
+      await showAlert("Product created successfully!", "Success");
       setShowProductModal(false);
       setNewProduct(null);
       // Optionally redirect to admin products page
       window.location.href = "/admin";
     } else {
       const error = await res.json();
-      alert(`Failed to create product: ${error.error || "Unknown error"}`);
+      await showAlert(`Failed to create product: ${error.error || "Unknown error"}`, "Error");
     }
 
     setSavingProduct(false);
   }
 
   /* ---------- Batch Functions ---------- */
-  function addToBatch() {
+  async function addToBatch() {
     if (!results || !selectedScent) return;
 
     const selectedContainer = containers.find((c) => c.id === selectedContainerId);
     const containerName = selectedContainer?.name || `Custom (${waterOz}oz)`;
     const scentName = scents.find((s) => s.id === selectedScentId)?.name || "";
-
-    // Check if batch already has items with different scent
-    if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
-      const shouldClear = confirm(
-        `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`
-      );
-      if (shouldClear) {
-        setBatchItems([]);
-      } else {
-        return;
-      }
-    }
 
     const newItem: BatchItem = {
       containerId: selectedContainerId || `custom-${waterOz}`,
@@ -522,12 +514,28 @@ export default function CalculatorPage() {
       results: { ...results },
     };
 
+    // Check if batch already has items with different scent
+    if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
+      const shouldClear = await showConfirm(
+        `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`,
+        "Different Scent Detected"
+      );
+      if (shouldClear) {
+        // Clear batch and start fresh with just the new item
+        setBatchItems([newItem]);
+      }
+      // If user clicked Cancel, don't add anything
+      return;
+    }
+
+    // Same scent or empty batch - just append
     setBatchItems([...batchItems, newItem]);
   }
 
-  function clearBatch() {
+  async function clearBatch() {
     if (batchItems.length > 0) {
-      if (confirm('Clear all items from batch?')) {
+      const confirmed = await showConfirm('Clear all items from batch?', 'Confirm Clear');
+      if (confirmed) {
         setBatchItems([]);
       }
     }
@@ -599,8 +607,12 @@ export default function CalculatorPage() {
                 <h3 className="text-lg font-semibold">Current Batch</h3>
                 {batchItems.length > 0 && (
                   <button
-                    onClick={clearBatch}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      void clearBatch();
+                    }}
                     className="text-xs text-rose-600 hover:text-rose-700"
+                    type="button"
                   >
                     Clear
                   </button>
@@ -1032,9 +1044,9 @@ export default function CalculatorPage() {
             </div>
             <button
               className="btn btn-primary"
-              onClick={() => {
+              onClick={async () => {
                 if (!newContainer.name || !newContainer.capacityWaterOz) {
-                  alert("Please fill in name and capacity");
+                  await showAlert("Please fill in name and capacity", "Validation Error");
                   return;
                 }
                 saveContainer({
@@ -1120,9 +1132,9 @@ export default function CalculatorPage() {
             </div>
             <button
               className="btn btn-primary"
-              onClick={() => {
+              onClick={async () => {
                 if (!newWick.name || newWick.costPerWick === undefined) {
-                  alert("Please fill in name and cost");
+                  await showAlert("Please fill in name and cost", "Validation Error");
                   return;
                 }
                 saveWick({
@@ -1697,12 +1709,12 @@ export default function CalculatorPage() {
                         });
 
                         if (res.ok) {
-                          alert(`Added ${selectedScent.name} variant to ${product.name}`);
+                          await showAlert(`Added ${selectedScent.name} variant to ${product.name}`, "Success");
                           setShowExistingProductModal(false);
                           void loadData(); // Refresh products
                         } else {
                           const error = await res.json();
-                          alert(`Failed: ${error.error || "Unknown error"}`);
+                          await showAlert(`Failed: ${error.error || "Unknown error"}`, "Error");
                         }
                       }}
                       className="w-full text-left p-4 border-2 border-[var(--color-line)] rounded-xl hover:border-[var(--color-accent)] hover:bg-amber-50/30 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md group"

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useModal } from "@/hooks/useModal";
 
 interface TwoFactorSetup {
   qrCodeUrl: string;
@@ -19,6 +20,7 @@ interface AdminLogEntry {
 }
 
 export default function AdminSettings() {
+  const { showConfirm } = useModal();
   const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
@@ -117,7 +119,8 @@ export default function AdminSettings() {
   }
 
   async function handleDisable2FA() {
-    if (!confirm("Are you sure you want to disable 2FA? This will make your account less secure.")) {
+    const confirmed = await showConfirm("Are you sure you want to disable 2FA? This will make your account less secure.", "Disable 2FA");
+    if (!confirmed) {
       return;
     }
 

@@ -4,6 +4,7 @@ import { useCartStore } from "@/lib/cartStore";
 import type { Product } from "@/lib/productsStore";
 import { ShoppingCart } from "lucide-react";
 import { useState } from "react";
+import { useModal } from "@/hooks/useModal";
 
 type Props = {
   product: Product;
@@ -11,6 +12,7 @@ type Props = {
 };
 
 export default function ProductActions({ product, stock }: Props) {
+  const { showAlert } = useModal();
   const addItem = useCartStore((state) => state.addItem);
   const getItemQuantity = useCartStore((state) => state.getItemQuantity);
   const [isBuying, setIsBuying] = useState(false);
@@ -65,12 +67,12 @@ export default function ProductActions({ product, stock }: Props) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert("Failed to create checkout session");
+        await showAlert("Failed to create checkout session", "Error");
         setIsBuying(false);
       }
     } catch (error) {
       console.error("Buy now error:", error);
-      alert("An error occurred");
+      await showAlert("An error occurred", "Error");
       setIsBuying(false);
     }
   };

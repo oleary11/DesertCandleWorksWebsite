@@ -3,10 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number; archived?: boolean };
 
 export default function AlcoholTypesAdminPage() {
+  const { showAlert, showConfirm } = useModal();
   const [types, setTypes] = useState<AlcoholType[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -55,7 +57,7 @@ export default function AlcoholTypesAdminPage() {
     });
     setSaving(false);
     if (res.ok) await load();
-    else alert("Save failed");
+    else await showAlert("Save failed", "Error");
   }
 
   function discardAll() {
@@ -80,7 +82,7 @@ export default function AlcoholTypesAdminPage() {
       setSortOrder("");
       await load();
     } else {
-      alert("Create failed");
+      await showAlert("Create failed", "Error");
     }
   }
 
@@ -92,14 +94,15 @@ export default function AlcoholTypesAdminPage() {
       body: JSON.stringify({ archived }),
     });
     if (res.ok) await load();
-    else alert("Failed");
+    else await showAlert("Failed to update alcohol type", "Error");
   }
 
   async function hardDelete(id: string) {
-    if (!confirm("Permanently delete this type? This cannot be undone.")) return;
+    const confirmed = await showConfirm("Permanently delete this type? This cannot be undone.", "Confirm Delete");
+    if (!confirmed) return;
     const res = await fetch(`/api/admin/alcohol-types/${id}`, { method: "DELETE" });
     if (res.ok) await load();
-    else alert("Delete failed");
+    else await showAlert("Delete failed", "Error");
   }
 
   // local move up/down (staged only)

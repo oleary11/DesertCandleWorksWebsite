@@ -5,6 +5,7 @@ import type { Product, ProductVariant, VariantConfig } from "@/lib/productsStore
 import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
 import { ShoppingCart } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 type Props = {
   product: Product;
@@ -14,6 +15,7 @@ type Props = {
 };
 
 export default function ProductVariantForm({ product, variants, globalScents, variantConfig }: Props) {
+  const { showAlert } = useModal();
   const { wickTypes } = variantConfig;
   const scents = globalScents; // Use global scents instead of per-product scents
 
@@ -215,12 +217,12 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert("Failed to create checkout session");
+        await showAlert("Failed to create checkout session", "Error");
         setIsBuying(false);
       }
     } catch (error) {
       console.error("Buy now error:", error);
-      alert("An error occurred");
+      await showAlert("An error occurred", "Error");
       setIsBuying(false);
     }
   };

@@ -6,6 +6,7 @@ import Link from "next/link";
 import { X, Trash2, Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import FreeShippingBanner from "./FreeShippingBanner";
+import { useModal } from "@/hooks/useModal";
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -13,6 +14,7 @@ type CartDrawerProps = {
 };
 
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
+  const { showAlert } = useModal();
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
@@ -84,12 +86,12 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        alert("Failed to create checkout session");
+        await showAlert("Failed to create checkout session", "Error");
         setIsCheckingOut(false);
       }
     } catch (error) {
       console.error("Checkout error:", error);
-      alert("An error occurred during checkout");
+      await showAlert("An error occurred during checkout", "Error");
       setIsCheckingOut(false);
     }
   };

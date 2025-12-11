@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useModal } from "@/hooks/useModal";
 
 export default function ContactForm() {
+  const { showAlert } = useModal();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
@@ -27,10 +29,10 @@ export default function ContactForm() {
         form.reset();
         setTimeout(() => setIsSuccess(false), 5000);
       } else {
-        alert("Oops! There was a problem submitting your form. Please try again.");
+        await showAlert("Oops! There was a problem submitting your form. Please try again.", "Error");
       }
     } catch {
-      alert("Oops! There was a problem submitting your form. Please try again.");
+      await showAlert("Oops! There was a problem submitting your form. Please try again.", "Error");
     } finally {
       setIsSubmitting(false);
     }
