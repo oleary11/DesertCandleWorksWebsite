@@ -145,7 +145,7 @@ export async function getPurchaseById(id: string): Promise<Purchase | null> {
  * Get all purchases
  */
 export async function getAllPurchases(): Promise<Purchase[]> {
-  const ids = await kv.smembers<string>("purchases:index");
+  const ids = await kv.smembers("purchases:index");
   if (!ids || ids.length === 0) return [];
 
   const purchases = await Promise.all(
@@ -161,7 +161,7 @@ export async function getAllPurchases(): Promise<Purchase[]> {
  * Get purchases by vendor
  */
 export async function getPurchasesByVendor(vendorName: string): Promise<Purchase[]> {
-  const ids = await kv.smembers<string>(`purchases:vendor:${vendorName.toLowerCase()}`);
+  const ids = await kv.smembers(`purchases:vendor:${vendorName.toLowerCase()}`);
   if (!ids || ids.length === 0) return [];
 
   const purchases = await Promise.all(
