@@ -296,9 +296,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Determine shipping options based on subtotal
-    // Free shipping over $50, otherwise $7.99 standard or free local pickup
+    // Free shipping over $100, otherwise $14.99 standard or free local pickup
     const shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] =
-      subtotal >= 5000
+      subtotal >= 10000
         ? [
             {
               shipping_rate_data: {
@@ -323,7 +323,7 @@ export async function POST(req: NextRequest) {
             {
               shipping_rate_data: {
                 type: "fixed_amount",
-                fixed_amount: { amount: 799, currency: "usd" },
+                fixed_amount: { amount: 1499, currency: "usd" },
                 display_name: "Standard Shipping",
                 delivery_estimate: {
                   minimum: { unit: "business_day", value: 5 },

@@ -147,7 +147,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             {/* Cart Items */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Free Shipping Banner */}
-              <FreeShippingBanner currentTotal={getTotalPrice()} threshold={50} />
+              <FreeShippingBanner currentTotal={getTotalPrice()} threshold={100} />
 
               {/* Items */}
               {items.map((item) => (

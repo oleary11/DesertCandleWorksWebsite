@@ -241,7 +241,7 @@ export default function CartPage() {
           {/* Cart Items */}
           <div className="lg:col-span-2 space-y-4">
             {/* Free Shipping Banner */}
-            <FreeShippingBanner currentTotal={getTotalPrice()} threshold={50} />
+            <FreeShippingBanner currentTotal={getTotalPrice()} threshold={100} />
 
             {items.map((item) => (
               <div
