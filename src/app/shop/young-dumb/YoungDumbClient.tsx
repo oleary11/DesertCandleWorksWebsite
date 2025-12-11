@@ -221,7 +221,7 @@ export default function YoungDumbClient({ products, globalScents, alcoholTypes }
         <div className="mx-auto max-w-6xl px-6 text-center">
           <p className="text-sm font-medium flex items-center justify-center gap-2">
             <Truck className="w-4 h-4" />
-            Free shipping on orders over $50 • Free local pickup in Scottsdale, AZ
+            Free shipping on orders over $100 • Free local pickup in Scottsdale, AZ
           </p>
         </div>
       </div>
