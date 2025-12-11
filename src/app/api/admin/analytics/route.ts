@@ -108,10 +108,11 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // Calculate overall metrics with Stripe fees, separating products and shipping
+    // Calculate overall metrics with Stripe fees, separating products, shipping, and tax
     let totalRevenue = 0;
     let totalProductRevenue = 0;
     let totalShippingRevenue = 0;
+    let totalTaxCollected = 0;
     let totalStripeFees = 0;
     let stripeRevenue = 0; // Track revenue from Stripe orders only
 
@@ -133,6 +134,10 @@ export async function GET(req: NextRequest) {
       }
       totalShippingRevenue += shippingRevenue;
 
+      // Track tax collected
+      const taxAmount = order.taxCents ?? 0;
+      totalTaxCollected += taxAmount;
+
       // Only apply Stripe fees to Stripe orders (not manual sales)
       if (!isManualSale(order.id)) {
         totalStripeFees += calculateStripeFee(order.totalCents);
@@ -151,7 +156,7 @@ export async function GET(req: NextRequest) {
     // Build a map of product info
     const productMap = new Map(products.map((p) => [p.slug, p]));
 
-    // Calculate sales by product, tracking Stripe fees and shipping per product
+    // Calculate sales by product, tracking Stripe fees, shipping, and tax per product
     const productSalesMap = new Map<
       string,
       {
@@ -162,6 +167,7 @@ export async function GET(req: NextRequest) {
         stripeRevenue: number; // Track Stripe revenue separately
         stripeFees: number; // Per-product Stripe fees
         shippingCost: number; // Per-product shipping cost
+        taxAmount: number; // Per-product tax collected
         alcoholType?: string;
       }
     >();
@@ -181,22 +187,27 @@ export async function GET(req: NextRequest) {
         if (orderShippingCost < 0) orderShippingCost = 0;
       }
 
+      // Get tax amount for this order
+      const orderTaxAmount = order.taxCents ?? 0;
+
       for (const item of order.items) {
         const existing = productSalesMap.get(item.productSlug);
         const product = productMap.get(item.productSlug);
 
-        // Calculate this item's share of the order's Stripe fee and shipping
+        // Calculate this item's share of the order's Stripe fee, shipping, and tax
         // Divide by total items in the order (factoring in quantities)
         // Guard against division by zero
         const itemShare = orderItemCount > 0 ? item.quantity / orderItemCount : 0;
         const itemStripeFee = Math.round(orderStripeFee * itemShare);
         const itemShippingCost = Math.round(orderShippingCost * itemShare);
+        const itemTaxAmount = Math.round(orderTaxAmount * itemShare);
 
         if (existing) {
           existing.units += item.quantity;
           existing.revenue += item.priceCents;
           existing.stripeFees += itemStripeFee;
           existing.shippingCost += itemShippingCost;
+          existing.taxAmount += itemTaxAmount;
           if (isStripeOrder) {
             existing.stripeRevenue += item.priceCents;
           }
@@ -207,8 +218,9 @@ export async function GET(req: NextRequest) {
             units: item.quantity,
             revenue: item.priceCents,
             stripeRevenue: isStripeOrder ? item.priceCents : 0,
-            stripeFees: itemStripeFee,
-            shippingCost: itemShippingCost,
+            stripeFees: itemStripeFee || 0,
+            shippingCost: itemShippingCost || 0,
+            taxAmount: itemTaxAmount || 0,
             alcoholType: product?.alcoholType,
           });
         }
@@ -292,6 +304,7 @@ export async function GET(req: NextRequest) {
       totalRevenue,
       totalProductRevenue,
       totalShippingRevenue,
+      totalTaxCollected,
       netRevenue,
       stripeFees: totalStripeFees,
       totalOrders,

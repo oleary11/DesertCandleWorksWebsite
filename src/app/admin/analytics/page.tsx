@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, DollarSign, Package, ShoppingCart, Calendar } from "lucide-react";
+import { ArrowLeft, TrendingUp, DollarSign, Package, ShoppingCart, Calendar, Truck, Receipt } from "lucide-react";
 
 type Order = {
   id: string;
@@ -54,6 +54,7 @@ type AnalyticsData = {
   totalRevenue: number;
   totalProductRevenue: number;
   totalShippingRevenue: number;
+  totalTaxCollected: number;
   netRevenue: number;
   stripeFees: number;
   totalOrders: number;
@@ -66,6 +67,7 @@ type AnalyticsData = {
     revenue: number;
     stripeFees: number;
     shippingCost: number;
+    taxAmount: number;
     alcoholType?: string;
   }>;
   alcoholTypeSales: Array<{
@@ -408,7 +410,7 @@ export default function AdminAnalyticsPage() {
         </div>
 
         {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           {/* Gross Revenue Card */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
@@ -419,7 +421,8 @@ export default function AdminAnalyticsPage() {
             </div>
             <p className="text-3xl font-bold">${(analytics.totalRevenue / 100).toFixed(2)}</p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              Products: ${(analytics.totalProductRevenue / 100).toFixed(2)} | Shipping: ${(analytics.totalShippingRevenue / 100).toFixed(2)}
+              Products: ${((analytics.totalProductRevenue ?? 0) / 100).toFixed(2)}<br/>
+              Shipping: ${((analytics.totalShippingRevenue ?? 0) / 100).toFixed(2)} | Tax: ${((analytics.totalTaxCollected ?? 0) / 100).toFixed(2)}
             </p>
             {analytics.comparison && (
               <div className="mt-2">
@@ -547,11 +550,38 @@ export default function AdminAnalyticsPage() {
               </div>
             )}
           </div>
+
+          {/* Total Shipping Card */}
+          <div className="card p-6 bg-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
+                <Truck className="w-5 h-5 text-sky-600" />
+              </div>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Shipping Collected</span>
+            </div>
+            <p className="text-3xl font-bold">${((analytics.totalShippingRevenue ?? 0) / 100).toFixed(2)}</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">Total shipping revenue</p>
+          </div>
+
+          {/* Total Tax Card */}
+          <div className="card p-6 bg-white">
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
+                <Receipt className="w-5 h-5 text-indigo-600" />
+              </div>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Tax Collected</span>
+            </div>
+            <p className="text-3xl font-bold">${((analytics.totalTaxCollected ?? 0) / 100).toFixed(2)}</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">Total sales tax collected</p>
+          </div>
         </div>
 
         {/* Sales By Product */}
         <div className="card p-6 bg-white mb-8">
           <h2 className="text-xl font-bold mb-4">Sales By Product</h2>
+          <p className="text-sm text-[var(--color-muted)] mb-4">
+            Revenue breakdown by product including tax collected and shipping costs (allocated proportionally)
+          </p>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -561,7 +591,8 @@ export default function AdminAnalyticsPage() {
                   <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
                   <th className="text-right py-3 text-sm font-semibold">Gross Revenue</th>
                   <th className="text-right py-3 text-sm font-semibold">Net Revenue</th>
-                  <th className="text-right py-3 text-sm font-semibold">Shipping Cost</th>
+                  <th className="text-right py-3 text-sm font-semibold">Shipping</th>
+                  <th className="text-right py-3 text-sm font-semibold">Tax Collected</th>
                 </tr>
               </thead>
               <tbody>
@@ -581,7 +612,10 @@ export default function AdminAnalyticsPage() {
                         ${(netRevenue / 100).toFixed(2)}
                       </td>
                       <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                        ${(product.shippingCost / 100).toFixed(2)}
+                        ${((product.shippingCost ?? 0) / 100).toFixed(2)}
+                      </td>
+                      <td className="py-3 text-sm text-right text-blue-600">
+                        ${((product.taxAmount ?? 0) / 100).toFixed(2)}
                       </td>
                     </tr>
                   );
