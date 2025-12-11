@@ -28,9 +28,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
 
   const [sortBy, setSortBy] = useState<SortOption>("name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>("in-stock");
-  const [showSeasonalOnly, setShowSeasonalOnly] = useState(false);
-  const [showLimitedOnly, setShowLimitedOnly] = useState(false);
-  const [showYoungDumbOnly, setShowYoungDumbOnly] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
@@ -90,15 +87,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     }
   }, []);
 
-  // Seasonal & Limited sets
-  const seasonalScents = useMemo(() => globalScents.filter((s) => s.seasonal), [globalScents]);
-  const limitedScents = useMemo(
-    () => globalScents.filter((s) => s.limited),
-    [globalScents]
-  );
-  const hasSeasonalScents = seasonalScents.length > 0;
-  const hasLimitedScents = limitedScents.length > 0;
-
   // Base filter/sort (before grouping)
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
@@ -111,39 +99,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         const descMatch = p.seoDescription?.toLowerCase().includes(query);
         return nameMatch || descMatch;
       });
-    }
-
-    // Seasonal filter
-    if (showSeasonalOnly) {
-      const seasonalScentIds = new Set(seasonalScents.map((s) => s.id));
-      filtered = filtered.filter((p) => {
-        if (!p.variantConfig) return false;
-        const { variantData } = p.variantConfig;
-        return Object.keys(variantData).some((variantId) => {
-          const parts = variantId.split("-");
-          const scentId = parts.slice(1).join("-");
-          return seasonalScentIds.has(scentId);
-        });
-      });
-    }
-
-    // Limited filter
-    if (showLimitedOnly) {
-      const limitedScentIds = new Set(limitedScents.map((s) => s.id));
-      filtered = filtered.filter((p) => {
-        if (!p.variantConfig) return false;
-        const { variantData } = p.variantConfig;
-        return Object.keys(variantData).some((variantId) => {
-          const parts = variantId.split("-");
-          const scentId = parts.slice(1).join("-");
-          return limitedScentIds.has(scentId);
-        });
-      });
-    }
-
-    // Young & Dumb filter
-    if (showYoungDumbOnly) {
-      filtered = filtered.filter((p) => p.youngDumb === true);
     }
 
     // Price range
@@ -184,11 +139,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     products,
     sortBy,
     filterBy,
-    showSeasonalOnly,
-    showLimitedOnly,
-    showYoungDumbOnly,
-    seasonalScents,
-    limitedScents,
     searchQuery,
     priceMin,
     priceMax,
@@ -398,89 +348,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
           </div>
         </div>
 
-        {/* Collection Filters - Mobile */}
-        {(hasSeasonalScents || hasLimitedScents) && (
-          <div className="mb-6 space-y-3">
-            {hasSeasonalScents && (
-              <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
-                <div className="relative flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={showSeasonalOnly}
-                    onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                  />
-                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                    {showSeasonalOnly && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <span className="text-sm whitespace-nowrap">Seasonal Scents</span>
-              </label>
-            )}
-            {hasLimitedScents && (
-              <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
-                <div className="relative flex items-center justify-center">
-                  <input
-                    type="checkbox"
-                    checked={showLimitedOnly}
-                    onChange={(e) => setShowLimitedOnly(e.target.checked)}
-                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                  />
-                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                    {showLimitedOnly && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <span className="text-sm whitespace-nowrap">Limited Scents</span>
-              </label>
-            )}
-            {/* Young & Dumb - Mobile */}
-            <label className="flex items-center gap-3 cursor-pointer group p-3 rounded-lg border border-[var(--color-line)] hover:border-[var(--color-accent)] transition">
-              <div className="relative flex items-center justify-center">
-                <input
-                  type="checkbox"
-                  checked={showYoungDumbOnly}
-                  onChange={(e) => setShowYoungDumbOnly(e.target.checked)}
-                  className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                />
-                <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                  {showYoungDumbOnly && (
-                    <svg
-                      className="w-3 h-3 text-white"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={3}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  )}
-                </div>
-              </div>
-              <span className="text-sm whitespace-nowrap">Young & Dumb</span>
-            </label>
-          </div>
-        )}
-
         <div className="flex flex-col sm:flex-row gap-4 mb-6">
           {/* Sort - Mobile */}
           <div className="flex-1">
@@ -551,98 +418,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
             {/* Desktop Sidebar */}
             <aside className="hidden lg:block lg:w-64 flex-shrink-0">
               <div className="space-y-6">
-                {/* Collections */}
-                {(hasSeasonalScents || hasLimitedScents) && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-3">Collections</h3>
-                    <div className="space-y-2">
-                      {hasSeasonalScents && (
-                        <label className="flex items-start gap-3 cursor-pointer group">
-                          <div className="relative flex items-center justify-center mt-0.5">
-                            <input
-                              type="checkbox"
-                              checked={showSeasonalOnly}
-                              onChange={(e) => setShowSeasonalOnly(e.target.checked)}
-                              className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                            />
-                            <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                              {showSeasonalOnly && (
-                                <svg
-                                  className="w-3 h-3 text-white"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                  strokeWidth={3}
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                            Seasonal Scents
-                          </span>
-                        </label>
-                      )}
-                      {hasLimitedScents && (
-                        <label className="flex items-start gap-3 cursor-pointer group">
-                          <div className="relative flex items-center justify-center mt-0.5">
-                            <input
-                              type="checkbox"
-                              checked={showLimitedOnly}
-                              onChange={(e) => setShowLimitedOnly(e.target.checked)}
-                              className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                            />
-                            <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                              {showLimitedOnly && (
-                                <svg
-                                  className="w-3 h-3 text-white"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                  strokeWidth={3}
-                                >
-                                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                                </svg>
-                              )}
-                            </div>
-                          </div>
-                          <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                            Limited Scents
-                          </span>
-                        </label>
-                      )}
-                      {/* Young & Dumb */}
-                      <label className="flex items-start gap-3 cursor-pointer group">
-                        <div className="relative flex items-center justify-center mt-0.5">
-                          <input
-                            type="checkbox"
-                            checked={showYoungDumbOnly}
-                            onChange={(e) => setShowYoungDumbOnly(e.target.checked)}
-                            className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                          />
-                          <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                            {showYoungDumbOnly && (
-                              <svg
-                                className="w-3 h-3 text-white"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={3}
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                              </svg>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-sm leading-relaxed group-hover:text-[var(--color-accent)] transition">
-                          Young & Dumb
-                        </span>
-                      </label>
-                    </div>
-                  </div>
-                )}
-
                 {/* Availability */}
                 <div>
                   <h3 className="text-sm font-semibold mb-3">Availability</h3>
@@ -777,9 +552,6 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                     onClick={() => {
                       setFilterBy("all");
                       setSortBy("name-asc");
-                      setShowSeasonalOnly(false);
-                      setShowLimitedOnly(false);
-                      setShowYoungDumbOnly(false);
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);
