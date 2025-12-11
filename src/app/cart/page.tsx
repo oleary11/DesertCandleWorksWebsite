@@ -425,10 +425,10 @@ export default function CartPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--color-muted)]">Shipping</span>
                   <span className="font-medium">
-                    {getTotalPrice() >= 50 ? "FREE" : "$7.99"}
+                    {getTotalPrice() >= 100 ? "FREE" : "$14.99"}
                   </span>
                 </div>
-                {getTotalPrice() < 50 && (
+                {getTotalPrice() < 100 && (
                   <p className="text-xs text-[var(--color-muted)] pt-1">
                     Free shipping on orders $100+
                   </p>
