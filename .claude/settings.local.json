@@ -11,7 +11,10 @@
       "Bash(curl:*)",
       "Bash(npm install:*)",
       "Bash(npm run lint:*)",
-      "Bash(powershell -Command:*)"
+      "Bash(powershell -Command:*)",
+      "Bash(npx tsx:*)",
+      "Bash(npx dotenv:*)",
+      "Bash(del add-purchases.mjs add-purchases.ts)"
     ],
     "deny": [],
     "ask": []

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Upload, DollarSign, Package, Calendar, FileText, X, Edit2, Check } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, DollarSign, Package, Calendar, FileText, X, Edit2, Check, FileSpreadsheet, Search } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
 
 type PurchaseItem = {
@@ -57,7 +57,7 @@ export default function AdminPurchasesPage() {
   const { showAlert, showConfirm } = useModal();
   const [purchases, setPurchases] = useState<Purchase[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showAddForm, setShowAddForm] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   // Form state
@@ -73,6 +73,8 @@ export default function AdminPurchasesPage() {
   // Filter state
   const [filterCategory, setFilterCategory] = useState<string>("all");
   const [filterVendor, setFilterVendor] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [uploadingCSV, setUploadingCSV] = useState(false);
 
   useEffect(() => {
     loadPurchases();
@@ -181,6 +183,155 @@ export default function AdminPurchasesPage() {
     }
   }
 
+  async function handleCSVUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.name.endsWith('.csv')) {
+      await showAlert("Please upload a CSV file", "Invalid File");
+      return;
+    }
+
+    try {
+      setUploadingCSV(true);
+
+      const text = await file.text();
+      const lines = text.split('\n').filter(line => line.trim());
+
+      if (lines.length < 2) {
+        await showAlert("CSV file is empty or missing data", "Invalid File");
+        return;
+      }
+
+      // Parse header
+      const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+      const dateIdx = headers.findIndex(h => h.includes('date'));
+      const itemNameIdx = headers.findIndex(h => h.includes('item') || h.includes('name') || h.includes('description'));
+      const qtyIdx = headers.findIndex(h => h.includes('quantity') || h.includes('qty'));
+      const costIdx = headers.findIndex(h => h.includes('cost') || h.includes('price'));
+      const categoryIdx = headers.findIndex(h => h.includes('category'));
+      const vendorIdx = headers.findIndex(h => h.includes('vendor'));
+      const orderNumIdx = headers.findIndex(h => h.includes('order'));
+      const shippingIdx = headers.findIndex(h => h.includes('shipping'));
+      const taxIdx = headers.findIndex(h => h.includes('tax'));
+      const notesIdx = headers.findIndex(h => h.includes('note'));
+
+      if (dateIdx === -1 || itemNameIdx === -1 || costIdx === -1 || vendorIdx === -1 || orderNumIdx === -1) {
+        await showAlert("CSV must have Date, Item Name, Cost, Vendor Name, and Order Number columns", "Missing Columns");
+        return;
+      }
+
+      // Group by order number
+      const orderGroups: Record<string, any[]> = {};
+
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+
+        const values = line.split(',').map(v => v.trim());
+        const orderNum = values[orderNumIdx];
+
+        if (!orderGroups[orderNum]) {
+          orderGroups[orderNum] = [];
+        }
+
+        const costStr = values[costIdx].replace('$', '').trim();
+        const cost = parseFloat(costStr);
+        const qty = qtyIdx !== -1 ? parseFloat(values[qtyIdx]) : 1;
+
+        orderGroups[orderNum].push({
+          date: values[dateIdx],
+          itemName: values[itemNameIdx],
+          quantity: qty,
+          unitCostCents: Math.round(cost * 100),
+          category: categoryIdx !== -1 ? values[categoryIdx].toLowerCase() : 'other',
+          vendor: values[vendorIdx],
+          shipping: shippingIdx !== -1 ? values[shippingIdx] : '',
+          tax: taxIdx !== -1 ? values[taxIdx] : '',
+          notes: notesIdx !== -1 ? values[notesIdx] : ''
+        });
+      }
+
+      // Create purchases
+      let successCount = 0;
+      let errorCount = 0;
+
+      for (const [orderNum, items] of Object.entries(orderGroups)) {
+        if (items.length === 0) continue;
+
+        const firstItem = items[0];
+
+        // Parse date from MM/D/YYYY to YYYY-MM-DD
+        const dateParts = firstItem.date.split('/');
+        const month = dateParts[0].padStart(2, '0');
+        const day = dateParts[1].padStart(2, '0');
+        const year = dateParts[2];
+        const isoDate = `${year}-${month}-${day}`;
+
+        // Get shipping and tax from first item that has them
+        let shippingCents = 0;
+        let taxCents = 0;
+
+        for (const item of items) {
+          if (item.shipping && !shippingCents) {
+            const shippingStr = item.shipping.replace('$', '').trim();
+            shippingCents = Math.round(parseFloat(shippingStr || '0') * 100);
+          }
+          if (item.tax && !taxCents) {
+            const taxStr = item.tax.replace('$', '').trim();
+            taxCents = Math.round(parseFloat(taxStr || '0') * 100);
+          }
+        }
+
+        const purchaseItems = items.map(item => ({
+          name: item.itemName,
+          quantity: item.quantity,
+          unitCostCents: item.unitCostCents,
+          category: item.category,
+          notes: item.notes || undefined
+        }));
+
+        try {
+          const res = await fetch("/api/admin/purchases", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              vendorName: firstItem.vendor,
+              purchaseDate: isoDate,
+              items: purchaseItems,
+              shippingCents,
+              taxCents
+            })
+          });
+
+          if (res.ok) {
+            successCount++;
+          } else {
+            errorCount++;
+            console.error(`Failed to create purchase for order ${orderNum}`);
+          }
+        } catch (err) {
+          errorCount++;
+          console.error(`Error creating purchase for order ${orderNum}:`, err);
+        }
+      }
+
+      await showAlert(
+        `Successfully imported ${successCount} purchase(s). ${errorCount > 0 ? `${errorCount} failed.` : ''}`,
+        "Import Complete"
+      );
+
+      await loadPurchases();
+    } catch (err) {
+      console.error("CSV upload error:", err);
+      await showAlert("Failed to process CSV file", "Upload Error");
+    } finally {
+      setUploadingCSV(false);
+      // Reset file input
+      e.target.value = '';
+    }
+  }
+
   async function savePurchase() {
     // Validation
     if (!vendorName.trim()) {
@@ -240,7 +391,7 @@ export default function AdminPurchasesPage() {
           "Success"
         );
         resetForm();
-        setShowAddForm(false);
+        setShowModal(false);
         setEditingId(null);
         await loadPurchases();
       } else {
@@ -272,7 +423,13 @@ export default function AdminPurchasesPage() {
     setReceiptImageUrl(purchase.receiptImageUrl || "");
     setNotes(purchase.notes || "");
     setEditingId(purchase.id);
-    setShowAddForm(true);
+    setShowModal(true);
+  }
+
+  function openNewPurchaseModal() {
+    resetForm();
+    setEditingId(null);
+    setShowModal(true);
   }
 
   async function deletePurchase(id: string, vendorName: string) {
@@ -309,14 +466,33 @@ export default function AdminPurchasesPage() {
 
   // Filter purchases
   const filteredPurchases = purchases.filter(purchase => {
+    // Vendor filter
     if (filterVendor !== "all" && purchase.vendorName !== filterVendor) return false;
+
+    // Category filter
     if (filterCategory !== "all" && !purchase.items.some(item => item.category === filterCategory)) return false;
+
+    // Search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchesVendor = purchase.vendorName.toLowerCase().includes(query);
+      const matchesNotes = purchase.notes?.toLowerCase().includes(query);
+      const matchesItem = purchase.items.some(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.category.toLowerCase().includes(query) ||
+        item.notes?.toLowerCase().includes(query)
+      );
+      const matchesDate = purchase.purchaseDate.includes(query);
+
+      if (!matchesVendor && !matchesNotes && !matchesItem && !matchesDate) return false;
+    }
+
     return true;
   });
 
   // Calculate totals
   const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.totalCents, 0);
-  const totalItems = filteredPurchases.reduce((sum, p) => sum + p.items.reduce((s, i) => s + i.quantity, 0), 0);
+  const totalItems = filteredPurchases.reduce((sum, p) => sum + p.items.reduce((s, i) => s + Math.floor(i.quantity), 0), 0);
 
   return (
     <div className="min-h-screen p-6 bg-neutral-50">
@@ -337,17 +513,26 @@ export default function AdminPurchasesPage() {
                 Track purchases, calculate fully-loaded costs, and manage receipts
               </p>
             </div>
-            <button
-              onClick={() => {
-                resetForm();
-                setEditingId(null);
-                setShowAddForm(!showAddForm);
-              }}
-              className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
-            >
-              {showAddForm ? <X className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-              {showAddForm ? "Cancel" : "Add Purchase"}
-            </button>
+            <div className="flex gap-3">
+              <label className="btn border border-[var(--color-line)] cursor-pointer flex items-center gap-2">
+                <FileSpreadsheet className="w-4 h-4" />
+                {uploadingCSV ? "Uploading..." : "Upload CSV"}
+                <input
+                  type="file"
+                  className="hidden"
+                  accept=".csv"
+                  onChange={handleCSVUpload}
+                  disabled={uploadingCSV}
+                />
+              </label>
+              <button
+                onClick={openNewPurchaseModal}
+                className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
+              >
+                <Plus className="w-4 h-4" />
+                Add Purchase
+              </button>
+            </div>
           </div>
         </div>
 
@@ -389,279 +574,24 @@ export default function AdminPurchasesPage() {
           </div>
         </div>
 
-        {/* Add/Edit Form */}
-        {showAddForm && (
-          <div className="card p-6 bg-white mb-8">
-            <h2 className="text-xl font-bold mb-4">{editingId ? "Edit Purchase" : "Add New Purchase"}</h2>
 
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">Vendor Name *</label>
-                <input
-                  type="text"
-                  className="input w-full"
-                  value={vendorName}
-                  onChange={(e) => setVendorName(e.target.value)}
-                  placeholder="e.g., CandleScience, Amazon"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Purchase Date *</label>
-                <input
-                  type="date"
-                  className="input w-full"
-                  value={purchaseDate}
-                  onChange={(e) => setPurchaseDate(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Items */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-sm font-medium">Items *</label>
-                <button
-                  onClick={addItem}
-                  className="text-sm text-[var(--color-accent)] hover:underline flex items-center gap-1"
-                >
-                  <Plus className="w-4 h-4" />
-                  Add Item
-                </button>
-              </div>
-
-              {items.length === 0 && (
-                <div className="text-center py-8 text-[var(--color-muted)] text-sm">
-                  No items added. Click &quot;Add Item&quot; to get started.
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {items.map((item, index) => (
-                  <div key={index} className="border border-[var(--color-line)] rounded-lg p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Item Name</label>
-                        <input
-                          type="text"
-                          className="input w-full text-sm"
-                          value={item.name}
-                          onChange={(e) => updateItem(index, "name", e.target.value)}
-                          placeholder="e.g., Soy Wax 464"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Quantity</label>
-                        <input
-                          type="number"
-                          className="input w-full text-sm"
-                          value={item.quantity}
-                          onChange={(e) => updateItem(index, "quantity", parseFloat(e.target.value) || 0)}
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Unit Cost ($)</label>
-                        <input
-                          type="number"
-                          className="input w-full text-sm"
-                          value={item.unitCostCents / 100}
-                          onChange={(e) => updateItem(index, "unitCostCents", Math.round((parseFloat(e.target.value) || 0) * 100))}
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium mb-1">Category</label>
-                        <select
-                          className="input w-full text-sm"
-                          value={item.category}
-                          onChange={(e) => updateItem(index, "category", e.target.value)}
-                        >
-                          {CATEGORIES.map((cat) => (
-                            <option key={cat} value={cat}>
-                              {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-
-                    <div className="flex items-end gap-3">
-                      <div className="flex-1">
-                        <label className="block text-xs font-medium mb-1">Notes (Optional)</label>
-                        <input
-                          type="text"
-                          className="input w-full text-sm"
-                          value={item.notes || ""}
-                          onChange={(e) => updateItem(index, "notes", e.target.value)}
-                          placeholder="Additional details..."
-                        />
-                      </div>
-                      <button
-                        onClick={() => removeItem(index)}
-                        className="p-2 text-rose-600 hover:bg-rose-50 rounded"
-                        aria-label="Remove item"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-
-                    {allocatedItems[index] && (
-                      <div className="mt-3 pt-3 border-t border-[var(--color-line)] text-xs text-[var(--color-muted)] grid grid-cols-2 md:grid-cols-4 gap-2">
-                        <div>
-                          <span className="font-medium">Item Total:</span> ${(allocatedItems[index].totalCostCents / 100).toFixed(2)}
-                        </div>
-                        <div>
-                          <span className="font-medium">+ Shipping:</span> ${(allocatedItems[index].allocatedShippingCents / 100).toFixed(2)}
-                        </div>
-                        <div>
-                          <span className="font-medium">+ Tax:</span> ${(allocatedItems[index].allocatedTaxCents / 100).toFixed(2)}
-                        </div>
-                        <div className="text-green-600 font-medium">
-                          Per Unit: ${(allocatedItems[index].costPerUnitCents / 100).toFixed(2)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Shipping & Tax */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium mb-1">Shipping Cost ($)</label>
-                <input
-                  type="number"
-                  className="input w-full"
-                  value={shippingCents / 100}
-                  onChange={(e) => setShippingCents(Math.round((parseFloat(e.target.value) || 0) * 100))}
-                  min="0"
-                  step="0.01"
-                />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Will be allocated proportionally across items
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-1">Tax ($)</label>
-                <input
-                  type="number"
-                  className="input w-full"
-                  value={taxCents / 100}
-                  onChange={(e) => setTaxCents(Math.round((parseFloat(e.target.value) || 0) * 100))}
-                  min="0"
-                  step="0.01"
-                />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Will be allocated proportionally across items
-                </p>
-              </div>
-            </div>
-
-            {/* Totals Summary */}
-            <div className="bg-neutral-50 rounded-lg p-4 mb-6">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                  <span className="text-[var(--color-muted)]">Subtotal:</span>
-                  <p className="font-medium">${(subtotal / 100).toFixed(2)}</p>
-                </div>
-                <div>
-                  <span className="text-[var(--color-muted)]">Shipping:</span>
-                  <p className="font-medium">${(shippingCents / 100).toFixed(2)}</p>
-                </div>
-                <div>
-                  <span className="text-[var(--color-muted)]">Tax:</span>
-                  <p className="font-medium">${(taxCents / 100).toFixed(2)}</p>
-                </div>
-                <div>
-                  <span className="text-[var(--color-muted)]">Total:</span>
-                  <p className="font-bold text-lg text-green-600">${(total / 100).toFixed(2)}</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Receipt Upload */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Receipt/Invoice (Optional)</label>
-              <div className="flex items-center gap-4">
-                <label className="btn border border-[var(--color-line)] cursor-pointer flex items-center gap-2">
-                  <Upload className="w-4 h-4" />
-                  {uploadingImage ? "Uploading..." : "Upload Image/PDF"}
-                  <input
-                    type="file"
-                    className="hidden"
-                    accept="image/*,application/pdf"
-                    onChange={handleImageUpload}
-                    disabled={uploadingImage}
-                  />
-                </label>
-                {receiptImageUrl && (
-                  <div className="flex items-center gap-2">
-                    <a
-                      href={receiptImageUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm text-[var(--color-accent)] hover:underline"
-                    >
-                      View Receipt
-                    </a>
-                    <button
-                      onClick={() => setReceiptImageUrl("")}
-                      className="text-sm text-rose-600 hover:underline"
-                    >
-                      Remove
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-1">Notes (Optional)</label>
-              <textarea
-                className="textarea w-full"
-                rows={3}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Additional notes about this purchase..."
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-3">
-              <button
-                onClick={savePurchase}
-                className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
-              >
-                <Check className="w-4 h-4" />
-                {editingId ? "Update Purchase" : "Save Purchase"}
-              </button>
-              <button
-                onClick={() => {
-                  resetForm();
-                  setShowAddForm(false);
-                  setEditingId(null);
-                }}
-                className="btn border border-[var(--color-line)]"
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Filters */}
+        {/* Search and Filters */}
         <div className="card p-4 bg-white mb-6">
           <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[250px]">
+              <label className="block text-xs font-medium mb-1">Search</label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+                <input
+                  type="text"
+                  className="input text-sm !pl-11 w-full"
+                  placeholder="Search vendors, items, notes..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div>
               <label className="block text-xs font-medium mb-1">Filter by Vendor</label>
               <select
@@ -694,16 +624,17 @@ export default function AdminPurchasesPage() {
               </select>
             </div>
 
-            {(filterVendor !== "all" || filterCategory !== "all") && (
+            {(filterVendor !== "all" || filterCategory !== "all" || searchQuery.trim()) && (
               <div className="flex items-end">
                 <button
                   onClick={() => {
                     setFilterVendor("all");
                     setFilterCategory("all");
+                    setSearchQuery("");
                   }}
                   className="btn text-sm border border-[var(--color-line)]"
                 >
-                  Clear Filters
+                  Clear All
                 </button>
               </div>
             )}
@@ -795,7 +726,7 @@ export default function AdminPurchasesPage() {
                       <div>
                         <span className="text-[var(--color-muted)]">Items:</span>
                         <p className="font-medium">
-                          {purchase.items.reduce((sum, item) => sum + item.quantity, 0)} units
+                          {purchase.items.reduce((sum, item) => sum + Math.floor(item.quantity), 0)} units
                         </p>
                       </div>
                     </div>
@@ -856,6 +787,380 @@ export default function AdminPurchasesPage() {
             </div>
           )}
         </div>
+
+        {/* Add/Edit Modal */}
+        {showModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+            {/* Backdrop */}
+            <div
+              className="absolute inset-0"
+              onClick={() => {
+                setShowModal(false);
+                resetForm();
+                setEditingId(null);
+              }}
+            />
+
+            {/* Modal */}
+            <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+              {/* Header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+                <div>
+                  <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+                    {editingId ? "Edit Purchase" : "New Purchase"}
+                  </h2>
+                  <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                    Track item costs with proportional shipping and tax allocation
+                  </p>
+                </div>
+                <button
+                  className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                    setEditingId(null);
+                  }}
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Scrollable Content */}
+              <div className="flex-1 overflow-y-auto px-6 py-6">
+                {/* ---------- Basic Information Section ---------- */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <DollarSign className="w-5 h-5 text-[var(--color-accent)]" />
+                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Basic Information</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Vendor Name *</label>
+                      <input
+                        type="text"
+                        className="input w-full"
+                        value={vendorName}
+                        onChange={(e) => setVendorName(e.target.value)}
+                        placeholder="e.g., CandleScience, Amazon"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Purchase Date *</label>
+                      <input
+                        type="date"
+                        className="input w-full"
+                        value={purchaseDate}
+                        onChange={(e) => setPurchaseDate(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ---------- Items Section ---------- */}
+                <div className="mb-8">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-2">
+                      <Package className="w-5 h-5 text-[var(--color-accent)]" />
+                      <h3 className="text-base font-semibold text-[var(--color-ink)]">Purchase Items</h3>
+                    </div>
+                    <button
+                      onClick={addItem}
+                      className="btn btn-primary text-sm flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Add Item
+                    </button>
+                  </div>
+
+                  {items.length === 0 && (
+                    <div className="text-center py-12 text-[var(--color-muted)] bg-neutral-50 rounded-lg border border-dashed border-neutral-300">
+                      <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                      <p className="text-sm">No items added. Click &quot;Add Item&quot; to get started.</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-3">
+                    {items.map((item, index) => (
+                      <div key={index} className="border border-[var(--color-line)] rounded-lg p-4 bg-neutral-50">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Item Name *</label>
+                            <input
+                              type="text"
+                              className="input w-full text-sm"
+                              value={item.name}
+                              onChange={(e) => updateItem(index, "name", e.target.value)}
+                              placeholder="e.g., Soy Wax 464"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Quantity</label>
+                            <input
+                              type="number"
+                              className="input w-full text-sm"
+                              value={item.quantity}
+                              onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 0)}
+                              min="0"
+                              step="1"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Unit Cost ($)</label>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              className="input w-full text-sm"
+                              value={item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString()}
+                              onChange={(e) => {
+                                const value = e.target.value;
+                                if (value === "" || value === ".") {
+                                  updateItem(index, "unitCostCents", 0);
+                                } else {
+                                  const parsed = parseFloat(value);
+                                  if (!isNaN(parsed)) {
+                                    updateItem(index, "unitCostCents", Math.round(parsed * 100));
+                                  }
+                                }
+                              }}
+                              placeholder="0.00"
+                            />
+                          </div>
+
+                          <div>
+                            <label className="block text-xs font-medium mb-1">Category</label>
+                            <select
+                              className="input w-full text-sm"
+                              value={item.category}
+                              onChange={(e) => updateItem(index, "category", e.target.value)}
+                            >
+                              {CATEGORIES.map((cat) => (
+                                <option key={cat} value={cat}>
+                                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                        </div>
+
+                        <div className="flex items-end gap-3 mb-3">
+                          <div className="flex-1">
+                            <label className="block text-xs font-medium mb-1">Notes (Optional)</label>
+                            <input
+                              type="text"
+                              className="input w-full text-sm"
+                              value={item.notes || ""}
+                              onChange={(e) => updateItem(index, "notes", e.target.value)}
+                              placeholder="Additional details..."
+                            />
+                          </div>
+                          <button
+                            onClick={() => removeItem(index)}
+                            className="p-2 text-rose-600 hover:bg-rose-100 rounded transition-colors"
+                            aria-label="Remove item"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        {allocatedItems[index] && (
+                          <div className="pt-3 border-t border-neutral-300 text-xs grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <div className="text-[var(--color-muted)]">
+                              <span className="font-medium">Item Total:</span>
+                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
+                                ${(allocatedItems[index].totalCostCents / 100).toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="text-[var(--color-muted)]">
+                              <span className="font-medium">+ Shipping:</span>
+                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
+                                ${(allocatedItems[index].allocatedShippingCents / 100).toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="text-[var(--color-muted)]">
+                              <span className="font-medium">+ Tax:</span>
+                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
+                                ${(allocatedItems[index].allocatedTaxCents / 100).toFixed(2)}
+                              </p>
+                            </div>
+                            <div className="text-[var(--color-muted)]">
+                              <span className="font-medium">Per Unit:</span>
+                              <p className="text-sm text-green-600 font-bold mt-0.5">
+                                ${(allocatedItems[index].costPerUnitCents / 100).toFixed(2)}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ---------- Shipping & Tax Section ---------- */}
+                <div className="mb-8">
+                  <div className="flex items-center gap-2 mb-4">
+                    <DollarSign className="w-5 h-5 text-[var(--color-accent)]" />
+                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Shipping & Tax</h3>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Shipping Cost ($)</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="input w-full"
+                        value={shippingCents === 0 ? "" : (shippingCents / 100).toString()}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || value === ".") {
+                            setShippingCents(0);
+                          } else {
+                            const parsed = parseFloat(value);
+                            if (!isNaN(parsed)) {
+                              setShippingCents(Math.round(parsed * 100));
+                            }
+                          }
+                        }}
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-[var(--color-muted)] mt-1">
+                        Allocated proportionally across items
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Tax ($)</label>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        className="input w-full"
+                        value={taxCents === 0 ? "" : (taxCents / 100).toString()}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          if (value === "" || value === ".") {
+                            setTaxCents(0);
+                          } else {
+                            const parsed = parseFloat(value);
+                            if (!isNaN(parsed)) {
+                              setTaxCents(Math.round(parsed * 100));
+                            }
+                          }
+                        }}
+                        placeholder="0.00"
+                      />
+                      <p className="text-xs text-[var(--color-muted)] mt-1">
+                        Allocated proportionally across items
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Totals Summary */}
+                  <div className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div>
+                        <span className="text-green-700 text-xs font-medium">Subtotal</span>
+                        <p className="text-lg font-bold text-green-900">${(subtotal / 100).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <span className="text-green-700 text-xs font-medium">Shipping</span>
+                        <p className="text-lg font-bold text-green-900">${(shippingCents / 100).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <span className="text-green-700 text-xs font-medium">Tax</span>
+                        <p className="text-lg font-bold text-green-900">${(taxCents / 100).toFixed(2)}</p>
+                      </div>
+                      <div>
+                        <span className="text-green-700 text-xs font-medium">Total</span>
+                        <p className="text-2xl font-bold text-green-600">${(total / 100).toFixed(2)}</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* ---------- Additional Details Section ---------- */}
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="w-5 h-5 text-[var(--color-accent)]" />
+                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Additional Details</h3>
+                  </div>
+
+                  {/* Receipt Upload */}
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-2">Receipt/Invoice (Optional)</label>
+                    <div className="flex items-center gap-4">
+                      <label className="btn border border-[var(--color-line)] cursor-pointer flex items-center gap-2">
+                        <Upload className="w-4 h-4" />
+                        {uploadingImage ? "Uploading..." : "Upload Image/PDF"}
+                        <input
+                          type="file"
+                          className="hidden"
+                          accept="image/*,application/pdf"
+                          onChange={handleImageUpload}
+                          disabled={uploadingImage}
+                        />
+                      </label>
+                      {receiptImageUrl && (
+                        <div className="flex items-center gap-2">
+                          <a
+                            href={receiptImageUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm text-[var(--color-accent)] hover:underline"
+                          >
+                            View Receipt
+                          </a>
+                          <button
+                            onClick={() => setReceiptImageUrl("")}
+                            className="text-sm text-rose-600 hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Notes (Optional)</label>
+                    <textarea
+                      className="textarea w-full"
+                      rows={3}
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="Additional notes about this purchase..."
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+                <button
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                    setEditingId(null);
+                  }}
+                  className="btn border border-[var(--color-line)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={savePurchase}
+                  className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
+                >
+                  <Check className="w-4 h-4" />
+                  {editingId ? "Update Purchase" : "Save Purchase"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
