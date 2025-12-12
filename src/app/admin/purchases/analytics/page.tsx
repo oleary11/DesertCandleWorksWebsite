@@ -295,10 +295,14 @@ export default function PurchaseAnalyticsPage() {
                     return (
                       <tr key={month.month} className="hover:bg-neutral-50">
                         <td className="py-3 px-4 text-sm font-medium">
-                          {new Date(month.month + "-01").toLocaleDateString("en-US", {
-                            year: "numeric",
-                            month: "long"
-                          })}
+                          {(() => {
+                            const [year, monthNum] = month.month.split("-");
+                            const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
+                            return date.toLocaleDateString("en-US", {
+                              year: "numeric",
+                              month: "long"
+                            });
+                          })()}
                         </td>
                         <td className="py-3 px-4 text-sm text-right font-bold text-green-600">
                           ${(month.totalCents / 100).toFixed(2)}
