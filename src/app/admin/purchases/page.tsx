@@ -47,6 +47,18 @@ const CATEGORIES = [
   "other",
 ];
 
+type CSVPurchaseItem = {
+  date: string;
+  itemName: string;
+  quantity: number;
+  unitCostCents: number;
+  category: string;
+  vendor: string;
+  shipping: string;
+  tax: string;
+  notes: string;
+};
+
 // Helper function to format date without timezone issues
 function formatDate(dateString: string): string {
   const [year, month, day] = dateString.split("-");
@@ -222,7 +234,7 @@ export default function AdminPurchasesPage() {
       }
 
       // Group by order number
-      const orderGroups: Record<string, any[]> = {};
+      const orderGroups: Record<string, CSVPurchaseItem[]> = {};
 
       for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
