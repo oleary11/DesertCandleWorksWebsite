@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resetPasswordWithToken } from "@/lib/userStore";
+import { validatePassword } from "@/lib/validation";
 
 export async function POST(req: NextRequest) {
   try {
@@ -9,9 +10,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Token and password are required" }, { status: 400 });
     }
 
-    if (password.length < 8) {
+    // Use comprehensive password validation
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.valid) {
       return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
+        { error: passwordValidation.error },
         { status: 400 }
       );
     }

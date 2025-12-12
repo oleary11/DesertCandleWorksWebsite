@@ -32,7 +32,7 @@ export async function createAdminSession(userId: string, email: string, role: "s
     value: token,
     httpOnly: true,
     secure: true,
-    sameSite: "lax",
+    sameSite: "strict", // Upgrade from "lax" for better CSRF protection
     path: "/",
     maxAge: ttl(),
   });

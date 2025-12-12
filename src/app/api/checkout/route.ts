@@ -4,6 +4,9 @@ import { getUserSession } from "@/lib/userSession";
 import { getUserById } from "@/lib/userStore";
 import { getPromotionById } from "@/lib/promotionsStore";
 import { validatePromotion } from "@/lib/promotionValidator";
+import { getPriceToProduct } from "@/lib/pricemap";
+import { listResolvedProducts } from "@/lib/resolvedProducts";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -34,6 +37,17 @@ function isLineItemArray(v: unknown): v is ExtendedLineItem[] {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limiting protection against checkout abuse
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+  const rateLimitOk = await checkRateLimit(ip);
+
+  if (!rateLimitOk) {
+    return NextResponse.json(
+      { error: "Too many checkout attempts. Please try again in 15 minutes." },
+      { status: 429 }
+    );
+  }
+
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
     return NextResponse.json(
@@ -84,6 +98,54 @@ export async function POST(req: NextRequest) {
         if (isLineItemArray(parsed)) {
           extendedLineItems = parsed;
         }
+      }
+    }
+
+    // SECURITY: Validate stock availability before creating Stripe session
+    // This prevents race conditions and overselling
+    const priceToProduct = await getPriceToProduct();
+    const products = await listResolvedProducts();
+    const productsBySlug = new Map(products.map(p => [p.slug, p]));
+
+    for (const item of extendedLineItems) {
+      const productInfo = priceToProduct.get(item.price);
+      if (!productInfo) {
+        return NextResponse.json(
+          { error: "Invalid product in cart" },
+          { status: 400 }
+        );
+      }
+
+      const product = productsBySlug.get(productInfo.slug);
+      if (!product) {
+        return NextResponse.json(
+          { error: `Product not found: ${productInfo.slug}` },
+          { status: 404 }
+        );
+      }
+
+      const requestedQty = item.quantity || 1;
+      const availableStock = product.stock || 0;
+
+      if (availableStock < requestedQty) {
+        return NextResponse.json(
+          {
+            error: `${product.name} is out of stock. Requested: ${requestedQty}, Available: ${availableStock}`,
+          },
+          { status: 409 }
+        );
+      }
+
+      // SECURITY: Validate that the Stripe Price ID matches what we expect for this product
+      // This prevents price manipulation attacks where clients submit arbitrary price IDs
+      if (product.stripePriceId && item.price !== product.stripePriceId) {
+        console.error(`[Checkout Security] Price manipulation attempt detected: Expected ${product.stripePriceId}, got ${item.price} for product ${product.slug}`);
+        return NextResponse.json(
+          {
+            error: `Invalid price for ${product.name}. Please refresh and try again.`,
+          },
+          { status: 400 }
+        );
       }
     }
 

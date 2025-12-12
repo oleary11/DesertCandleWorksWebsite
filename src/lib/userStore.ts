@@ -2,6 +2,25 @@
 import { kv } from "@vercel/kv";
 import crypto from "crypto";
 
+// Webhook event ID tracking for idempotency
+const WEBHOOK_EVENTS_PREFIX = "webhook:event:";
+const WEBHOOK_EVENT_TTL = 7 * 24 * 60 * 60; // 7 days
+
+/**
+ * Check if a webhook event has already been processed
+ */
+export async function isWebhookProcessed(eventId: string): Promise<boolean> {
+  const exists = await kv.exists(`${WEBHOOK_EVENTS_PREFIX}${eventId}`);
+  return exists === 1;
+}
+
+/**
+ * Mark a webhook event as processed
+ */
+export async function markWebhookProcessed(eventId: string): Promise<void> {
+  await kv.set(`${WEBHOOK_EVENTS_PREFIX}${eventId}`, true, { ex: WEBHOOK_EVENT_TTL });
+}
+
 export type User = {
   id: string; // UUID
   email: string;
@@ -91,7 +110,7 @@ export async function createUser(
   }
 
   const bcrypt = await import("bcryptjs");
-  const passwordHash = await bcrypt.hash(password, 10);
+  const passwordHash = await bcrypt.hash(password, 12);
 
   const user: User = {
     id: crypto.randomUUID(),

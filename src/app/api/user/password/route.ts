@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireAuth } from "@/lib/userSession";
 import { getUserById, updatePassword, verifyPassword } from "@/lib/userStore";
+import { validatePassword } from "@/lib/validation";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting protection against password change abuse
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const rateLimitOk = await checkRateLimit(ip);
+
+    if (!rateLimitOk) {
+      return NextResponse.json(
+        { error: "Too many password change attempts. Please try again in 15 minutes." },
+        { status: 429 }
+      );
+    }
+
     const session = await requireAuth();
     const body = await req.json();
     const { currentPassword, newPassword } = body;
@@ -15,9 +28,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (newPassword.length < 8) {
+    // Use comprehensive password validation
+    const passwordValidation = validatePassword(newPassword);
+    if (!passwordValidation.valid) {
       return NextResponse.json(
-        { error: "New password must be at least 8 characters" },
+        { error: passwordValidation.error },
         { status: 400 }
       );
     }

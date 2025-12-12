@@ -14,7 +14,8 @@
       "Bash(powershell -Command:*)",
       "Bash(npx tsx:*)",
       "Bash(npx dotenv:*)",
-      "Bash(del add-purchases.mjs add-purchases.ts)"
+      "Bash(del add-purchases.mjs add-purchases.ts)",
+      "Bash(grep:*)"
     ],
     "deny": [],
     "ask": []

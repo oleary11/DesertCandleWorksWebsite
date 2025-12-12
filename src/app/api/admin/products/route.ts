@@ -3,6 +3,7 @@ import { revalidatePath } from "next/cache";
 import { upsertProduct, type Product } from "@/lib/productsStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { logAdminAction } from "@/lib/adminLogs";
+import { getAdminSession } from "@/lib/adminSession";
 
 export const runtime = "nodejs";
 
@@ -19,6 +20,12 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
+  // Explicit auth check with session retrieval
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
@@ -32,7 +39,7 @@ export async function POST(req: NextRequest) {
 
       await logAdminAction({
         action: "product.create",
-        adminEmail: "admin",
+        adminEmail: session.email,
         ip,
         userAgent,
         success: false,
@@ -66,7 +73,7 @@ export async function POST(req: NextRequest) {
   // Log successful product creation
   await logAdminAction({
     action: "product.create",
-    adminEmail: "admin",
+    adminEmail: session.email,
     ip,
     userAgent,
     success: true,

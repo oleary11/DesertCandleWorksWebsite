@@ -9,6 +9,7 @@ import {
 } from "@/lib/productsStore";
 import { getResolvedProduct } from "@/lib/liveProducts";
 import { logAdminAction } from "@/lib/adminLogs";
+import { getAdminSession } from "@/lib/adminSession";
 
 export const runtime = "nodejs";
 
@@ -29,6 +30,12 @@ export async function GET(_: NextRequest, ctx: RouteCtx) {
 }
 
 export async function PATCH(req: NextRequest, ctx: RouteCtx) {
+  // Explicit auth check with session retrieval
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
@@ -37,7 +44,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if (!existing) {
     await logAdminAction({
       action: "product.update",
-      adminEmail: "admin",
+      adminEmail: session.email,
       ip,
       userAgent,
       success: false,
@@ -72,7 +79,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 
   await logAdminAction({
     action: "product.update",
-    adminEmail: "admin",
+    adminEmail: session.email,
     ip,
     userAgent,
     success: true,
@@ -99,6 +106,12 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
 }
 
 export async function DELETE(req: NextRequest, ctx: RouteCtx) {
+  // Explicit auth check with session retrieval
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
@@ -109,7 +122,7 @@ export async function DELETE(req: NextRequest, ctx: RouteCtx) {
 
   await logAdminAction({
     action: "product.delete",
-    adminEmail: "admin",
+    adminEmail: session.email,
     ip,
     userAgent,
     success: true,
@@ -135,6 +148,12 @@ export async function DELETE(req: NextRequest, ctx: RouteCtx) {
 
 // Stock helpers via ?op=incr|decr|set&value=1
 export async function POST(req: NextRequest, ctx: RouteCtx) {
+  // Explicit auth check with session retrieval
+  const session = await getAdminSession();
+  if (!session) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
@@ -150,7 +169,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     await logAdminAction({
       action: "product.stock",
-      adminEmail: "admin",
+      adminEmail: session.email,
       ip,
       userAgent,
       success: true,
@@ -180,7 +199,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     await logAdminAction({
       action: "product.stock",
-      adminEmail: "admin",
+      adminEmail: session.email,
       ip,
       userAgent,
       success: true,
@@ -210,7 +229,7 @@ export async function POST(req: NextRequest, ctx: RouteCtx) {
 
     await logAdminAction({
       action: "product.stock",
-      adminEmail: "admin",
+      adminEmail: session.email,
       ip,
       userAgent,
       success: true,

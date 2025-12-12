@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmail } from "@/lib/validation";
+import { checkRateLimit } from "@/lib/rateLimit";
 
 export const runtime = "nodejs";
 
@@ -25,6 +26,17 @@ function extractEmailAddressFromJSON(body: unknown): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limiting protection against email spam/DoS
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
+    const rateLimitOk = await checkRateLimit(ip);
+
+    if (!rateLimitOk) {
+      return NextResponse.json(
+        { ok: false, error: "Too many subscription attempts. Please try again in 15 minutes." },
+        { status: 429 }
+      );
+    }
+
     const ct = req.headers.get("content-type") || "";
     let email_address: string | null = null;
 

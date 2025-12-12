@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
-import { getUserByEmail, createOrder, completeOrder, redeemPoints } from "@/lib/userStore";
+import { getUserByEmail, createOrder, completeOrder, redeemPoints, isWebhookProcessed, markWebhookProcessed } from "@/lib/userStore";
 import { incrementRedemptions } from "@/lib/promotionsStore";
 
 export const runtime = "nodejs";
@@ -31,8 +31,14 @@ export async function POST(req: NextRequest) {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
-    // SECURITY: Idempotency check - prevent webhook replay attacks
-    // Check if this order was already processed by checking if it exists and is completed
+    // SECURITY: Idempotency check - prevent webhook replay attacks by tracking event IDs
+    // Check if this specific webhook event was already processed
+    if (await isWebhookProcessed(event.id)) {
+      console.log(`[Webhook] Event ${event.id} already processed - skipping (replay protection)`);
+      return NextResponse.json({ received: true, skipped: "event_already_processed" }, { status: 200 });
+    }
+
+    // Additional check: verify order wasn't already processed (defense in depth)
     const { getOrderById } = await import("@/lib/userStore");
     const existingOrder = await getOrderById(session.id);
     if (existingOrder && existingOrder.status === "completed") {
@@ -233,6 +239,10 @@ export async function POST(req: NextRequest) {
         console.error(`Failed to process order for ${customerEmail}:`, err);
       }
     }
+
+    // Mark webhook event as processed to prevent replay attacks
+    await markWebhookProcessed(event.id);
+    console.log(`[Webhook] Event ${event.id} marked as processed`);
   }
 
   return NextResponse.json({ received: true }, { status: 200 });
