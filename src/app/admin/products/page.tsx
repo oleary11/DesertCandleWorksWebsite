@@ -1461,16 +1461,6 @@ export default function AdminProductsPage() {
                 </div>
               </label>
 
-              {/* Stripe Price ID */}
-              <label className="block sm:col-span-2">
-                <div className="text-xs mb-1">Stripe Price ID</div>
-                <input
-                  className="input"
-                  value={editing.stripePriceId || ""}
-                  onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
-                />
-              </label>
-
               {/* Images - Multiple Upload */}
               <div className="block sm:col-span-2">
                 <div className="text-xs mb-1">Product Images</div>
@@ -1546,6 +1536,77 @@ export default function AdminProductsPage() {
                   <p className="mt-2 text-xs text-[var(--color-muted)]">No images yet. Click &quot;Add Images&quot; to upload.</p>
                 )}
               </div>
+
+              {/* Stripe Price ID */}
+              <label className="block sm:col-span-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs">Stripe Price ID</span>
+                  {!editing.stripePriceId && (
+                    <button
+                      type="button"
+                      className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                      onClick={async () => {
+                        // Validate required fields
+                        if (!editing.name.trim()) {
+                          await showAlert("Please enter a product name first", "Missing Information");
+                          return;
+                        }
+                        if (!editing.price || editing.price <= 0) {
+                          await showAlert("Please enter a valid price first", "Missing Information");
+                          return;
+                        }
+
+                        try {
+                          setSaving(true);
+                          const res = await fetch("/api/admin/create-stripe-product", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              name: editing.name,
+                              price: editing.price,
+                              description: editing.seoDescription,
+                              images: editing.images || [],
+                            }),
+                          });
+
+                          const data = await res.json();
+
+                          if (!res.ok) {
+                            throw new Error(data.details || data.error || "Failed to create Stripe product");
+                          }
+
+                          // Update the product with the returned price ID
+                          setEditing({ ...editing, stripePriceId: data.priceId });
+
+                          await showAlert(
+                            `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
+                            "Success"
+                          );
+                        } catch (error) {
+                          console.error("[Create Stripe Product] Error:", error);
+                          await showAlert(
+                            error instanceof Error ? error.message : "Failed to create Stripe product",
+                            "Error"
+                          );
+                        } finally {
+                          setSaving(false);
+                        }
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create Stripe Product
+                    </button>
+                  )}
+                </div>
+                <input
+                  className="input"
+                  value={editing.stripePriceId || ""}
+                  onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
+                  placeholder="Click 'Create Stripe Product' or paste manually"
+                />
+              </label>
 
               {/* Container Selection */}
               <label className="block">
