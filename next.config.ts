@@ -2,6 +2,8 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Exclude sharp from bundling for better compatibility with Vercel/serverless
+  serverExternalPackages: ['sharp'],
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "**.public.blob.vercel-storage.com" },
