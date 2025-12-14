@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 
 type UploadStatus = "idle" | "uploading" | "success" | "error";
 
-export default function MobileUploadPage() {
+function MobileUploadContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
 
@@ -220,5 +220,20 @@ export default function MobileUploadPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function MobileUploadPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-amber-50 to-orange-50 p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-amber-600 mx-auto"></div>
+          <p className="mt-4 text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <MobileUploadContent />
+    </Suspense>
   );
 }
