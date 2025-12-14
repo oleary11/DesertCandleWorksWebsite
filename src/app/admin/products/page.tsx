@@ -1,13 +1,30 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import QRCode from "qrcode";
 
 /* ---------- Types ---------- */
 type AlcoholType = { id: string; name: string; sortOrder?: number };
+
+type Container = {
+  id: string;
+  name: string;
+  capacityWaterOz: number;
+  shape: string;
+  supplier?: string;
+  costPerUnit: number;
+  notes?: string;
+};
+
+type CalculatorSettings = {
+  waxCostPerOz: number;
+  waterToWaxRatio: number;
+  defaultFragranceLoad: number;
+};
 
 type WickType = {
   id: string;
@@ -41,9 +58,10 @@ type Product = {
   youngDumb?: boolean;
   stock: number;
   variantConfig?: VariantConfig;
-  alcoholType?: string; // NEW
+  alcoholType?: string;
   materialCost?: number; // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean; // Controls shop page visibility
+  containerId?: string; // Reference to container used for this product
 };
 
 /* ---------- Helpers ---------- */
@@ -145,12 +163,43 @@ function generateVariantsForDisplay(p: Product, globalScents: GlobalScent[]) {
   return variants;
 }
 
+/**
+ * Auto-generate product description based on product name and container
+ */
+function generateDescription(
+  productName: string,
+  container: Container | undefined,
+  waterToWaxRatio: number
+): string {
+  // Extract bottle name by removing " Candle" suffix
+  const bottleName = productName.replace(/\s+Candle$/i, "").trim();
+
+  // Calculate wax ounces if container is selected
+  let waxOzText = "[Select container to calculate]";
+  if (container) {
+    const waxOz = container.capacityWaterOz * waterToWaxRatio;
+    waxOzText = `${waxOz.toFixed(1)} oz wax`;
+  }
+
+  return `Hand-poured candle in an upcycled ${bottleName} bottle.
+
+Golden Brands 454 Coconut Soy Wax
+
+Approx. - ${waxOzText}`;
+}
+
 /* ---------- Component ---------- */
 export default function AdminProductsPage() {
   const { showAlert, showConfirm, showPrompt } = useModal();
   const [items, setItems] = useState<Product[]>([]);
   const [globalScents, setGlobalScents] = useState<GlobalScent[]>([]);
-  const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]); // NEW
+  const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]);
+  const [containers, setContainers] = useState<Container[]>([]);
+  const [settings, setSettings] = useState<CalculatorSettings>({
+    waxCostPerOz: 0,
+    waterToWaxRatio: 0.9,
+    defaultFragranceLoad: 0.1,
+  });
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
@@ -172,19 +221,59 @@ export default function AdminProductsPage() {
   const [slugTouched, setSlugTouched] = useState(false);
   const [slugError, setSlugError] = useState<string | null>(null);
 
+  // QR code upload state
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [qrDataURL, setQRDataURL] = useState<string | null>(null);
+  const [uploadToken, setUploadToken] = useState<string | null>(null);
+  const [uploadedCount, setUploadedCount] = useState(0);
+  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   async function load() {
     setLoading(true);
-    const [productsRes, scentsRes, typesRes] = await Promise.all([
-      fetch("/api/admin/products", { cache: "no-store" }),
-      fetch("/api/admin/scents", { cache: "no-store" }),
-      fetch("/api/admin/alcohol-types?active=1", { cache: "no-store" })
-    ]);
-    const productsData = (await productsRes.json()) as { items?: Product[] };
-    const scentsData = (await scentsRes.json()) as { scents?: GlobalScent[] };
-    const typesData = (await typesRes.json()) as { types?: AlcoholType[] };
-    setItems(productsData.items || []);
-    setGlobalScents(scentsData.scents || []);
-    setAlcoholTypes(typesData.types || []); // NEW
+    try {
+      const [productsRes, scentsRes, typesRes, containersRes, settingsRes] = await Promise.all([
+        fetch("/api/admin/products", { cache: "no-store" }),
+        fetch("/api/admin/scents", { cache: "no-store" }),
+        fetch("/api/admin/alcohol-types?active=1", { cache: "no-store" }),
+        fetch("/api/admin/containers", { cache: "no-store" }),
+        fetch("/api/admin/calculator-settings", { cache: "no-store" })
+      ]);
+
+      if (productsRes.ok) {
+        const productsData = (await productsRes.json()) as { items?: Product[] };
+        setItems(productsData.items || []);
+      }
+
+      if (scentsRes.ok) {
+        const scentsData = (await scentsRes.json()) as { scents?: GlobalScent[] };
+        setGlobalScents(scentsData.scents || []);
+      }
+
+      if (typesRes.ok) {
+        const typesData = (await typesRes.json()) as { types?: AlcoholType[] };
+        setAlcoholTypes(typesData.types || []);
+      }
+
+      if (containersRes.ok) {
+        const containersData = (await containersRes.json()) as { containers?: Container[] };
+        console.log("[Products] Loaded containers:", containersData.containers);
+        setContainers(containersData.containers || []);
+      } else {
+        console.error("[Products] Failed to load containers:", await containersRes.text());
+      }
+
+      if (settingsRes.ok) {
+        const settingsData = (await settingsRes.json()) as CalculatorSettings | { settings?: CalculatorSettings };
+        // Handle settings response (could be direct object or wrapped)
+        if ('waterToWaxRatio' in settingsData) {
+          setSettings(settingsData as CalculatorSettings);
+        } else if ('settings' in settingsData && settingsData.settings) {
+          setSettings(settingsData.settings);
+        }
+      }
+    } catch (error) {
+      console.error("[Products] Load error:", error);
+    }
     setLoading(false);
   }
   useEffect(() => {
@@ -604,6 +693,110 @@ export default function AdminProductsPage() {
       image: newImages[0]
     });
   }
+
+  // QR code upload functions
+  async function startQRUpload() {
+    try {
+      // Create upload session
+      const res = await fetch("/api/admin/create-upload-session", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        await showAlert("Failed to create upload session", "Error");
+        return;
+      }
+
+      const { token } = await res.json();
+      setUploadToken(token);
+      setUploadedCount(0);
+
+      // Generate QR code
+      const origin = window.location.origin;
+      const uploadUrl = `${origin}/mobile-upload?token=${token}`;
+      const qrData = await QRCode.toDataURL(uploadUrl, {
+        width: 300,
+        margin: 2,
+        color: {
+          dark: "#000000",
+          light: "#FFFFFF",
+        },
+      });
+
+      setQRDataURL(qrData);
+      setShowQRModal(true);
+
+      // Start polling for uploaded images
+      startPolling(token);
+    } catch (error) {
+      console.error("[QR Upload] Error:", error);
+      await showAlert("Failed to generate QR code", "Error");
+    }
+  }
+
+  function startPolling(token: string) {
+    // Clear existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    // Poll every 2 seconds
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/mobile-upload/status?token=${token}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        if (data.valid && data.uploadedCount > uploadedCount) {
+          setUploadedCount(data.uploadedCount);
+
+          // Fetch the full session to get image URLs
+          const sessionRes = await fetch(`/api/admin/get-upload-session?token=${token}`);
+          if (!sessionRes.ok) return;
+
+          const sessionData = await sessionRes.json();
+          if (sessionData.uploadedImages && editing) {
+            const currentImages = editing.images || [];
+            const newImages = sessionData.uploadedImages.filter(
+              (url: string) => !currentImages.includes(url)
+            );
+
+            if (newImages.length > 0) {
+              setEditing({
+                ...editing,
+                images: [...currentImages, ...newImages],
+                image: currentImages.length === 0 ? newImages[0] : editing.image,
+              });
+            }
+          }
+        }
+      } catch (error) {
+        console.error("[QR Upload] Polling error:", error);
+      }
+    }, 2000);
+  }
+
+  function stopPolling() {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }
+
+  function closeQRModal() {
+    stopPolling();
+    setShowQRModal(false);
+    setQRDataURL(null);
+    setUploadToken(null);
+    setUploadedCount(0);
+  }
+
+  // Cleanup polling on unmount
+  useEffect(() => {
+    return () => {
+      stopPolling();
+    };
+  }, []);
 
   // Next SKU for new product modal
   const nextSku = useMemo(() => {
@@ -1281,16 +1474,28 @@ export default function AdminProductsPage() {
               {/* Images - Multiple Upload */}
               <div className="block sm:col-span-2">
                 <div className="text-xs mb-1">Product Images</div>
-                <label className="btn cursor-pointer w-full">
-                  + Add Images
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
-                  />
-                </label>
+                <div className="flex gap-2">
+                  <label className="btn cursor-pointer flex-1">
+                    + Add Images
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                    onClick={startQRUpload}
+                  >
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+                    </svg>
+                    Upload from Phone
+                  </button>
+                </div>
 
                 {/* Display current images */}
                 {editing.images && editing.images.length > 0 ? (
@@ -1342,14 +1547,45 @@ export default function AdminProductsPage() {
                 )}
               </div>
 
+              {/* Container Selection */}
+              <label className="block">
+                <div className="text-xs mb-1">Container (for description)</div>
+                <select
+                  className="input"
+                  value={editing.containerId || ""}
+                  onChange={(e) => setEditing({ ...editing, containerId: e.target.value || undefined })}
+                >
+                  <option value="">— Select container —</option>
+                  {containers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.capacityWaterOz} oz water)
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               {/* Description */}
               <label className="block sm:col-span-2">
-                <div className="text-xs mb-1">Description</div>
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs">Description</span>
+                  <button
+                    type="button"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    onClick={() => {
+                      const container = containers.find((c) => c.id === editing.containerId);
+                      const generatedDesc = generateDescription(editing.name, container, settings.waterToWaxRatio);
+                      setEditing({ ...editing, seoDescription: generatedDesc });
+                    }}
+                  >
+                    Auto-generate from name & container
+                  </button>
+                </div>
                 <textarea
                   className="textarea"
                   rows={4}
                   value={editing.seoDescription}
                   onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
+                  placeholder="Select a container and click 'Auto-generate' or type manually"
                 />
               </label>
 
@@ -1632,6 +1868,84 @@ export default function AdminProductsPage() {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
                 Save Draft
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* QR Code Modal */}
+      {showQRModal && qrDataURL && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={closeQRModal}
+          />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+            {/* Header */}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-[var(--color-ink)]">Scan to Upload</h2>
+              <button
+                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                onClick={closeQRModal}
+                aria-label="Close"
+              >
+                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* QR Code */}
+            <div className="bg-white p-4 rounded-xl border-2 border-neutral-200 mb-4">
+              <img src={qrDataURL} alt="QR Code" className="w-full h-auto" />
+            </div>
+
+            {/* Instructions */}
+            <div className="space-y-3 mb-4">
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-600 font-semibold text-xs">1</span>
+                </div>
+                <p className="text-neutral-700">Open your phone&apos;s camera app</p>
+              </div>
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-600 font-semibold text-xs">2</span>
+                </div>
+                <p className="text-neutral-700">Point it at this QR code</p>
+              </div>
+              <div className="flex items-start gap-3 text-sm">
+                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <span className="text-blue-600 font-semibold text-xs">3</span>
+                </div>
+                <p className="text-neutral-700">Select and upload photos from your phone</p>
+              </div>
+            </div>
+
+            {/* Upload Status */}
+            {uploadedCount > 0 && (
+              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
+                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-green-900">
+                    {uploadedCount} {uploadedCount === 1 ? "image" : "images"} uploaded
+                  </p>
+                  <p className="text-xs text-green-700">Images are being added to your product</p>
+                </div>
+              </div>
+            )}
+
+            {/* Footer */}
+            <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
+              <p className="text-xs text-neutral-500">Session expires in 5 minutes</p>
+              <button
+                className="btn btn-primary text-sm"
+                onClick={closeQRModal}
+              >
+                Done
               </button>
             </div>
           </div>
