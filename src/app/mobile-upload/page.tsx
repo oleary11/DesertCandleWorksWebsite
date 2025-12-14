@@ -167,7 +167,6 @@ function MobileUploadContent() {
             type="file"
             accept="image/*"
             multiple
-            capture="environment"
             onChange={handleFileSelect}
             disabled={uploadStatus === "uploading"}
             className="hidden"
