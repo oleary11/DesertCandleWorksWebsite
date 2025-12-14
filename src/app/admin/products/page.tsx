@@ -178,7 +178,7 @@ function generateDescription(
   let waxOzText = "[Select container to calculate]";
   if (container) {
     const waxOz = container.capacityWaterOz * waterToWaxRatio;
-    waxOzText = `${waxOz.toFixed(1)} oz wax`;
+    waxOzText = `${Math.round(waxOz)} oz wax`;
   }
 
   return `Hand-poured candle in an upcycled ${bottleName} bottle.

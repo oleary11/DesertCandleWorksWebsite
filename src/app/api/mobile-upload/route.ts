@@ -116,13 +116,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Convert to JPG with compression
+    console.log("[Mobile Upload] Converting image to JPG...");
     const optimizedBuffer = await processedImage
       .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
       .toBuffer();
 
-    // Generate unique filename - use crypto.randomBytes for compatibility
-    const uniqueId = crypto.randomBytes(16).toString('hex');
-    const filename = `products/${uniqueId}.jpg`;
+    const filename = `products/${crypto.randomUUID()}.jpg`;
 
     console.log(`[Mobile Upload] Uploading optimized JPG to Vercel Blob: ${filename}`, {
       originalSize: buffer.length,
@@ -133,12 +132,16 @@ export async function POST(req: NextRequest) {
     // Upload to Vercel Blob as a public file
     let blob;
     try {
+      console.log("[Mobile Upload] Calling Vercel Blob put()...");
       blob = await put(filename, optimizedBuffer, {
         access: "public",
         contentType: "image/jpeg",
       });
+      console.log("[Mobile Upload] Vercel Blob upload successful, URL:", blob.url);
     } catch (blobError) {
       console.error("[Mobile Upload] Vercel Blob upload error:", blobError);
+      console.error("[Mobile Upload] Error name:", blobError instanceof Error ? blobError.name : "Unknown");
+      console.error("[Mobile Upload] Error stack:", blobError instanceof Error ? blobError.stack : "No stack");
       return NextResponse.json(
         {
           error: "Failed to upload image to storage",

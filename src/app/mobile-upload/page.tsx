@@ -60,7 +60,10 @@ function MobileUploadContent() {
 
         if (!res.ok) {
           const data = await res.json();
-          throw new Error(data.error || "Upload failed");
+          const errorMsg = data.details
+            ? `${data.error}: ${data.details}`
+            : (data.error || "Upload failed");
+          throw new Error(errorMsg);
         }
 
         const data = await res.json();
