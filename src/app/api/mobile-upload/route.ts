@@ -120,7 +120,9 @@ export async function POST(req: NextRequest) {
       .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
       .toBuffer();
 
-    const filename = `products/${crypto.randomUUID()}.jpg`;
+    // Generate unique filename - use crypto.randomBytes for compatibility
+    const uniqueId = crypto.randomBytes(16).toString('hex');
+    const filename = `products/${uniqueId}.jpg`;
 
     console.log(`[Mobile Upload] Uploading optimized JPG to Vercel Blob: ${filename}`, {
       originalSize: buffer.length,
@@ -129,10 +131,22 @@ export async function POST(req: NextRequest) {
     });
 
     // Upload to Vercel Blob as a public file
-    const blob = await put(filename, optimizedBuffer, {
-      access: "public",
-      contentType: "image/jpeg",
-    });
+    let blob;
+    try {
+      blob = await put(filename, optimizedBuffer, {
+        access: "public",
+        contentType: "image/jpeg",
+      });
+    } catch (blobError) {
+      console.error("[Mobile Upload] Vercel Blob upload error:", blobError);
+      return NextResponse.json(
+        {
+          error: "Failed to upload image to storage",
+          details: blobError instanceof Error ? blobError.message : String(blobError),
+        },
+        { status: 500 }
+      );
+    }
 
     // Add the uploaded image URL to the session
     const added = await addUploadedImage(token, blob.url);
