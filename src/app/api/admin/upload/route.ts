@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
 
     // OPTIMIZATION: Convert all images to JPG and compress
     // This saves storage space and improves load times
-    let processedImage = sharp(buffer);
+    let processedImage = sharp(buffer).rotate();
 
     // Resize if image is too large
     if (imageMetadata.width && imageMetadata.width > MAX_WIDTH) {
