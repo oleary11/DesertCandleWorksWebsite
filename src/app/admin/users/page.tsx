@@ -321,7 +321,7 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
           <div>
@@ -340,9 +340,9 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 min-h-0">
           <label className="block">
             <div className="text-sm font-medium mb-1">Email</div>
             <input

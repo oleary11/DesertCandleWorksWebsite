@@ -299,9 +299,9 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1">
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
           {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 min-h-0">
           {error && (
             <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
               <p className="text-sm text-rose-900">{error}</p>
