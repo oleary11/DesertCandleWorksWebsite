@@ -79,12 +79,37 @@ export default function ActivityLogsPage() {
   function formatDetailsHumanReadable(action: string, details?: Record<string, unknown>): string {
     if (!details || Object.keys(details).length === 0) return "";
 
+    // Helper to format field changes
+    const formatChanges = (changes: Record<string, unknown>): string => {
+      const changesList: string[] = [];
+      for (const [field, value] of Object.entries(changes)) {
+        if (typeof value === "object" && value !== null && "from" in value && "to" in value) {
+          const change = value as { from: unknown; to: unknown };
+
+          // Special formatting for different field types
+          if (field === "image" || field === "images") {
+            changesList.push(`${field}`);
+          } else if (typeof change.from === "boolean" || typeof change.to === "boolean") {
+            changesList.push(`${field}: ${change.from} → ${change.to}`);
+          } else if (Array.isArray(change.from) || Array.isArray(change.to)) {
+            changesList.push(`${field} (array)`);
+          } else {
+            changesList.push(`${field}: "${change.from}" → "${change.to}"`);
+          }
+        }
+      }
+      return changesList.length > 0 ? " — Changed: " + changesList.join(", ") : "";
+    };
+
     // Product actions
     if (action === "product.create") {
       return `Created product "${details.name}" (${details.slug})`;
     }
     if (action === "product.update") {
-      return `Updated product "${details.name}" (${details.slug})`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated product "${details.name}" (${details.slug})${changesText}`;
     }
     if (action === "product.delete") {
       return `Deleted product "${details.name}" (${details.slug})`;
@@ -98,7 +123,10 @@ export default function ActivityLogsPage() {
       return `Created scent "${details.name}"`;
     }
     if (action === "scent.update") {
-      return `Updated scent "${details.name}"`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated scent "${details.name}"${changesText}`;
     }
     if (action === "scent.delete") {
       return `Deleted scent "${details.name}"`;
@@ -109,7 +137,10 @@ export default function ActivityLogsPage() {
       return `Created promotion "${details.name}" (${details.code})`;
     }
     if (action === "promotion.update") {
-      return `Updated promotion "${details.name}" (${details.code})`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated promotion "${details.name}" (${details.code})${changesText}`;
     }
     if (action === "promotion.delete") {
       return `Deleted promotion "${details.name}"`;
@@ -128,7 +159,10 @@ export default function ActivityLogsPage() {
       return `Created container "${details.name}" (${details.capacityWaterOz} oz)`;
     }
     if (action === "container.update") {
-      return `Updated container "${details.name}"`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated container "${details.name}"${changesText}`;
     }
     if (action === "container.delete") {
       return `Deleted container "${details.name}"`;
@@ -139,7 +173,10 @@ export default function ActivityLogsPage() {
       return `Created purchase record (${details.totalItems} items, $${details.totalCost})`;
     }
     if (action === "purchase.update") {
-      return `Updated purchase record`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated purchase record${changesText}`;
     }
     if (action === "purchase.delete") {
       return `Deleted purchase record`;
@@ -147,7 +184,10 @@ export default function ActivityLogsPage() {
 
     // User actions
     if (action === "user.update") {
-      return `Updated user ${details.email || details.userId}`;
+      const changesText = details.changes && typeof details.changes === "object"
+        ? formatChanges(details.changes as Record<string, unknown>)
+        : "";
+      return `Updated user ${details.email || details.userId}${changesText}`;
     }
     if (action === "user.delete") {
       return `Deleted user ${details.email || details.userId}`;
