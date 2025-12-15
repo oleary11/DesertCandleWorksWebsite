@@ -52,12 +52,58 @@ export default async function ShopPage() {
   // Filter out products where visibleOnWebsite is explicitly false
   const visibleProducts = allProducts.filter(p => p.visibleOnWebsite !== false);
 
-  const productsWithStock = await Promise.all(
+  // Optimize: Fetch scents for all products in parallel, then calculate stock synchronously
+  const { getScentsForProduct } = await import("@/lib/scents");
+  const { getTotalStock } = await import("@/lib/productsStore");
+
+  // Fetch all product scents in parallel (single batch operation)
+  const productScentsMap = new Map<string, Awaited<ReturnType<typeof getScentsForProduct>>>();
+  await Promise.all(
     visibleProducts.map(async (p) => {
-      const computedStock = await getTotalStockForProduct(p);
-      return { ...p, _computedStock: computedStock };
+      if (p.variantConfig) {
+        const scents = await getScentsForProduct(p.slug);
+        productScentsMap.set(p.slug, scents);
+      }
     })
   );
+
+  // Calculate stock synchronously using cached scent data
+  const productsWithStock = visibleProducts.map((p) => {
+    let computedStock: number;
+
+    if (!p.variantConfig) {
+      computedStock = p.stock ?? 0;
+    } else {
+      const allowedScents = productScentsMap.get(p.slug);
+
+      // Fallback to total stock if no scents found
+      if (!allowedScents || allowedScents.length === 0) {
+        computedStock = getTotalStock(p);
+      } else {
+        const allowedScentIds = new Set(allowedScents.map(s => s.id));
+        const { variantData, wickTypes } = p.variantConfig;
+        const wickIds = new Set(wickTypes.map(w => w.id));
+
+        let total = 0;
+        for (const [variantId, data] of Object.entries(variantData)) {
+          let scentId = variantId;
+          for (const wickId of wickIds) {
+            if (variantId.startsWith(wickId + '-')) {
+              scentId = variantId.substring(wickId.length + 1);
+              break;
+            }
+          }
+
+          if (allowedScentIds.has(scentId)) {
+            total += data.stock ?? 0;
+          }
+        }
+        computedStock = total;
+      }
+    }
+
+    return { ...p, _computedStock: computedStock };
+  });
 
   return (
     <section className="min-h-dvh">
