@@ -1548,6 +1548,7 @@ export default function CalculatorPage() {
                     type="button"
                     className="text-xs text-blue-600 hover:text-blue-700 font-medium"
                     onClick={() => {
+                      if (!newProduct.name) return;
                       const container = containers.find((c) => c.id === newProduct.containerId);
                       const bottleName = newProduct.name.replace(/\s+Candle$/i, "").trim();
                       let waxOzText = "[Select container to calculate]";
