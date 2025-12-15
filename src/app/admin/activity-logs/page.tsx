@@ -76,6 +76,107 @@ export default function ActivityLogsPage() {
     return <Activity className="w-5 h-5 text-blue-600" />;
   }
 
+  function formatDetailsHumanReadable(action: string, details?: Record<string, unknown>): string {
+    if (!details || Object.keys(details).length === 0) return "";
+
+    // Product actions
+    if (action === "product.create") {
+      return `Created product "${details.name}" (${details.slug})`;
+    }
+    if (action === "product.update") {
+      return `Updated product "${details.name}" (${details.slug})`;
+    }
+    if (action === "product.delete") {
+      return `Deleted product "${details.name}" (${details.slug})`;
+    }
+    if (action === "product.stock.update") {
+      return `Updated stock for "${details.slug}": ${details.oldStock} → ${details.newStock}`;
+    }
+
+    // Scent actions
+    if (action === "scent.create") {
+      return `Created scent "${details.name}"`;
+    }
+    if (action === "scent.update") {
+      return `Updated scent "${details.name}"`;
+    }
+    if (action === "scent.delete") {
+      return `Deleted scent "${details.name}"`;
+    }
+
+    // Promotion actions
+    if (action === "promotion.create") {
+      return `Created promotion "${details.name}" (${details.code})`;
+    }
+    if (action === "promotion.update") {
+      return `Updated promotion "${details.name}" (${details.code})`;
+    }
+    if (action === "promotion.delete") {
+      return `Deleted promotion "${details.name}"`;
+    }
+
+    // Order actions
+    if (action === "order.update") {
+      return `Updated order ${details.orderId}: Status changed to "${details.status}"`;
+    }
+    if (action === "order.refund") {
+      return `Refunded order ${details.orderId}: $${details.amount}`;
+    }
+
+    // Container actions
+    if (action === "container.create") {
+      return `Created container "${details.name}" (${details.capacityWaterOz} oz)`;
+    }
+    if (action === "container.update") {
+      return `Updated container "${details.name}"`;
+    }
+    if (action === "container.delete") {
+      return `Deleted container "${details.name}"`;
+    }
+
+    // Purchase actions
+    if (action === "purchase.create") {
+      return `Created purchase record (${details.totalItems} items, $${details.totalCost})`;
+    }
+    if (action === "purchase.update") {
+      return `Updated purchase record`;
+    }
+    if (action === "purchase.delete") {
+      return `Deleted purchase record`;
+    }
+
+    // User actions
+    if (action === "user.update") {
+      return `Updated user ${details.email || details.userId}`;
+    }
+    if (action === "user.delete") {
+      return `Deleted user ${details.email || details.userId}`;
+    }
+
+    // Login actions
+    if (action === "admin.login") {
+      return `Logged in successfully`;
+    }
+    if (action === "admin.logout") {
+      return `Logged out`;
+    }
+
+    // Settings actions
+    if (action === "settings.update") {
+      const keys = Object.keys(details).filter(k => k !== "timestamp");
+      return `Updated settings: ${keys.join(", ")}`;
+    }
+
+    // Generic fallback - show key details
+    const keyDetails = Object.entries(details)
+      .filter(([key]) => !key.includes("timestamp") && !key.includes("id") && key !== "success")
+      .slice(0, 3)
+      .map(([key, value]) => `${key}: ${value}`)
+      .join(", ");
+
+    return keyDetails || "Action completed";
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen p-6">
@@ -202,14 +303,19 @@ export default function ActivityLogsPage() {
                       </td>
                       <td className="py-3">
                         {log.details && Object.keys(log.details).length > 0 ? (
-                          <details className="text-sm">
-                            <summary className="cursor-pointer text-[var(--color-accent)] hover:underline">
-                              View
-                            </summary>
-                            <pre className="mt-2 text-xs bg-neutral-100 p-2 rounded overflow-x-auto">
-                              {JSON.stringify(log.details, null, 2)}
-                            </pre>
-                          </details>
+                          <div className="text-sm">
+                            <p className="text-[var(--color-ink)]">
+                              {formatDetailsHumanReadable(log.action, log.details)}
+                            </p>
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)]">
+                                View raw data
+                              </summary>
+                              <pre className="mt-2 text-xs bg-neutral-100 p-2 rounded overflow-x-auto">
+                                {JSON.stringify(log.details, null, 2)}
+                              </pre>
+                            </details>
+                          </div>
                         ) : (
                           <span className="text-sm text-[var(--color-muted)]">—</span>
                         )}

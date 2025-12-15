@@ -1468,7 +1468,7 @@ export default function CalculatorPage() {
                       className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
                       onClick={async () => {
                         // Validate required fields
-                        if (!newProduct.name.trim()) {
+                        if (!newProduct.name || !newProduct.name.trim()) {
                           alert("Please enter a product name first");
                           return;
                         }
