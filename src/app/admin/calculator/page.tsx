@@ -26,6 +26,7 @@ type Product = {
   alcoholType?: string;
   materialCost?: number; // Cost to make the product
   visibleOnWebsite?: boolean; // Controls shop page visibility
+  containerId?: string; // Reference to container used for this product
 };
 
 type Container = {
@@ -1420,17 +1421,6 @@ export default function CalculatorPage() {
                 )}
               </div>
 
-              {/* Stripe Price ID */}
-              <label className="block">
-                <div className="text-sm font-medium mb-2">Stripe Price ID (optional)</div>
-                <input
-                  className="input"
-                  value={newProduct.stripePriceId || ""}
-                  onChange={(e) => setNewProduct({ ...newProduct, stripePriceId: e.target.value })}
-                  placeholder="price_..."
-                />
-              </label>
-
               {/* Images */}
               <div className="block">
                 <div className="text-sm font-medium mb-2">Product Images</div>
@@ -1468,14 +1458,116 @@ export default function CalculatorPage() {
                 )}
               </div>
 
+              {/* Stripe Price ID */}
+              <label className="block">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Stripe Price ID (optional)</span>
+                  {!newProduct.stripePriceId && (
+                    <button
+                      type="button"
+                      className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                      onClick={async () => {
+                        // Validate required fields
+                        if (!newProduct.name.trim()) {
+                          alert("Please enter a product name first");
+                          return;
+                        }
+                        if (!newProduct.price || newProduct.price <= 0) {
+                          alert("Please enter a valid price first");
+                          return;
+                        }
+
+                        try {
+                          setSavingProduct(true);
+                          const res = await fetch("/api/admin/create-stripe-product", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              name: newProduct.name,
+                              price: newProduct.price,
+                              description: newProduct.seoDescription,
+                              images: newProduct.images || [],
+                            }),
+                          });
+
+                          const data = await res.json();
+
+                          if (!res.ok) {
+                            throw new Error(data.details || data.error || "Failed to create Stripe product");
+                          }
+
+                          // Update the product with the returned price ID
+                          setNewProduct({ ...newProduct, stripePriceId: data.priceId });
+
+                          alert(`Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`);
+                        } catch (error) {
+                          console.error("[Create Stripe Product] Error:", error);
+                          alert(error instanceof Error ? error.message : "Failed to create Stripe product");
+                        } finally {
+                          setSavingProduct(false);
+                        }
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create Stripe Product
+                    </button>
+                  )}
+                </div>
+                <input
+                  className="input"
+                  value={newProduct.stripePriceId || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, stripePriceId: e.target.value })}
+                  placeholder="Click 'Create Stripe Product' or paste manually"
+                />
+              </label>
+
+              {/* Container Selection */}
+              <label className="block">
+                <div className="text-sm font-medium mb-2">Container (for description)</div>
+                <select
+                  className="input"
+                  value={newProduct.containerId || ""}
+                  onChange={(e) => setNewProduct({ ...newProduct, containerId: e.target.value || undefined })}
+                >
+                  <option value="">— Select container —</option>
+                  {containers.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.capacityWaterOz} oz water)
+                    </option>
+                  ))}
+                </select>
+              </label>
+
               {/* Description */}
               <label className="block">
-                <div className="text-sm font-medium mb-2">SEO Description</div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">SEO Description</span>
+                  <button
+                    type="button"
+                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    onClick={() => {
+                      const container = containers.find((c) => c.id === newProduct.containerId);
+                      const bottleName = newProduct.name.replace(/\s+Candle$/i, "").trim();
+                      let waxOzText = "[Select container to calculate]";
+                      if (container) {
+                        const waxOz = container.capacityWaterOz * settings.waterToWaxRatio;
+                        waxOzText = `${Math.round(waxOz)} oz wax`;
+                      }
+                      const generatedDesc = `Hand-poured candle in an upcycled ${bottleName} bottle.\n\nGolden Brands 454 Coconut Soy Wax\n\nApprox. - ${waxOzText}`;
+                      setNewProduct({ ...newProduct, seoDescription: generatedDesc });
+                    }}
+                  >
+                    Auto-generate from name & container
+                  </button>
+                </div>
                 <textarea
                   className="textarea"
                   rows={3}
                   value={newProduct.seoDescription}
                   onChange={(e) => setNewProduct({ ...newProduct, seoDescription: e.target.value })}
+                  placeholder="Select a container and click 'Auto-generate' or type manually"
                 />
               </label>
 
