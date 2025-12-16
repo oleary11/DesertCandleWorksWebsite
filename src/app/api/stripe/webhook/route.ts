@@ -121,15 +121,19 @@ export async function POST(req: NextRequest) {
           // Also update TikTok Shop inventory if connected
           try {
             const { updateTikTokInventory, isTikTokShopConnected } = await import("@/lib/tiktokShop");
+            const { getResolvedProduct } = await import("@/lib/resolvedProducts");
             const { getTotalStock } = await import("@/lib/productsStore");
 
             if (await isTikTokShopConnected()) {
-              // Get the updated stock level
-              const newStock = await getTotalStock(productInfo);
+              // Get the full product to calculate stock
+              const fullProduct = await getResolvedProduct(productInfo.slug);
+              if (fullProduct) {
+                const newStock = getTotalStock(fullProduct);
 
-              // Update TikTok Shop
-              await updateTikTokInventory(productInfo.sku, newStock);
-              console.log(`[TikTok Shop] Updated inventory for ${productInfo.sku} to ${newStock}`);
+                // Update TikTok Shop
+                await updateTikTokInventory(fullProduct.sku, newStock);
+                console.log(`[TikTok Shop] Updated inventory for ${fullProduct.sku} to ${newStock}`);
+              }
             }
           } catch (tiktokErr) {
             // Don't fail the webhook if TikTok update fails
