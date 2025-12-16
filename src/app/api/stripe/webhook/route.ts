@@ -121,12 +121,14 @@ export async function POST(req: NextRequest) {
           // Also update TikTok Shop inventory if connected
           try {
             const { updateTikTokInventory, isTikTokShopConnected } = await import("@/lib/tiktokShop");
-            const { getResolvedProduct } = await import("@/lib/resolvedProducts");
+            const { listResolvedProducts } = await import("@/lib/resolvedProducts");
             const { getTotalStock } = await import("@/lib/productsStore");
 
             if (await isTikTokShopConnected()) {
               // Get the full product to calculate stock
-              const fullProduct = await getResolvedProduct(productInfo.slug);
+              const allProducts = await listResolvedProducts();
+              const fullProduct = allProducts.find(p => p.slug === productInfo.slug);
+
               if (fullProduct) {
                 const newStock = getTotalStock(fullProduct);
 
