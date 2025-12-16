@@ -70,6 +70,8 @@ export type Order = {
   pointsEarned: number;
   pointsRedeemed?: number; // Points used for discount
   promotionId?: string; // Promotion code applied
+  paymentMethod?: string; // Payment method (for manual sales: "cash", "card", "other")
+  notes?: string; // Admin notes (for manual sales)
   status: "pending" | "completed" | "cancelled";
   isGuest: boolean; // True if order was placed without account
   items: Array<{
@@ -321,7 +323,9 @@ export async function createOrder(
   userId?: string, // Optional - omit for guest orders
   productSubtotalCents?: number, // Product subtotal (for points calculation)
   shippingCents?: number, // Shipping cost
-  taxCents?: number // Tax amount
+  taxCents?: number, // Tax amount
+  paymentMethod?: string, // Payment method (for manual sales)
+  notes?: string // Admin notes (for manual sales)
 ): Promise<Order> {
   // Calculate points based on product subtotal only (not shipping/tax)
   const pointsBase = productSubtotalCents ?? totalCents;
@@ -335,6 +339,8 @@ export async function createOrder(
     productSubtotalCents,
     shippingCents,
     taxCents,
+    paymentMethod,
+    notes,
     pointsEarned,
     status: "pending",
     isGuest: !userId,

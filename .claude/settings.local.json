@@ -17,7 +17,8 @@
       "Bash(del add-purchases.mjs add-purchases.ts)",
       "Bash(grep:*)",
       "WebSearch",
-      "WebFetch(domain:partner.tiktokshop.com)"
+      "WebFetch(domain:partner.tiktokshop.com)",
+      "Bash(npx tsc --noEmit)"
     ],
     "deny": [],
     "ask": []

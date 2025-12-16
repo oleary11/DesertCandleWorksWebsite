@@ -10,6 +10,9 @@ type Order = {
   userId?: string;
   email: string;
   totalCents: number;
+  productSubtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
   pointsEarned: number;
   status: string;
   isGuest: boolean;
@@ -106,10 +109,10 @@ function InvoiceContent() {
   }
 
   // Calculate totals
-  const subtotal = order.totalCents;
-  const shipping = 799; // $7.99
-  const tax = 0;
-  const total = subtotal + shipping + tax;
+  const subtotal = order.productSubtotalCents ?? order.totalCents;
+  const shipping = order.shippingCents ?? 0;
+  const tax = order.taxCents ?? 0;
+  const total = order.totalCents;
 
   return (
     <>
@@ -288,7 +291,7 @@ function InvoiceContent() {
                 </div>
                 <div className="flex justify-between text-sm py-2">
                   <span className="text-[var(--color-muted)]">Shipping:</span>
-                  <span className="font-medium">${(shipping / 100).toFixed(2)}</span>
+                  <span className="font-medium">{shipping === 0 ? 'FREE' : `$${(shipping / 100).toFixed(2)}`}</span>
                 </div>
                 {tax > 0 && (
                   <div className="flex justify-between text-sm py-2">

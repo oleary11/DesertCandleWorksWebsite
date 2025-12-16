@@ -10,6 +10,9 @@ type Order = {
   userId: string;
   email: string;
   totalCents: number;
+  productSubtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
   pointsEarned: number;
   status: string;
   items: Array<{
@@ -78,10 +81,10 @@ export default function InvoicePage({ params }: { params: Promise<{ orderId: str
   }
 
   // Calculate totals
-  const subtotal = order.totalCents; // This is already products only (no shipping/tax)
-  const shipping = 799; // $7.99 - We'll need to get this from order metadata eventually
-  const tax = 0; // Not calculated yet
-  const total = subtotal + shipping + tax;
+  const subtotal = order.productSubtotalCents ?? order.totalCents;
+  const shipping = order.shippingCents ?? 0;
+  const tax = order.taxCents ?? 0;
+  const total = order.totalCents;
 
   return (
     <>
@@ -237,7 +240,7 @@ export default function InvoicePage({ params }: { params: Promise<{ orderId: str
                 </div>
                 <div className="flex justify-between text-sm py-2">
                   <span className="text-[var(--color-muted)]">Shipping:</span>
-                  <span className="font-medium">${(shipping / 100).toFixed(2)}</span>
+                  <span className="font-medium">{shipping === 0 ? 'FREE' : `$${(shipping / 100).toFixed(2)}`}</span>
                 </div>
                 {tax > 0 && (
                   <div className="flex justify-between text-sm py-2">

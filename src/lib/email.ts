@@ -220,10 +220,10 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
   ).join('\n');
 
   // Calculate totals
-  const subtotal = order.totalCents;
-  const shipping = 799; // $7.99 - TODO: Get from order metadata
-  const tax = 0; // Not calculated yet
-  const total = subtotal + shipping + tax;
+  const subtotal = order.productSubtotalCents ?? order.totalCents;
+  const shipping = order.shippingCents ?? 0;
+  const tax = order.taxCents ?? 0;
+  const total = order.totalCents;
 
   const html = `
     <!DOCTYPE html>
@@ -278,7 +278,7 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
               </div>
               <div class="totals-row">
                 <span style="color: #666;">Shipping:</span>
-                <span style="font-weight: 500;">$${(shipping / 100).toFixed(2)}</span>
+                <span style="font-weight: 500;">${shipping === 0 ? 'FREE' : `$${(shipping / 100).toFixed(2)}`}</span>
               </div>
               ${tax > 0 ? `
               <div class="totals-row">
@@ -353,7 +353,7 @@ ${itemsText}
 
 TOTALS:
 Subtotal: $${(subtotal / 100).toFixed(2)}
-Shipping: $${(shipping / 100).toFixed(2)}
+Shipping: ${shipping === 0 ? 'FREE' : `$${(shipping / 100).toFixed(2)}`}
 ${tax > 0 ? `Tax: $${(tax / 100).toFixed(2)}\n` : ''}Total: $${(total / 100).toFixed(2)}
 
 ${!order.isGuest && order.pointsEarned > 0 ? `

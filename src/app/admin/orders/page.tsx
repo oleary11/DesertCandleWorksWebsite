@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Package, DollarSign, User, Calendar } from "lucide-react";
+import { ArrowLeft, Package, DollarSign, User, Calendar, FileText } from "lucide-react";
 
 type Order = {
   id: string;
@@ -13,6 +13,8 @@ type Order = {
   shippingCents?: number;
   taxCents?: number;
   pointsEarned: number;
+  paymentMethod?: string;
+  notes?: string;
   status: string;
   isGuest: boolean;
   items: Array<{
@@ -65,6 +67,29 @@ export default function AdminOrdersPage() {
     navigator.clipboard.writeText(orderId);
     setCopiedId(orderId);
     setTimeout(() => setCopiedId(null), 2000);
+  }
+
+  async function viewInvoice(order: Order, e: React.MouseEvent) {
+    e.preventDefault();
+
+    if (order.isGuest) {
+      // For guest orders, we need to generate an access token
+      try {
+        const res = await fetch(`/api/admin/orders/invoice-token?orderId=${order.id}`);
+        if (res.ok) {
+          const data = await res.json();
+          window.open(`/invoice/view?token=${data.token}`, "_blank");
+        } else {
+          alert("Failed to generate invoice link");
+        }
+      } catch (err) {
+        alert("Failed to generate invoice link");
+        console.error(err);
+      }
+    } else {
+      // For registered users, link directly
+      window.open(`/account/invoice/${order.id}`, "_blank");
+    }
   }
 
   // Calculate Stripe fee for an order (2.9% + $0.30)
@@ -311,13 +336,23 @@ export default function AdminOrdersPage() {
                       </div>
                     </div>
 
-                    {/* Expand Button */}
-                    <button
-                      onClick={() => toggleOrderExpansion(order.id)}
-                      className="w-full text-sm text-[var(--color-accent)] hover:underline"
-                    >
-                      {expandedOrderId === order.id ? "Hide Details" : "Show Details"}
-                    </button>
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap gap-2 mt-3">
+                      <button
+                        onClick={() => toggleOrderExpansion(order.id)}
+                        className="flex-1 btn btn-sm text-sm"
+                      >
+                        {expandedOrderId === order.id ? "Hide Details" : "Show Details"}
+                      </button>
+                      <button
+                        onClick={(e) => viewInvoice(order, e)}
+                        className="btn btn-sm text-sm inline-flex items-center gap-1"
+                        title="View Invoice"
+                      >
+                        <FileText className="w-3 h-3" />
+                        Invoice
+                      </button>
+                    </div>
                   </div>
 
                   {/* Order Details (Expanded) */}
@@ -385,6 +420,26 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Payment Method & Notes */}
+                      {(order.paymentMethod || order.notes) && (
+                        <div className="mt-4 pt-4 border-t border-[var(--color-line)] space-y-3">
+                          {order.paymentMethod && (
+                            <div className="text-sm">
+                              <span className="text-[var(--color-muted)] font-medium">Payment Method: </span>
+                              <span className="text-[var(--color-ink)] capitalize">{order.paymentMethod}</span>
+                            </div>
+                          )}
+                          {order.notes && (
+                            <div className="text-sm">
+                              <div className="text-[var(--color-muted)] font-medium mb-1">Notes:</div>
+                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[var(--color-ink)] whitespace-pre-wrap">
+                                {order.notes}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {order.completedAt && (
                         <div className="mt-4 pt-4 border-t border-[var(--color-line)] text-sm text-[var(--color-muted)]">

@@ -147,7 +147,13 @@ export async function POST(req: NextRequest) {
       customerEmail,
       orderId,
       totalCents,
-      orderItems
+      orderItems,
+      undefined, // userId - no user for manual sales
+      undefined, // productSubtotalCents
+      undefined, // shippingCents
+      undefined, // taxCents
+      body.paymentMethod, // paymentMethod
+      body.notes // notes
     );
 
     // Immediately complete the order
