@@ -96,7 +96,7 @@ async function syncProductToTikTokShop(product: Product, accessToken: string): P
   // Transform our product data to TikTok Shop format
   const tiktokProduct = {
     title: product.name,
-    description: product.description || product.seoDescription || "",
+    description: product.seoDescription || "",
     category_id: "home_garden", // You may want to make this configurable
     brand_id: "", // Optional - set if you have a brand registered
     images: product.imageUrl ? [{ url: product.imageUrl }] : [],
