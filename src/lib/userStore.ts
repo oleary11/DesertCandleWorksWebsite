@@ -322,7 +322,7 @@ export async function deductPoints(
   const user = await getUserById(userId);
   if (!user) throw new Error("User not found");
 
-  return addPoints(userId, -amount, "adjustment", description);
+  return addPoints(userId, -amount, "admin_adjustment", description);
 }
 
 // ============ Order Management ============
