@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { getValidAccessToken, isTikTokShopConnected } from "@/lib/tiktokShop";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import type { Product } from "@/lib/products";
 
 export async function POST(req: NextRequest) {
   // Verify admin is authenticated
@@ -88,7 +89,7 @@ export async function GET(req: NextRequest) {
 /**
  * Sync a single product to TikTok Shop
  */
-async function syncProductToTikTokShop(product: any, accessToken: string): Promise<void> {
+async function syncProductToTikTokShop(product: Product, accessToken: string): Promise<void> {
   // TikTok Shop Products API endpoint
   const endpoint = "https://open.tiktokapis.com/product/create";
 

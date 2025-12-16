@@ -253,8 +253,8 @@ export default function TikTokShopPage() {
         <div className="card p-6 bg-blue-50 border border-blue-200">
           <h3 className="font-semibold mb-2 text-blue-900">How it works</h3>
           <ul className="space-y-2 text-sm text-blue-800">
-            <li>• Click "Connect TikTok Shop" to authorize access to your TikTok Shop account</li>
-            <li>• Once connected, click "Sync All Products" to upload your entire catalog</li>
+            <li>• Click &quot;Connect TikTok Shop&quot; to authorize access to your TikTok Shop account</li>
+            <li>• Once connected, click &quot;Sync All Products&quot; to upload your entire catalog</li>
             <li>• Products will be created in TikTok Shop with your current pricing and inventory</li>
             <li>• You can sync products again at any time to update inventory and pricing</li>
             <li>• Note: Images, descriptions, and other details will be synced from your website</li>
