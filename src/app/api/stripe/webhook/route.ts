@@ -117,6 +117,24 @@ export async function POST(req: NextRequest) {
             console.log(`Decrementing base stock: ${productInfo.slug} x${qty}`);
             await incrStock(productInfo.slug, -qty);
           }
+
+          // Also update TikTok Shop inventory if connected
+          try {
+            const { updateTikTokInventory, isTikTokShopConnected } = await import("@/lib/tiktokShop");
+            const { getTotalStock } = await import("@/lib/productsStore");
+
+            if (await isTikTokShopConnected()) {
+              // Get the updated stock level
+              const newStock = await getTotalStock(productInfo);
+
+              // Update TikTok Shop
+              await updateTikTokInventory(productInfo.sku, newStock);
+              console.log(`[TikTok Shop] Updated inventory for ${productInfo.sku} to ${newStock}`);
+            }
+          } catch (tiktokErr) {
+            // Don't fail the webhook if TikTok update fails
+            console.error(`[TikTok Shop] Failed to update inventory:`, tiktokErr);
+          }
         } catch (err) {
           console.error(`Stock decrement failed for ${productInfo.slug} ${variantId ? `variant ${variantId}` : ''} x${qty}`, err);
         }

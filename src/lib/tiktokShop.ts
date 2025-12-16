@@ -196,3 +196,41 @@ export async function disconnectTikTokShop(): Promise<void> {
 function generateRandomState(): string {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }
+
+/**
+ * Update product inventory on TikTok Shop
+ */
+export async function updateTikTokInventory(sku: string, newStock: number): Promise<boolean> {
+  try {
+    const accessToken = await getValidAccessToken();
+
+    // TikTok Shop inventory update endpoint
+    const endpoint = "https://open.tiktokapis.com/product/stock/update";
+
+    const response = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        product_id: sku, // We use SKU as product_id
+        inventory: {
+          quantity: newStock,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      console.error(`[TikTok Shop] Failed to update inventory for SKU ${sku}:`, error);
+      return false;
+    }
+
+    console.log(`[TikTok Shop] Updated inventory for SKU ${sku} to ${newStock}`);
+    return true;
+  } catch (error) {
+    console.error(`[TikTok Shop] Error updating inventory for SKU ${sku}:`, error);
+    return false;
+  }
+}

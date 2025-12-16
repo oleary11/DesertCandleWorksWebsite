@@ -39,13 +39,12 @@ export default function MailingListSignup() {
   };  
 
   return (
-    <section className="mx-auto max-w-6xl px-6 mt-16">
+    <section className="mx-auto max-w-6xl px-6">
       <div className="rounded-2xl border p-8 sm:p-10 bg-white
                       border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)]
                       shadow-[0_8px_30px_rgba(20,16,12,0.06)]">
         <div className="max-w-2xl">
-          <h2 className="text-xl font-semibold">Join our mailing list</h2>
-          <p className="mt-2 text-sm text-neutral-600">
+          <p className="text-sm text-neutral-600">
             Discount codes, drops, restocks, and desert-scented stories. No spam, unsubscribe anytime.
           </p>
 
