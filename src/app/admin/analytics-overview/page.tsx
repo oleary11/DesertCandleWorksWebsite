@@ -2,7 +2,14 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, DollarSign, TrendingUp, TrendingDown, Receipt, PieChart } from "lucide-react";
+import {
+  ArrowLeft,
+  DollarSign,
+  TrendingUp,
+  TrendingDown,
+  Receipt,
+  PieChart,
+} from "lucide-react";
 
 type SalesAnalytics = {
   totalRevenue: number;
@@ -29,8 +36,13 @@ type MonthlyData = {
 
 export default function UnifiedAnalyticsPage() {
   const [salesData, setSalesData] = useState<SalesAnalytics | null>(null);
-  const [purchaseData, setPurchaseData] = useState<PurchaseAnalytics | null>(null);
+  const [purchaseData, setPurchaseData] = useState<PurchaseAnalytics | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
+
+  // Federal “set-aside”/estimated payment rate (you can tweak via dropdown)
+  const [fedRate, setFedRate] = useState(0.25);
 
   useEffect(() => {
     loadAnalytics();
@@ -55,6 +67,54 @@ export default function UnifiedAnalyticsPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function formatDate(d: Date) {
+    return d.toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  }
+
+  function getQuarter(date: Date) {
+    return Math.floor(date.getMonth() / 3) + 1; // 1-4
+  }
+
+  function getNextIrsEstimatedDueDate(today: Date) {
+    const y = today.getFullYear();
+    const d = today;
+
+    // IRS estimated tax due dates (typical schedule):
+    // Q1 -> Apr 15, Q2 -> Jun 15, Q3 -> Sep 15, Q4 -> Jan 15 (next year)
+    const apr15 = new Date(y, 3, 15);
+    const jun15 = new Date(y, 5, 15);
+    const sep15 = new Date(y, 8, 15);
+    const jan15Next = new Date(y + 1, 0, 15);
+
+    if (d <= apr15) return apr15;
+    if (d <= jun15) return jun15;
+    if (d <= sep15) return sep15;
+    return jan15Next;
+  }
+
+  function getNextAzTptQuarterlyDueDate(today: Date) {
+    // Quarterly TPT returns are typically due the 20th of the month following quarter end:
+    // Q1 (Jan-Mar) -> Apr 20
+    // Q2 (Apr-Jun) -> Jul 20
+    // Q3 (Jul-Sep) -> Oct 20
+    // Q4 (Oct-Dec) -> Jan 20 (next year)
+    const y = today.getFullYear();
+    const q = getQuarter(today);
+
+    const dueMap = {
+      1: new Date(y, 3, 20),
+      2: new Date(y, 6, 20),
+      3: new Date(y, 9, 20),
+      4: new Date(y + 1, 0, 20),
+    } as const;
+
+    return dueMap[q as 1 | 2 | 3 | 4];
   }
 
   if (loading) {
@@ -91,9 +151,35 @@ export default function UnifiedAnalyticsPage() {
 
   // Product revenue only (excluding shipping and tax)
   const productRevenue = salesData.totalProductRevenue || 0;
-  const productCosts = (purchaseData.totalSpent || 0) - (purchaseData.totalShipping || 0) - (purchaseData.totalTax || 0);
+  const productCosts =
+    (purchaseData.totalSpent || 0) -
+    (purchaseData.totalShipping || 0) -
+    (purchaseData.totalTax || 0);
   const productProfit = productRevenue - productCosts;
-  const productMargin = productRevenue > 0 ? (productProfit / productRevenue) * 100 : 0;
+  const productMargin =
+    productRevenue > 0 ? (productProfit / productRevenue) * 100 : 0;
+
+  // --- Tax Planning (AZ TPT + Federal Estimated) ---
+  const today = new Date();
+  const currentQuarter = getQuarter(today);
+
+  // AZ TPT owed: since you ONLY collect AZ tax right now, this is fine.
+  const azTptToRemitCents = salesData.totalTaxCollected || 0;
+
+  // Federal estimate: sales tax collected is NOT income.
+  // Use product + shipping revenue (exclude tax), then subtract Stripe fees and costs.
+  const shippingRevenue = salesData.totalShippingRevenue || 0;
+  const businessRevenueExcludingTax = (productRevenue || 0) + shippingRevenue;
+  const federalNetProfitCents =
+    businessRevenueExcludingTax - stripeFees - totalCosts;
+
+  const suggestedFederalPaymentCents = Math.max(
+    0,
+    Math.round(federalNetProfitCents * fedRate)
+  );
+
+  const nextIrsDue = getNextIrsEstimatedDueDate(today);
+  const nextAzTptDue = getNextAzTptQuarterlyDueDate(today);
 
   return (
     <div className="min-h-screen p-6 bg-neutral-50">
@@ -139,12 +225,19 @@ export default function UnifiedAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <DollarSign className="w-5 h-5 text-blue-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Gross Revenue</span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">
+                Gross Revenue
+              </span>
             </div>
-            <p className="text-3xl font-bold">${((grossRevenue || 0) / 100).toFixed(2)}</p>
+            <p className="text-3xl font-bold">
+              ${((grossRevenue || 0) / 100).toFixed(2)}
+            </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              Products: ${((productRevenue || 0) / 100).toFixed(2)}<br/>
-              Shipping: ${((salesData.totalShippingRevenue || 0) / 100).toFixed(2)} • Tax: ${((salesData.totalTaxCollected || 0) / 100).toFixed(2)}
+              Products: ${((productRevenue || 0) / 100).toFixed(2)}
+              <br />
+              Shipping: $
+              {((salesData.totalShippingRevenue || 0) / 100).toFixed(2)} • Tax: $
+              {((salesData.totalTaxCollected || 0) / 100).toFixed(2)}
             </p>
           </div>
 
@@ -154,32 +247,49 @@ export default function UnifiedAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
                 <Receipt className="w-5 h-5 text-orange-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Costs</span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">
+                Total Costs
+              </span>
             </div>
-            <p className="text-3xl font-bold text-orange-600">${((totalCosts || 0) / 100).toFixed(2)}</p>
+            <p className="text-3xl font-bold text-orange-600">
+              ${((totalCosts || 0) / 100).toFixed(2)}
+            </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              Products: ${((productCosts || 0) / 100).toFixed(2)}<br/>
-              Shipping: ${((purchaseData.totalShipping || 0) / 100).toFixed(2)} • Tax: ${((purchaseData.totalTax || 0) / 100).toFixed(2)}
+              Products: ${((productCosts || 0) / 100).toFixed(2)}
+              <br />
+              Shipping: ${((purchaseData.totalShipping || 0) / 100).toFixed(2)} •
+              Tax: ${((purchaseData.totalTax || 0) / 100).toFixed(2)}
             </p>
           </div>
 
           {/* Net Profit */}
           <div className="card p-6 bg-white">
             <div className="flex items-center gap-3 mb-2">
-              <div className={`w-10 h-10 rounded-lg ${grossProfit >= 0 ? 'bg-green-100' : 'bg-red-100'} flex items-center justify-center`}>
+              <div
+                className={`w-10 h-10 rounded-lg ${
+                  grossProfit >= 0 ? "bg-green-100" : "bg-red-100"
+                } flex items-center justify-center`}
+              >
                 {grossProfit >= 0 ? (
                   <TrendingUp className="w-5 h-5 text-green-600" />
                 ) : (
                   <TrendingDown className="w-5 h-5 text-red-600" />
                 )}
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Net Profit</span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">
+                Net Profit
+              </span>
             </div>
-            <p className={`text-3xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p
+              className={`text-3xl font-bold ${
+                grossProfit >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
               ${((grossProfit || 0) / 100).toFixed(2)}
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              After COGS & Stripe fees<br/>
+              After COGS & Stripe fees
+              <br />
               Stripe fees: ${((stripeFees || 0) / 100).toFixed(2)}
             </p>
           </div>
@@ -190,15 +300,114 @@ export default function UnifiedAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
                 <PieChart className="w-5 h-5 text-purple-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Gross Margin</span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">
+                Gross Margin
+              </span>
             </div>
-            <p className={`text-3xl font-bold ${grossMargin >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p
+              className={`text-3xl font-bold ${
+                grossMargin >= 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
               {(grossMargin || 0).toFixed(1)}%
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              Net revenue vs costs<br/>
+              Net revenue vs costs
+              <br />
               Product margin: {(productMargin || 0).toFixed(1)}%
             </p>
+          </div>
+        </div>
+
+        {/* Tax Payments (AZ TPT + Federal Estimated) */}
+        <div className="card p-6 bg-white mb-8">
+          <div className="flex items-center justify-between gap-4 mb-4">
+            <div>
+              <h2 className="text-xl font-bold">What to Pay (Taxes)</h2>
+              <p className="text-sm text-[var(--color-muted)]">
+                Based on today ({formatDate(today)}) • Quarter Q{currentQuarter}
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-[var(--color-muted)]">
+                Federal set-aside
+              </span>
+              <select
+                value={fedRate}
+                onChange={(e) => setFedRate(Number(e.target.value))}
+                className="border border-[var(--color-line)] rounded-md px-2 py-1 text-sm bg-white"
+              >
+                <option value={0.2}>20%</option>
+                <option value={0.25}>25%</option>
+                <option value={0.3}>30%</option>
+                <option value={0.33}>33%</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* AZ TPT */}
+            <div className="p-5 rounded-lg border border-[var(--color-line)] bg-neutral-50">
+              <div className="flex items-start justify-between mb-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium">Arizona TPT (Quarterly)</p>
+                  <p className="text-xs text-[var(--color-muted)]">
+                    Since you only collect AZ tax right now, this equals total tax
+                    collected.
+                  </p>
+                </div>
+                <p className="text-sm text-[var(--color-muted)] whitespace-nowrap">
+                  Due:{" "}
+                  <span className="font-bold text-[var(--color-ink)]">
+                    {formatDate(nextAzTptDue)}
+                  </span>
+                </p>
+              </div>
+
+              <p className="text-3xl font-bold">
+                ${((azTptToRemitCents || 0) / 100).toFixed(2)}
+              </p>
+
+              <p className="text-xs text-[var(--color-muted)] mt-2">
+                This is pass-through money (collected from customers).
+              </p>
+            </div>
+
+            {/* Federal Estimated */}
+            <div className="p-5 rounded-lg border border-[var(--color-line)] bg-neutral-50">
+              <div className="flex items-start justify-between mb-2 gap-4">
+                <div>
+                  <p className="text-sm font-medium">
+                    Federal Estimated Tax (1040-ES)
+                  </p>
+                  <p className="text-xs text-[var(--color-muted)]">
+                    Estimate based on business profit (sales tax excluded).
+                  </p>
+                </div>
+                <p className="text-sm text-[var(--color-muted)] whitespace-nowrap">
+                  Due:{" "}
+                  <span className="font-bold text-[var(--color-ink)]">
+                    {formatDate(nextIrsDue)}
+                  </span>
+                </p>
+              </div>
+
+              <p className="text-3xl font-bold">
+                ${((suggestedFederalPaymentCents || 0) / 100).toFixed(2)}
+              </p>
+
+              <div className="mt-3 text-xs text-[var(--color-muted)] space-y-1">
+                <p>
+                  Profit basis (product + shipping − Stripe − costs):{" "}
+                  <b>${((federalNetProfitCents || 0) / 100).toFixed(2)}</b>
+                </p>
+                <p>
+                  Payment suggestion = <b>{Math.round(fedRate * 100)}%</b> of
+                  positive profit (0 if loss)
+                </p>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -215,20 +424,32 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Gross Revenue</span>
-                  <span className="text-lg font-bold text-blue-600">${((grossRevenue || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold text-blue-600">
+                    ${((grossRevenue || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
-                <p className="text-xs text-[var(--color-muted)]">{salesData.totalOrders || 0} orders</p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {salesData.totalOrders || 0} orders
+                </p>
               </div>
 
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Product Sales</span>
-                  <span className="text-lg font-bold">${((productRevenue || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((productRevenue || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-blue-500 h-2 rounded-full transition-all"
-                    style={{ width: `${grossRevenue > 0 ? ((productRevenue || 0) / grossRevenue) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        grossRevenue > 0
+                          ? ((productRevenue || 0) / grossRevenue) * 100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -236,12 +457,22 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Shipping Revenue</span>
-                  <span className="text-lg font-bold">${((salesData.totalShippingRevenue || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((salesData.totalShippingRevenue || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-sky-500 h-2 rounded-full transition-all"
-                    style={{ width: `${grossRevenue > 0 ? ((salesData.totalShippingRevenue || 0) / grossRevenue) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        grossRevenue > 0
+                          ? ((salesData.totalShippingRevenue || 0) /
+                              grossRevenue) *
+                            100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -249,28 +480,49 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Tax Collected</span>
-                  <span className="text-lg font-bold">${((salesData.totalTaxCollected || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((salesData.totalTaxCollected || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-indigo-500 h-2 rounded-full transition-all"
-                    style={{ width: `${grossRevenue > 0 ? ((salesData.totalTaxCollected || 0) / grossRevenue) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        grossRevenue > 0
+                          ? ((salesData.totalTaxCollected || 0) / grossRevenue) *
+                            100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
 
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-sm font-medium text-red-600">Stripe Fees</span>
-                  <span className="text-lg font-bold text-red-600">-${((stripeFees || 0) / 100).toFixed(2)}</span>
+                  <span className="text-sm font-medium text-red-600">
+                    Stripe Fees
+                  </span>
+                  <span className="text-lg font-bold text-red-600">
+                    -${((stripeFees || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
-                <p className="text-xs text-[var(--color-muted)]">~{grossRevenue > 0 ? (((stripeFees || 0) / grossRevenue) * 100).toFixed(2) : 0}% of gross revenue</p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  ~
+                  {grossRevenue > 0
+                    ? (((stripeFees || 0) / grossRevenue) * 100).toFixed(2)
+                    : 0}
+                  % of gross revenue
+                </p>
               </div>
 
               <div className="pt-2 border-t-2 border-[var(--color-line)]">
                 <div className="flex items-center justify-between">
                   <span className="font-bold">Net Revenue</span>
-                  <span className="text-xl font-bold text-green-600">${((netRevenue || 0) / 100).toFixed(2)}</span>
+                  <span className="text-xl font-bold text-green-600">
+                    ${((netRevenue || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
               </div>
             </div>
@@ -287,20 +539,32 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Total Spent</span>
-                  <span className="text-lg font-bold text-orange-600">${((totalCosts || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold text-orange-600">
+                    ${((totalCosts || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
-                <p className="text-xs text-[var(--color-muted)]">{purchaseData.totalPurchases || 0} purchase orders</p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {purchaseData.totalPurchases || 0} purchase orders
+                </p>
               </div>
 
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Product Costs</span>
-                  <span className="text-lg font-bold">${((productCosts || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((productCosts || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-orange-500 h-2 rounded-full transition-all"
-                    style={{ width: `${totalCosts > 0 ? ((productCosts || 0) / totalCosts) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        totalCosts > 0
+                          ? ((productCosts || 0) / totalCosts) * 100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -308,12 +572,21 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Shipping Costs</span>
-                  <span className="text-lg font-bold">${((purchaseData.totalShipping || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((purchaseData.totalShipping || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-amber-500 h-2 rounded-full transition-all"
-                    style={{ width: `${totalCosts > 0 ? ((purchaseData.totalShipping || 0) / totalCosts) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        totalCosts > 0
+                          ? ((purchaseData.totalShipping || 0) / totalCosts) *
+                            100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -321,12 +594,20 @@ export default function UnifiedAnalyticsPage() {
               <div className="border-b border-[var(--color-line)] pb-3">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Purchase Tax</span>
-                  <span className="text-lg font-bold">${((purchaseData.totalTax || 0) / 100).toFixed(2)}</span>
+                  <span className="text-lg font-bold">
+                    ${((purchaseData.totalTax || 0) / 100).toFixed(2)}
+                  </span>
                 </div>
                 <div className="w-full bg-neutral-100 rounded-full h-2">
                   <div
                     className="bg-yellow-500 h-2 rounded-full transition-all"
-                    style={{ width: `${totalCosts > 0 ? ((purchaseData.totalTax || 0) / totalCosts) * 100 : 0}%` }}
+                    style={{
+                      width: `${
+                        totalCosts > 0
+                          ? ((purchaseData.totalTax || 0) / totalCosts) * 100
+                          : 0
+                      }%`,
+                    }}
                   />
                 </div>
               </div>
@@ -335,17 +616,29 @@ export default function UnifiedAnalyticsPage() {
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium">Cost per Order</span>
                   <span className="text-lg font-bold text-[var(--color-muted)]">
-                    ${(salesData.totalOrders || 0) > 0 ? ((totalCosts || 0) / salesData.totalOrders / 100).toFixed(2) : '0.00'}
+                    $
+                    {(salesData.totalOrders || 0) > 0
+                      ? ((totalCosts || 0) / salesData.totalOrders / 100).toFixed(
+                          2
+                        )
+                      : "0.00"}
                   </span>
                 </div>
-                <p className="text-xs text-[var(--color-muted)]">Average cost of goods per order</p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  Average cost of goods per order
+                </p>
               </div>
 
               <div className="pt-2 border-t-2 border-[var(--color-line)]">
                 <div className="flex items-center justify-between">
                   <span className="font-bold">Revenue per Order</span>
                   <span className="text-xl font-bold text-green-600">
-                    ${(salesData.totalOrders || 0) > 0 ? ((productRevenue || 0) / salesData.totalOrders / 100).toFixed(2) : '0.00'}
+                    $
+                    {(salesData.totalOrders || 0) > 0
+                      ? ((productRevenue || 0) / salesData.totalOrders / 100).toFixed(
+                          2
+                        )
+                      : "0.00"}
                   </span>
                 </div>
               </div>
@@ -362,8 +655,14 @@ export default function UnifiedAnalyticsPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="text-center p-6 bg-blue-50 rounded-lg">
-              <p className="text-sm text-[var(--color-muted)] mb-2">Product Profit</p>
-              <p className={`text-3xl font-bold ${productProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p className="text-sm text-[var(--color-muted)] mb-2">
+                Product Profit
+              </p>
+              <p
+                className={`text-3xl font-bold ${
+                  productProfit >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
                 ${((productProfit || 0) / 100).toFixed(2)}
               </p>
               <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -376,7 +675,11 @@ export default function UnifiedAnalyticsPage() {
 
             <div className="text-center p-6 bg-purple-50 rounded-lg">
               <p className="text-sm text-[var(--color-muted)] mb-2">Net Profit</p>
-              <p className={`text-3xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+              <p
+                className={`text-3xl font-bold ${
+                  grossProfit >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
                 ${((grossProfit || 0) / 100).toFixed(2)}
               </p>
               <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -388,9 +691,18 @@ export default function UnifiedAnalyticsPage() {
             </div>
 
             <div className="text-center p-6 bg-green-50 rounded-lg">
-              <p className="text-sm text-[var(--color-muted)] mb-2">Profit per Order</p>
-              <p className={`text-3xl font-bold ${grossProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                ${(salesData.totalOrders || 0) > 0 ? ((grossProfit || 0) / salesData.totalOrders / 100).toFixed(2) : '0.00'}
+              <p className="text-sm text-[var(--color-muted)] mb-2">
+                Profit per Order
+              </p>
+              <p
+                className={`text-3xl font-bold ${
+                  grossProfit >= 0 ? "text-green-600" : "text-red-600"
+                }`}
+              >
+                $
+                {(salesData.totalOrders || 0) > 0
+                  ? ((grossProfit || 0) / salesData.totalOrders / 100).toFixed(2)
+                  : "0.00"}
               </p>
               <p className="text-xs text-[var(--color-muted)] mt-1">
                 Average per transaction
@@ -413,11 +725,25 @@ export default function UnifiedAnalyticsPage() {
               </div>
               <div>
                 <span className="text-[var(--color-muted)]">Avg Order Value:</span>
-                <p className="font-bold">${(salesData.totalOrders || 0) > 0 ? ((grossRevenue || 0) / salesData.totalOrders / 100).toFixed(2) : '0.00'}</p>
+                <p className="font-bold">
+                  $
+                  {(salesData.totalOrders || 0) > 0
+                    ? ((grossRevenue || 0) / salesData.totalOrders / 100).toFixed(2)
+                    : "0.00"}
+                </p>
               </div>
               <div>
-                <span className="text-[var(--color-muted)]">Avg Purchase Cost:</span>
-                <p className="font-bold">${(purchaseData.totalPurchases || 0) > 0 ? ((totalCosts || 0) / purchaseData.totalPurchases / 100).toFixed(2) : '0.00'}</p>
+                <span className="text-[var(--color-muted)]">
+                  Avg Purchase Cost:
+                </span>
+                <p className="font-bold">
+                  $
+                  {(purchaseData.totalPurchases || 0) > 0
+                    ? ((totalCosts || 0) / purchaseData.totalPurchases / 100).toFixed(
+                        2
+                      )
+                    : "0.00"}
+                </p>
               </div>
             </div>
           </div>
