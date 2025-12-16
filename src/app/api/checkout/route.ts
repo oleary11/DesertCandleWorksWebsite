@@ -465,7 +465,7 @@ export async function POST(req: NextRequest) {
       metadata: sessionMetadata, // Pass product/variant info for webhook
       // Pre-fill email for logged-in users
       ...(userEmail && { customer_email: userEmail }),
-      // automatic_tax: { enabled: true }, // Enable later once business address configured
+      automatic_tax: { enabled: true }, // Stripe Tax enabled
     };
 
     // ONLY send one of `discounts` or `allow_promotion_codes`
