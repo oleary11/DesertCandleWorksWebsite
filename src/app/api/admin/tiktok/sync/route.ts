@@ -4,6 +4,7 @@ import { isAdminAuthed } from "@/lib/adminSession";
 import { getValidAccessToken, isTikTokShopConnected } from "@/lib/tiktokShop";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import type { Product } from "@/lib/products";
+import { getPrimaryImage } from "@/lib/products";
 
 export async function POST() {
   // Verify admin is authenticated
@@ -94,12 +95,13 @@ async function syncProductToTikTokShop(product: Product, accessToken: string): P
   const endpoint = "https://open.tiktokapis.com/product/create";
 
   // Transform our product data to TikTok Shop format
+  const primaryImage = getPrimaryImage(product);
   const tiktokProduct = {
     title: product.name,
     description: product.seoDescription || "",
     category_id: "home_garden", // You may want to make this configurable
     brand_id: "", // Optional - set if you have a brand registered
-    images: product.imageUrl ? [{ url: product.imageUrl }] : [],
+    images: primaryImage ? [{ url: primaryImage }] : [],
     price: {
       currency: "USD",
       amount: product.price * 100, // TikTok Shop expects cents
