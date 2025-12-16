@@ -125,7 +125,16 @@ export async function POST(req: NextRequest) {
       }
 
       const requestedQty = item.quantity || 1;
-      const availableStock = product.stock || 0;
+      const variantId = item.metadata?.variantId;
+
+      // Check variant stock if this is a variant product
+      let availableStock: number;
+      if (variantId && product.variantConfig) {
+        const variantData = product.variantConfig.variantData[variantId];
+        availableStock = variantData?.stock || 0;
+      } else {
+        availableStock = product.stock || 0;
+      }
 
       if (availableStock < requestedQty) {
         return NextResponse.json(
