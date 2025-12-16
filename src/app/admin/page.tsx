@@ -17,7 +17,8 @@ import {
   Mail,
   Tag,
   Receipt,
-  Video
+  Video,
+  Undo2
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -74,6 +75,21 @@ export default function AdminHomePage() {
                 <h2 className="text-lg font-semibold mb-1">Orders</h2>
                 <p className="text-sm text-[var(--color-muted)]">
                   View and manage customer orders
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Refunds */}
+          <Link href="/admin/refunds" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-rose-100 flex items-center justify-center flex-shrink-0">
+                <Undo2 className="w-6 h-6 text-rose-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Refunds</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Process refunds and manage returns
                 </p>
               </div>
             </div>

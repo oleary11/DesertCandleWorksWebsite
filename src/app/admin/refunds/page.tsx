@@ -354,7 +354,7 @@ export default function RefundsPage() {
       {/* Create Refund Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
               <div>
@@ -439,13 +439,15 @@ export default function RefundsPage() {
                     Refund Amount (USD)
                   </label>
                   <div className="relative">
-                    <DollarSign className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                      <DollarSign className="w-4 h-4 text-[var(--color-muted)]" />
+                    </span>
                     <input
                       type="number"
                       step="0.01"
                       min="0.01"
                       max={order ? (order.totalCents / 100).toFixed(2) : undefined}
-                      className="input pl-10"
+                      className="input !pl-9"
                       placeholder="0.00"
                       value={refundAmount}
                       onChange={(e) => setRefundAmount(e.target.value)}

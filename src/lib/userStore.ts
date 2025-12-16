@@ -310,6 +310,21 @@ export async function redeemPoints(
   return addPoints(userId, -amount, "redeem", description);
 }
 
+/**
+ * Deduct points from user (for refunds or adjustments)
+ * Unlike redeemPoints, this can deduct more points than the user has (going negative)
+ */
+export async function deductPoints(
+  userId: string,
+  amount: number,
+  description: string
+): Promise<PointsTransaction> {
+  const user = await getUserById(userId);
+  if (!user) throw new Error("User not found");
+
+  return addPoints(userId, -amount, "adjustment", description);
+}
+
 // ============ Order Management ============
 
 /**

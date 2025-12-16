@@ -28,6 +28,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: `Webhook signature failed: ${msg}` }, { status: 400 });
   }
 
+  // Handle refund events
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+
+    console.log(`[Webhook] Refund processed for charge ${charge.id}`);
+
+    // Refund is already tracked in our system via the admin refund API
+    // This webhook just logs it for confirmation
+    // The inventory restoration and points deduction happen in the refund API
+
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
 
