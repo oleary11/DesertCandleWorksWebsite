@@ -329,7 +329,9 @@ export default function RefundsPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         {refund.restoreInventory ? (
-                          <Package className="w-4 h-4 text-emerald-600 inline" title="Inventory restored" />
+                          <span title="Inventory restored">
+                            <Package className="w-4 h-4 text-emerald-600 inline" />
+                          </span>
                         ) : (
                           <span className="text-[var(--color-muted)]">-</span>
                         )}
