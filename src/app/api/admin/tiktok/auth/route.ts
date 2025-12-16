@@ -1,11 +1,11 @@
 // API route to initiate TikTok Shop OAuth flow
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { getTikTokAuthUrl } from "@/lib/tiktokShop";
 import { isAdminAuthed } from "@/lib/adminSession";
 
-export async function GET(req: NextRequest) {
+export async function GET() {
   // Verify admin is authenticated
-  const authed = await isAdminAuthed(req);
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

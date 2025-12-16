@@ -1,11 +1,11 @@
 // API route to disconnect TikTok Shop
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { disconnectTikTokShop } from "@/lib/tiktokShop";
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   // Verify admin is authenticated
-  const authed = await isAdminAuthed(req);
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }

@@ -1,13 +1,13 @@
 // API route to sync products to TikTok Shop
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { getValidAccessToken, isTikTokShopConnected } from "@/lib/tiktokShop";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import type { Product } from "@/lib/products";
 
-export async function POST(req: NextRequest) {
+export async function POST() {
   // Verify admin is authenticated
-  const authed = await isAdminAuthed(req);
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -68,8 +68,8 @@ export async function POST(req: NextRequest) {
 }
 
 // Get connection status
-export async function GET(req: NextRequest) {
-  const authed = await isAdminAuthed(req);
+export async function GET() {
+  const authed = await isAdminAuthed();
   if (!authed) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
