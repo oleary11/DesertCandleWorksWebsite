@@ -853,6 +853,59 @@ export default function AdminProductsPage() {
             Export to CSV ({filtered.length})
           </button>
           <button
+            className="btn bg-purple-600 text-white hover:bg-purple-700 w-full sm:w-auto flex items-center gap-2"
+            onClick={async () => {
+              if (saving) return;
+
+              const squareProducts = merged.filter(p => p.squareCatalogId && p.squareVariantMapping);
+              if (squareProducts.length === 0) {
+                await showAlert("No products are connected to Square", "Info");
+                return;
+              }
+
+              const confirmed = await showConfirm(
+                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.`,
+                "Sync All to Square"
+              );
+
+              if (!confirmed) return;
+
+              setSaving(true);
+              try {
+                const res = await fetch("/api/admin/sync-square-stock", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}), // No productSlug = sync all
+                });
+
+                if (!res.ok) {
+                  const error = await res.json();
+                  throw new Error(error.error || "Failed to sync");
+                }
+
+                const data = await res.json();
+                await showAlert(
+                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}`,
+                  "Sync Complete"
+                );
+              } catch (error) {
+                console.error("[Sync All Square Stock] Error:", error);
+                await showAlert(
+                  error instanceof Error ? error.message : "Failed to sync all products to Square",
+                  "Error"
+                );
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            {saving ? "Syncing..." : "Sync All to Square"}
+          </button>
+          <button
             className="btn btn-primary w-full sm:w-auto"
             onClick={() => {
               const p = emptyProduct();
