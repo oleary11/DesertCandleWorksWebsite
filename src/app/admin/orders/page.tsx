@@ -102,6 +102,11 @@ export default function AdminOrdersPage() {
     return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
   }
 
+  // Helper function to check if an order is from Square POS
+  function isSquareSale(orderId: string): boolean {
+    return orderId.startsWith("SQ");
+  }
+
   // Calculate shipping cost for old orders that don't have it stored
   function getShippingCost(order: Order): number {
     // If shipping is already stored, use it
@@ -294,6 +299,11 @@ export default function AdminOrdersPage() {
                               Manual Sale
                             </span>
                           )}
+                          {isSquareSale(order.id) && (
+                            <span className="badge text-xs bg-purple-100 text-purple-700">
+                              Square POS
+                            </span>
+                          )}
                         </div>
 
                         {/* Order ID with Copy Button */}
@@ -401,7 +411,7 @@ export default function AdminOrdersPage() {
                           <span>Order Total:</span>
                           <span>${(order.totalCents / 100).toFixed(2)}</span>
                         </div>
-                        {!isManualSale(order.id) && (
+                        {!isManualSale(order.id) && !isSquareSale(order.id) && (
                           <>
                             <div className="flex justify-between text-amber-600">
                               <span>Stripe Fee (2.9% + $0.30):</span>
@@ -410,6 +420,18 @@ export default function AdminOrdersPage() {
                             <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
                               <span>Net Revenue:</span>
                               <span>${((order.totalCents - calculateStripeFee(order.totalCents)) / 100).toFixed(2)}</span>
+                            </div>
+                          </>
+                        )}
+                        {isSquareSale(order.id) && (
+                          <>
+                            <div className="flex justify-between text-purple-600">
+                              <span>Square Fee (2.6% + $0.10):</span>
+                              <span className="font-medium">-${((Math.round(order.totalCents * 0.026) + 10) / 100).toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
+                              <span>Net Revenue:</span>
+                              <span>${((order.totalCents - Math.round(order.totalCents * 0.026) - 10) / 100).toFixed(2)}</span>
                             </div>
                           </>
                         )}

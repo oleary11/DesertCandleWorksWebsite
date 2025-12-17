@@ -17,6 +17,10 @@ const nextConfig: NextConfig = {
         has: [{ type: "host", value: "desertcandleworks.com" }], // non-www
         destination: "https://www.desertcandleworks.com/:path*",
         permanent: true,
+        // Exclude webhook endpoints from redirect
+        missing: [
+          { type: "header", key: "x-square-hmacsha256-signature" }, // Square webhooks
+        ],
       },
     ];
   },
