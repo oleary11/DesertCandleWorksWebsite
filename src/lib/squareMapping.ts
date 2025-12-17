@@ -73,18 +73,18 @@ export async function listSquareCatalogItems(): Promise<Array<{
   name: string;
   isMapped: boolean;
 }>> {
-  const square = await import("square");
+  const { SquareClient, SquareEnvironment } = await import("square");
   const accessToken = process.env.SQUARE_ACCESS_TOKEN;
 
   if (!accessToken) {
     throw new Error("SQUARE_ACCESS_TOKEN not configured");
   }
 
-  const client = new square.Client({
+  const client = new SquareClient({
     accessToken,
     environment: process.env.SQUARE_ENVIRONMENT === "production"
-      ? square.Environment.Production
-      : square.Environment.Sandbox,
+      ? SquareEnvironment.Production
+      : SquareEnvironment.Sandbox,
   });
 
   try {
