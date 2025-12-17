@@ -54,6 +54,7 @@ type Product = {
   sku: string;
   stripePriceId?: string;
   squareCatalogId?: string; // Square Catalog Item ID for POS integration
+  squareVariantMapping?: Record<string, string>; // Maps website variantId to Square variation ID
   seoDescription: string;
   bestSeller?: boolean;
   youngDumb?: boolean;
@@ -1614,11 +1615,53 @@ export default function AdminProductsPage() {
               <label className="block sm:col-span-2">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-xs">Square Catalog ID</span>
-                  {!editing.squareCatalogId && (
-                    <button
-                      type="button"
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-                      onClick={async () => {
+                  <div className="flex gap-2">
+                    {editing.squareCatalogId && (
+                      <button
+                        type="button"
+                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                        onClick={async () => {
+                          // Sync stock to Square
+                          try {
+                            setSaving(true);
+                            const res = await fetch("/api/admin/sync-square-stock", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({ productSlug: editing.slug }),
+                            });
+
+                            const data = await res.json();
+
+                            if (!res.ok) {
+                              throw new Error(data.error || "Failed to sync stock");
+                            }
+
+                            await showAlert(
+                              `Stock synced to Square successfully!\n\n${data.message}`,
+                              "Success"
+                            );
+                          } catch (error) {
+                            console.error("[Sync Square Stock] Error:", error);
+                            await showAlert(
+                              error instanceof Error ? error.message : "Failed to sync stock to Square",
+                              "Error"
+                            );
+                          } finally {
+                            setSaving(false);
+                          }
+                        }}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Sync Stock to Square
+                      </button>
+                    )}
+                    {!editing.squareCatalogId && (
+                      <button
+                        type="button"
+                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                        onClick={async () => {
                         // Validate required fields
                         if (!editing.name.trim()) {
                           await showAlert("Please enter a product name first", "Missing Information");
@@ -1631,6 +1674,13 @@ export default function AdminProductsPage() {
 
                         try {
                           setSaving(true);
+
+                          // Get scents for this product (filter by limited flag)
+                          const productScents = globalScents.filter((scent) => {
+                            if (!scent.limited) return true;
+                            return scent.enabledProducts?.includes(editing.slug);
+                          });
+
                           const res = await fetch("/api/admin/create-square-product", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
@@ -1639,6 +1689,9 @@ export default function AdminProductsPage() {
                               price: editing.price,
                               description: editing.seoDescription,
                               sku: editing.sku,
+                              images: editing.images || [],
+                              variantConfig: editing.variantConfig,
+                              scents: productScents.map(s => ({ id: s.id, name: s.name })),
                             }),
                           });
 
@@ -1648,11 +1701,15 @@ export default function AdminProductsPage() {
                             throw new Error(data.details || data.error || "Failed to create Square product");
                           }
 
-                          // Update the product with the returned catalog ID
-                          setEditing({ ...editing, squareCatalogId: data.catalogItemId });
+                          // Update the product with the returned catalog ID and variant mapping
+                          setEditing({
+                            ...editing,
+                            squareCatalogId: data.catalogItemId,
+                            squareVariantMapping: data.variantMapping || {},
+                          });
 
                           await showAlert(
-                            `Square catalog item created successfully!\n\nCatalog Item ID: ${data.catalogItemId}`,
+                            `Square catalog item created successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
                             "Success"
                           );
                         } catch (error) {
@@ -1671,7 +1728,8 @@ export default function AdminProductsPage() {
                       </svg>
                       Create Square Product
                     </button>
-                  )}
+                    )}
+                  </div>
                 </div>
                 <input
                   className="input"

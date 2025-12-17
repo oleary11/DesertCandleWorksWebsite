@@ -444,6 +444,28 @@ export async function getAllOrders(): Promise<Order[]> {
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 }
 
+/**
+ * Delete order (for admin cleanup of test orders)
+ */
+export async function deleteOrder(orderId: string): Promise<void> {
+  const order = await getOrderById(orderId);
+  if (!order) return;
+
+  // Remove from global orders index
+  await kv.srem("orders:index", orderId);
+
+  // Remove from user's order list if it's a user order
+  if (order.userId) {
+    await kv.lrem(`orders:user:${order.userId}`, 0, orderId);
+  } else {
+    // Remove from guest orders list
+    await kv.lrem(`orders:guest:${order.email.toLowerCase()}`, 0, orderId);
+  }
+
+  // Delete the order data
+  await kv.del(`order:${orderId}`);
+}
+
 // ============ Password Reset ============
 
 /**

@@ -28,6 +28,7 @@ export type Product = {
   sku: string;
   stripePriceId?: string;   // Now used for ALL products (single price per product)
   squareCatalogId?: string; // Square Catalog Item ID for POS integration
+  squareVariantMapping?: Record<string, string>; // Maps website variantId to Square variation ID
   seoDescription: string;
   bestSeller?: boolean;
   youngDumb?: boolean;      // Young & Dumb collection (fun, trendy bottles)

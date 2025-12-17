@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Package, DollarSign, User, Calendar, FileText } from "lucide-react";
+import { ArrowLeft, Package, DollarSign, User, Calendar, FileText, Trash2 } from "lucide-react";
 
 type Order = {
   id: string;
@@ -89,6 +89,39 @@ export default function AdminOrdersPage() {
     } else {
       // For registered users, link directly
       window.open(`/account/invoice/${order.id}`, "_blank");
+    }
+  }
+
+  async function deleteOrderHandler(orderId: string, e: React.MouseEvent) {
+    e.stopPropagation();
+
+    // Confirm deletion
+    const confirmed = window.confirm(
+      `Are you sure you want to delete this order?\n\nOrder ID: ${orderId}\n\nThis action cannot be undone.`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to delete order");
+      }
+
+      // Remove order from state
+      setOrders(orders.filter((o) => o.id !== orderId));
+
+      // Close expanded view if this order was expanded
+      if (expandedOrderId === orderId) {
+        setExpandedOrderId(null);
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete order");
+      console.error(err);
     }
   }
 
@@ -361,6 +394,14 @@ export default function AdminOrdersPage() {
                       >
                         <FileText className="w-3 h-3" />
                         Invoice
+                      </button>
+                      <button
+                        onClick={(e) => deleteOrderHandler(order.id, e)}
+                        className="btn btn-sm text-sm inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
+                        title="Delete Order"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        Delete
                       </button>
                     </div>
                   </div>

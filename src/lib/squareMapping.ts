@@ -65,6 +65,34 @@ export async function updateSquareMapping(
 }
 
 /**
+ * Get product and variant mapping from Square variation ID
+ * This function looks up the product by checking all products' squareVariantMapping.
+ */
+export async function getProductFromSquareVariation(
+  squareVariationId: string
+): Promise<{ slug: string; variantId?: string } | null> {
+  const { listResolvedProducts } = await import("./resolvedProducts");
+  const products = await listResolvedProducts();
+
+  // Search through all products for this variation ID
+  for (const product of products) {
+    if (!product.squareVariantMapping) continue;
+
+    // Check if this variation ID exists in the product's mapping
+    for (const [websiteVariantId, squareVarId] of Object.entries(product.squareVariantMapping)) {
+      if (squareVarId === squareVariationId) {
+        return {
+          slug: product.slug,
+          variantId: websiteVariantId,
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
+/**
  * Get all Square catalog items (for admin UI)
  * Requires Square API credentials
  */

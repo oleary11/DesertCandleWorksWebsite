@@ -152,7 +152,7 @@ export async function POST(req: NextRequest) {
       let productSubtotalCents = 0;
 
       if (orderDetails?.lineItems) {
-        const productMapping = await getSquareProductMapping();
+        const { getProductFromSquareVariation } = await import("@/lib/squareMapping");
 
         for (const item of orderDetails.lineItems) {
           const quantity = parseInt(item.quantity || "1");
@@ -162,15 +162,15 @@ export async function POST(req: NextRequest) {
               ? parseInt(item.totalMoney.amount)
               : (item.totalMoney?.amount ?? 0));
 
-          // Try to map Square catalog item to our product
-          const catalogItemId = item.catalogObjectId;
-          const productInfo = catalogItemId ? productMapping.get(catalogItemId) : null;
+          // Try to map Square variation ID to our product + variant
+          const catalogVariationId = item.catalogObjectId; // This is actually the variation ID
+          const productInfo = catalogVariationId ? await getProductFromSquareVariation(catalogVariationId) : null;
 
           if (productInfo) {
             // Mapped product - decrement stock
             orderItems.push({
               productSlug: productInfo.slug,
-              productName: item.name || productInfo.name,
+              productName: item.name || productInfo.slug,
               quantity,
               priceCents: itemTotal,
             });
@@ -192,10 +192,10 @@ export async function POST(req: NextRequest) {
             }
           } else {
             // Unmapped product - track it anyway
-            console.warn(`[Square Webhook] No mapping found for catalog item ${catalogItemId} - tracking as unmapped`);
+            console.warn(`[Square Webhook] No mapping found for variation ${catalogVariationId} - tracking as unmapped`);
 
             orderItems.push({
-              productSlug: catalogItemId ? `square-${catalogItemId}` : "square-unmapped",
+              productSlug: catalogVariationId ? `square-${catalogVariationId}` : "square-unmapped",
               productName: item.name || "Square Item (Unmapped)",
               quantity,
               priceCents: itemTotal,
