@@ -110,18 +110,18 @@ export async function POST(req: NextRequest) {
 
     try {
       // Fetch full order details from Square API
-      const { Client, Environment } = await import("square");
+      const square = await import("square");
       const accessToken = process.env.SQUARE_ACCESS_TOKEN;
 
       if (!accessToken) {
         throw new Error("SQUARE_ACCESS_TOKEN not configured");
       }
 
-      const client = new Client({
+      const client = new square.Client({
         accessToken,
         environment: process.env.SQUARE_ENVIRONMENT === "production"
-          ? Environment.Production
-          : Environment.Sandbox,
+          ? square.Environment.Production
+          : square.Environment.Sandbox,
       });
 
       // Get order details if order_id is present
