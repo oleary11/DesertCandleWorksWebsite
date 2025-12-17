@@ -118,9 +118,7 @@ export async function POST(req: NextRequest) {
       }
 
       const client = new SquareClient({
-        bearerAuthCredentials: {
-          accessToken,
-        },
+        token: accessToken,
         environment: process.env.SQUARE_ENVIRONMENT === "production"
           ? SquareEnvironment.Production
           : SquareEnvironment.Sandbox,
@@ -130,8 +128,8 @@ export async function POST(req: NextRequest) {
       let orderDetails;
       if (payment.order_id) {
         try {
-          const { result } = await client.ordersApi.retrieveOrder(payment.order_id);
-          orderDetails = result.order;
+          const response = await client.orders.get({ orderId: payment.order_id });
+          orderDetails = response.order;
         } catch (orderErr) {
           console.error("[Square Webhook] Failed to fetch order details:", orderErr);
           // Continue without order details
@@ -157,7 +155,11 @@ export async function POST(req: NextRequest) {
 
         for (const item of orderDetails.lineItems) {
           const quantity = parseInt(item.quantity || "1");
-          const itemTotal = parseInt(item.totalMoney?.amount || "0");
+          const itemTotal = typeof item.totalMoney?.amount === 'bigint'
+            ? Number(item.totalMoney.amount)
+            : (typeof item.totalMoney?.amount === 'string'
+              ? parseInt(item.totalMoney.amount)
+              : (item.totalMoney?.amount ?? 0));
 
           // Try to map Square catalog item to our product
           const catalogItemId = item.catalogObjectId;
@@ -204,16 +206,22 @@ export async function POST(req: NextRequest) {
       } else {
         // No line items - just use total amount
         console.warn("[Square Webhook] No line items found, using total amount");
+        const totalAmount = typeof payment.total_money?.amount === 'string'
+          ? parseInt(payment.total_money.amount)
+          : (payment.total_money?.amount ?? 0);
+
         orderItems.push({
           productSlug: "square-pos-sale",
           productName: "Square POS Sale",
           quantity: 1,
-          priceCents: parseInt(payment.total_money?.amount || "0"),
+          priceCents: totalAmount,
         });
-        productSubtotalCents = parseInt(payment.total_money?.amount || "0");
+        productSubtotalCents = totalAmount;
       }
 
-      totalCents = parseInt(payment.total_money?.amount || "0");
+      totalCents = typeof payment.total_money?.amount === 'string'
+        ? parseInt(payment.total_money.amount)
+        : (payment.total_money?.amount ?? 0);
 
       // Create order record
       // Note: Square doesn't provide customer email via webhook, use a placeholder

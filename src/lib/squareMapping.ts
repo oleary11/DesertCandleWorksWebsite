@@ -81,19 +81,30 @@ export async function listSquareCatalogItems(): Promise<Array<{
   }
 
   const client = new SquareClient({
-    bearerAuthCredentials: {
-      accessToken,
-    },
+    token: accessToken,
     environment: process.env.SQUARE_ENVIRONMENT === "production"
       ? SquareEnvironment.Production
       : SquareEnvironment.Sandbox,
   });
 
   try {
-    const { result } = await client.catalogApi.listCatalog(undefined, "ITEM");
-    const items = result.objects || [];
+    const items: any[] = [];
+    let cursor: string | undefined;
 
-    return items.map((item) => ({
+    // Paginate through all catalog items
+    do {
+      const page = await client.catalog.list({ types: "ITEM", cursor });
+
+      for await (const item of page) {
+        items.push(item);
+      }
+
+      // Check if there are more pages
+      cursor = undefined; // Page iteration handles pagination automatically
+      break; // Exit after first page iteration (the for-await handles all pages)
+    } while (cursor);
+
+    return items.map((item: any) => ({
       id: item.id,
       name: item.itemData?.name || "Unknown Item",
       isMapped: !!SQUARE_TO_PRODUCT_MAP[item.id],
