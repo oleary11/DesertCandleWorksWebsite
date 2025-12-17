@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import type { CatalogObject } from "square";
 
 export const runtime = "nodejs";
 
@@ -32,18 +33,17 @@ export async function POST(req: NextRequest) {
     // Middleware already checks admin auth
     const accessToken = process.env.SQUARE_ACCESS_TOKEN;
     if (!accessToken) {
-      return NextResponse.json(
-        { error: "Square not configured" },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Square not configured" }, { status: 500 });
     }
 
     const { SquareClient, SquareEnvironment } = await import("square");
+
     const client = new SquareClient({
       token: accessToken,
-      environment: process.env.SQUARE_ENVIRONMENT === "production"
-        ? SquareEnvironment.Production
-        : SquareEnvironment.Sandbox,
+      environment:
+        process.env.SQUARE_ENVIRONMENT === "production"
+          ? SquareEnvironment.Production
+          : SquareEnvironment.Sandbox,
     });
 
     const body: RequestBody = await req.json();
@@ -51,10 +51,7 @@ export async function POST(req: NextRequest) {
 
     // Validate required fields
     if (!name || price === undefined || price <= 0) {
-      return NextResponse.json(
-        { error: "Name and valid price are required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Name and valid price are required" }, { status: 400 });
     }
 
     // Convert price to cents
@@ -71,122 +68,150 @@ export async function POST(req: NextRequest) {
 
     // Create a catalog item in Square
     const idempotencyKey = `${Date.now()}-${Math.random().toString(36).substring(7)}`;
-    const itemId = `#${name.replace(/[^a-zA-Z0-9]/g, "_")}`;
+
+    // Use safe temp IDs (Square batchUpsert supports #tempId references)
+    const slug = name.replace(/[^a-zA-Z0-9]/g, "_");
+    const itemTempId = `#item_${slug}`;
 
     // Build variations array
-    const variations = [];
+    const variations: CatalogObject[] = [];
 
     if (variantConfig && scents && scents.length > 0) {
       // Create a variation for each wick type × scent combination
       for (const wick of variantConfig.wickTypes) {
         for (const scent of scents) {
-          const variantId = `${wick.id}-${scent.id}`;
+          const variantKey = `${wick.id}-${scent.id}`;
           const wickCode = wick.id === "wood" ? "WD" : "STD";
           const scentCode = scent.id.substring(0, 3).toUpperCase();
-          const variantSku = `${sku}-${wickCode}-${scentCode}`;
+          const variantSku = sku ? `${sku}-${wickCode}-${scentCode}` : undefined;
           const variantName = `${wick.name} - ${scent.name}`;
 
-          variations.push({
-            type: "ITEM_VARIATION",
-            id: `#${itemId}_${variantId}`,
-            itemVariationData: {
-              itemId: itemId,
-              name: variantName,
-              pricingType: "FIXED_PRICING",
-              priceMoney: {
-                amount: BigInt(priceInCents),
-                currency: "USD",
+          variations.push(
+            {
+              type: "ITEM_VARIATION",
+              id: `#var_${slug}_${variantKey}`,
+              itemVariationData: {
+                itemId: itemTempId,
+                name: variantName,
+                pricingType: "FIXED_PRICING",
+                priceMoney: {
+                  amount: BigInt(priceInCents),
+                  currency: "USD",
+                },
+                sku: variantSku,
               },
-              sku: variantSku,
-            },
-          });
+            } satisfies CatalogObject
+          );
         }
       }
     } else {
       // No variants - create single "Regular" variation
-      variations.push({
-        type: "ITEM_VARIATION",
-        id: `#${itemId}_regular`,
-        itemVariationData: {
-          itemId: itemId,
-          name: "Regular",
-          pricingType: "FIXED_PRICING",
-          priceMoney: {
-            amount: BigInt(priceInCents),
-            currency: "USD",
+      variations.push(
+        {
+          type: "ITEM_VARIATION",
+          id: `#var_${slug}_regular`,
+          itemVariationData: {
+            itemId: itemTempId,
+            name: "Regular",
+            pricingType: "FIXED_PRICING",
+            priceMoney: {
+              amount: BigInt(priceInCents),
+              currency: "USD",
+            },
+            sku: sku || undefined,
           },
-          sku: sku || undefined,
-        },
-      });
+        } satisfies CatalogObject
+      );
     }
 
     console.log(`[Create Square Product] Creating ${variations.length} variations`);
 
-    // Create the catalog object with variations
-    const catalogObjects: Square.CatalogObject[] = [{
-      type: "ITEM",
-      id: itemId,
-      itemData: {
-        name,
-        description: description || undefined,
-        variations,
-      },
-    }];
+    // Create the catalog objects with variations
+    const catalogObjects: CatalogObject[] = [
+      {
+        type: "ITEM",
+        id: itemTempId,
+        itemData: {
+          name,
+          description: description || undefined,
+          variations,
+        },
+      } satisfies CatalogObject,
+    ];
 
     // If we have images, create IMAGE objects
     if (images && images.length > 0) {
-      for (let i = 0; i < Math.min(images.length, 5); i++) { // Square allows max 5 images per item
+      const imageIds: string[] = [];
+
+      for (let i = 0; i < Math.min(images.length, 5); i++) {
+        // Square allows max 5 images per item
         const imageUrl = images[i];
-        const imageId = `#${itemId}_image_${i}`;
+        const imageId = `#img_${slug}_${i}`;
 
-        catalogObjects.push({
-          type: "IMAGE",
-          id: imageId,
-          imageData: {
-            url: imageUrl,
-            caption: i === 0 ? name : `${name} - Image ${i + 1}`,
-          },
-        });
+        catalogObjects.push(
+          {
+            type: "IMAGE",
+            id: imageId,
+            imageData: {
+              url: imageUrl,
+              caption: i === 0 ? name : `${name} - Image ${i + 1}`,
+            },
+          } satisfies CatalogObject
+        );
 
-        // Link the first image to the item
-        if (i === 0 && catalogObjects[0].itemData) {
-          catalogObjects[0].itemData.imageIds = [imageId];
-        }
+        imageIds.push(imageId);
+      }
+
+      // Link the first image to the item (narrow the union before accessing itemData)
+      const itemObj = catalogObjects[0];
+      if (itemObj.type === "ITEM" && itemObj.itemData && imageIds.length > 0) {
+        itemObj.itemData.imageIds = [imageIds[0]];
       }
     }
 
     const response = await client.catalog.batchUpsert({
       idempotencyKey,
-      batches: [{
-        objects: catalogObjects,
-      }],
+      batches: [
+        {
+          objects: catalogObjects,
+        },
+      ],
     });
 
     console.log("[Create Square Product] Response:", response);
 
-    // Find the created item
-    const createdItem = response.objects?.find((obj) => obj.type === "ITEM");
-    const createdVariations = response.objects?.filter((obj) => obj.type === "ITEM_VARIATION");
-    const createdImages = response.objects?.filter((obj) => obj.type === "IMAGE");
+    // Find the created item/objects
+    const createdItem = response.objects?.find((obj: any) => obj.type === "ITEM");
+    const createdVariations = response.objects?.filter((obj: any) => obj.type === "ITEM_VARIATION");
+    const createdImages = response.objects?.filter((obj: any) => obj.type === "IMAGE");
 
     if (!createdItem?.id) {
       throw new Error("Failed to get catalog item ID from Square response");
     }
 
     console.log("[Create Square Product] Catalog item created:", createdItem.id);
-    console.log("[Create Square Product] Created variations:", createdVariations?.map(v => v.id));
-    console.log("[Create Square Product] Created images:", createdImages?.map(i => i.id));
+    console.log(
+      "[Create Square Product] Created variations:",
+      createdVariations?.map((v: any) => v.id)
+    );
+    console.log(
+      "[Create Square Product] Created images:",
+      createdImages?.map((i: any) => i.id)
+    );
 
     // Build variant mapping for response
     const variantMapping: Record<string, string> = {};
     if (variantConfig && scents && createdVariations) {
       let variationIndex = 0;
+
+      // Note: Square may not guarantee order; this assumes response order matches request order.
+      // If you want this to be bulletproof, we can map using SKU/name matching instead.
       for (const wick of variantConfig.wickTypes) {
         for (const scent of scents) {
-          const variantId = `${wick.id}-${scent.id}`;
+          const variantKey = `${wick.id}-${scent.id}`;
           const squareVariationId = createdVariations[variationIndex]?.id;
           if (squareVariationId) {
-            variantMapping[variantId] = squareVariationId;
+            variantMapping[variantKey] = squareVariationId;
           }
           variationIndex++;
         }
@@ -197,10 +222,12 @@ export async function POST(req: NextRequest) {
       success: true,
       catalogItemId: createdItem.id,
       variationCount: createdVariations?.length || 0,
-      variantMapping, // Maps website variantId (e.g., "standard-vanilla") to Square variation ID
+      variantMapping, // Maps website variantKey (e.g., "standard-vanilla") to Square variation ID
       imageCount: createdImages?.length || 0,
       price: priceInCents,
-      message: `Square catalog item created successfully with ${createdVariations?.length || 0} variations and ${createdImages?.length || 0} images`,
+      message: `Square catalog item created successfully with ${
+        createdVariations?.length || 0
+      } variations and ${createdImages?.length || 0} images`,
     });
   } catch (error) {
     console.error("[Create Square Product] Error:", error);
