@@ -28,6 +28,15 @@ type RequestBody = {
   scents?: Scent[]; // Global scents for this product
 };
 
+// --- Type helpers to avoid `any` and properly narrow the Square union types ---
+type CatalogItem = Extract<CatalogObject, { type: "ITEM" }>;
+type CatalogVariation = Extract<CatalogObject, { type: "ITEM_VARIATION" }>;
+type CatalogImage = Extract<CatalogObject, { type: "IMAGE" }>;
+
+function isCatalogType<T extends CatalogObject["type"]>(type: T) {
+  return (obj: CatalogObject): obj is Extract<CatalogObject, { type: T }> => obj.type === type;
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Middleware already checks admin auth
@@ -180,10 +189,12 @@ export async function POST(req: NextRequest) {
 
     console.log("[Create Square Product] Response:", response);
 
-    // Find the created item/objects
-    const createdItem = response.objects?.find((obj: any) => obj.type === "ITEM");
-    const createdVariations = response.objects?.filter((obj: any) => obj.type === "ITEM_VARIATION");
-    const createdImages = response.objects?.filter((obj: any) => obj.type === "IMAGE");
+    const objects = response.objects ?? [];
+
+    // Find the created item/objects (no `any`)
+    const createdItem: CatalogItem | undefined = objects.find(isCatalogType("ITEM"));
+    const createdVariations: CatalogVariation[] = objects.filter(isCatalogType("ITEM_VARIATION"));
+    const createdImages: CatalogImage[] = objects.filter(isCatalogType("IMAGE"));
 
     if (!createdItem?.id) {
       throw new Error("Failed to get catalog item ID from Square response");
@@ -192,20 +203,20 @@ export async function POST(req: NextRequest) {
     console.log("[Create Square Product] Catalog item created:", createdItem.id);
     console.log(
       "[Create Square Product] Created variations:",
-      createdVariations?.map((v: any) => v.id)
+      createdVariations.map((v) => v.id).filter(Boolean)
     );
     console.log(
       "[Create Square Product] Created images:",
-      createdImages?.map((i: any) => i.id)
+      createdImages.map((i) => i.id).filter(Boolean)
     );
 
     // Build variant mapping for response
     const variantMapping: Record<string, string> = {};
-    if (variantConfig && scents && createdVariations) {
+    if (variantConfig && scents && createdVariations.length > 0) {
       let variationIndex = 0;
 
       // Note: Square may not guarantee order; this assumes response order matches request order.
-      // If you want this to be bulletproof, we can map using SKU/name matching instead.
+      // If you want this to be bulletproof, map using SKU/name matching instead.
       for (const wick of variantConfig.wickTypes) {
         for (const scent of scents) {
           const variantKey = `${wick.id}-${scent.id}`;
@@ -221,13 +232,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       catalogItemId: createdItem.id,
-      variationCount: createdVariations?.length || 0,
+      variationCount: createdVariations.length,
       variantMapping, // Maps website variantKey (e.g., "standard-vanilla") to Square variation ID
-      imageCount: createdImages?.length || 0,
+      imageCount: createdImages.length,
       price: priceInCents,
-      message: `Square catalog item created successfully with ${
-        createdVariations?.length || 0
-      } variations and ${createdImages?.length || 0} images`,
+      message: `Square catalog item created successfully with ${createdVariations.length} variations and ${createdImages.length} images`,
     });
   } catch (error) {
     console.error("[Create Square Product] Error:", error);
