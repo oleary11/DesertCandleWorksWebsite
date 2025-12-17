@@ -39,6 +39,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { SquareClient, SquareEnvironment } = await import("square");
+    type { CatalogObject } = await import("square");
     const client = new SquareClient({
       token: accessToken,
       environment: process.env.SQUARE_ENVIRONMENT === "production"
@@ -123,7 +124,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Create Square Product] Creating ${variations.length} variations`);
 
     // Create the catalog object with variations
-    const catalogObjects: any[] = [{
+    const catalogObjects: CatalogObject[] = [{
       type: "ITEM",
       id: itemId,
       itemData: {

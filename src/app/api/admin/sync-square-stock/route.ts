@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Submit inventory changes to Square
-        const response = await client.inventory.batchCreateChanges({
+        await client.inventory.batchCreateChanges({
           idempotencyKey: `sync-${product.slug}-${Date.now()}`,
           changes,
         });
