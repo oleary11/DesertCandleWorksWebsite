@@ -259,6 +259,19 @@ export default function AdminHomePage() {
               </div>
             </Link>
 
+            {/* Square Diagnostics */}
+            <Link href="/admin/diagnostics/square-catalog" className="card p-4 bg-white hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center flex-shrink-0">
+                  <Stethoscope className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Square Diagnostics</h3>
+                  <p className="text-xs text-[var(--color-muted)]">Check catalog mappings</p>
+                </div>
+              </div>
+            </Link>
+
             {/* Test Order */}
             <Link href="/admin/test-order" className="card p-4 bg-white hover:shadow-md transition-shadow">
               <div className="flex items-center gap-3">

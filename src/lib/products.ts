@@ -27,6 +27,7 @@ export type Product = {
   images?: string[];        // Multiple product images (primary image is first)
   sku: string;
   stripePriceId?: string;   // Now used for ALL products (single price per product)
+  squareCatalogId?: string; // Square Catalog Item ID for POS integration
   seoDescription: string;
   bestSeller?: boolean;
   youngDumb?: boolean;      // Young & Dumb collection (fun, trendy bottles)
