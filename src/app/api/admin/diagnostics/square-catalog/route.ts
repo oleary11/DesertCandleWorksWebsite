@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
       }
 
       try {
-        const response = await client.catalog.object.retrieve({
+        const response = await client.catalog.object.get({
           objectId: product.squareCatalogId,
           includeRelatedObjects: true,
         });
