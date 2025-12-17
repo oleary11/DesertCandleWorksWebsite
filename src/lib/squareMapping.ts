@@ -98,11 +98,11 @@ export async function listSquareCatalogItems(): Promise<Array<{
     const page = await client.catalog.list({ types: "ITEM" });
 
     for await (const item of page) {
-      // Only process items with valid IDs
-      if (item.id) {
+      // Only process items with valid IDs and itemData (filtering for Item type)
+      if (item.id && "itemData" in item && item.itemData) {
         results.push({
           id: item.id,
-          name: item.itemData?.name ?? "Unknown Item",
+          name: item.itemData.name ?? "Unknown Item",
           isMapped: !!SQUARE_TO_PRODUCT_MAP[item.id],
         });
       }
