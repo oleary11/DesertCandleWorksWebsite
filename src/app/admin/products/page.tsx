@@ -1755,14 +1755,39 @@ export default function AdminProductsPage() {
                           }
 
                           // Update the product with the returned catalog ID and variant mapping
-                          setEditing({
+                          const updatedProduct = {
                             ...editing,
                             squareCatalogId: data.catalogItemId,
                             squareVariantMapping: data.variantMapping || {},
+                          };
+
+                          setEditing(updatedProduct);
+
+                          // Save the Square fields to the database immediately
+                          const saveRes = await fetch(`/api/admin/products/${editing.slug}`, {
+                            method: "PATCH",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              squareCatalogId: data.catalogItemId,
+                              squareVariantMapping: data.variantMapping || {},
+                            }),
                           });
 
+                          if (!saveRes.ok) {
+                            const saveError = await saveRes.json();
+                            console.error("[Create Square Product] Failed to save:", saveError);
+                            await showAlert(
+                              `Square product created but failed to save to database: ${saveError.error || "Unknown error"}`,
+                              "Warning"
+                            );
+                            return;
+                          }
+
+                          // Reload products to get updated data
+                          await load();
+
                           await showAlert(
-                            `Square catalog item created successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
+                            `Square catalog item created and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
                             "Success"
                           );
                         } catch (error) {

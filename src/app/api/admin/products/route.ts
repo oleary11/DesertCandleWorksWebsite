@@ -58,6 +58,8 @@ export async function POST(req: NextRequest) {
     images: data.images && Array.isArray(data.images) ? data.images : undefined,
     sku: String(data.sku),
     stripePriceId: data.stripePriceId ? String(data.stripePriceId) : undefined,
+    squareCatalogId: data.squareCatalogId ? String(data.squareCatalogId) : undefined,
+    squareVariantMapping: data.squareVariantMapping ?? undefined,
     seoDescription: data.seoDescription ? String(data.seoDescription) : `Hand-poured candle in an upcycled bottle.`,
     bestSeller: coerceBool(data.bestSeller),
     youngDumb: coerceBool(data.youngDumb),
@@ -66,6 +68,7 @@ export async function POST(req: NextRequest) {
     alcoholType: data.alcoholType ?? undefined,
     materialCost: data.materialCost !== undefined ? Number(data.materialCost) : undefined,
     visibleOnWebsite: data.visibleOnWebsite !== undefined ? coerceBool(data.visibleOnWebsite) : true,
+    containerId: data.containerId ? String(data.containerId) : undefined,
   };
 
   await upsertProduct(product);
