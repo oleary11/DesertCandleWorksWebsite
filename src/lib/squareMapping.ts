@@ -81,7 +81,9 @@ export async function listSquareCatalogItems(): Promise<Array<{
   }
 
   const client = new SquareClient({
-    accessToken,
+    bearerAuthCredentials: {
+      accessToken,
+    },
     environment: process.env.SQUARE_ENVIRONMENT === "production"
       ? SquareEnvironment.Production
       : SquareEnvironment.Sandbox,
