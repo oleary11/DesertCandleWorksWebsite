@@ -88,23 +88,27 @@ export async function listSquareCatalogItems(): Promise<Array<{
   });
 
   try {
-    const items: Array<{
+    const results: Array<{
       id: string;
-      itemData?: { name?: string | null } | null;
+      name: string;
+      isMapped: boolean;
     }> = [];
 
     // Paginate through all catalog items
     const page = await client.catalog.list({ types: "ITEM" });
 
     for await (const item of page) {
-      items.push(item);
+      // Only process items with valid IDs
+      if (item.id) {
+        results.push({
+          id: item.id,
+          name: item.itemData?.name ?? "Unknown Item",
+          isMapped: !!SQUARE_TO_PRODUCT_MAP[item.id],
+        });
+      }
     }
 
-    return items.map((item) => ({
-      id: item.id,
-      name: item.itemData?.name ?? "Unknown Item",
-      isMapped: !!SQUARE_TO_PRODUCT_MAP[item.id],
-    }));
+    return results;
   } catch (error) {
     console.error("[Square] Failed to list catalog items:", error);
     throw error;
