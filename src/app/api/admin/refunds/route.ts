@@ -128,14 +128,18 @@ export async function POST(req: NextRequest) {
         }
 
         // Extract Square payment ID from order notes
-        const squarePaymentIdMatch = order.notes?.match(/Square Payment ID: ([A-Z0-9]+)/);
+        // Pattern matches alphanumeric characters, hyphens, and underscores (Square payment IDs can vary)
+        const squarePaymentIdMatch = order.notes?.match(/Square Payment ID:\s*([A-Za-z0-9_-]+)/);
         const squarePaymentId = squarePaymentIdMatch?.[1];
 
         if (!squarePaymentId) {
-          console.error(`[Refund] No Square payment ID found in order notes: ${order.notes}`);
+          console.error(`[Refund] No Square payment ID found in order notes`);
+          console.error(`[Refund] Order ID: ${order.id}`);
+          console.error(`[Refund] Order notes: ${JSON.stringify(order.notes)}`);
+          console.error(`[Refund] Payment method: ${order.paymentMethod}`);
           await updateRefundStatus(refund.id, "failed");
           return NextResponse.json(
-            { error: "Square payment ID not found in order notes" },
+            { error: "Square payment ID not found in order notes. The order may be from an older version or the notes field is missing." },
             { status: 400 }
           );
         }
