@@ -82,11 +82,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Determine which items to refund (full or partial)
-    const itemsToRefund = body.items || order.items.map((item: typeof order.items[0]) => ({
+    type OrderItem = typeof order.items[0] & { variantId?: string };
+    const itemsToRefund = body.items || order.items.map((item: OrderItem) => ({
       productSlug: item.productSlug,
       productName: item.productName,
       quantity: item.quantity,
-      variantId: (item as any).variantId || undefined, // Extract variantId from order item if present
+      variantId: item.variantId || undefined, // Extract variantId from order item if present
       refundAmountCents: item.priceCents,
     }));
 
