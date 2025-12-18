@@ -256,6 +256,10 @@ export async function GET(req: NextRequest) {
       }
     >();
 
+    // Track products in orders that don't exist in current product database
+    // These will still appear in Alcohol Type reports but not in Product Sales
+    const missingProductSlugs = new Set<string>();
+
     for (const order of completedOrders) {
       const isStripeOrder = !isManualSale(order.id);
       const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
@@ -277,6 +281,11 @@ export async function GET(req: NextRequest) {
       for (const item of order.items) {
         const existing = productSalesMap.get(item.productSlug);
         const product = productMap.get(item.productSlug);
+
+        // Track if product doesn't exist in current database
+        if (!product) {
+          missingProductSlugs.add(item.productSlug);
+        }
 
         // Share of order costs based on quantity
         const itemShare = orderItemCount > 0 ? item.quantity / orderItemCount : 0;
@@ -311,6 +320,13 @@ export async function GET(req: NextRequest) {
     }
 
     const productSales = Array.from(productSalesMap.values()).sort((a, b) => b.revenue - a.revenue);
+
+    // Log warning if there are products in orders that don't exist in current database
+    if (missingProductSlugs.size > 0) {
+      console.warn(`[Analytics API] Warning: ${missingProductSlugs.size} product slug(s) in orders don't match current products:`, Array.from(missingProductSlugs));
+      console.warn("[Analytics API] These products will appear with alcoholType='Other' in reports.");
+      console.warn("[Analytics API] Consider updating order data or adding slug aliases to products.");
+    }
 
     // Calculate sales by alcohol type
     const alcoholTypeSalesMap = new Map<string, { name: string; units: number; revenue: number }>();

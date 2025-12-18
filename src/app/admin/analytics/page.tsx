@@ -599,7 +599,7 @@ export default function AdminAnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {analytics.productSales.slice(0, 10).map((product) => {
+                {analytics.productSales.map((product) => {
                   const netRevenue = product.revenue - product.stripeFees;
                   return (
                     <tr key={product.slug} className="border-b border-[var(--color-line)]">
