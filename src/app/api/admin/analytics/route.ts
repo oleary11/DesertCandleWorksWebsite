@@ -80,8 +80,16 @@ export async function GET(req: NextRequest) {
       refundMap.set(refund.orderId, existing + refund.amountCents);
     }
 
+    // IMPORTANT: Exclude fully refunded orders from all analytics
+    // An order is fully refunded if refundedAmount >= totalCents
+    completedOrders = completedOrders.filter((o) => {
+      const refundedAmount = refundMap.get(o.id) ?? 0;
+      return refundedAmount < o.totalCents; // Keep only orders that aren't fully refunded
+    });
+
     console.log("[Analytics API] Total completed orders:", completedOrders.length);
     console.log("[Analytics API] Total completed refunds:", completedRefunds.length);
+    console.log("[Analytics API] Fully refunded orders excluded");
     console.log("[Analytics API] Date filter:", { startDate, endDate });
 
     // Apply date range filter if provided
@@ -138,6 +146,11 @@ export async function GET(req: NextRequest) {
       const compOrders = orders.filter((o) => {
         if (o.status !== "completed") return false;
         const orderDate = new Date(o.completedAt || o.createdAt);
+
+        // Exclude fully refunded orders from comparison period too
+        const refundedAmount = refundMap.get(o.id) ?? 0;
+        if (refundedAmount >= o.totalCents) return false;
+
         return orderDate >= compStart && orderDate <= compEnd;
       });
 
@@ -145,7 +158,10 @@ export async function GET(req: NextRequest) {
       let compStripeFees = 0;
 
       for (const order of compOrders) {
-        compRevenue += order.totalCents;
+        const refundedAmount = refundMap.get(order.id) ?? 0;
+        const netOrderRevenue = order.totalCents - refundedAmount;
+
+        compRevenue += netOrderRevenue;
         if (!isManualSale(order.id)) {
           compStripeFees += calculateStripeFee(order.totalCents);
         }
