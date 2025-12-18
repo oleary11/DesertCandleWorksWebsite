@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useRef } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -64,6 +64,19 @@ type Product = {
   materialCost?: number; // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean; // Controls shop page visibility
   containerId?: string; // Reference to container used for this product
+};
+
+type SquareSyncResult = {
+  productSlug: string;
+  success: boolean;
+  error?: string;
+};
+
+type SyncSquareStockResponse = {
+  message: string;
+  successCount: number;
+  errorCount: number;
+  results?: SquareSyncResult[];
 };
 
 /* ---------- Helpers ---------- */
@@ -231,6 +244,12 @@ export default function AdminProductsPage() {
   const [uploadedCount, setUploadedCount] = useState(0);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Avoid using `window` in render (client components can still prerender)
+  const [origin, setOrigin] = useState<string>("");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+  }, []);
+
   async function load() {
     setLoading(true);
     try {
@@ -239,7 +258,7 @@ export default function AdminProductsPage() {
         fetch("/api/admin/scents", { cache: "no-store" }),
         fetch("/api/admin/alcohol-types?active=1", { cache: "no-store" }),
         fetch("/api/admin/containers", { cache: "no-store" }),
-        fetch("/api/admin/calculator-settings", { cache: "no-store" })
+        fetch("/api/admin/calculator-settings", { cache: "no-store" }),
       ]);
 
       if (productsRes.ok) {
@@ -259,26 +278,30 @@ export default function AdminProductsPage() {
 
       if (containersRes.ok) {
         const containersData = (await containersRes.json()) as { containers?: Container[] };
+        // eslint-disable-next-line no-console
         console.log("[Products] Loaded containers:", containersData.containers);
         setContainers(containersData.containers || []);
       } else {
+        // eslint-disable-next-line no-console
         console.error("[Products] Failed to load containers:", await containersRes.text());
       }
 
       if (settingsRes.ok) {
         const settingsData = (await settingsRes.json()) as CalculatorSettings | { settings?: CalculatorSettings };
         // Handle settings response (could be direct object or wrapped)
-        if ('waterToWaxRatio' in settingsData) {
+        if ("waterToWaxRatio" in settingsData) {
           setSettings(settingsData as CalculatorSettings);
-        } else if ('settings' in settingsData && settingsData.settings) {
+        } else if ("settings" in settingsData && settingsData.settings) {
           setSettings(settingsData.settings);
         }
       }
-    } catch (error) {
-      console.error("[Products] Load error:", error);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[Products] Load error:", err);
     }
     setLoading(false);
   }
+
   useEffect(() => {
     void load();
   }, []);
@@ -295,8 +318,8 @@ export default function AdminProductsPage() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [typeDropdownOpen]);
 
-  const isServerItem = (slug: string) => items.some((x) => x.slug === slug);
-  const hasDraft = (slug: string) => staged[slug] !== undefined;
+  const isServerItem = useCallback((slug: string) => items.some((x) => x.slug === slug), [items]);
+  const hasDraft = useCallback((slug: string) => staged[slug] !== undefined, [staged]);
 
   // merged view = server items overlayed with staged changes/new items
   const merged = useMemo(() => {
@@ -387,7 +410,7 @@ export default function AdminProductsPage() {
     }
 
     return result;
-  }, [merged, filter, visibleFilter, typeFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, staged]);
+  }, [merged, filter, visibleFilter, typeFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, hasDraft]);
 
   /* ---------- Sorting Helper ---------- */
 
@@ -407,14 +430,18 @@ export default function AdminProductsPage() {
   function SortableHeader({
     column,
     children,
-    className = ""
+    className = "",
   }: {
     column: typeof sortBy;
-    children: React.ReactNode;
+    children: ReactNode;
     className?: string;
   }) {
     if (column === "none") {
-      return <th className={`py-3 text-xs font-semibold text-neutral-600 uppercase tracking-wide ${className}`}>{children}</th>;
+      return (
+        <th className={`py-3 text-xs font-semibold text-neutral-600 uppercase tracking-wide ${className}`}>
+          {children}
+        </th>
+      );
     }
 
     const isActive = sortBy === column;
@@ -426,7 +453,8 @@ export default function AdminProductsPage() {
           className="w-full text-xs font-semibold text-neutral-600 uppercase tracking-wide hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
           onClick={() => handleSort(column)}
         >
-          {children}{arrow}
+          {children}
+          {arrow}
         </button>
       </th>
     );
@@ -457,9 +485,7 @@ export default function AdminProductsPage() {
 
     const rows = filtered.map((p) => {
       // Get wick types if product has variants
-      const wickTypes = p.variantConfig?.wickTypes
-        ? p.variantConfig.wickTypes.map((w) => w.name).join("; ")
-        : "";
+      const wickTypes = p.variantConfig?.wickTypes ? p.variantConfig.wickTypes.map((w) => w.name).join("; ") : "";
 
       // Get variant stock details
       let variantStockDetails = "";
@@ -492,10 +518,9 @@ export default function AdminProductsPage() {
       ];
     });
 
-    const csvContent = [
-      headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")),
-    ].join("\n");
+    const csvContent = [headers.join(","), ...rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(","))].join(
+      "\n"
+    );
 
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
@@ -539,13 +564,15 @@ export default function AdminProductsPage() {
     const draft = staged[slug];
     if (!draft) return;
 
+    // eslint-disable-next-line no-console
     console.log("[Admin] Publishing product:", slug, draft);
 
     setSaving(true);
     setError(null);
 
     const isNew = !isServerItem(slug);
-    console.log(`[Admin] ${isNew ? 'Creating new' : 'Updating existing'} product`);
+    // eslint-disable-next-line no-console
+    console.log(`[Admin] ${isNew ? "Creating new" : "Updating existing"} product`);
 
     const res = await fetch(isNew ? "/api/admin/products" : `/api/admin/products/${slug}`, {
       method: isNew ? "POST" : "PATCH",
@@ -553,15 +580,18 @@ export default function AdminProductsPage() {
       body: JSON.stringify(draft),
     });
 
+    // eslint-disable-next-line no-console
     console.log("[Admin] Response status:", res.status);
 
     if (!res.ok) {
       const j = (await res.json().catch(() => ({}))) as { error?: string };
+      // eslint-disable-next-line no-console
       console.error("[Admin] Publish failed:", j);
       const errorMsg = j.error || `Publish failed (${res.status})`;
       setError(errorMsg);
       await showAlert(`Failed to publish product:\n\n${errorMsg}`, "Error");
     } else {
+      // eslint-disable-next-line no-console
       console.log("[Admin] Publish successful");
       discardDraft(slug);
       await load();
@@ -613,6 +643,7 @@ export default function AdminProductsPage() {
     const files = e.target.files;
     if (!files || files.length === 0 || !editingLocal) return;
 
+    // eslint-disable-next-line no-console
     console.log(`[Admin] Starting upload of ${files.length} image(s)`);
 
     try {
@@ -621,6 +652,7 @@ export default function AdminProductsPage() {
       // Upload each file
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        // eslint-disable-next-line no-console
         console.log(`[Admin] Uploading image ${i + 1}/${files.length}:`, {
           fileName: file.name,
           fileSize: file.size,
@@ -633,13 +665,21 @@ export default function AdminProductsPage() {
         const res = await fetch("/api/admin/upload", { method: "POST", body: fd });
 
         if (!res.ok) {
-          const errorData = await res.json().catch(() => ({ error: "Unknown error" }));
+          const errorData = (await res.json().catch(() => ({ error: "Unknown error" }))) as {
+            error?: string;
+            details?: string;
+          };
+          // eslint-disable-next-line no-console
           console.error("[Admin] Upload failed:", errorData);
-          await showAlert(`Upload failed for ${file.name}: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`, "Upload Error");
+          await showAlert(
+            `Upload failed for ${file.name}: ${errorData.error || "Unknown error"}\n${errorData.details || ""}`,
+            "Upload Error"
+          );
           continue; // Continue with other files
         }
 
         const { url } = (await res.json()) as { url: string };
+        // eslint-disable-next-line no-console
         console.log(`[Admin] Upload ${i + 1} successful, URL:`, url);
         uploadedUrls.push(url);
       }
@@ -651,12 +691,13 @@ export default function AdminProductsPage() {
           ...editingLocal,
           images: [...currentImages, ...uploadedUrls],
           // Keep legacy image field pointing to first image for backward compatibility
-          image: currentImages.length === 0 && uploadedUrls.length > 0 ? uploadedUrls[0] : editingLocal.image
+          image: currentImages.length === 0 && uploadedUrls.length > 0 ? uploadedUrls[0] : editingLocal.image,
         });
       }
-    } catch (error) {
-      console.error("[Admin] Upload error:", error);
-      await showAlert(`Upload failed: ${error instanceof Error ? error.message : "Network error"}`, "Upload Error");
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[Admin] Upload error:", err);
+      await showAlert(`Upload failed: ${err instanceof Error ? err.message : "Network error"}`, "Upload Error");
     }
   }
 
@@ -669,7 +710,7 @@ export default function AdminProductsPage() {
       ...editingLocal,
       images: newImages,
       // Update legacy image field
-      image: newImages.length > 0 ? newImages[0] : undefined
+      image: newImages.length > 0 ? newImages[0] : undefined,
     });
   }
 
@@ -681,7 +722,7 @@ export default function AdminProductsPage() {
     setEditingLocal({
       ...editingLocal,
       images: newImages,
-      image: newImages[0]
+      image: newImages[0],
     });
   }
 
@@ -693,7 +734,7 @@ export default function AdminProductsPage() {
     setEditingLocal({
       ...editingLocal,
       images: newImages,
-      image: newImages[0]
+      image: newImages[0],
     });
   }
 
@@ -710,13 +751,13 @@ export default function AdminProductsPage() {
         return;
       }
 
-      const { token } = await res.json();
+      const { token } = (await res.json()) as { token: string };
       setUploadToken(token);
       setUploadedCount(0);
 
       // Generate QR code
-      const origin = window.location.origin;
-      const uploadUrl = `${origin}/mobile-upload?token=${token}`;
+      const originLocal = window.location.origin;
+      const uploadUrl = `${originLocal}/mobile-upload?token=${token}`;
       const qrData = await QRCode.toDataURL(uploadUrl, {
         width: 300,
         margin: 2,
@@ -731,8 +772,9 @@ export default function AdminProductsPage() {
 
       // Start polling for uploaded images
       startPolling(token);
-    } catch (error) {
-      console.error("[QR Upload] Error:", error);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[QR Upload] Error:", err);
       await showAlert("Failed to generate QR code", "Error");
     }
   }
@@ -749,20 +791,18 @@ export default function AdminProductsPage() {
         const res = await fetch(`/api/mobile-upload/status?token=${token}`);
         if (!res.ok) return;
 
-        const data = await res.json();
-        if (data.valid && data.uploadedCount > uploadedCount) {
-          setUploadedCount(data.uploadedCount);
+        const data = (await res.json()) as { valid?: boolean; uploadedCount?: number };
+        if (data.valid && (data.uploadedCount ?? 0) > uploadedCount) {
+          setUploadedCount(data.uploadedCount ?? 0);
 
           // Fetch the full session to get image URLs
           const sessionRes = await fetch(`/api/admin/get-upload-session?token=${token}`);
           if (!sessionRes.ok) return;
 
-          const sessionData = await sessionRes.json();
+          const sessionData = (await sessionRes.json()) as { uploadedImages?: string[] };
           if (sessionData.uploadedImages && editing) {
             const currentImages = editing.images || [];
-            const newImages = sessionData.uploadedImages.filter(
-              (url: string) => !currentImages.includes(url)
-            );
+            const newImages = sessionData.uploadedImages.filter((url) => !currentImages.includes(url));
 
             if (newImages.length > 0) {
               setEditing({
@@ -773,8 +813,9 @@ export default function AdminProductsPage() {
             }
           }
         }
-      } catch (error) {
-        console.error("[QR Upload] Polling error:", error);
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error("[QR Upload] Polling error:", err);
       }
     }, 2000);
   }
@@ -803,9 +844,7 @@ export default function AdminProductsPage() {
 
   // Next SKU for new product modal
   const nextSku = useMemo(() => {
-    const allSkus = [...items.map((i) => i.sku), ...Object.values(staged).map((d) => d.sku)].filter(
-      Boolean
-    );
+    const allSkus = [...items.map((i) => i.sku), ...Object.values(staged).map((d) => d.sku)].filter(Boolean);
     return computeNextSku(allSkus);
   }, [items, staged]);
 
@@ -858,17 +897,34 @@ export default function AdminProductsPage() {
               if (saving) return;
 
               // Debug: Log all products with Square info
+              // eslint-disable-next-line no-console
               console.log("[Sync All] Total products:", merged.length);
-              const productsWithCatalogId = merged.filter(p => p.squareCatalogId);
-              const productsWithMapping = merged.filter(p => p.squareVariantMapping);
-              const squareProducts = merged.filter(p => p.squareCatalogId && p.squareVariantMapping);
+              const productsWithCatalogId = merged.filter((p) => p.squareCatalogId);
+              const productsWithMapping = merged.filter((p) => p.squareVariantMapping);
+              const squareProducts = merged.filter((p) => p.squareCatalogId && p.squareVariantMapping);
 
-              console.log("[Sync All] Products with squareCatalogId:", productsWithCatalogId.length,
-                productsWithCatalogId.map(p => ({ slug: p.slug, id: p.squareCatalogId })));
-              console.log("[Sync All] Products with squareVariantMapping:", productsWithMapping.length,
-                productsWithMapping.map(p => ({ slug: p.slug, keys: Object.keys(p.squareVariantMapping || {}).length })));
-              console.log("[Sync All] Products with both:", squareProducts.length,
-                squareProducts.map(p => ({ slug: p.slug, id: p.squareCatalogId, mappings: Object.keys(p.squareVariantMapping || {}).length })));
+              // eslint-disable-next-line no-console
+              console.log(
+                "[Sync All] Products with squareCatalogId:",
+                productsWithCatalogId.length,
+                productsWithCatalogId.map((p) => ({ slug: p.slug, id: p.squareCatalogId }))
+              );
+              // eslint-disable-next-line no-console
+              console.log(
+                "[Sync All] Products with squareVariantMapping:",
+                productsWithMapping.length,
+                productsWithMapping.map((p) => ({ slug: p.slug, keys: Object.keys(p.squareVariantMapping || {}).length }))
+              );
+              // eslint-disable-next-line no-console
+              console.log(
+                "[Sync All] Products with both:",
+                squareProducts.length,
+                squareProducts.map((p) => ({
+                  slug: p.slug,
+                  id: p.squareCatalogId,
+                  mappings: Object.keys(p.squareVariantMapping || {}).length,
+                }))
+              );
 
               if (squareProducts.length === 0) {
                 await showAlert(
@@ -894,28 +950,29 @@ export default function AdminProductsPage() {
                 });
 
                 if (!res.ok) {
-                  const error = await res.json();
+                  const error = (await res.json()) as { error?: string };
                   throw new Error(error.error || "Failed to sync");
                 }
 
-                const data = await res.json();
+                const data = (await res.json()) as SyncSquareStockResponse;
 
                 // Show detailed results
-                const errorDetails = data.results
-                  ?.filter((r: any) => !r.success)
-                  .map((r: any) => `${r.productSlug}: ${r.error}`)
-                  .join('\n') || '';
+                const errorDetails =
+                  data.results
+                    ?.filter((r) => !r.success)
+                    .map((r) => `${r.productSlug}: ${r.error ?? "Unknown error"}`)
+                    .join("\n") ?? "";
 
                 await showAlert(
-                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}${errorDetails ? '\n\nError details:\n' + errorDetails : ''}`,
+                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}${
+                    errorDetails ? "\n\nError details:\n" + errorDetails : ""
+                  }`,
                   "Sync Complete"
                 );
-              } catch (error) {
-                console.error("[Sync All Square Stock] Error:", error);
-                await showAlert(
-                  error instanceof Error ? error.message : "Failed to sync all products to Square",
-                  "Error"
-                );
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error("[Sync All Square Stock] Error:", err);
+                await showAlert(err instanceof Error ? err.message : "Failed to sync all products to Square", "Error");
               } finally {
                 setSaving(false);
               }
@@ -923,7 +980,12 @@ export default function AdminProductsPage() {
             disabled={saving}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+              />
             </svg>
             {saving ? "Syncing..." : "Sync All to Square"}
           </button>
@@ -967,11 +1029,7 @@ export default function AdminProductsPage() {
               onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
             >
               <span>
-                {typeFilter.length === 0
-                  ? "All Types"
-                  : typeFilter.length === 1
-                  ? typeFilter[0]
-                  : `${typeFilter.length} selected`}
+                {typeFilter.length === 0 ? "All Types" : typeFilter.length === 1 ? typeFilter[0] : `${typeFilter.length} selected`}
               </span>
               <span className="ml-2">▼</span>
             </button>
@@ -986,26 +1044,25 @@ export default function AdminProductsPage() {
                     uniqueTypes.add("Other");
                   }
 
-                  return Array.from(uniqueTypes).sort().map((typeName) => (
-                    <label
-                      key={typeName}
-                      className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={typeFilter.includes(typeName)}
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            setTypeFilter([...typeFilter, typeName]);
-                          } else {
-                            setTypeFilter(typeFilter.filter((t) => t !== typeName));
-                          }
-                        }}
-                        className="w-4 h-4"
-                      />
-                      <span className="text-sm">{typeName}</span>
-                    </label>
-                  ));
+                  return Array.from(uniqueTypes)
+                    .sort()
+                    .map((typeName) => (
+                      <label key={typeName} className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={typeFilter.includes(typeName)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setTypeFilter([...typeFilter, typeName]);
+                            } else {
+                              setTypeFilter(typeFilter.filter((t) => t !== typeName));
+                            }
+                          }}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-sm">{typeName}</span>
+                      </label>
+                    ));
                 })()}
               </div>
             )}
@@ -1014,11 +1071,7 @@ export default function AdminProductsPage() {
           {/* Stock Filter */}
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Stock</label>
-            <select
-              className="input w-full text-sm"
-              value={stockFilter}
-              onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
-            >
+            <select className="input w-full text-sm" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}>
               <option value="all">All</option>
               <option value="in-stock">In Stock</option>
               <option value="out-of-stock">Out of Stock</option>
@@ -1028,11 +1081,7 @@ export default function AdminProductsPage() {
           {/* Best Seller Filter */}
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Best Seller</label>
-            <select
-              className="input w-full text-sm"
-              value={bestFilter}
-              onChange={(e) => setBestFilter(e.target.value as typeof bestFilter)}
-            >
+            <select className="input w-full text-sm" value={bestFilter} onChange={(e) => setBestFilter(e.target.value as typeof bestFilter)}>
               <option value="all">All</option>
               <option value="best">Best Sellers</option>
               <option value="not-best">Not Best Sellers</option>
@@ -1042,11 +1091,7 @@ export default function AdminProductsPage() {
           {/* Status Filter */}
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Status</label>
-            <select
-              className="input w-full text-sm"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-            >
+            <select className="input w-full text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
               <option value="all">All</option>
               <option value="published">Published</option>
               <option value="draft">Draft</option>
@@ -1095,23 +1140,40 @@ export default function AdminProductsPage() {
                       <SortableHeader column="none" className="w-20 text-center border-r border-[var(--color-line)]">
                         Visible
                       </SortableHeader>
-                      <SortableHeader column="none" className="w-24 text-center border-r border-[var(--color-line)]">Image</SortableHeader>
-                      <SortableHeader column="name" className="text-center border-r border-[var(--color-line)]">Name</SortableHeader>
-                      <SortableHeader column="price" className="w-28 text-center border-r border-[var(--color-line)]">Price</SortableHeader>
-                      <SortableHeader column="cost" className="w-36 text-center border-r border-[var(--color-line)]">Cost</SortableHeader>
-                      <SortableHeader column="none" className="w-36 text-center border-r border-[var(--color-line)]">Type</SortableHeader>
-                      <SortableHeader column="stock" className="w-28 text-center border-r border-[var(--color-line)]">Stock</SortableHeader>
-                      <SortableHeader column="best" className="w-20 text-center border-r border-[var(--color-line)]">Best</SortableHeader>
-                      <SortableHeader column="status" className="w-32 text-center border-r border-[var(--color-line)]">Status</SortableHeader>
-                      <SortableHeader column="none" className="text-center">Actions</SortableHeader>
+                      <SortableHeader column="none" className="w-24 text-center border-r border-[var(--color-line)]">
+                        Image
+                      </SortableHeader>
+                      <SortableHeader column="name" className="text-center border-r border-[var(--color-line)]">
+                        Name
+                      </SortableHeader>
+                      <SortableHeader column="price" className="w-28 text-center border-r border-[var(--color-line)]">
+                        Price
+                      </SortableHeader>
+                      <SortableHeader column="cost" className="w-36 text-center border-r border-[var(--color-line)]">
+                        Cost
+                      </SortableHeader>
+                      <SortableHeader column="none" className="w-36 text-center border-r border-[var(--color-line)]">
+                        Type
+                      </SortableHeader>
+                      <SortableHeader column="stock" className="w-28 text-center border-r border-[var(--color-line)]">
+                        Stock
+                      </SortableHeader>
+                      <SortableHeader column="best" className="w-20 text-center border-r border-[var(--color-line)]">
+                        Best
+                      </SortableHeader>
+                      <SortableHeader column="status" className="w-32 text-center border-r border-[var(--color-line)]">
+                        Status
+                      </SortableHeader>
+                      <SortableHeader column="none" className="text-center">
+                        Actions
+                      </SortableHeader>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-line)]">
                     {filtered.map((p) => {
                       const isDraft = hasDraft(p.slug);
-                      const profitMargin = p.materialCost && p.price > 0
-                        ? (((p.price - p.materialCost) / p.price) * 100).toFixed(0)
-                        : null;
+                      const profitMargin =
+                        p.materialCost && p.price > 0 ? (((p.price - p.materialCost) / p.price) * 100).toFixed(0) : null;
 
                       return (
                         <tr key={p.slug} className="group hover:bg-neutral-50/50 transition-colors">
@@ -1133,18 +1195,17 @@ export default function AdminProductsPage() {
                                 const img = p.images?.[0] ?? p.image;
                                 return img ? (
                                   <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-100">
-                                    <Image
-                                      src={img}
-                                      alt={p.name}
-                                      fill
-                                      sizes="64px"
-                                      className="object-contain p-1"
-                                    />
+                                    <Image src={img} alt={p.name} fill sizes="64px" className="object-contain p-1" />
                                   </div>
                                 ) : (
                                   <div className="w-16 h-16 rounded-lg bg-neutral-100 flex items-center justify-center">
                                     <svg className="w-8 h-8 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                      <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={1.5}
+                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                      />
                                     </svg>
                                   </div>
                                 );
@@ -1162,9 +1223,7 @@ export default function AdminProductsPage() {
                             {p.materialCost ? (
                               <div>
                                 <div className="font-medium text-[var(--color-ink)] text-sm">${p.materialCost.toFixed(2)}</div>
-                                {profitMargin && (
-                                  <div className="text-xs text-green-600 font-medium mt-0.5">+{profitMargin}%</div>
-                                )}
+                                {profitMargin && <div className="text-xs text-green-600 font-medium mt-0.5">+{profitMargin}%</div>}
                               </div>
                             ) : (
                               <span className="text-[var(--color-muted)]">—</span>
@@ -1193,7 +1252,12 @@ export default function AdminProductsPage() {
                             {isDraft ? (
                               <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
                                 <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                  />
                                 </svg>
                                 Draft
                               </span>
@@ -1217,26 +1281,16 @@ export default function AdminProductsPage() {
 
                               {isDraft && (
                                 <>
-                                  <button
-                                    className="btn btn-primary text-sm px-4 py-2"
-                                    disabled={saving}
-                                    onClick={() => publishOne(p.slug)}
-                                  >
+                                  <button className="btn btn-primary text-sm px-4 py-2" disabled={saving} onClick={() => publishOne(p.slug)}>
                                     {saving ? "…" : "Publish"}
                                   </button>
-                                  <button
-                                    className="btn text-sm px-4 py-2"
-                                    onClick={() => discardDraft(p.slug)}
-                                  >
+                                  <button className="btn text-sm px-4 py-2" onClick={() => discardDraft(p.slug)}>
                                     Discard
                                   </button>
                                 </>
                               )}
 
-                              <button
-                                className="btn text-sm px-4 py-2 text-red-600 hover:bg-red-50"
-                                onClick={() => void deleteProduct(p.slug)}
-                              >
+                              <button className="btn text-sm px-4 py-2 text-red-600 hover:bg-red-50" onClick={() => void deleteProduct(p.slug)}>
                                 Delete
                               </button>
                             </div>
@@ -1269,9 +1323,7 @@ export default function AdminProductsPage() {
                       <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-neutral-100">
                         {(() => {
                           const img = p.images?.[0] ?? p.image;
-                          return img ? (
-                            <Image src={img} alt="" fill sizes="64px" className="object-contain" />
-                          ) : null;
+                          return img ? <Image src={img} alt="" fill sizes="64px" className="object-contain" /> : null;
                         })()}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -1304,11 +1356,7 @@ export default function AdminProductsPage() {
 
                       {isDraft && (
                         <>
-                          <button
-                            className="btn btn-primary text-xs px-3 py-2"
-                            disabled={saving}
-                            onClick={() => publishOne(p.slug)}
-                          >
+                          <button className="btn btn-primary text-xs px-3 py-2" disabled={saving} onClick={() => publishOne(p.slug)}>
                             {saving ? "…" : "Publish"}
                           </button>
                           <button className="btn text-xs px-3 py-2" onClick={() => discardDraft(p.slug)}>
@@ -1347,9 +1395,7 @@ export default function AdminProductsPage() {
             {/* Header */}
             <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
-                  {isServerItem(editing.slug) ? "Edit Product" : "New Product"}
-                </h2>
+                <h2 className="text-xl font-semibold text-[var(--color-ink)]">{isServerItem(editing.slug) ? "Edit Product" : "New Product"}</h2>
                 <p className="text-sm text-[var(--color-muted)] mt-0.5">
                   {isServerItem(editing.slug) ? "Changes are staged until published" : "Configure product details and variants"}
                 </p>
@@ -1396,552 +1442,534 @@ export default function AdminProductsPage() {
                     <input
                       className="input"
                       value={editing.name}
-                  onChange={(e) => {
-                    const name = e.target.value;
-                    setEditing((prev) => {
-                      if (!prev) return prev;
-                      const next = { ...prev, name };
-                      if (!slugTouched && !isServerItem(prev.slug)) {
-                        next.slug = slugify(name);
-                        setSlugError(
-                          next.slug && SLUG_REGEX.test(next.slug)
-                            ? null
-                            : "Use lowercase letters/numbers with single hyphens"
-                        );
-                      }
-                      return next;
-                    });
-                  }}
-                />
-              </label>
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setEditing((prev) => {
+                          if (!prev) return prev;
+                          const next = { ...prev, name };
+                          if (!slugTouched && !isServerItem(prev.slug)) {
+                            next.slug = slugify(name);
+                            setSlugError(next.slug && SLUG_REGEX.test(next.slug) ? null : "Use lowercase letters/numbers with single hyphens");
+                          }
+                          return next;
+                        });
+                      }}
+                    />
+                  </label>
 
                   {/* Slug */}
                   <label className="block">
                     <div className="text-xs font-medium text-neutral-700 mb-2">URL Slug</div>
-                <input
-                  className="input"
-                  value={editing.slug}
-                  disabled={isServerItem(editing.slug)} // keep URLs stable once published
-                  onChange={(e) => {
-                    const v = e.target.value.trim();
-                    setSlugTouched(true);
-                    setEditing({ ...editing, slug: v });
-                    setSlugError(
-                      v && SLUG_REGEX.test(v)
-                        ? null
-                        : "Use lowercase letters/numbers with single hyphens"
-                    );
-                  }}
-                  onBlur={(e) => {
-                    const cleaned = slugify(e.target.value);
-                    setEditing((prev) => (prev ? { ...prev, slug: cleaned } : prev));
-                    setSlugError(
-                      cleaned && SLUG_REGEX.test(cleaned)
-                        ? null
-                        : "Use lowercase letters/numbers with single hyphens"
-                    );
-                  }}
-                  placeholder="e.g. woodford-reserve-candle"
-                />
-                {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
-              </label>
-
-              {/* Price */}
-              <label className="block">
-                <div className="text-xs mb-1">Price</div>
-                <input
-                  className="input"
-                  type="number"
-                  step="0.01"
-                  value={editing.price}
-                  onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
-                />
-              </label>
-
-              {/* SKU */}
-              <label className="block">
-                <div className="text-xs mb-1">SKU</div>
-                <div className="flex gap-2">
-                  <input
-                    className="input flex-1"
-                    value={editing.sku}
-                    onChange={(e) => setEditing({ ...editing, sku: e.target.value })}
-                    placeholder="DCW-0001"
-                  />
-                  <button
-                    type="button"
-                    className="btn"
-                    onClick={() =>
-                      setEditing((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              sku: computeNextSku([
-                                ...items.map((i) => i.sku),
-                                ...Object.values(staged).map((d) => d.sku),
-                              ]),
-                            }
-                          : prev
-                      )
-                    }
-                    title="Use next available SKU"
-                  >
-                    Auto
-                  </button>
-                </div>
-              </label>
-
-              {/* Alcohol Type — NEW */}
-              <label className="block">
-                <div className="text-xs mb-1">Alcohol Type</div>
-                <div className="flex gap-2">
-                  <select
-                    className="input flex-1"
-                    value={editing.alcoholType || ""}
-                    onChange={async (e) => {
-                      const v = e.target.value;
-                      if (v === "__new__") {
-                        const name = await showPrompt("Enter new alcohol type (e.g., Tequila):", "New Alcohol Type");
-                        if (name && name.trim()) {
-                          const res = await fetch("/api/admin/alcohol-types", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ name: name.trim() }),
-                          });
-                          if (res.ok) {
-                            await load();
-                            setEditing((prev) => (prev ? { ...prev, alcoholType: name.trim() } : prev));
-                          } else {
-                            await showAlert("Failed to create type", "Error");
-                          }
-                        }
-                        return;
-                      }
-                      setEditing({ ...editing, alcoholType: v || undefined });
-                    }}
-                  >
-                    <option value="">— Select type —</option>
-                    {/* Active types only */}
-                    {alcoholTypes.map((t) => (
-                      <option key={t.id} value={t.name}>
-                        {t.name}
-                      </option>
-                    ))}
-                    {/* If the current product has an archived type, show it as disabled but visible */}
-                    {editing.alcoholType &&
-                      !alcoholTypes.some((t) => t.name === editing.alcoholType) && (
-                        <option value={editing.alcoholType} disabled>
-                          {editing.alcoholType} (archived)
-                        </option>
-                      )}
-                    <option value="__new__">+ Add new type…</option>
-                  </select>
-                </div>
-              </label>
-
-              {/* Images - Multiple Upload */}
-              <div className="block sm:col-span-2">
-                <div className="text-xs mb-1">Product Images</div>
-                <div className="flex gap-2">
-                  <label className="btn cursor-pointer flex-1">
-                    + Add Images
                     <input
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
+                      className="input"
+                      value={editing.slug}
+                      disabled={isServerItem(editing.slug)} // keep URLs stable once published
+                      onChange={(e) => {
+                        const v = e.target.value.trim();
+                        setSlugTouched(true);
+                        setEditing({ ...editing, slug: v });
+                        setSlugError(v && SLUG_REGEX.test(v) ? null : "Use lowercase letters/numbers with single hyphens");
+                      }}
+                      onBlur={(e) => {
+                        const cleaned = slugify(e.target.value);
+                        setEditing((prev) => (prev ? { ...prev, slug: cleaned } : prev));
+                        setSlugError(cleaned && SLUG_REGEX.test(cleaned) ? null : "Use lowercase letters/numbers with single hyphens");
+                      }}
+                      placeholder="e.g. woodford-reserve-candle"
+                    />
+                    {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
+                  </label>
+
+                  {/* Price */}
+                  <label className="block">
+                    <div className="text-xs mb-1">Price</div>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.01"
+                      value={editing.price}
+                      onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
                     />
                   </label>
-                  <button
-                    type="button"
-                    className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
-                    onClick={startQRUpload}
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-                    </svg>
-                    Upload from Phone
-                  </button>
-                </div>
 
-                {/* Display current images */}
-                {editing.images && editing.images.length > 0 ? (
-                  <div className="mt-3 space-y-2">
-                    {editing.images.map((img, idx) => (
-                      <div key={idx} className="card p-3 flex items-center gap-3">
-                        <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-white">
-                          <Image src={img} alt={`Product image ${idx + 1}`} fill className="object-contain" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-[var(--color-muted)] truncate">{img}</div>
-                          {idx === 0 && <span className="text-xs font-medium text-green-600">Primary</span>}
-                        </div>
-                        <div className="flex gap-1">
-                          {idx > 0 && (
-                            <button
-                              type="button"
-                              className="btn text-xs px-2 py-1"
-                              onClick={() => moveImageUp(idx, editing, (v) => setEditing(v))}
-                              title="Move up"
-                            >
-                              ↑
-                            </button>
-                          )}
-                          {editing.images && idx < editing.images.length - 1 && (
-                            <button
-                              type="button"
-                              className="btn text-xs px-2 py-1"
-                              onClick={() => moveImageDown(idx, editing, (v) => setEditing(v))}
-                              title="Move down"
-                            >
-                              ↓
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            className="btn text-xs px-2 py-1"
-                            onClick={() => removeImage(idx, editing, (v) => setEditing(v))}
-                            title="Remove"
-                          >
-                            ✕
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-[var(--color-muted)]">No images yet. Click &quot;Add Images&quot; to upload.</p>
-                )}
-              </div>
-
-              {/* Stripe Price ID */}
-              <label className="block sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs">Stripe Price ID</span>
-                  {!editing.stripePriceId && (
-                    <button
-                      type="button"
-                      className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
-                      onClick={async () => {
-                        // Validate required fields
-                        if (!editing.name.trim()) {
-                          await showAlert("Please enter a product name first", "Missing Information");
-                          return;
-                        }
-                        if (!editing.price || editing.price <= 0) {
-                          await showAlert("Please enter a valid price first", "Missing Information");
-                          return;
-                        }
-
-                        try {
-                          setSaving(true);
-                          const res = await fetch("/api/admin/create-stripe-product", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              name: editing.name,
-                              price: editing.price,
-                              description: editing.seoDescription,
-                              images: editing.images || [],
-                            }),
-                          });
-
-                          const data = await res.json();
-
-                          if (!res.ok) {
-                            throw new Error(data.details || data.error || "Failed to create Stripe product");
-                          }
-
-                          // Update the product with the returned price ID
-                          setEditing({ ...editing, stripePriceId: data.priceId });
-
-                          await showAlert(
-                            `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
-                            "Success"
-                          );
-                        } catch (error) {
-                          console.error("[Create Stripe Product] Error:", error);
-                          await showAlert(
-                            error instanceof Error ? error.message : "Failed to create Stripe product",
-                            "Error"
-                          );
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Create Stripe Product
-                    </button>
-                  )}
-                </div>
-                <input
-                  className="input"
-                  value={editing.stripePriceId || ""}
-                  onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
-                  placeholder="Click 'Create Stripe Product' or paste manually"
-                />
-              </label>
-
-              {/* Square Catalog ID */}
-              <label className="block sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs">Square Catalog ID</span>
-                  <div className="flex gap-2">
-                    {editing.squareCatalogId && (
+                  {/* SKU */}
+                  <label className="block">
+                    <div className="text-xs mb-1">SKU</div>
+                    <div className="flex gap-2">
+                      <input
+                        className="input flex-1"
+                        value={editing.sku}
+                        onChange={(e) => setEditing({ ...editing, sku: e.target.value })}
+                        placeholder="DCW-0001"
+                      />
                       <button
                         type="button"
-                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-                        onClick={async () => {
-                          // Sync stock to Square
-                          try {
-                            setSaving(true);
-                            const res = await fetch("/api/admin/sync-square-stock", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ productSlug: editing.slug }),
-                            });
-
-                            const data = await res.json();
-
-                            if (!res.ok) {
-                              throw new Error(data.error || "Failed to sync stock");
-                            }
-
-                            await showAlert(
-                              `Stock synced to Square successfully!\n\n${data.message}`,
-                              "Success"
-                            );
-                          } catch (error) {
-                            console.error("[Sync Square Stock] Error:", error);
-                            await showAlert(
-                              error instanceof Error ? error.message : "Failed to sync stock to Square",
-                              "Error"
-                            );
-                          } finally {
-                            setSaving(false);
-                          }
-                        }}
+                        className="btn"
+                        onClick={() =>
+                          setEditing((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  sku: computeNextSku([...items.map((i) => i.sku), ...Object.values(staged).map((d) => d.sku)]),
+                                }
+                              : prev
+                          )
+                        }
+                        title="Use next available SKU"
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                        </svg>
-                        Sync Stock to Square
+                        Auto
                       </button>
-                    )}
-                    {!editing.squareCatalogId && (
-                      <button
-                        type="button"
-                        className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
-                        onClick={async () => {
-                        // Validate required fields
-                        if (!editing.name.trim()) {
-                          await showAlert("Please enter a product name first", "Missing Information");
-                          return;
-                        }
-                        if (!editing.price || editing.price <= 0) {
-                          await showAlert("Please enter a valid price first", "Missing Information");
-                          return;
-                        }
+                    </div>
+                  </label>
 
-                        try {
-                          setSaving(true);
-
-                          // Get scents for this product (filter by limited flag)
-                          const productScents = globalScents.filter((scent) => {
-                            if (!scent.limited) return true;
-                            return scent.enabledProducts?.includes(editing.slug);
-                          });
-
-                          const res = await fetch("/api/admin/create-square-product", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              name: editing.name,
-                              price: editing.price,
-                              description: editing.seoDescription,
-                              sku: editing.sku,
-                              images: editing.images || [],
-                              variantConfig: editing.variantConfig,
-                              scents: productScents.map(s => ({ id: s.id, name: s.name })),
-                            }),
-                          });
-
-                          const data = await res.json();
-
-                          if (!res.ok) {
-                            throw new Error(data.details || data.error || "Failed to create Square product");
-                          }
-
-                          // Update the product with the returned catalog ID and variant mapping
-                          const updatedProduct = {
-                            ...editing,
-                            squareCatalogId: data.catalogItemId,
-                            squareVariantMapping: data.variantMapping || {},
-                          };
-
-                          setEditing(updatedProduct);
-
-                          // Save the Square fields to the database immediately
-                          const saveRes = await fetch(`/api/admin/products/${editing.slug}`, {
-                            method: "PATCH",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              squareCatalogId: data.catalogItemId,
-                              squareVariantMapping: data.variantMapping || {},
-                            }),
-                          });
-
-                          if (!saveRes.ok) {
-                            const saveError = await saveRes.json();
-                            console.error("[Create Square Product] Failed to save:", saveError);
-                            await showAlert(
-                              `Square product created but failed to save to database: ${saveError.error || "Unknown error"}`,
-                              "Warning"
-                            );
+                  {/* Alcohol Type — NEW */}
+                  <label className="block">
+                    <div className="text-xs mb-1">Alcohol Type</div>
+                    <div className="flex gap-2">
+                      <select
+                        className="input flex-1"
+                        value={editing.alcoholType || ""}
+                        onChange={async (e) => {
+                          const v = e.target.value;
+                          if (v === "__new__") {
+                            const name = await showPrompt("Enter new alcohol type (e.g., Tequila):", "New Alcohol Type");
+                            if (name && name.trim()) {
+                              const res = await fetch("/api/admin/alcohol-types", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ name: name.trim() }),
+                              });
+                              if (res.ok) {
+                                await load();
+                                setEditing((prev) => (prev ? { ...prev, alcoholType: name.trim() } : prev));
+                              } else {
+                                await showAlert("Failed to create type", "Error");
+                              }
+                            }
                             return;
                           }
+                          setEditing({ ...editing, alcoholType: v || undefined });
+                        }}
+                      >
+                        <option value="">— Select type —</option>
+                        {/* Active types only */}
+                        {alcoholTypes.map((t) => (
+                          <option key={t.id} value={t.name}>
+                            {t.name}
+                          </option>
+                        ))}
+                        {/* If the current product has an archived type, show it as disabled but visible */}
+                        {editing.alcoholType && !alcoholTypes.some((t) => t.name === editing.alcoholType) && (
+                          <option value={editing.alcoholType} disabled>
+                            {editing.alcoholType} (archived)
+                          </option>
+                        )}
+                        <option value="__new__">+ Add new type…</option>
+                      </select>
+                    </div>
+                  </label>
 
-                          // Reload products to get updated data
-                          await load();
+                  {/* Images - Multiple Upload */}
+                  <div className="block sm:col-span-2">
+                    <div className="text-xs mb-1">Product Images</div>
+                    <div className="flex gap-2">
+                      <label className="btn cursor-pointer flex-1">
+                        + Add Images
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          className="hidden"
+                          onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                        onClick={startQRUpload}
+                      >
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
+                          />
+                        </svg>
+                        Upload from Phone
+                      </button>
+                    </div>
 
-                          await showAlert(
-                            `Square catalog item created and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
-                            "Success"
-                          );
-                        } catch (error) {
-                          console.error("[Create Square Product] Error:", error);
-                          await showAlert(
-                            error instanceof Error ? error.message : "Failed to create Square product",
-                            "Error"
-                          );
-                        } finally {
-                          setSaving(false);
-                        }
-                      }}
-                    >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                      </svg>
-                      Create Square Product
-                    </button>
+                    {/* Display current images */}
+                    {editing.images && editing.images.length > 0 ? (
+                      <div className="mt-3 space-y-2">
+                        {editing.images.map((img, idx) => (
+                          <div key={idx} className="card p-3 flex items-center gap-3">
+                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-white">
+                              <Image src={img} alt={`Product image ${idx + 1}`} fill className="object-contain" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs text-[var(--color-muted)] truncate">{img}</div>
+                              {idx === 0 && <span className="text-xs font-medium text-green-600">Primary</span>}
+                            </div>
+                            <div className="flex gap-1">
+                              {idx > 0 && (
+                                <button
+                                  type="button"
+                                  className="btn text-xs px-2 py-1"
+                                  onClick={() => moveImageUp(idx, editing, (v) => setEditing(v))}
+                                  title="Move up"
+                                >
+                                  ↑
+                                </button>
+                              )}
+                              {editing.images && idx < editing.images.length - 1 && (
+                                <button
+                                  type="button"
+                                  className="btn text-xs px-2 py-1"
+                                  onClick={() => moveImageDown(idx, editing, (v) => setEditing(v))}
+                                  title="Move down"
+                                >
+                                  ↓
+                                </button>
+                              )}
+                              <button
+                                type="button"
+                                className="btn text-xs px-2 py-1"
+                                onClick={() => removeImage(idx, editing, (v) => setEditing(v))}
+                                title="Remove"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-[var(--color-muted)]">No images yet. Click &quot;Add Images&quot; to upload.</p>
                     )}
                   </div>
+
+                  {/* Stripe Price ID */}
+                  <label className="block sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs">Stripe Price ID</span>
+                      {!editing.stripePriceId && (
+                        <button
+                          type="button"
+                          className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                          onClick={async () => {
+                            // Validate required fields
+                            if (!editing.name.trim()) {
+                              await showAlert("Please enter a product name first", "Missing Information");
+                              return;
+                            }
+                            if (!editing.price || editing.price <= 0) {
+                              await showAlert("Please enter a valid price first", "Missing Information");
+                              return;
+                            }
+
+                            try {
+                              setSaving(true);
+                              const res = await fetch("/api/admin/create-stripe-product", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  name: editing.name,
+                                  price: editing.price,
+                                  description: editing.seoDescription,
+                                  images: editing.images || [],
+                                }),
+                              });
+
+                              const data = (await res.json()) as { productId?: string; priceId?: string; error?: string; details?: string };
+
+                              if (!res.ok) {
+                                throw new Error(data.details || data.error || "Failed to create Stripe product");
+                              }
+
+                              // Update the product with the returned price ID
+                              setEditing({ ...editing, stripePriceId: data.priceId });
+
+                              await showAlert(
+                                `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
+                                "Success"
+                              );
+                            } catch (err) {
+                              // eslint-disable-next-line no-console
+                              console.error("[Create Stripe Product] Error:", err);
+                              await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
+                            } finally {
+                              setSaving(false);
+                            }
+                          }}
+                        >
+                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                          </svg>
+                          Create Stripe Product
+                        </button>
+                      )}
+                    </div>
+                    <input
+                      className="input"
+                      value={editing.stripePriceId || ""}
+                      onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
+                      placeholder="Click 'Create Stripe Product' or paste manually"
+                    />
+                  </label>
+
+                  {/* Square Catalog ID */}
+                  <label className="block sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs">Square Catalog ID</span>
+                      <div className="flex gap-2">
+                        {editing.squareCatalogId && (
+                          <button
+                            type="button"
+                            className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                            onClick={async () => {
+                              // Sync stock to Square
+                              try {
+                                setSaving(true);
+                                const res = await fetch("/api/admin/sync-square-stock", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ productSlug: editing.slug }),
+                                });
+
+                                const data = (await res.json()) as { error?: string; message?: string };
+
+                                if (!res.ok) {
+                                  throw new Error(data.error || "Failed to sync stock");
+                                }
+
+                                await showAlert(`Stock synced to Square successfully!\n\n${data.message}`, "Success");
+                              } catch (err) {
+                                // eslint-disable-next-line no-console
+                                console.error("[Sync Square Stock] Error:", err);
+                                await showAlert(err instanceof Error ? err.message : "Failed to sync stock to Square", "Error");
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            Sync Stock to Square
+                          </button>
+                        )}
+                        {!editing.squareCatalogId && (
+                          <button
+                            type="button"
+                            className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                            onClick={async () => {
+                              // Validate required fields
+                              if (!editing.name.trim()) {
+                                await showAlert("Please enter a product name first", "Missing Information");
+                                return;
+                              }
+                              if (!editing.price || editing.price <= 0) {
+                                await showAlert("Please enter a valid price first", "Missing Information");
+                                return;
+                              }
+
+                              try {
+                                setSaving(true);
+
+                                // Get scents for this product (filter by limited flag)
+                                const productScents = globalScents.filter((scent) => {
+                                  if (!scent.limited) return true;
+                                  return scent.enabledProducts?.includes(editing.slug);
+                                });
+
+                                const res = await fetch("/api/admin/create-square-product", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    name: editing.name,
+                                    price: editing.price,
+                                    description: editing.seoDescription,
+                                    sku: editing.sku,
+                                    images: editing.images || [],
+                                    variantConfig: editing.variantConfig,
+                                    scents: productScents.map((s) => ({ id: s.id, name: s.name })),
+                                  }),
+                                });
+
+                                const data = (await res.json()) as {
+                                  catalogItemId?: string;
+                                  variantMapping?: Record<string, string>;
+                                  variationCount?: number;
+                                  imageCount?: number;
+                                  error?: string;
+                                  details?: string;
+                                };
+
+                                if (!res.ok) {
+                                  throw new Error(data.details || data.error || "Failed to create Square product");
+                                }
+
+                                // Update the product with the returned catalog ID and variant mapping
+                                const updatedProduct = {
+                                  ...editing,
+                                  squareCatalogId: data.catalogItemId,
+                                  squareVariantMapping: data.variantMapping || {},
+                                };
+
+                                setEditing(updatedProduct);
+
+                                // Save the Square fields to the database immediately
+                                const saveRes = await fetch(`/api/admin/products/${editing.slug}`, {
+                                  method: "PATCH",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    squareCatalogId: data.catalogItemId,
+                                    squareVariantMapping: data.variantMapping || {},
+                                  }),
+                                });
+
+                                if (!saveRes.ok) {
+                                  const saveError = (await saveRes.json()) as { error?: string };
+                                  // eslint-disable-next-line no-console
+                                  console.error("[Create Square Product] Failed to save:", saveError);
+                                  await showAlert(
+                                    `Square product created but failed to save to database: ${saveError.error || "Unknown error"}`,
+                                    "Warning"
+                                  );
+                                  return;
+                                }
+
+                                // Reload products to get updated data
+                                await load();
+
+                                await showAlert(
+                                  `Square catalog item created and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
+                                  "Success"
+                                );
+                              } catch (err) {
+                                // eslint-disable-next-line no-console
+                                console.error("[Create Square Product] Error:", err);
+                                await showAlert(err instanceof Error ? err.message : "Failed to create Square product", "Error");
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                            </svg>
+                            Create Square Product
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <input
+                      className="input"
+                      value={editing.squareCatalogId || ""}
+                      onChange={(e) => setEditing({ ...editing, squareCatalogId: e.target.value })}
+                      placeholder="Click 'Create Square Product' or paste manually"
+                    />
+                  </label>
+
+                  {/* Container Selection */}
+                  <label className="block">
+                    <div className="text-xs mb-1">Container (for description)</div>
+                    <select
+                      className="input"
+                      value={editing.containerId || ""}
+                      onChange={(e) => setEditing({ ...editing, containerId: e.target.value || undefined })}
+                    >
+                      <option value="">— Select container —</option>
+                      {containers.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.capacityWaterOz} oz water)
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+
+                  {/* Description */}
+                  <label className="block sm:col-span-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs">Description</span>
+                      <button
+                        type="button"
+                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                        onClick={() => {
+                          const container = containers.find((c) => c.id === editing.containerId);
+                          const generatedDesc = generateDescription(editing.name, container, settings.waterToWaxRatio);
+                          setEditing({ ...editing, seoDescription: generatedDesc });
+                        }}
+                      >
+                        Auto-generate from name & container
+                      </button>
+                    </div>
+                    <textarea
+                      className="textarea"
+                      rows={4}
+                      value={editing.seoDescription}
+                      onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
+                      placeholder="Select a container and click 'Auto-generate' or type manually"
+                    />
+                  </label>
+
+                  {/* Visible on Website */}
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={editing.visibleOnWebsite !== false}
+                      onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
+                    />
+                    <span className="text-sm">Show on Website</span>
+                  </label>
+
+                  {/* Best Seller */}
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!editing.bestSeller} onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })} />
+                    <span className="text-sm">Best Seller</span>
+                  </label>
+
+                  {/* Young & Dumb */}
+                  <label className="flex items-center gap-2">
+                    <input type="checkbox" checked={!!editing.youngDumb} onChange={(e) => setEditing({ ...editing, youngDumb: e.target.checked })} />
+                    <span className="text-sm">Young & Dumb</span>
+                  </label>
+
+                  {/* Base Stock (disabled when variants used) */}
+                  <label className="block">
+                    <div className="text-xs mb-1">Stock (base, if not using variants)</div>
+                    <input
+                      className="input"
+                      type="number"
+                      value={editing.stock}
+                      onChange={(e) => setEditing({ ...editing, stock: e.target.value === "" ? 0 : Number(e.target.value) })}
+                      onBlur={(e) => {
+                        const val = e.target.value === "" ? 0 : Number(e.target.value);
+                        setEditing({ ...editing, stock: Math.max(0, val) });
+                      }}
+                      disabled={!!editing.variantConfig}
+                    />
+                  </label>
                 </div>
-                <input
-                  className="input"
-                  value={editing.squareCatalogId || ""}
-                  onChange={(e) => setEditing({ ...editing, squareCatalogId: e.target.value })}
-                  placeholder="Click 'Create Square Product' or paste manually"
-                />
-              </label>
-
-              {/* Container Selection */}
-              <label className="block">
-                <div className="text-xs mb-1">Container (for description)</div>
-                <select
-                  className="input"
-                  value={editing.containerId || ""}
-                  onChange={(e) => setEditing({ ...editing, containerId: e.target.value || undefined })}
-                >
-                  <option value="">— Select container —</option>
-                  {containers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.capacityWaterOz} oz water)
-                    </option>
-                  ))}
-                </select>
-              </label>
-
-              {/* Description */}
-              <label className="block sm:col-span-2">
-                <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs">Description</span>
-                  <button
-                    type="button"
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                    onClick={() => {
-                      const container = containers.find((c) => c.id === editing.containerId);
-                      const generatedDesc = generateDescription(editing.name, container, settings.waterToWaxRatio);
-                      setEditing({ ...editing, seoDescription: generatedDesc });
-                    }}
-                  >
-                    Auto-generate from name & container
-                  </button>
-                </div>
-                <textarea
-                  className="textarea"
-                  rows={4}
-                  value={editing.seoDescription}
-                  onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
-                  placeholder="Select a container and click 'Auto-generate' or type manually"
-                />
-              </label>
-
-              {/* Visible on Website */}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={editing.visibleOnWebsite !== false}
-                  onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
-                />
-                <span className="text-sm">Show on Website</span>
-              </label>
-
-              {/* Best Seller */}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={!!editing.bestSeller}
-                  onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })}
-                />
-                <span className="text-sm">Best Seller</span>
-              </label>
-
-              {/* Young & Dumb */}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={!!editing.youngDumb}
-                  onChange={(e) => setEditing({ ...editing, youngDumb: e.target.checked })}
-                />
-                <span className="text-sm">Young & Dumb</span>
-              </label>
-
-              {/* Base Stock (disabled when variants used) */}
-              <label className="block">
-                <div className="text-xs mb-1">Stock (base, if not using variants)</div>
-                <input
-                  className="input"
-                  type="number"
-                  value={editing.stock}
-                  onChange={(e) =>
-                    setEditing({
-                      ...editing,
-                      stock: e.target.value === "" ? 0 : Number(e.target.value),
-                    })
-                  }
-                  onBlur={(e) => {
-                    const val = e.target.value === "" ? 0 : Number(e.target.value);
-                    setEditing({
-                      ...editing,
-                      stock: Math.max(0, val),
-                    });
-                  }}
-                  disabled={!!editing.variantConfig}
-                />
-              </label>
-            </div>
-          </div>
+              </div>
 
               {/* ---------- Variants Section ---------- */}
               <div className="mb-8">
                 <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
                   <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
+                    />
                   </svg>
                   Product Variants
                 </h3>
@@ -1980,10 +2008,7 @@ export default function AdminProductsPage() {
                                 ...editing,
                                 variantConfig: {
                                   ...editing.variantConfig!,
-                                  wickTypes: [
-                                    ...editing.variantConfig!.wickTypes,
-                                    { id: newId, name: "New Wick Type" },
-                                  ],
+                                  wickTypes: [...editing.variantConfig!.wickTypes, { id: newId, name: "New Wick Type" }],
                                 },
                               });
                             }}
@@ -2055,9 +2080,7 @@ export default function AdminProductsPage() {
                       {/* Variant Stock Grid */}
                       <div>
                         <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-sm font-medium text-neutral-900">
-                            Inventory ({variantsForDisplay.length} variants)
-                          </h4>
+                          <h4 className="text-sm font-medium text-neutral-900">Inventory ({variantsForDisplay.length} variants)</h4>
                           <div className="text-xs text-neutral-500">
                             {editing.variantConfig.wickTypes.length} wick × {availableScents.length} scents
                           </div>
@@ -2066,7 +2089,12 @@ export default function AdminProductsPage() {
                         {availableScents.length === 0 ? (
                           <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
                             <svg className="w-8 h-8 text-amber-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
                             </svg>
                             <p className="text-sm font-medium text-amber-900 mb-1">No scents available</p>
                             <p className="text-xs text-amber-800">
@@ -2080,7 +2108,10 @@ export default function AdminProductsPage() {
                           <div className="max-h-[400px] overflow-y-auto border border-neutral-200 rounded-xl">
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4">
                               {variantsForDisplay.map((v) => (
-                                <div key={v.id} className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all">
+                                <div
+                                  key={v.id}
+                                  className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all"
+                                >
                                   <div className="text-xs font-medium text-neutral-900 mb-2 line-clamp-2" title={`${v.wickName} / ${v.scentName}`}>
                                     {v.scentName}
                                   </div>
@@ -2093,29 +2124,19 @@ export default function AdminProductsPage() {
                                     placeholder="Stock"
                                     onChange={(e) => {
                                       const newData = { ...editing.variantConfig!.variantData };
-                                      newData[v.id] = {
-                                        stock: e.target.value === "" ? 0 : Number(e.target.value),
-                                      };
+                                      newData[v.id] = { stock: e.target.value === "" ? 0 : Number(e.target.value) };
                                       setEditing({
                                         ...editing,
-                                        variantConfig: {
-                                          ...editing.variantConfig!,
-                                          variantData: newData,
-                                        },
+                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
                                       });
                                     }}
                                     onBlur={(e) => {
                                       const val = e.target.value === "" ? 0 : Number(e.target.value);
                                       const newData = { ...editing.variantConfig!.variantData };
-                                      newData[v.id] = {
-                                        stock: Math.max(0, val),
-                                      };
+                                      newData[v.id] = { stock: Math.max(0, val) };
                                       setEditing({
                                         ...editing,
-                                        variantConfig: {
-                                          ...editing.variantConfig!,
-                                          variantData: newData,
-                                        },
+                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
                                       });
                                     }}
                                   />
@@ -2169,19 +2190,12 @@ export default function AdminProductsPage() {
       {/* QR Code Modal */}
       {showQRModal && qrDataURL && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div
-            className="absolute inset-0"
-            onClick={closeQRModal}
-          />
+          <div className="absolute inset-0" onClick={closeQRModal} />
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-semibold text-[var(--color-ink)]">Scan to Upload</h2>
-              <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                onClick={closeQRModal}
-                aria-label="Close"
-              >
+              <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors" onClick={closeQRModal} aria-label="Close">
                 <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -2192,6 +2206,31 @@ export default function AdminProductsPage() {
             <div className="bg-white p-4 rounded-xl border-2 border-neutral-200 mb-4">
               <img src={qrDataURL} alt="QR Code" className="w-full h-auto" />
             </div>
+
+            {/* Copy link (uses uploadToken so it's not unused) */}
+            {uploadToken && origin && (
+              <div className="mb-4 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
+                <div className="text-xs text-neutral-600 mb-2">Or open this link on your phone:</div>
+                <div className="flex gap-2">
+                  <input className="input flex-1 text-xs" readOnly value={`${origin}/mobile-upload?token=${uploadToken}`} />
+                  <button
+                    type="button"
+                    className="btn text-xs"
+                    onClick={async () => {
+                      const url = `${origin}/mobile-upload?token=${uploadToken}`;
+                      try {
+                        await navigator.clipboard.writeText(url);
+                        await showAlert("Upload link copied to clipboard!", "Copied");
+                      } catch {
+                        await showAlert("Could not copy link. Try selecting and copying it manually.", "Copy failed");
+                      }
+                    }}
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+            )}
 
             {/* Instructions */}
             <div className="space-y-3 mb-4">
@@ -2233,10 +2272,7 @@ export default function AdminProductsPage() {
             {/* Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
               <p className="text-xs text-neutral-500">Session expires in 5 minutes</p>
-              <button
-                className="btn btn-primary text-sm"
-                onClick={closeQRModal}
-              >
+              <button className="btn btn-primary text-sm" onClick={closeQRModal}>
                 Done
               </button>
             </div>
