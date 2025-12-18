@@ -150,17 +150,31 @@ export async function POST(req: NextRequest) {
 
       let totalCents = 0;
       let productSubtotalCents = 0;
+      let taxCents = 0;
+
+      // Extract tax from order details
+      if (orderDetails?.totalTaxMoney?.amount) {
+        taxCents = typeof orderDetails.totalTaxMoney.amount === 'bigint'
+          ? Number(orderDetails.totalTaxMoney.amount)
+          : (typeof orderDetails.totalTaxMoney.amount === 'string'
+            ? parseInt(orderDetails.totalTaxMoney.amount)
+            : orderDetails.totalTaxMoney.amount);
+      }
 
       if (orderDetails?.lineItems) {
         const { getProductFromSquareVariation } = await import("@/lib/squareMapping");
 
         for (const item of orderDetails.lineItems) {
           const quantity = parseInt(item.quantity || "1");
-          const itemTotal = typeof item.totalMoney?.amount === 'bigint'
-            ? Number(item.totalMoney.amount)
-            : (typeof item.totalMoney?.amount === 'string'
-              ? parseInt(item.totalMoney.amount)
-              : (item.totalMoney?.amount ?? 0));
+
+          // Use base price (excluding tax) for item price
+          const itemBasePrice = typeof item.basePriceMoney?.amount === 'bigint'
+            ? Number(item.basePriceMoney.amount)
+            : (typeof item.basePriceMoney?.amount === 'string'
+              ? parseInt(item.basePriceMoney.amount)
+              : (item.basePriceMoney?.amount ?? 0));
+
+          const itemTotalPrice = itemBasePrice * quantity;
 
           // Try to map Square variation ID to our product + variant
           const catalogVariationId = item.catalogObjectId; // This is actually the variation ID
@@ -172,10 +186,10 @@ export async function POST(req: NextRequest) {
               productSlug: productInfo.slug,
               productName: item.name || productInfo.slug,
               quantity,
-              priceCents: itemTotal,
+              priceCents: itemTotalPrice,
             });
 
-            productSubtotalCents += itemTotal;
+            productSubtotalCents += itemTotalPrice;
 
             // Decrement stock
             try {
@@ -198,14 +212,14 @@ export async function POST(req: NextRequest) {
               productSlug: catalogVariationId ? `square-${catalogVariationId}` : "square-unmapped",
               productName: item.name || "Square Item (Unmapped)",
               quantity,
-              priceCents: itemTotal,
+              priceCents: itemTotalPrice,
             });
 
-            productSubtotalCents += itemTotal;
+            productSubtotalCents += itemTotalPrice;
           }
         }
       } else {
-        // No line items - just use total amount
+        // No line items - just use total amount minus tax
         console.warn("[Square Webhook] No line items found, using total amount");
         const totalAmount = typeof payment.total_money?.amount === 'string'
           ? parseInt(payment.total_money.amount)
@@ -215,14 +229,16 @@ export async function POST(req: NextRequest) {
           productSlug: "square-pos-sale",
           productName: "Square POS Sale",
           quantity: 1,
-          priceCents: totalAmount,
+          priceCents: totalAmount - taxCents,
         });
-        productSubtotalCents = totalAmount;
+        productSubtotalCents = totalAmount - taxCents;
       }
 
       totalCents = typeof payment.total_money?.amount === 'string'
         ? parseInt(payment.total_money.amount)
         : (payment.total_money?.amount ?? 0);
+
+      console.log(`[Square Webhook] Order breakdown - Subtotal: $${(productSubtotalCents / 100).toFixed(2)}, Tax: $${(taxCents / 100).toFixed(2)}, Total: $${(totalCents / 100).toFixed(2)}`);
 
       // Create order record
       // Note: Square doesn't provide customer email via webhook, use a placeholder
@@ -236,7 +252,7 @@ export async function POST(req: NextRequest) {
         undefined, // userId - no user for POS sales
         productSubtotalCents,
         undefined, // shippingCents - no shipping for POS
-        undefined, // taxCents - Square includes tax in total
+        taxCents, // taxCents - now properly extracted from Square order
         "square", // paymentMethod
         `Square Payment ID: ${payment.id}\nReceipt: ${payment.receipt_url || payment.receipt_number || "N/A"}` // notes
       );

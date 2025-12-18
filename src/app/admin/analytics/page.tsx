@@ -451,7 +451,7 @@ export default function AdminAnalyticsPage() {
               <span className="text-sm font-medium text-[var(--color-muted)]">Net Revenue</span>
             </div>
             <p className="text-3xl font-bold">${(analytics.netRevenue / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">After Stripe fees</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">After Stripe + Square fees</p>
             {analytics.comparison && (
               <div className="mt-2">
                 <span
@@ -661,7 +661,7 @@ export default function AdminAnalyticsPage() {
           <div className="card p-6 bg-white">
             <h2 className="text-xl font-bold mb-4">Profit Margins</h2>
             <p className="text-sm text-[var(--color-muted)] mb-4">
-              Products with cost data configured (includes Stripe fees)
+              Products with cost data configured (includes Stripe + Square fees)
             </p>
             <div className="overflow-x-auto">
               <table className="w-full">
@@ -670,7 +670,7 @@ export default function AdminAnalyticsPage() {
                     <th className="text-left py-3 text-sm font-semibold">Product</th>
                     <th className="text-right py-3 text-sm font-semibold">Revenue</th>
                     <th className="text-right py-3 text-sm font-semibold">Material Cost</th>
-                    <th className="text-right py-3 text-sm font-semibold">Stripe Fees</th>
+                    <th className="text-right py-3 text-sm font-semibold">Payment Fees</th>
                     <th className="text-right py-3 text-sm font-semibold">Net Profit</th>
                     <th className="text-right py-3 text-sm font-semibold">Margin</th>
                   </tr>

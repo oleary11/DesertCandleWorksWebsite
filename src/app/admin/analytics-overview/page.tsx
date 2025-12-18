@@ -288,9 +288,9 @@ export default function UnifiedAnalyticsPage() {
               ${((grossProfit || 0) / 100).toFixed(2)}
             </p>
             <p className="text-xs text-[var(--color-muted)] mt-1">
-              After COGS & Stripe fees
+              After COGS & payment fees
               <br />
-              Stripe fees: ${((stripeFees || 0) / 100).toFixed(2)}
+              Payment fees: ${((stripeFees || 0) / 100).toFixed(2)}
             </p>
           </div>
 
@@ -502,7 +502,7 @@ export default function UnifiedAnalyticsPage() {
               <div className="pt-2">
                 <div className="flex items-center justify-between mb-1">
                   <span className="text-sm font-medium text-red-600">
-                    Stripe Fees
+                    Payment Fees
                   </span>
                   <span className="text-lg font-bold text-red-600">
                     -${((stripeFees || 0) / 100).toFixed(2)}

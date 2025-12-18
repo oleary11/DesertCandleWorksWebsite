@@ -109,38 +109,110 @@ export async function POST(req: NextRequest) {
 
     await createRefund(refund);
 
-    // Process Stripe refund
-    const secretKey = process.env.STRIPE_SECRET_KEY;
-    if (!secretKey) {
-      return NextResponse.json(
-        { error: "Stripe not configured" },
-        { status: 500 }
-      );
-    }
+    // Detect if this is a Square order or Stripe order
+    const isSquareOrder = order.id.startsWith("SQ") || order.paymentMethod === "square";
 
-    const stripe = new Stripe(secretKey);
+    let paymentRefundId: string;
 
     try {
-      // Create Stripe refund
-      const stripeRefund = await stripe.refunds.create({
-        payment_intent: order.id.startsWith("pi_") ? order.id : undefined,
-        charge: order.id.startsWith("ch_") ? order.id : undefined,
-        amount: refundAmountCents,
-        reason: mapReasonToStripe(body.reason),
-        metadata: {
-          refund_id: refund.id,
-          order_id: order.id,
-          reason: body.reason,
-        },
-      });
+      if (isSquareOrder) {
+        // Process Square refund
+        console.log(`[Refund] Processing Square refund for order ${order.id}`);
 
-      // Update refund with Stripe ID
-      await updateRefundStatus(
-        refund.id,
-        "completed",
-        stripeRefund.id,
-        new Date().toISOString()
-      );
+        const accessToken = process.env.SQUARE_ACCESS_TOKEN;
+        if (!accessToken) {
+          return NextResponse.json(
+            { error: "Square not configured" },
+            { status: 500 }
+          );
+        }
+
+        // Extract Square payment ID from order notes
+        const squarePaymentIdMatch = order.notes?.match(/Square Payment ID: ([A-Z0-9]+)/);
+        const squarePaymentId = squarePaymentIdMatch?.[1];
+
+        if (!squarePaymentId) {
+          console.error(`[Refund] No Square payment ID found in order notes: ${order.notes}`);
+          await updateRefundStatus(refund.id, "failed");
+          return NextResponse.json(
+            { error: "Square payment ID not found in order notes" },
+            { status: 400 }
+          );
+        }
+
+        console.log(`[Refund] Found Square payment ID: ${squarePaymentId}`);
+
+        const { SquareClient, SquareEnvironment } = await import("square");
+        const client = new SquareClient({
+          token: accessToken,
+          environment: process.env.SQUARE_ENVIRONMENT === "production"
+            ? SquareEnvironment.Production
+            : SquareEnvironment.Sandbox,
+        });
+
+        // Create Square refund
+        const squareRefund = await client.refunds.refundPayment({
+          idempotencyKey: refund.id,
+          paymentId: squarePaymentId,
+          amountMoney: {
+            amount: BigInt(refundAmountCents),
+            currency: "USD",
+          },
+          reason: body.reasonNote || body.reason,
+        });
+
+        if (!squareRefund.result.refund?.id) {
+          throw new Error("Square refund did not return an ID");
+        }
+
+        paymentRefundId = squareRefund.result.refund.id;
+        console.log(`[Refund] Square refund created: ${paymentRefundId}`);
+
+        // Update refund with Square refund ID
+        await updateRefundStatus(
+          refund.id,
+          "completed",
+          paymentRefundId,
+          new Date().toISOString()
+        );
+      } else {
+        // Process Stripe refund
+        console.log(`[Refund] Processing Stripe refund for order ${order.id}`);
+
+        const secretKey = process.env.STRIPE_SECRET_KEY;
+        if (!secretKey) {
+          return NextResponse.json(
+            { error: "Stripe not configured" },
+            { status: 500 }
+          );
+        }
+
+        const stripe = new Stripe(secretKey);
+
+        // Create Stripe refund
+        const stripeRefund = await stripe.refunds.create({
+          payment_intent: order.id.startsWith("pi_") ? order.id : undefined,
+          charge: order.id.startsWith("ch_") ? order.id : undefined,
+          amount: refundAmountCents,
+          reason: mapReasonToStripe(body.reason),
+          metadata: {
+            refund_id: refund.id,
+            order_id: order.id,
+            reason: body.reason,
+          },
+        });
+
+        paymentRefundId = stripeRefund.id;
+        console.log(`[Refund] Stripe refund created: ${paymentRefundId}`);
+
+        // Update refund with Stripe ID
+        await updateRefundStatus(
+          refund.id,
+          "completed",
+          paymentRefundId,
+          new Date().toISOString()
+        );
+      }
 
       // Restore inventory if requested
       if (refund.restoreInventory) {
@@ -175,19 +247,20 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        refund: await updateRefundStatus(refund.id, "completed", stripeRefund.id, new Date().toISOString()),
-        stripeRefundId: stripeRefund.id,
+        refund: await updateRefundStatus(refund.id, "completed", paymentRefundId, new Date().toISOString()),
+        refundId: paymentRefundId,
+        processor: isSquareOrder ? "square" : "stripe",
       });
-    } catch (stripeError) {
-      console.error("[Admin Refunds] Stripe refund failed:", stripeError);
+    } catch (paymentError) {
+      console.error(`[Admin Refunds] ${isSquareOrder ? "Square" : "Stripe"} refund failed:`, paymentError);
 
       // Update refund status to failed
       await updateRefundStatus(refund.id, "failed");
 
       return NextResponse.json(
         {
-          error: "Stripe refund failed",
-          details: stripeError instanceof Error ? stripeError.message : "Unknown error",
+          error: `${isSquareOrder ? "Square" : "Stripe"} refund failed`,
+          details: paymentError instanceof Error ? paymentError.message : "Unknown error",
         },
         { status: 500 }
       );

@@ -130,6 +130,11 @@ export default function AdminOrdersPage() {
     return Math.round(amountCents * 0.029) + 30; // 2.9% + 30 cents
   }
 
+  // Calculate Square fee for an order (2.6% + $0.10 for card-present)
+  function calculateSquareFee(amountCents: number): number {
+    return Math.round(amountCents * 0.026) + 10; // 2.6% + 10 cents
+  }
+
   // Helper function to check if an order is a manual sale
   function isManualSale(orderId: string): boolean {
     return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
@@ -370,7 +375,11 @@ export default function AdminOrdersPage() {
                         </div>
                         {!isManualSale(order.id) && (
                           <div className="text-xs text-amber-600">
-                            Stripe fee: -${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}
+                            {isSquareSale(order.id) ? (
+                              <>Square fee: -${(calculateSquareFee(order.totalCents) / 100).toFixed(2)}</>
+                            ) : (
+                              <>Stripe fee: -${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}</>
+                            )}
                           </div>
                         )}
                         <div className="text-sm text-[var(--color-muted)]">
