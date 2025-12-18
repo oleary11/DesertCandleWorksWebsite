@@ -161,11 +161,11 @@ export async function POST(req: NextRequest) {
           reason: body.reasonNote || body.reason,
         });
 
-        if (!squareRefund.result.refund?.id) {
+        if (!squareRefund.refund?.id) {
           throw new Error("Square refund did not return an ID");
         }
 
-        paymentRefundId = squareRefund.result.refund.id;
+        paymentRefundId = squareRefund.refund.id;
         console.log(`[Refund] Square refund created: ${paymentRefundId}`);
 
         // Update refund with Square refund ID
