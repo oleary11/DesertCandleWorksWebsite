@@ -16,6 +16,14 @@ type Product = {
   };
 };
 
+type GlobalScent = {
+  id: string;
+  name: string;
+  limited?: boolean;
+  enabledProducts?: string[];
+  sortOrder?: number;
+};
+
 type SaleItem = {
   id: string;
   productSlug: string;
@@ -245,6 +253,7 @@ function ComboBox<TValue extends string>(props: {
 
 export default function ManualSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [scents, setScents] = useState<GlobalScent[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
@@ -256,21 +265,34 @@ export default function ManualSalePage() {
   const [success, setSuccess] = useState("");
 
   useEffect(() => {
-    loadProducts();
+    loadData();
   }, []);
 
-  async function loadProducts() {
+  async function loadData() {
     try {
-      const res = await fetch("/api/admin/products");
-      if (!res.ok) throw new Error("Failed to load products");
-      const data = await res.json();
-      setProducts(data.items || []);
+      const [productsRes, scentsRes] = await Promise.all([
+        fetch("/api/admin/products"),
+        fetch("/api/admin/scents"),
+      ]);
+
+      if (!productsRes.ok) throw new Error("Failed to load products");
+      if (!scentsRes.ok) throw new Error("Failed to load scents");
+
+      const productsData = await productsRes.json();
+      const scentsData = await scentsRes.json();
+
+      setProducts(productsData.items || []);
+      setScents(scentsData.scents || []);
     } catch (err) {
-      setError("Failed to load products");
+      setError("Failed to load data");
       console.error(err);
     } finally {
       setLoading(false);
     }
+  }
+
+  async function loadProducts() {
+    await loadData();
   }
 
   function addItem() {
@@ -495,26 +517,42 @@ export default function ManualSalePage() {
                         {/* Variant Select (if applicable) */}
                         {hasVariants && (
                           <div>
-                            <label className="block text-sm font-medium mb-1">Variant</label>
+                            <label className="block text-sm font-medium mb-1">Variant (Wick/Scent)</label>
                             <select
                               className="input w-full"
                               value={item.variantId || ""}
                               onChange={(e) => updateItem(item.id, { variantId: e.target.value || undefined })}
                             >
                               <option value="">Base product (Stock: {selectedProduct?.stock || 0})</option>
-                              {selectedProduct?.variantConfig?.wickTypes.map((wt) => {
-                                // Find all variant IDs that match this wick type
-                                const variantStocks = Object.entries(selectedProduct.variantConfig?.variantData || {})
-                                  .filter(([variantId]) => variantId.startsWith(`${wt.id}-`))
-                                  .map(([_, data]) => data.stock || 0);
-                                const totalVariantStock = variantStocks.reduce((sum, stock) => sum + stock, 0);
+                              {/* Show all individual wick-scent combinations */}
+                              {Object.entries(selectedProduct?.variantConfig?.variantData || {})
+                                .sort(([variantIdA], [variantIdB]) => {
+                                  // Sort by wick type first, then by scent
+                                  return variantIdA.localeCompare(variantIdB);
+                                })
+                                .map(([variantId, variantData]) => {
+                                  // Parse variant ID format: "wick-id-scent-id"
+                                  // Find the wick type
+                                  const wickType = selectedProduct?.variantConfig?.wickTypes.find(wt =>
+                                    variantId.startsWith(`${wt.id}-`)
+                                  );
 
-                                return (
-                                  <option key={wt.id} value={wt.id}>
-                                    {wt.name} (Stock: {totalVariantStock})
-                                  </option>
-                                );
-                              })}
+                                  // Extract scent ID (last segment after last hyphen of wick ID)
+                                  const scentId = variantId.substring((wickType?.id.length || 0) + 1);
+
+                                  // Find the scent name
+                                  const scent = scents.find(s => s.id === scentId);
+
+                                  const wickName = wickType?.name || "Unknown Wick";
+                                  const scentName = scent?.name || scentId;
+                                  const stock = variantData.stock || 0;
+
+                                  return (
+                                    <option key={variantId} value={variantId}>
+                                      {wickName} - {scentName} (Stock: {stock})
+                                    </option>
+                                  );
+                                })}
                             </select>
                           </div>
                         )}

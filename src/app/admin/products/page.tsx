@@ -1942,9 +1942,16 @@ export default function AdminProductsPage() {
                     <span className="text-sm">Young & Dumb</span>
                   </label>
 
-                  {/* Base Stock (disabled when variants used) */}
+                  {/* Base Stock */}
                   <label className="block">
-                    <div className="text-xs mb-1">Stock (base, if not using variants)</div>
+                    <div className="text-xs mb-1">
+                      Stock (base)
+                      {editing.variantConfig && (
+                        <span className="text-[var(--color-muted)] ml-1">
+                          • Variant stock managed separately below
+                        </span>
+                      )}
+                    </div>
                     <input
                       className="input"
                       type="number"
@@ -1954,7 +1961,6 @@ export default function AdminProductsPage() {
                         const val = e.target.value === "" ? 0 : Number(e.target.value);
                         setEditing({ ...editing, stock: Math.max(0, val) });
                       }}
-                      disabled={!!editing.variantConfig}
                     />
                   </label>
                 </div>
