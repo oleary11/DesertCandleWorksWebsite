@@ -16,8 +16,11 @@ type SalesAnalytics = {
   totalProductRevenue: number;
   totalShippingRevenue: number;
   totalTaxCollected: number;
+  totalRefunded: number;
   totalOrders: number;
   stripeFees: number;
+  scentSales?: Array<{ name: string; units: number; revenue: number }>;
+  wickTypeSales?: Array<{ name: string; units: number; revenue: number }>;
 };
 
 type PurchaseAnalytics = {
@@ -645,6 +648,66 @@ export default function UnifiedAnalyticsPage() {
             </div>
           </div>
         </div>
+
+        {/* Scent and Wick Sales Analytics */}
+        {(salesData.scentSales && salesData.scentSales.length > 0) ||
+         (salesData.wickTypeSales && salesData.wickTypeSales.length > 0) ? (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Scent Sales */}
+            {salesData.scentSales && salesData.scentSales.length > 0 && (
+              <div className="card p-6 bg-white">
+                <h2 className="text-xl font-bold mb-4">Top Scents</h2>
+                <div className="space-y-3">
+                  {salesData.scentSales.slice(0, 5).map((scent, idx) => (
+                    <div key={idx} className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
+                      <div>
+                        <p className="font-medium">{scent.name}</p>
+                        <p className="text-xs text-[var(--color-muted)]">
+                          {scent.units} units sold
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-blue-600">
+                          ${(scent.revenue / 100).toFixed(2)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Wick Type Sales */}
+            {salesData.wickTypeSales && salesData.wickTypeSales.length > 0 && (
+              <div className="card p-6 bg-white">
+                <h2 className="text-xl font-bold mb-4">Wick Types</h2>
+                <div className="space-y-3">
+                  {salesData.wickTypeSales.map((wick, idx) => (
+                    <div key={idx} className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
+                      <div>
+                        <p className="font-medium">{wick.name}</p>
+                        <p className="text-xs text-[var(--color-muted)]">
+                          {wick.units} units sold
+                        </p>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-bold text-blue-600">
+                          ${(wick.revenue / 100).toFixed(2)}
+                        </p>
+                        <p className="text-xs text-[var(--color-muted)]">
+                          {salesData.wickTypeSales &&
+                           salesData.wickTypeSales.reduce((sum, w) => sum + w.revenue, 0) > 0
+                            ? ((wick.revenue / salesData.wickTypeSales.reduce((sum, w) => sum + w.revenue, 0)) * 100).toFixed(1)
+                            : 0}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         {/* Profitability Summary */}
         <div className="card p-6 bg-white">

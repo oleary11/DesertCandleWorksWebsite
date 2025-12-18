@@ -187,6 +187,7 @@ export async function POST(req: NextRequest) {
               productName: item.name || productInfo.slug,
               quantity,
               priceCents: itemTotalPrice,
+              ...(productInfo.variantId && { variantId: productInfo.variantId }), // Include variantId if present for refund processing
             });
 
             productSubtotalCents += itemTotalPrice;

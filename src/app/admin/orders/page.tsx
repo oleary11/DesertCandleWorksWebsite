@@ -22,13 +22,49 @@ type Order = {
     productName: string;
     quantity: number;
     priceCents: number;
+    variantId?: string; // Format: "wickType-scentId" (e.g., "standard-vanilla")
   }>;
   createdAt: string;
   completedAt?: string;
 };
 
+type Refund = {
+  id: string;
+  orderId: string;
+  amountCents: number;
+  reason: string;
+  reasonNote?: string;
+  status: string;
+  createdAt: string;
+  processedAt?: string;
+};
+
+// Helper to parse variant information from variantId
+function parseVariantInfo(variantId?: string): { wick: string; scent: string } | null {
+  if (!variantId) return null;
+
+  const parts = variantId.split('-');
+  if (parts.length < 2) return null;
+
+  const wickType = parts[0];
+  const scentId = parts.slice(1).join('-'); // Handle scents with hyphens like "ocean-breeze"
+
+  // Format wick type for display
+  const wickDisplay = wickType === 'wood' ? 'Wood Wick' : 'Standard Wick';
+
+  // Format scent for display (capitalize first letter of each word)
+  const scentDisplay = scentId
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+
+  return { wick: wickDisplay, scent: scentDisplay };
+}
+
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [refunds, setRefunds] = useState<Refund[]>([]);
+  const [refundMap, setRefundMap] = useState<Map<string, number>>(new Map());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
@@ -42,10 +78,29 @@ export default function AdminOrdersPage() {
 
   async function loadOrders() {
     try {
-      const res = await fetch("/api/admin/debug-orders");
-      if (!res.ok) throw new Error("Failed to load orders");
-      const data = await res.json();
-      setOrders(data.ordersFromGetAllOrders || []);
+      const [ordersRes, refundsRes] = await Promise.all([
+        fetch("/api/admin/debug-orders"),
+        fetch("/api/admin/refunds"),
+      ]);
+
+      if (!ordersRes.ok) throw new Error("Failed to load orders");
+
+      const ordersData = await ordersRes.json();
+      setOrders(ordersData.ordersFromGetAllOrders || []);
+
+      if (refundsRes.ok) {
+        const refundsData = await refundsRes.json();
+        setRefunds(refundsData || []);
+
+        // Build refund map (orderId -> total refunded amount)
+        const map = new Map<string, number>();
+        const completedRefunds = (refundsData || []).filter((r: Refund) => r.status === "completed");
+        for (const refund of completedRefunds) {
+          const existing = map.get(refund.orderId) || 0;
+          map.set(refund.orderId, existing + refund.amountCents);
+        }
+        setRefundMap(map);
+      }
     } catch (err) {
       setError("Failed to load orders");
       console.error(err);
@@ -332,6 +387,11 @@ export default function AdminOrdersPage() {
                           >
                             {order.status}
                           </span>
+                          {refundMap.get(order.id) && (
+                            <span className="badge text-xs bg-red-100 text-red-700">
+                              {refundMap.get(order.id) === order.totalCents ? "Fully Refunded" : "Partially Refunded"}
+                            </span>
+                          )}
                           {isManualSale(order.id) && (
                             <span className="badge text-xs bg-blue-100 text-blue-700">
                               Manual Sale
@@ -373,6 +433,11 @@ export default function AdminOrdersPage() {
                         <div className="text-xl font-bold">
                           ${(order.totalCents / 100).toFixed(2)}
                         </div>
+                        {refundMap.get(order.id) && (
+                          <div className="text-xs text-red-600">
+                            Refunded: -${(refundMap.get(order.id)! / 100).toFixed(2)}
+                          </div>
+                        )}
                         {!isManualSale(order.id) && (
                           <div className="text-xs text-amber-600">
                             {isSquareSale(order.id) ? (
@@ -420,20 +485,35 @@ export default function AdminOrdersPage() {
                     <div className="p-4 border-t border-[var(--color-line)]">
                       <h3 className="font-bold mb-2">Order Items:</h3>
                       <div className="space-y-2">
-                        {order.items.map((item, idx) => (
-                          <div
-                            key={idx}
-                            className="flex justify-between items-center text-sm"
-                          >
-                            <div>
-                              <span className="font-medium">{item.productName}</span>
-                              <span className="text-[var(--color-muted)]"> x{item.quantity}</span>
+                        {order.items.map((item, idx) => {
+                          const variantInfo = parseVariantInfo(item.variantId);
+                          return (
+                            <div
+                              key={idx}
+                              className="flex justify-between items-start text-sm"
+                            >
+                              <div className="flex-1">
+                                <div>
+                                  <span className="font-medium">{item.productName}</span>
+                                  <span className="text-[var(--color-muted)]"> x{item.quantity}</span>
+                                </div>
+                                {variantInfo && (
+                                  <div className="text-xs text-[var(--color-muted)] mt-1 flex gap-3">
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="font-medium">Wick:</span> {variantInfo.wick}
+                                    </span>
+                                    <span className="inline-flex items-center gap-1">
+                                      <span className="font-medium">Scent:</span> {variantInfo.scent}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <span className="font-medium flex-shrink-0 ml-4">
+                                ${(item.priceCents / 100).toFixed(2)}
+                              </span>
                             </div>
-                            <span className="font-medium">
-                              ${(item.priceCents / 100).toFixed(2)}
-                            </span>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
 
                       {/* Financial Breakdown */}

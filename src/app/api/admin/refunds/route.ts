@@ -86,7 +86,7 @@ export async function POST(req: NextRequest) {
       productSlug: item.productSlug,
       productName: item.productName,
       quantity: item.quantity,
-      variantId: undefined, // Will be populated from webhook metadata if available
+      variantId: (item as any).variantId || undefined, // Extract variantId from order item if present
       refundAmountCents: item.priceCents,
     }));
 
