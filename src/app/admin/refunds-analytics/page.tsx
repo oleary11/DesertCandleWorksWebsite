@@ -32,12 +32,34 @@ const REASON_LABELS: Record<string, string> = {
   other: "Other",
 };
 
+type RefundData = {
+  id: string;
+  orderId: string;
+  amountCents: number;
+  reason: string;
+  status: string;
+  items?: Array<{
+    productSlug: string;
+    productName: string;
+    quantity: number;
+    refundAmountCents: number;
+  }>;
+};
+
+type OrderData = {
+  status: string;
+};
+
+type DebugOrdersResponse = {
+  ordersFromGetAllOrders?: OrderData[];
+};
+
 export default function RefundsAnalyticsPage() {
   const [analytics, setAnalytics] = useState<RefundAnalytics | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadAnalytics();
+    void loadAnalytics();
   }, []);
 
   async function loadAnalytics() {
@@ -54,24 +76,21 @@ export default function RefundsAnalyticsPage() {
         throw new Error("Failed to load data");
       }
 
-      const refunds = await refundsRes.json();
-      const ordersData = await ordersRes.json();
-      const orders = ordersData.ordersFromGetAllOrders || [];
+      const refunds = (await refundsRes.json()) as RefundData[];
+      const ordersData = (await ordersRes.json()) as DebugOrdersResponse;
+      const orders: OrderData[] = ordersData.ordersFromGetAllOrders ?? [];
 
       // Filter completed refunds
-      const completedRefunds = refunds.filter((r: any) => r.status === "completed");
+      const completedRefunds = refunds.filter((r) => r.status === "completed");
 
       // Calculate total refunded amount
-      const totalRefundedCents = completedRefunds.reduce(
-        (sum: number, r: any) => sum + r.amountCents,
-        0
-      );
+      const totalRefundedCents = completedRefunds.reduce((sum, r) => sum + r.amountCents, 0);
 
       // Group refunds by reason
       const reasonMap = new Map<string, { count: number; totalCents: number }>();
       for (const refund of completedRefunds) {
-        const existing = reasonMap.get(refund.reason) || { count: 0, totalCents: 0 };
-        existing.count++;
+        const existing = reasonMap.get(refund.reason) ?? { count: 0, totalCents: 0 };
+        existing.count += 1;
         existing.totalCents += refund.amountCents;
         reasonMap.set(refund.reason, existing);
       }
@@ -91,17 +110,18 @@ export default function RefundsAnalyticsPage() {
       >();
 
       for (const refund of completedRefunds) {
-        if (refund.items) {
-          for (const item of refund.items) {
-            const existing = productMap.get(item.productSlug) || {
-              productName: item.productName,
-              refundCount: 0,
-              totalRefundedCents: 0,
-            };
-            existing.refundCount += item.quantity;
-            existing.totalRefundedCents += item.refundAmountCents || 0;
-            productMap.set(item.productSlug, existing);
-          }
+        if (!refund.items) continue;
+
+        for (const item of refund.items) {
+          const existing = productMap.get(item.productSlug) ?? {
+            productName: item.productName,
+            refundCount: 0,
+            totalRefundedCents: 0,
+          };
+
+          existing.refundCount += item.quantity;
+          existing.totalRefundedCents += item.refundAmountCents ?? 0;
+          productMap.set(item.productSlug, existing);
         }
       }
 
@@ -115,11 +135,9 @@ export default function RefundsAnalyticsPage() {
         .sort((a, b) => b.refundCount - a.refundCount);
 
       // Calculate refund rate
-      const completedOrders = orders.filter((o: any) => o.status === "completed");
+      const completedOrders = orders.filter((o) => o.status === "completed");
       const refundRate =
-        completedOrders.length > 0
-          ? (completedRefunds.length / completedOrders.length) * 100
-          : 0;
+        completedOrders.length > 0 ? (completedRefunds.length / completedOrders.length) * 100 : 0;
 
       // Calculate average refund amount
       const averageRefundCents =
@@ -144,9 +162,7 @@ export default function RefundsAnalyticsPage() {
     return (
       <div className="min-h-screen p-6 bg-neutral-50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-[var(--color-muted)]">
-            Loading analytics...
-          </div>
+          <div className="text-center py-12 text-[var(--color-muted)]">Loading analytics...</div>
         </div>
       </div>
     );
@@ -156,9 +172,7 @@ export default function RefundsAnalyticsPage() {
     return (
       <div className="min-h-screen p-6 bg-neutral-50">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-[var(--color-muted)]">
-            Failed to load analytics
-          </div>
+          <div className="text-center py-12 text-[var(--color-muted)]">Failed to load analytics</div>
         </div>
       </div>
     );
@@ -179,15 +193,10 @@ export default function RefundsAnalyticsPage() {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold">Refunds Analytics</h1>
-              <p className="text-[var(--color-muted)] mt-1">
-                Insights into refunds and returns
-              </p>
+              <p className="text-[var(--color-muted)] mt-1">Insights into refunds and returns</p>
             </div>
             <div className="flex gap-3">
-              <Link
-                href="/admin/refunds"
-                className="btn border border-[var(--color-line)] text-sm"
-              >
+              <Link href="/admin/refunds" className="btn border border-[var(--color-line)] text-sm">
                 Manage Refunds
               </Link>
             </div>
@@ -202,9 +211,7 @@ export default function RefundsAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                 <RefreshCw className="w-5 h-5 text-red-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
-                Total Refunds
-              </span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Total Refunds</span>
             </div>
             <p className="text-3xl font-bold">{analytics.totalRefunds}</p>
           </div>
@@ -215,9 +222,7 @@ export default function RefundsAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
                 <TrendingDown className="w-5 h-5 text-red-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
-                Total Refunded
-              </span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Total Refunded</span>
             </div>
             <p className="text-3xl font-bold text-red-600">
               ${(analytics.totalRefundedCents / 100).toFixed(2)}
@@ -230,16 +235,10 @@ export default function RefundsAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
                 <AlertTriangle className="w-5 h-5 text-amber-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
-                Refund Rate
-              </span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Refund Rate</span>
             </div>
-            <p className="text-3xl font-bold">
-              {analytics.refundRate.toFixed(1)}%
-            </p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              Of completed orders
-            </p>
+            <p className="text-3xl font-bold">{analytics.refundRate.toFixed(1)}%</p>
+            <p className="text-xs text-[var(--color-muted)] mt-1">Of completed orders</p>
           </div>
 
           {/* Average Refund */}
@@ -248,13 +247,9 @@ export default function RefundsAnalyticsPage() {
               <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
                 <Package className="w-5 h-5 text-blue-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
-                Avg Refund
-              </span>
+              <span className="text-sm font-medium text-[var(--color-muted)]">Avg Refund</span>
             </div>
-            <p className="text-3xl font-bold">
-              ${(analytics.averageRefundCents / 100).toFixed(2)}
-            </p>
+            <p className="text-3xl font-bold">${(analytics.averageRefundCents / 100).toFixed(2)}</p>
           </div>
         </div>
 
@@ -282,12 +277,10 @@ export default function RefundsAnalyticsPage() {
                       <p className="font-bold text-red-600">
                         ${(item.totalCents / 100).toFixed(2)}
                       </p>
-                      <p className="text-xs text-[var(--color-muted)]">
+                      <p className="text-xs text-[var(--color-muted)] mt-0.5">
                         {analytics.totalRefundedCents > 0
-                          ? ((item.totalCents / analytics.totalRefundedCents) * 100).toFixed(
-                              1
-                            )
-                          : 0}
+                          ? ((item.totalCents / analytics.totalRefundedCents) * 100).toFixed(1)
+                          : "0.0"}
                         %
                       </p>
                     </div>

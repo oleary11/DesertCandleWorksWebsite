@@ -11,6 +11,38 @@ function isManualSale(orderId: string): boolean {
   return orderId.startsWith("MS") || orderId.toLowerCase().startsWith("manual");
 }
 
+type OrderItem = {
+  productSlug: string;
+  productName: string;
+  quantity: number;
+  priceCents: number;
+  variantId?: string;
+};
+
+type Order = {
+  id: string;
+  status: string;
+  totalCents: number;
+  createdAt: string;
+  completedAt?: string;
+  items: OrderItem[];
+  productSubtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
+};
+
+type ResolvedProduct = {
+  slug: string;
+  alcoholType?: string;
+  materialCost?: number; // dollars
+};
+
+type Refund = {
+  orderId: string;
+  amountCents: number;
+  status: string;
+};
+
 export async function GET(req: NextRequest) {
   // Check admin auth
   const isAdmin = await isAdminAuthed();
@@ -27,20 +59,24 @@ export async function GET(req: NextRequest) {
     const compareEndDate = searchParams.get("compareEndDate");
 
     // Fetch all orders, products, and refunds
-    const [orders, products, refunds] = await Promise.all([
+    const [ordersRaw, productsRaw, refundsRaw] = await Promise.all([
       getAllOrders(),
       listResolvedProducts(),
       listRefunds(),
     ]);
+
+    const orders = ordersRaw as Order[];
+    const products = productsRaw as ResolvedProduct[];
+    const refunds = refundsRaw as Refund[];
 
     // Filter to completed orders only
     let completedOrders = orders.filter((o) => o.status === "completed");
 
     // Build refund map (orderId -> total refunded amount in cents)
     const refundMap = new Map<string, number>();
-    const completedRefunds = refunds.filter(r => r.status === "completed");
+    const completedRefunds = refunds.filter((r) => r.status === "completed");
     for (const refund of completedRefunds) {
-      const existing = refundMap.get(refund.orderId) || 0;
+      const existing = refundMap.get(refund.orderId) ?? 0;
       refundMap.set(refund.orderId, existing + refund.amountCents);
     }
 
@@ -71,7 +107,12 @@ export async function GET(req: NextRequest) {
         return included;
       });
 
-      console.log("[Analytics API] Orders after filter:", completedOrders.length, "filtered out:", beforeFilter - completedOrders.length);
+      console.log(
+        "[Analytics API] Orders after filter:",
+        completedOrders.length,
+        "filtered out:",
+        beforeFilter - completedOrders.length
+      );
     }
 
     // Helper function to calculate Stripe fees
@@ -81,7 +122,15 @@ export async function GET(req: NextRequest) {
     }
 
     // Calculate comparison period data if requested
-    let comparisonData = null;
+    let comparisonData: {
+      revenue: number;
+      netRevenue: number;
+      stripeFees: number;
+      orders: number;
+      units: number;
+      averageOrderValue: number;
+    } | null = null;
+
     if (compareStartDate && compareEndDate) {
       const compStart = new Date(compareStartDate + "T00:00:00.000Z");
       const compEnd = new Date(compareEndDate + "T23:59:59.999Z");
@@ -129,7 +178,7 @@ export async function GET(req: NextRequest) {
     let totalRefunded = 0; // Track total refunded amount
 
     for (const order of completedOrders) {
-      const refundedAmount = refundMap.get(order.id) || 0;
+      const refundedAmount = refundMap.get(order.id) ?? 0;
       const netOrderRevenue = order.totalCents - refundedAmount;
 
       totalRevenue += netOrderRevenue;
@@ -137,17 +186,17 @@ export async function GET(req: NextRequest) {
 
       // Track product revenue separately from shipping
       const productRevenue = order.productSubtotalCents ?? order.totalCents;
+
       // Proportionally reduce product revenue by refund percentage
-      const refundRatio = order.totalCents > 0 ? 1 - (refundedAmount / order.totalCents) : 1;
+      const refundRatio = order.totalCents > 0 ? 1 - refundedAmount / order.totalCents : 1;
       totalProductRevenue += productRevenue * refundRatio;
 
       // Track shipping revenue separately (handle old orders that don't have it stored)
       let shippingRevenue = order.shippingCents ?? 0;
-      if (shippingRevenue === 0 && order.productSubtotalCents) {
+      if (shippingRevenue === 0 && order.productSubtotalCents != null) {
         // For old orders, calculate shipping as: total - products - tax
         const taxAmount = order.taxCents ?? 0;
         shippingRevenue = order.totalCents - order.productSubtotalCents - taxAmount;
-        // Ensure it's not negative
         if (shippingRevenue < 0) shippingRevenue = 0;
       }
       totalShippingRevenue += shippingRevenue * refundRatio;
@@ -196,36 +245,30 @@ export async function GET(req: NextRequest) {
       const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
       const orderStripeFee = isStripeOrder ? calculateStripeFee(order.totalCents) : 0;
 
-      // Calculate refund ratio for this order
-      const refundedAmount = refundMap.get(order.id) || 0;
-      const refundRatio = order.totalCents > 0 ? 1 - (refundedAmount / order.totalCents) : 1;
+      const refundedAmount = refundMap.get(order.id) ?? 0;
+      const refundRatio = order.totalCents > 0 ? 1 - refundedAmount / order.totalCents : 1;
 
       // Calculate shipping cost (handle old orders that don't have it stored)
       let orderShippingCost = order.shippingCents ?? 0;
-      if (orderShippingCost === 0 && order.productSubtotalCents) {
-        // For old orders, calculate shipping as: total - products - tax
+      if (orderShippingCost === 0 && order.productSubtotalCents != null) {
         const taxAmount = order.taxCents ?? 0;
         orderShippingCost = order.totalCents - order.productSubtotalCents - taxAmount;
-        // Ensure it's not negative
         if (orderShippingCost < 0) orderShippingCost = 0;
       }
 
-      // Get tax amount for this order
       const orderTaxAmount = order.taxCents ?? 0;
 
       for (const item of order.items) {
         const existing = productSalesMap.get(item.productSlug);
         const product = productMap.get(item.productSlug);
 
-        // Calculate this item's share of the order's Stripe fee, shipping, and tax
-        // Divide by total items in the order (factoring in quantities)
-        // Guard against division by zero
+        // Share of order costs based on quantity
         const itemShare = orderItemCount > 0 ? item.quantity / orderItemCount : 0;
+
         const itemStripeFee = Math.round(orderStripeFee * itemShare);
         const itemShippingCost = Math.round(orderShippingCost * itemShare * refundRatio);
         const itemTaxAmount = Math.round(orderTaxAmount * itemShare * refundRatio);
 
-        // Apply refund ratio to revenue
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
         if (existing) {
@@ -234,9 +277,7 @@ export async function GET(req: NextRequest) {
           existing.stripeFees += itemStripeFee;
           existing.shippingCost += itemShippingCost;
           existing.taxAmount += itemTaxAmount;
-          if (isStripeOrder) {
-            existing.stripeRevenue += itemRevenue;
-          }
+          if (isStripeOrder) existing.stripeRevenue += itemRevenue;
         } else {
           productSalesMap.set(item.productSlug, {
             slug: item.productSlug,
@@ -244,25 +285,19 @@ export async function GET(req: NextRequest) {
             units: item.quantity,
             revenue: itemRevenue,
             stripeRevenue: isStripeOrder ? itemRevenue : 0,
-            stripeFees: itemStripeFee || 0,
-            shippingCost: itemShippingCost || 0,
-            taxAmount: itemTaxAmount || 0,
+            stripeFees: itemStripeFee,
+            shippingCost: itemShippingCost,
+            taxAmount: itemTaxAmount,
             alcoholType: product?.alcoholType,
           });
         }
       }
     }
 
-    // Sort products by revenue
-    const productSales = Array.from(productSalesMap.values()).sort(
-      (a, b) => b.revenue - a.revenue
-    );
+    const productSales = Array.from(productSalesMap.values()).sort((a, b) => b.revenue - a.revenue);
 
     // Calculate sales by alcohol type
-    const alcoholTypeSalesMap = new Map<
-      string,
-      { name: string; units: number; revenue: number }
-    >();
+    const alcoholTypeSalesMap = new Map<string, { name: string; units: number; revenue: number }>();
 
     for (const product of productSales) {
       const alcoholType = product.alcoholType || "Other";
@@ -280,79 +315,72 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Sort alcohol types by revenue
     const alcoholTypeSales = Array.from(alcoholTypeSalesMap.values()).sort(
       (a, b) => b.revenue - a.revenue
     );
 
-    // Calculate sales by scent and wick type
-    // Helper to parse variantId format: "wickType-scentId"
+    // Variant parsing: "wickType-scentId"
     function parseVariantInfo(variantId?: string): { wick: string; scent: string } | null {
       if (!variantId) return null;
-      const parts = variantId.split('-');
+      const parts = variantId.split("-");
       if (parts.length < 2) return null;
 
-      const wickType = parts[0]; // "standard" or "wood"
-      const scentId = parts.slice(1).join('-'); // Handle hyphens in scent names
-
+      const wickType = parts[0];
+      const scentId = parts.slice(1).join("-");
       return { wick: wickType, scent: scentId };
     }
 
     const scentSalesMap = new Map<string, { name: string; units: number; revenue: number }>();
     const wickTypeSalesMap = new Map<string, { name: string; units: number; revenue: number }>();
 
-    // Iterate through orders again to extract scent and wick data
     for (const order of completedOrders) {
-      const refundedAmount = refundMap.get(order.id) || 0;
-      const refundRatio = order.totalCents > 0 ? 1 - (refundedAmount / order.totalCents) : 1;
+      const refundedAmount = refundMap.get(order.id) ?? 0;
+      const refundRatio = order.totalCents > 0 ? 1 - refundedAmount / order.totalCents : 1;
 
       for (const item of order.items) {
-        const variantId = (item as any).variantId;
-        const variantInfo = parseVariantInfo(variantId);
+        const variantInfo = parseVariantInfo(item.variantId);
+        if (!variantInfo) continue;
 
-        if (variantInfo) {
-          const itemRevenue = Math.round(item.priceCents * refundRatio);
+        const itemRevenue = Math.round(item.priceCents * refundRatio);
 
-          // Track scent sales
-          const scentName = variantInfo.scent
-            .split('-')
-            .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-            .join(' ');
+        const scentName = variantInfo.scent
+          .split("-")
+          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+          .join(" ");
 
-          const existingScent = scentSalesMap.get(variantInfo.scent);
-          if (existingScent) {
-            existingScent.units += item.quantity;
-            existingScent.revenue += itemRevenue;
-          } else {
-            scentSalesMap.set(variantInfo.scent, {
-              name: scentName,
-              units: item.quantity,
-              revenue: itemRevenue,
-            });
-          }
+        const existingScent = scentSalesMap.get(variantInfo.scent);
+        if (existingScent) {
+          existingScent.units += item.quantity;
+          existingScent.revenue += itemRevenue;
+        } else {
+          scentSalesMap.set(variantInfo.scent, {
+            name: scentName,
+            units: item.quantity,
+            revenue: itemRevenue,
+          });
+        }
 
-          // Track wick type sales
-          const wickName = variantInfo.wick === 'wood' ? 'Wood Wick' : 'Standard Wick';
-          const existingWick = wickTypeSalesMap.get(variantInfo.wick);
-          if (existingWick) {
-            existingWick.units += item.quantity;
-            existingWick.revenue += itemRevenue;
-          } else {
-            wickTypeSalesMap.set(variantInfo.wick, {
-              name: wickName,
-              units: item.quantity,
-              revenue: itemRevenue,
-            });
-          }
+        const wickName = variantInfo.wick === "wood" ? "Wood Wick" : "Standard Wick";
+        const existingWick = wickTypeSalesMap.get(variantInfo.wick);
+        if (existingWick) {
+          existingWick.units += item.quantity;
+          existingWick.revenue += itemRevenue;
+        } else {
+          wickTypeSalesMap.set(variantInfo.wick, {
+            name: wickName,
+            units: item.quantity,
+            revenue: itemRevenue,
+          });
         }
       }
     }
 
-    // Sort scents and wicks by revenue
     const scentSales = Array.from(scentSalesMap.values()).sort((a, b) => b.revenue - a.revenue);
-    const wickTypeSales = Array.from(wickTypeSalesMap.values()).sort((a, b) => b.revenue - a.revenue);
+    const wickTypeSales = Array.from(wickTypeSalesMap.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
 
-    // Calculate profit margins (only for products with cost data)
+    // Profit margins (only for products with cost data)
     const profitMargins: Array<{
       slug: string;
       name: string;
@@ -366,12 +394,9 @@ export async function GET(req: NextRequest) {
     for (const productSale of productSales) {
       const product = productMap.get(productSale.slug);
       if (product?.materialCost && product.materialCost > 0) {
-        // materialCost is in dollars, convert to cents
         const costPerUnitCents = Math.round(product.materialCost * 100);
         const totalCost = costPerUnitCents * productSale.units;
 
-        // Calculate Stripe fees for this product's Stripe revenue only
-        // Manual sales don't incur Stripe fees, so we only apply fees to stripeRevenue
         const stripeOrderRatio = stripeRevenue > 0 ? totalStripeFees / stripeRevenue : 0;
         const productStripeFees = Math.round(productSale.stripeRevenue * stripeOrderRatio);
 
@@ -390,7 +415,6 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // Sort by margin percent
     profitMargins.sort((a, b) => b.marginPercent - a.marginPercent);
 
     return NextResponse.json({
@@ -412,11 +436,8 @@ export async function GET(req: NextRequest) {
       dateRange: startDate && endDate ? { startDate, endDate } : null,
       comparison: comparisonData,
     });
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("[Analytics] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to calculate analytics" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to calculate analytics" }, { status: 500 });
   }
 }
