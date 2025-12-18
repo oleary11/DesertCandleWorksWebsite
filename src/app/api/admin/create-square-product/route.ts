@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import type { CatalogObject } from "square";
+import sharp from "sharp";
 
 export const runtime = "nodejs";
 
@@ -148,35 +149,8 @@ export async function POST(req: NextRequest) {
       } satisfies CatalogObject,
     ];
 
-    // If we have images, create IMAGE objects
-    if (images && images.length > 0) {
-      const imageIds: string[] = [];
-
-      for (let i = 0; i < Math.min(images.length, 5); i++) {
-        // Square allows max 5 images per item
-        const imageUrl = images[i];
-        const imageId = `#img_${slug}_${i}`;
-
-        catalogObjects.push(
-          {
-            type: "IMAGE",
-            id: imageId,
-            imageData: {
-              url: imageUrl,
-              caption: i === 0 ? name : `${name} - Image ${i + 1}`,
-            },
-          } satisfies CatalogObject
-        );
-
-        imageIds.push(imageId);
-      }
-
-      // Link the first image to the item (narrow the union before accessing itemData)
-      const itemObj = catalogObjects[0];
-      if (itemObj.type === "ITEM" && itemObj.itemData && imageIds.length > 0) {
-        itemObj.itemData.imageIds = [imageIds[0]];
-      }
-    }
+    // NOTE: Images must be created AFTER the catalog item is created
+    // We'll create them after the batchUpsert call
 
     const response = await client.catalog.batchUpsert({
       idempotencyKey,
@@ -190,6 +164,7 @@ export async function POST(req: NextRequest) {
     console.log("[Create Square Product] Response:", response);
 
     const objects = response.objects ?? [];
+    const idMappings = response.idMappings ?? [];
 
     // Find the created item/objects (no `any`)
     const createdItem: CatalogItem | undefined = objects.find(isCatalogType("ITEM"));
@@ -201,32 +176,164 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[Create Square Product] Catalog item created:", createdItem.id);
+    console.log("[Create Square Product] ID mappings:", idMappings);
     console.log(
-      "[Create Square Product] Created variations:",
+      "[Create Square Product] Created variations from objects:",
       createdVariations.map((v) => v.id).filter(Boolean)
     );
     console.log(
       "[Create Square Product] Created images:",
-      createdImages.map((i) => i.id).filter(Boolean)
+      createdImages.map((i) => ({ id: i.id, url: i.imageData?.url }))
     );
 
-    // Build variant mapping for response
+    // Log any errors from Square about images
+    if (response.errors && response.errors.length > 0) {
+      console.error("[Create Square Product] Square returned errors:", JSON.stringify(response.errors, null, 2));
+    }
+
+    // Check if images were requested but none were created
+    if (images && images.length > 0 && createdImages.length === 0) {
+      console.error("[Create Square Product] WARNING: Images were provided but none were created by Square");
+      console.error("[Create Square Product] Requested images:", images);
+      console.error("[Create Square Product] Square response objects:", objects.map(o => ({ type: o.type, id: o.id })));
+    }
+
+    // Build variant mapping for response using idMappings
+    // Square returns variations in idMappings, not in objects array
     const variantMapping: Record<string, string> = {};
-    if (variantConfig && scents && createdVariations.length > 0) {
+    if (variantConfig && scents && idMappings.length > 0) {
       let variationIndex = 0;
 
-      // Note: Square may not guarantee order; this assumes response order matches request order.
-      // If you want this to be bulletproof, map using SKU/name matching instead.
+      // Build the mapping using idMappings
       for (const wick of variantConfig.wickTypes) {
         for (const scent of scents) {
           const variantKey = `${wick.id}-${scent.id}`;
-          const squareVariationId = createdVariations[variationIndex]?.id;
-          if (squareVariationId) {
-            variantMapping[variantKey] = squareVariationId;
+          const clientObjectId = `#var_${slug}_${variantKey}`;
+
+          // Find the mapping for this client ID
+          const mapping = idMappings.find(m => m.clientObjectId === clientObjectId);
+          if (mapping?.objectId) {
+            variantMapping[variantKey] = mapping.objectId;
+            console.log(`[Create Square Product] Mapped ${variantKey} -> ${mapping.objectId}`);
+          } else {
+            console.warn(`[Create Square Product] No mapping found for ${clientObjectId}`);
           }
+
           variationIndex++;
         }
       }
+    }
+
+    console.log("[Create Square Product] Final variant mapping:", variantMapping);
+
+    // Now upload images using Square's REST API directly
+    // Note: The Square SDK doesn't fully support image uploads via the Node SDK,
+    // so we use the REST API directly with multipart/form-data
+    const createdImageIds: string[] = [];
+    if (images && images.length > 0) {
+      console.log("[Create Square Product] Uploading images to Square");
+
+      const environment = process.env.SQUARE_ENVIRONMENT === "production" ? "production" : "sandbox";
+      const baseUrl = environment === "production"
+        ? "https://connect.squareup.com"
+        : "https://connect.squareupsandbox.com";
+
+      for (let i = 0; i < Math.min(images.length, 5); i++) {
+        const imageUrl = images[i];
+
+        console.log(`[Create Square Product] Processing image ${i}: ${imageUrl}`);
+
+        // Validate that the URL is publicly accessible (not localhost)
+        if (imageUrl.includes('localhost') || imageUrl.includes('127.0.0.1')) {
+          console.warn(`[Create Square Product] Warning: Skipping localhost image: ${imageUrl}`);
+          continue;
+        }
+
+        try {
+          // Fetch the image from the URL
+          const imageResponse = await fetch(imageUrl);
+          if (!imageResponse.ok) {
+            throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+          }
+
+          const imageBuffer = await imageResponse.arrayBuffer();
+          const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+
+          let imageBlob: Blob;
+          let fileName: string;
+
+          // Convert WebP to JPEG using sharp (Square doesn't support WebP)
+          if (contentType === 'image/webp') {
+            console.log(`[Create Square Product] Converting WebP image ${i} to JPEG for Square compatibility`);
+            try {
+              const convertedBuffer = await sharp(Buffer.from(imageBuffer))
+                .jpeg({ quality: 85, mozjpeg: true })
+                .toBuffer();
+              imageBlob = new Blob([new Uint8Array(convertedBuffer)], { type: 'image/jpeg' });
+              fileName = `image-${i}.jpg`;
+            } catch (conversionError) {
+              console.error(`[Create Square Product] Failed to convert WebP image ${i}:`, conversionError);
+              continue;
+            }
+          } else if (contentType === 'image/png' || contentType === 'image/x-png') {
+            imageBlob = new Blob([imageBuffer], { type: 'image/png' });
+            fileName = `image-${i}.png`;
+          } else if (contentType === 'image/gif') {
+            imageBlob = new Blob([imageBuffer], { type: 'image/gif' });
+            fileName = `image-${i}.gif`;
+          } else {
+            // Default to JPEG
+            imageBlob = new Blob([imageBuffer], { type: 'image/jpeg' });
+            fileName = `image-${i}.jpg`;
+          }
+
+          // Create form data with image file and metadata as separate parts
+          const formData = new FormData();
+
+          // Add the request metadata as a JSON part
+          const request = {
+            idempotency_key: `${idempotencyKey}-img-${i}`,
+            object_id: createdItem.id,
+            image: {
+              type: "IMAGE",
+              id: `#temp_image_${i}`,
+              image_data: {
+                caption: i === 0 ? name : `${name} - Image ${i + 1}`,
+              },
+            },
+          };
+
+          formData.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }));
+          formData.append('image_file', imageBlob, fileName);
+
+          // Upload to Square REST API
+          const uploadResponse = await fetch(
+            `${baseUrl}/v2/catalog/images`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Square-Version': '2024-12-18',
+              },
+              body: formData,
+            }
+          );
+
+          const uploadResult = await uploadResponse.json();
+
+          if (uploadResponse.ok && uploadResult.image?.id) {
+            createdImageIds.push(uploadResult.image.id);
+            console.log(`[Create Square Product] Uploaded image ${i}: ${uploadResult.image.id}`);
+          } else {
+            console.error(`[Create Square Product] Failed to upload image ${i}:`, uploadResult);
+          }
+        } catch (imageError) {
+          console.error(`[Create Square Product] Failed to upload image ${i}:`, imageError);
+          // Continue with other images even if one fails
+        }
+      }
+
+      console.log(`[Create Square Product] Successfully uploaded ${createdImageIds.length} images`);
     }
 
     return NextResponse.json({
@@ -234,9 +341,9 @@ export async function POST(req: NextRequest) {
       catalogItemId: createdItem.id,
       variationCount: createdVariations.length,
       variantMapping, // Maps website variantKey (e.g., "standard-vanilla") to Square variation ID
-      imageCount: createdImages.length,
+      imageCount: createdImageIds.length,
       price: priceInCents,
-      message: `Square catalog item created successfully with ${createdVariations.length} variations and ${createdImages.length} images`,
+      message: `Square catalog item created successfully with ${createdVariations.length} variations and ${createdImageIds.length} images`,
     });
   } catch (error) {
     console.error("[Create Square Product] Error:", error);

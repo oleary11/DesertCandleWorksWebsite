@@ -19,8 +19,14 @@ export async function POST(req: NextRequest) {
   }
 
   const accessToken = process.env.SQUARE_ACCESS_TOKEN;
+  const locationId = process.env.SQUARE_LOCATION_ID;
+
   if (!accessToken) {
     return NextResponse.json({ error: "Square not configured" }, { status: 500 });
+  }
+
+  if (!locationId) {
+    return NextResponse.json({ error: "Square location ID not configured. Please set SQUARE_LOCATION_ID in your environment variables." }, { status: 500 });
   }
 
   try {
@@ -56,11 +62,22 @@ export async function POST(req: NextRequest) {
     let errorCount = 0;
 
     for (const product of productsToSync) {
+      console.log(`[Sync Square Stock] Processing ${product.slug}:`, {
+        hasSquareCatalogId: !!product.squareCatalogId,
+        hasSquareVariantMapping: !!product.squareVariantMapping,
+        mappingKeys: product.squareVariantMapping ? Object.keys(product.squareVariantMapping).length : 0,
+        hasVariantConfig: !!product.variantConfig,
+      });
+
       if (!product.squareVariantMapping || !product.squareCatalogId) {
+        const error = !product.squareCatalogId
+          ? "Missing squareCatalogId"
+          : "Missing squareVariantMapping";
+        console.error(`[Sync Square Stock] ${product.slug}: ${error}`);
         results.push({
           productSlug: product.slug,
           success: false,
-          error: "No Square mapping found",
+          error,
         });
         errorCount++;
         continue;
@@ -72,13 +89,18 @@ export async function POST(req: NextRequest) {
 
         if (product.variantConfig) {
           // Product has variants - sync each variant's stock
+          console.log(`[Sync Square Stock] ${product.slug}: Has variantConfig with ${Object.keys(product.variantConfig.variantData).length} variants`);
+
           for (const [websiteVariantId, squareVariationId] of Object.entries(product.squareVariantMapping)) {
             const variantStock = product.variantConfig.variantData[websiteVariantId]?.stock ?? 0;
+
+            console.log(`[Sync Square Stock] ${product.slug}: Variant ${websiteVariantId} -> Square ${squareVariationId} (stock: ${variantStock})`);
 
             changes.push({
               type: InventoryChangeType.PhysicalCount,
               physicalCount: {
                 catalogObjectId: squareVariationId,
+                locationId: locationId,
                 state: InventoryState.InStock,
                 quantity: String(variantStock),
                 occurredAt: new Date().toISOString(),
@@ -87,13 +109,17 @@ export async function POST(req: NextRequest) {
           }
         } else {
           // Single product - sync base stock
+          console.log(`[Sync Square Stock] ${product.slug}: No variantConfig, using base stock (${product.stock})`);
+
           // Get the first (and should be only) variation ID
           const variationId = Object.values(product.squareVariantMapping)[0];
           if (variationId) {
+            console.log(`[Sync Square Stock] ${product.slug}: Using variation ID ${variationId}`);
             changes.push({
               type: InventoryChangeType.PhysicalCount,
               physicalCount: {
                 catalogObjectId: variationId,
+                locationId: locationId,
                 state: InventoryState.InStock,
                 quantity: String(product.stock),
                 occurredAt: new Date().toISOString(),
@@ -103,6 +129,7 @@ export async function POST(req: NextRequest) {
         }
 
         if (changes.length === 0) {
+          console.error(`[Sync Square Stock] ${product.slug}: No variations to sync`);
           results.push({
             productSlug: product.slug,
             success: false,
@@ -112,13 +139,15 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        console.log(`[Sync Square Stock] ${product.slug}: Submitting ${changes.length} inventory changes to Square`);
+
         // Submit inventory changes to Square
-        await client.inventory.batchCreateChanges({
+        const batchResult = await client.inventory.batchCreateChanges({
           idempotencyKey: `sync-${product.slug}-${Date.now()}`,
           changes,
         });
 
-        console.log(`[Sync Square Stock] Synced ${changes.length} variations for ${product.slug}`);
+        console.log(`[Sync Square Stock] ${product.slug}: Square response:`, JSON.stringify(batchResult, null, 2));
 
         results.push({
           productSlug: product.slug,
@@ -128,10 +157,13 @@ export async function POST(req: NextRequest) {
         successCount++;
       } catch (error) {
         console.error(`[Sync Square Stock] Error syncing ${product.slug}:`, error);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error(`[Sync Square Stock] Error details:`, error);
+
         results.push({
           productSlug: product.slug,
           success: false,
-          error: error instanceof Error ? error.message : String(error),
+          error: errorMessage,
         });
         errorCount++;
       }

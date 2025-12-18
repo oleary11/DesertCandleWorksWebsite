@@ -857,9 +857,24 @@ export default function AdminProductsPage() {
             onClick={async () => {
               if (saving) return;
 
+              // Debug: Log all products with Square info
+              console.log("[Sync All] Total products:", merged.length);
+              const productsWithCatalogId = merged.filter(p => p.squareCatalogId);
+              const productsWithMapping = merged.filter(p => p.squareVariantMapping);
               const squareProducts = merged.filter(p => p.squareCatalogId && p.squareVariantMapping);
+
+              console.log("[Sync All] Products with squareCatalogId:", productsWithCatalogId.length,
+                productsWithCatalogId.map(p => ({ slug: p.slug, id: p.squareCatalogId })));
+              console.log("[Sync All] Products with squareVariantMapping:", productsWithMapping.length,
+                productsWithMapping.map(p => ({ slug: p.slug, keys: Object.keys(p.squareVariantMapping || {}).length })));
+              console.log("[Sync All] Products with both:", squareProducts.length,
+                squareProducts.map(p => ({ slug: p.slug, id: p.squareCatalogId, mappings: Object.keys(p.squareVariantMapping || {}).length })));
+
               if (squareProducts.length === 0) {
-                await showAlert("No products are connected to Square", "Info");
+                await showAlert(
+                  `No products are connected to Square.\n\nProducts with catalog ID: ${productsWithCatalogId.length}\nProducts with variant mapping: ${productsWithMapping.length}`,
+                  "Info"
+                );
                 return;
               }
 
@@ -884,8 +899,15 @@ export default function AdminProductsPage() {
                 }
 
                 const data = await res.json();
+
+                // Show detailed results
+                const errorDetails = data.results
+                  ?.filter((r: any) => !r.success)
+                  .map((r: any) => `${r.productSlug}: ${r.error}`)
+                  .join('\n') || '';
+
                 await showAlert(
-                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}`,
+                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}${errorDetails ? '\n\nError details:\n' + errorDetails : ''}`,
                   "Sync Complete"
                 );
               } catch (error) {
