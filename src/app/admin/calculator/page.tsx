@@ -179,6 +179,7 @@ function ComboBox<TValue extends string>(props: {
   onChange: (value: TValue) => void;
   emptyMessage?: string;
   className?: string;
+  alwaysShowItem?: ComboItem<TValue>; // Item that always appears at bottom
 }) {
   const {
     id,
@@ -189,6 +190,7 @@ function ComboBox<TValue extends string>(props: {
     onChange,
     emptyMessage = "No results.",
     className = "",
+    alwaysShowItem,
   } = props;
 
   const rootRef = useRef<HTMLDivElement | null>(null);
@@ -323,52 +325,93 @@ function ComboBox<TValue extends string>(props: {
             className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
           >
             <div className="max-h-72 overflow-y-auto overscroll-contain">
-              {filtered.length === 0 ? (
+              {filtered.length === 0 && !alwaysShowItem ? (
                 <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
                   {emptyMessage}
                 </div>
               ) : (
-                filtered.map((item, idx) => {
-                  const isActive = idx === activeIndex;
-                  const isSelected = item.value === value;
+                <>
+                  {filtered.length === 0 && alwaysShowItem && (
+                    <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                      {emptyMessage}
+                    </div>
+                  )}
 
-                  return (
+                  {filtered.map((item, idx) => {
+                    const isActive = idx === activeIndex;
+                    const isSelected = item.value === value;
+
+                    return (
+                      <button
+                        key={`${item.value}-${idx}`}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        disabled={item.disabled}
+                        className={[
+                          "w-full text-left px-4 py-3",
+                          "transition-colors",
+                          item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                          isActive ? "bg-amber-50" : "bg-white",
+                          "hover:bg-amber-50",
+                        ].join(" ")}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => commitSelection(idx)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.label}
+                            </div>
+                            {item.sublabel ? (
+                              <div className="text-xs text-[var(--color-muted)] truncate mt-0.5">
+                                {item.sublabel}
+                              </div>
+                            ) : null}
+                          </div>
+                          {isSelected ? (
+                            <div className="text-xs font-semibold text-green-700 mt-0.5">
+                              Selected
+                            </div>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+
+                  {/* Always show this item at the bottom */}
+                  {alwaysShowItem && (
                     <button
-                      key={`${item.value}-${idx}`}
                       type="button"
                       role="option"
-                      aria-selected={isSelected}
-                      disabled={item.disabled}
                       className={[
                         "w-full text-left px-4 py-3",
-                        "transition-colors",
-                        item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                        isActive ? "bg-amber-50" : "bg-white",
-                        "hover:bg-amber-50",
+                        "border-t-2 border-[var(--color-line)]",
+                        "transition-colors cursor-pointer",
+                        "bg-blue-50 hover:bg-blue-100",
+                        "font-medium text-blue-700",
                       ].join(" ")}
-                      onMouseEnter={() => setActiveIndex(idx)}
-                      onClick={() => commitSelection(idx)}
+                      onClick={() => {
+                        onChange(alwaysShowItem.value);
+                        setOpen(false);
+                        setQuery("");
+                      }}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <div className="text-sm font-medium truncate">
-                            {item.label}
+                            {alwaysShowItem.label}
                           </div>
-                          {item.sublabel ? (
-                            <div className="text-xs text-[var(--color-muted)] truncate mt-0.5">
-                              {item.sublabel}
+                          {alwaysShowItem.sublabel ? (
+                            <div className="text-xs text-blue-600 truncate mt-0.5">
+                              {alwaysShowItem.sublabel}
                             </div>
                           ) : null}
                         </div>
-                        {isSelected ? (
-                          <div className="text-xs font-semibold text-green-700 mt-0.5">
-                            Selected
-                          </div>
-                        ) : null}
                       </div>
                     </button>
-                  );
-                })
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -806,15 +849,16 @@ export default function CalculatorPage() {
           c.supplier ? ` • ${c.supplier}` : ""
         } • $${c.costPerUnit.toFixed(2)}`,
       })),
-      {
-        value: "__add__",
-        label: "+ Add Container…",
-        sublabel: "Jump to Containers tab",
-      },
     ];
 
     return base;
   }, [containers]);
+
+  const addContainerItem: ComboItem<string> = {
+    value: "__add__",
+    label: "+ Add Container",
+    sublabel: "Jump to Containers tab",
+  };
 
   const scentItems = useMemo(() => {
     return scents.map((s) => ({
@@ -967,6 +1011,7 @@ export default function CalculatorPage() {
                   value={selectedContainerId}
                   items={containerItems}
                   emptyMessage="No containers match your search."
+                  alwaysShowItem={addContainerItem}
                   onChange={(val) => {
                     setWickCounts({});
                     if (val === "__add__") {

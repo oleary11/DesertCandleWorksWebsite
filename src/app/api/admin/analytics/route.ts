@@ -380,6 +380,44 @@ export async function GET(req: NextRequest) {
       (a, b) => b.revenue - a.revenue
     );
 
+    // Calculate revenue by payment source
+    const paymentSourceSalesMap = new Map<string, { source: string; revenue: number; orders: number; units: number }>();
+
+    for (const order of completedOrders) {
+      const refundedAmount = refundMap.get(order.id) ?? 0;
+      const netOrderRevenue = order.totalCents - refundedAmount;
+      const orderUnits = order.items.reduce((sum, item) => sum + item.quantity, 0);
+
+      let source = "Stripe"; // Default to Stripe for online orders
+
+      // Detect Square orders (Square order IDs typically start with a specific pattern)
+      if (order.id.startsWith("sq_") || order.id.match(/^[A-Z0-9]{22}$/)) {
+        source = "Square";
+      }
+      // Detect manual sales
+      else if (isManualSale(order.id)) {
+        source = "Manual";
+      }
+
+      const existing = paymentSourceSalesMap.get(source);
+      if (existing) {
+        existing.revenue += netOrderRevenue;
+        existing.orders += 1;
+        existing.units += orderUnits;
+      } else {
+        paymentSourceSalesMap.set(source, {
+          source,
+          revenue: netOrderRevenue,
+          orders: 1,
+          units: orderUnits,
+        });
+      }
+    }
+
+    const paymentSourceSales = Array.from(paymentSourceSalesMap.values()).sort(
+      (a, b) => b.revenue - a.revenue
+    );
+
     // Profit margins (only for products with cost data)
     const profitMargins: Array<{
       slug: string;
@@ -432,6 +470,7 @@ export async function GET(req: NextRequest) {
       alcoholTypeSales,
       scentSales,
       wickTypeSales,
+      paymentSourceSales,
       profitMargins,
       dateRange: startDate && endDate ? { startDate, endDate } : null,
       comparison: comparisonData,

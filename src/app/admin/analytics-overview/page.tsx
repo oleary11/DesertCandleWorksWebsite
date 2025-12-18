@@ -21,6 +21,7 @@ type SalesAnalytics = {
   stripeFees: number;
   scentSales?: Array<{ name: string; units: number; revenue: number }>;
   wickTypeSales?: Array<{ name: string; units: number; revenue: number }>;
+  paymentSourceSales?: Array<{ source: string; revenue: number; orders: number; units: number }>;
 };
 
 type PurchaseAnalytics = {
@@ -648,6 +649,53 @@ export default function UnifiedAnalyticsPage() {
             </div>
           </div>
         </div>
+
+        {/* Payment Source Analytics */}
+        {salesData.paymentSourceSales && salesData.paymentSourceSales.length > 0 && (
+          <div className="card p-6 bg-white mb-8">
+            <div className="flex items-center gap-2 mb-4">
+              <Receipt className="w-5 h-5 text-[var(--color-accent)]" />
+              <h2 className="text-xl font-bold">Revenue by Payment Source</h2>
+            </div>
+            <p className="text-sm text-[var(--color-muted)] mb-4">
+              Breakdown of revenue by payment method (Stripe, Square, Manual sales)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {salesData.paymentSourceSales.map((source) => {
+                const percentage = salesData.totalRevenue > 0
+                  ? (source.revenue / salesData.totalRevenue) * 100
+                  : 0;
+
+                return (
+                  <div key={source.source} className="p-5 rounded-lg border border-[var(--color-line)] bg-neutral-50">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="font-semibold text-lg">{source.source}</h3>
+                      <span className="text-sm font-medium text-[var(--color-muted)]">
+                        {percentage.toFixed(1)}%
+                      </span>
+                    </div>
+                    <p className="text-3xl font-bold text-green-600 mb-2">
+                      ${(source.revenue / 100).toFixed(2)}
+                    </p>
+                    <div className="text-xs text-[var(--color-muted)] space-y-1">
+                      <p>{source.orders} order{source.orders !== 1 ? 's' : ''}</p>
+                      <p>{source.units} unit{source.units !== 1 ? 's' : ''} sold</p>
+                      <p>
+                        Avg: ${source.orders > 0 ? (source.revenue / source.orders / 100).toFixed(2) : '0.00'} per order
+                      </p>
+                    </div>
+                    <div className="w-full bg-neutral-200 rounded-full h-2 mt-3">
+                      <div
+                        className="bg-green-500 h-2 rounded-full transition-all"
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Scent and Wick Sales Analytics */}
         {(salesData.scentSales && salesData.scentSales.length > 0) ||

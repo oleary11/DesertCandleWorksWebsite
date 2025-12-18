@@ -75,6 +75,9 @@ type AnalyticsData = {
     units: number;
     revenue: number;
   }>;
+  scentSales?: Array<{ name: string; units: number; revenue: number }>;
+  wickTypeSales?: Array<{ name: string; units: number; revenue: number }>;
+  paymentSourceSales?: Array<{ source: string; revenue: number; orders: number; units: number }>;
   profitMargins: ProfitMargin[];
   dateRange?: { startDate: string; endDate: string } | null;
   comparison?: ComparisonData | null;
@@ -655,6 +658,128 @@ export default function AdminAnalyticsPage() {
             </table>
           </div>
         </div>
+
+        {/* Payment Source Analytics */}
+        {analytics.paymentSourceSales && analytics.paymentSourceSales.length > 0 && (
+          <div className="card p-6 bg-white mb-8">
+            <h2 className="text-xl font-bold mb-4">Revenue by Payment Source</h2>
+            <p className="text-sm text-[var(--color-muted)] mb-4">
+              Breakdown of revenue by payment method (Stripe, Square, Manual sales)
+            </p>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-line)]">
+                    <th className="text-left py-3 text-sm font-semibold">Payment Source</th>
+                    <th className="text-right py-3 text-sm font-semibold">Orders</th>
+                    <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
+                    <th className="text-right py-3 text-sm font-semibold">Revenue</th>
+                    <th className="text-right py-3 text-sm font-semibold">Avg Order Value</th>
+                    <th className="text-right py-3 text-sm font-semibold">% of Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {analytics.paymentSourceSales.map((source) => {
+                    const percentage = analytics.totalRevenue > 0
+                      ? (source.revenue / analytics.totalRevenue) * 100
+                      : 0;
+                    const avgOrderValue = source.orders > 0 ? source.revenue / source.orders : 0;
+
+                    return (
+                      <tr key={source.source} className="border-b border-[var(--color-line)]">
+                        <td className="py-3 text-sm font-medium">{source.source}</td>
+                        <td className="py-3 text-sm text-right">{source.orders}</td>
+                        <td className="py-3 text-sm text-right">{source.units}</td>
+                        <td className="py-3 text-sm text-right font-medium text-green-600">
+                          ${(source.revenue / 100).toFixed(2)}
+                        </td>
+                        <td className="py-3 text-sm text-right text-[var(--color-muted)]">
+                          ${(avgOrderValue / 100).toFixed(2)}
+                        </td>
+                        <td className="py-3 text-sm text-right text-[var(--color-muted)]">
+                          {percentage.toFixed(1)}%
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* Scent and Wick Analytics */}
+        {((analytics.scentSales && analytics.scentSales.length > 0) ||
+          (analytics.wickTypeSales && analytics.wickTypeSales.length > 0)) && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+            {/* Scent Sales */}
+            {analytics.scentSales && analytics.scentSales.length > 0 && (
+              <div className="card p-6 bg-white">
+                <h2 className="text-xl font-bold mb-4">Sales by Scent</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[var(--color-line)]">
+                        <th className="text-left py-3 text-sm font-semibold">Scent</th>
+                        <th className="text-right py-3 text-sm font-semibold">Units</th>
+                        <th className="text-right py-3 text-sm font-semibold">Revenue</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.scentSales.map((scent, idx) => (
+                        <tr key={idx} className="border-b border-[var(--color-line)]">
+                          <td className="py-3 text-sm font-medium">{scent.name}</td>
+                          <td className="py-3 text-sm text-right">{scent.units}</td>
+                          <td className="py-3 text-sm text-right font-medium text-blue-600">
+                            ${(scent.revenue / 100).toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Wick Type Sales */}
+            {analytics.wickTypeSales && analytics.wickTypeSales.length > 0 && (
+              <div className="card p-6 bg-white">
+                <h2 className="text-xl font-bold mb-4">Sales by Wick Type</h2>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[var(--color-line)]">
+                        <th className="text-left py-3 text-sm font-semibold">Wick Type</th>
+                        <th className="text-right py-3 text-sm font-semibold">Units</th>
+                        <th className="text-right py-3 text-sm font-semibold">Revenue</th>
+                        <th className="text-right py-3 text-sm font-semibold">% of Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {analytics.wickTypeSales.map((wick, idx) => {
+                        const totalWickRevenue = analytics.wickTypeSales?.reduce((sum, w) => sum + w.revenue, 0) || 0;
+                        const percentage = totalWickRevenue > 0 ? (wick.revenue / totalWickRevenue) * 100 : 0;
+
+                        return (
+                          <tr key={idx} className="border-b border-[var(--color-line)]">
+                            <td className="py-3 text-sm font-medium">{wick.name}</td>
+                            <td className="py-3 text-sm text-right">{wick.units}</td>
+                            <td className="py-3 text-sm text-right font-medium text-blue-600">
+                              ${(wick.revenue / 100).toFixed(2)}
+                            </td>
+                            <td className="py-3 text-sm text-right text-[var(--color-muted)]">
+                              {percentage.toFixed(1)}%
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Profit Margins */}
         {analytics.profitMargins.length > 0 && (
