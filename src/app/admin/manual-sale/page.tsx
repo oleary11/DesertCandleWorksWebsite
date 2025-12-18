@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, DollarSign } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, DollarSign, Search } from "lucide-react";
 
 type Product = {
   slug: string;
   name: string;
   price: number;
   stock: number;
+  sku: string;
   variantConfig?: {
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
@@ -23,6 +24,224 @@ type SaleItem = {
   priceCents: number;
   variantId?: string;
 };
+
+/* ---------- Searchable ComboBox (filters as you type, mobile-friendly) ---------- */
+type ComboItem<TValue extends string> = {
+  value: TValue;
+  label: string;
+  sublabel?: string;
+  disabled?: boolean;
+};
+
+function ComboBox<TValue extends string>(props: {
+  id: string;
+  label: string;
+  placeholder?: string;
+  value: TValue;
+  items: Array<ComboItem<TValue>>;
+  onChange: (value: TValue) => void;
+  emptyMessage?: string;
+  className?: string;
+}) {
+  const {
+    id,
+    label,
+    placeholder = "Search...",
+    value,
+    items,
+    onChange,
+    emptyMessage = "No results.",
+    className = "",
+  } = props;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const selected = items.find((i) => i.value === value);
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState(""); // ONLY the search query
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+
+    return items.filter((i) => {
+      const hay = `${i.label} ${i.sublabel || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [items, query]);
+
+  useEffect(() => {
+    if (activeIndex >= filtered.length) setActiveIndex(0);
+  }, [filtered.length, activeIndex]);
+
+  // Close on outside click / escape
+  useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      const el = rootRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setOpen(false);
+    }
+    function onDocKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onDocKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onDocKeyDown);
+    };
+  }, []);
+
+  function openAndFocus({ clearSearch }: { clearSearch: boolean }) {
+    setOpen(true);
+    setActiveIndex(0);
+    if (clearSearch) setQuery(""); // key fix: start with empty search
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function commitSelection(idx: number) {
+    const item = filtered[idx];
+    if (!item || item.disabled) return;
+    onChange(item.value);
+    setOpen(false);
+    setQuery(""); // after selecting, clear search so next open starts clean
+  }
+
+  // Show selected label when closed, but NEVER force it into the query
+  const inputDisplayValue = open ? query : selected?.label || "";
+
+  return (
+    <div ref={rootRef} className={`w-full ${className}`}>
+      <label htmlFor={id} className="block text-sm font-medium mb-1">
+        {label}
+      </label>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+
+        <input
+          id={id}
+          ref={inputRef}
+          className="input w-full !pl-10 !pr-10" // key fix: important padding
+          placeholder={open ? placeholder : selected ? "" : placeholder}
+          value={inputDisplayValue}
+          onFocus={() => openAndFocus({ clearSearch: true })}
+          onClick={() => openAndFocus({ clearSearch: true })}
+          onChange={(e) => {
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+            setActiveIndex(0);
+          }}
+          onKeyDown={(e) => {
+            if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+              e.preventDefault();
+              openAndFocus({ clearSearch: true });
+              return;
+            }
+
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setOpen(true);
+              setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setOpen(true);
+              setActiveIndex((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              if (!open) return;
+              commitSelection(activeIndex);
+            }
+          }}
+          aria-expanded={open}
+          aria-controls={`${id}-listbox`}
+          aria-autocomplete="list"
+          autoComplete="off"
+          inputMode="search"
+        />
+
+        {/* Clear search (only when open + has query) */}
+        {open && query && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-neutral-100"
+            onClick={() => {
+              setQuery("");
+              setActiveIndex(0);
+              inputRef.current?.focus();
+            }}
+            aria-label="Clear search"
+          >
+            <span className="text-[var(--color-muted)]">✕</span>
+          </button>
+        )}
+
+        {open && (
+          <div
+            id={`${id}-listbox`}
+            role="listbox"
+            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
+          >
+            <div className="max-h-72 overflow-y-auto overscroll-contain">
+              {filtered.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                  {emptyMessage}
+                </div>
+              ) : (
+                <>
+                  {filtered.map((item, idx) => {
+                    const isActive = idx === activeIndex;
+                    const isSelected = item.value === value;
+
+                    return (
+                      <button
+                        key={`${item.value}-${idx}`}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        disabled={item.disabled}
+                        className={[
+                          "w-full text-left px-4 py-3",
+                          "transition-colors",
+                          item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                          isActive ? "bg-amber-50" : "bg-white",
+                          "hover:bg-amber-50",
+                        ].join(" ")}
+                        onMouseEnter={() => setActiveIndex(idx)}
+                        onClick={() => commitSelection(idx)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="text-sm font-medium truncate">
+                              {item.label}
+                            </div>
+                            {item.sublabel ? (
+                              <div className="text-xs text-[var(--color-muted)] truncate mt-0.5">
+                                {item.sublabel}
+                              </div>
+                            ) : null}
+                          </div>
+                          {isSelected ? (
+                            <div className="text-xs font-semibold text-green-700 mt-0.5">
+                              Selected
+                            </div>
+                          ) : null}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function ManualSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -91,6 +310,36 @@ export default function ManualSalePage() {
       });
     }
   }
+
+  // Helper function to calculate total stock for a product (base + all variants)
+  function calculateTotalStock(product: Product): number {
+    let total = product.stock || 0;
+    if (product.variantConfig?.variantData) {
+      for (const variant of Object.values(product.variantConfig.variantData)) {
+        total += variant.stock || 0;
+      }
+    }
+    return total;
+  }
+
+  // Build product items for ComboBox
+  const productItems = useMemo(() => {
+    return [
+      {
+        value: "",
+        label: "Select product...",
+        sublabel: "Choose a product to add",
+      },
+      ...products.map((p) => {
+        const totalStock = calculateTotalStock(p);
+        return {
+          value: p.slug,
+          label: p.name,
+          sublabel: `Stock: ${totalStock} | Price: $${p.price.toFixed(2)} | SKU: ${p.sku}`,
+        };
+      }),
+    ];
+  }, [products]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -232,20 +481,15 @@ export default function ManualSalePage() {
                       <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                         {/* Product Select */}
                         <div className="md:col-span-2">
-                          <label className="block text-sm font-medium mb-1">Product</label>
-                          <select
-                            className="input w-full"
+                          <ComboBox
+                            id={`product-${item.id}`}
+                            label="Product"
+                            placeholder="Search products..."
                             value={item.productSlug}
-                            onChange={(e) => handleProductChange(item.id, e.target.value)}
-                            required
-                          >
-                            <option value="">Select product...</option>
-                            {products.map((p) => (
-                              <option key={p.slug} value={p.slug}>
-                                {p.name} (Stock: {p.stock})
-                              </option>
-                            ))}
-                          </select>
+                            items={productItems}
+                            onChange={(val) => handleProductChange(item.id, val)}
+                            emptyMessage="No products match your search."
+                          />
                         </div>
 
                         {/* Variant Select (if applicable) */}
@@ -257,12 +501,20 @@ export default function ManualSalePage() {
                               value={item.variantId || ""}
                               onChange={(e) => updateItem(item.id, { variantId: e.target.value || undefined })}
                             >
-                              <option value="">Base product</option>
-                              {selectedProduct?.variantConfig?.wickTypes.map((wt) => (
-                                <option key={wt.id} value={wt.id}>
-                                  {wt.name}
-                                </option>
-                              ))}
+                              <option value="">Base product (Stock: {selectedProduct?.stock || 0})</option>
+                              {selectedProduct?.variantConfig?.wickTypes.map((wt) => {
+                                // Find all variant IDs that match this wick type
+                                const variantStocks = Object.entries(selectedProduct.variantConfig?.variantData || {})
+                                  .filter(([variantId]) => variantId.startsWith(`${wt.id}-`))
+                                  .map(([_, data]) => data.stock || 0);
+                                const totalVariantStock = variantStocks.reduce((sum, stock) => sum + stock, 0);
+
+                                return (
+                                  <option key={wt.id} value={wt.id}>
+                                    {wt.name} (Stock: {totalVariantStock})
+                                  </option>
+                                );
+                              })}
                             </select>
                           </div>
                         )}
