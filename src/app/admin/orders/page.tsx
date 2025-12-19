@@ -24,6 +24,16 @@ type Order = {
     priceCents: number;
     variantId?: string; // Format: "wickType-scentId" (e.g., "standard-vanilla")
   }>;
+  shippingAddress?: {
+    name?: string;
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  phone?: string;
   createdAt: string;
   completedAt?: string;
 };
@@ -572,6 +582,40 @@ export default function AdminOrdersPage() {
                           </div>
                         )}
                       </div>
+
+                      {/* Shipping Address */}
+                      {order.shippingAddress && (
+                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                          <h4 className="font-bold mb-2 text-sm">Shipping Address:</h4>
+                          <div className="text-sm space-y-1">
+                            {order.shippingAddress.name && (
+                              <div className="font-medium">{order.shippingAddress.name}</div>
+                            )}
+                            {order.shippingAddress.line1 && (
+                              <div>{order.shippingAddress.line1}</div>
+                            )}
+                            {order.shippingAddress.line2 && (
+                              <div>{order.shippingAddress.line2}</div>
+                            )}
+                            {(order.shippingAddress.city || order.shippingAddress.state || order.shippingAddress.postalCode) && (
+                              <div>
+                                {order.shippingAddress.city && `${order.shippingAddress.city}, `}
+                                {order.shippingAddress.state && `${order.shippingAddress.state} `}
+                                {order.shippingAddress.postalCode}
+                              </div>
+                            )}
+                            {order.shippingAddress.country && (
+                              <div>{order.shippingAddress.country}</div>
+                            )}
+                            {order.phone && (
+                              <div className="mt-2">
+                                <span className="text-[var(--color-muted)] font-medium">Phone: </span>
+                                <span>{order.phone}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
 
                       {/* Payment Method & Notes */}
                       {(order.paymentMethod || order.notes) && (

@@ -88,6 +88,22 @@ export async function POST(req: NextRequest) {
     const shippingCents = session.total_details?.amount_shipping || 0;
     const taxCents = session.total_details?.amount_tax || 0;
 
+    // Extract shipping address from Stripe session
+    // TypeScript doesn't include shipping in the type, but it exists at runtime when shipping is collected
+    const sessionWithShipping = session as any;
+    const shippingAddress = sessionWithShipping.shipping?.address ? {
+      name: sessionWithShipping.shipping.name || undefined,
+      line1: sessionWithShipping.shipping.address.line1 || undefined,
+      line2: sessionWithShipping.shipping.address.line2 || undefined,
+      city: sessionWithShipping.shipping.address.city || undefined,
+      state: sessionWithShipping.shipping.address.state || undefined,
+      postalCode: sessionWithShipping.shipping.address.postal_code || undefined,
+      country: sessionWithShipping.shipping.address.country || undefined,
+    } : undefined;
+
+    // Extract phone number
+    const phone = session.customer_details?.phone || undefined;
+
     // Calculate product subtotal (EXCLUDING shipping and tax)
     let productSubtotalCents = 0;
 
@@ -203,7 +219,7 @@ export async function POST(req: NextRequest) {
           // User has an account - create order and award points
           // IMPORTANT: Use productSubtotalCents (products only, no shipping/tax) for points
           console.log(`Creating order for user ${user.id} (${customerEmail})`);
-          await createOrder(customerEmail, session.id, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents);
+          await createOrder(customerEmail, session.id, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents, undefined, undefined, shippingAddress, phone);
           await completeOrder(session.id);
           console.log(`Awarded ${Math.round(productSubtotalCents / 100)} points to ${customerEmail}`);
 
@@ -219,7 +235,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Guest checkout - create order without userId
           console.log(`Guest checkout for ${customerEmail} - creating guest order`);
-          await createOrder(customerEmail, session.id, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents);
+          await createOrder(customerEmail, session.id, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents, undefined, undefined, shippingAddress, phone);
           await completeOrder(session.id);
           console.log(`Guest order created for ${customerEmail}`);
 

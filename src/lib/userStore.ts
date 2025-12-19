@@ -80,6 +80,16 @@ export type Order = {
     quantity: number;
     priceCents: number;
   }>;
+  shippingAddress?: {
+    name?: string;
+    line1?: string;
+    line2?: string;
+    city?: string;
+    state?: string;
+    postalCode?: string;
+    country?: string;
+  };
+  phone?: string; // Customer phone number
   createdAt: string;
   completedAt?: string;
 };
@@ -340,7 +350,9 @@ export async function createOrder(
   shippingCents?: number, // Shipping cost
   taxCents?: number, // Tax amount
   paymentMethod?: string, // Payment method (for manual sales)
-  notes?: string // Admin notes (for manual sales)
+  notes?: string, // Admin notes (for manual sales)
+  shippingAddress?: Order["shippingAddress"], // Shipping address
+  phone?: string // Customer phone number
 ): Promise<Order> {
   // Calculate points based on product subtotal only (not shipping/tax)
   const pointsBase = productSubtotalCents ?? totalCents;
@@ -360,6 +372,8 @@ export async function createOrder(
     status: "pending",
     isGuest: !userId,
     items,
+    shippingAddress,
+    phone,
     createdAt: new Date().toISOString(),
   };
 
