@@ -1336,7 +1336,10 @@ export default function CalculatorPage() {
                       </button>
                       <button
                         className="btn"
-                        onClick={() => setShowExistingProductModal(true)}
+                        onClick={() => {
+                          setAddToBatchAfterCreate(true); // Reset to default (checked)
+                          setShowExistingProductModal(true);
+                        }}
                         disabled={!selectedScent || loading}
                       >
                         ➕ Add to Existing
@@ -2351,8 +2354,40 @@ export default function CalculatorPage() {
                             `Added ${selectedScent.name} variant to ${product.name}`,
                             "Success"
                           );
+
+                          // Add to batch if checkbox is checked
+                          if (addToBatchAfterCreate && results && selectedScent) {
+                            const selectedContainer = containers.find((c) => c.id === selectedContainerId);
+                            const containerName = selectedContainer?.name || `Custom (${waterOz}oz)`;
+                            const scentName = scents.find((s) => s.id === selectedScentId)?.name || "";
+
+                            const newItem: BatchItem = {
+                              containerId: selectedContainerId || `custom-${waterOz}`,
+                              containerName,
+                              waterOz,
+                              scentId: selectedScentId,
+                              scentName,
+                              wickCounts: { ...wickCounts },
+                              results: { ...results },
+                            };
+
+                            // Check if batch has different scent
+                            if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
+                              const shouldClear = await showConfirm(
+                                `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`,
+                                "Different Scent Detected"
+                              );
+                              if (shouldClear) {
+                                setBatchItems([newItem]);
+                              }
+                            } else {
+                              setBatchItems([...batchItems, newItem]);
+                            }
+                          }
+
                           setShowExistingProductModal(false);
                           setProductSearch("");
+                          setAddToBatchAfterCreate(true); // Reset to default
                           void loadData();
                         } else {
                           const error = await res.json();
@@ -2387,11 +2422,21 @@ export default function CalculatorPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+              <label className="flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={addToBatchAfterCreate}
+                  onChange={(e) => setAddToBatchAfterCreate(e.target.checked)}
+                  className="w-4 h-4"
+                />
+                <span>Add to batch after adding variant</span>
+              </label>
               <button
                 onClick={() => {
                   setShowExistingProductModal(false);
                   setProductSearch("");
+                  setAddToBatchAfterCreate(true); // Reset to default
                 }}
                 className="btn hover:bg-white transition-colors"
               >
