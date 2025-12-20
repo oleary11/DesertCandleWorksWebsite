@@ -92,9 +92,7 @@ Keep these in Redis (they're perfect for caching):
 ## Database Credentials
 
 **Neon Database URL:**
-```
-postgresql://neondb_owner:npg_56pZVjJrwDgc@ep-polished-dawn-afnbv60z-pooler.c-2.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require
-```
+Stored securely in `.env.local` as `DATABASE_URL` (never commit this file!)
 
 **Already configured in:** `.env.local` and `.env`
 
