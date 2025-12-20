@@ -15,6 +15,7 @@ type Product = {
   images?: string[];
   sku: string;
   stripePriceId?: string;
+  squareCatalogId?: string; // Square Catalog Item ID for POS integration
   seoDescription: string;
   bestSeller?: boolean;
   youngDumb?: boolean;
@@ -458,6 +459,7 @@ export default function CalculatorPage() {
   const [newProduct, setNewProduct] = useState<Partial<Product> | null>(null);
   const [savingProduct, setSavingProduct] = useState(false);
   const [initialStock, setInitialStock] = useState<number>(1);
+  const [addToBatchAfterCreate, setAddToBatchAfterCreate] = useState<boolean>(true);
 
   // Batch tracking state
   const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
@@ -628,9 +630,10 @@ export default function CalculatorPage() {
     const allSkus = allProducts.map((p) => p.sku).filter(Boolean);
     const nextSku = computeNextSku(allSkus);
 
-    // Create product name suggestion
+    // Create product name suggestion following "Bottle Type Alcohol Type Candle" convention
+    // For now, just use container name + "Candle" since we don't have alcohol type at this stage
     const containerName = selectedContainer?.name || "Custom";
-    const productName = `${containerName} - ${scentName}`;
+    const productName = `${containerName} Candle`;
 
     // Build wick types from selected wicks using their appearAs field
     const selectedWickTypes = Object.entries(wickCounts)
@@ -664,17 +667,19 @@ export default function CalculatorPage() {
     }
 
     setInitialStock(1);
+    setAddToBatchAfterCreate(true); // Reset to default (checked)
     setNewProduct({
       name: productName,
       slug: slugify(productName),
       sku: nextSku,
       price: 0,
       images: [],
-      seoDescription: `Hand-poured ${scentName} candle in ${containerName}`,
+      seoDescription: `Hand-poured candle in an upcycled ${containerName} bottle.`,
       stock: 0,
       alcoholType: "Other",
       materialCost: results.totalMaterialCost,
       visibleOnWebsite: true,
+      containerId: selectedContainerId || undefined, // Auto-fill container from calculator
       variantConfig:
         uniqueWickTypes.length > 0
           ? { wickTypes: uniqueWickTypes, variantData }
@@ -757,9 +762,42 @@ export default function CalculatorPage() {
 
     if (res.ok) {
       await showAlert("Product created successfully!", "Success");
+
+      // Add to batch if checkbox is checked
+      if (addToBatchAfterCreate && results && selectedScent) {
+        const selectedContainer = containers.find((c) => c.id === selectedContainerId);
+        const containerName = selectedContainer?.name || `Custom (${waterOz}oz)`;
+        const scentName = scents.find((s) => s.id === selectedScentId)?.name || "";
+
+        const newItem: BatchItem = {
+          containerId: selectedContainerId || `custom-${waterOz}`,
+          containerName,
+          waterOz,
+          scentId: selectedScentId,
+          scentName,
+          wickCounts: { ...wickCounts },
+          results: { ...results },
+        };
+
+        // Check if batch has different scent
+        if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
+          const shouldClear = await showConfirm(
+            `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`,
+            "Different Scent Detected"
+          );
+          if (shouldClear) {
+            setBatchItems([newItem]);
+          }
+        } else {
+          setBatchItems([...batchItems, newItem]);
+        }
+      }
+
       setShowProductModal(false);
       setNewProduct(null);
-      window.location.href = "/admin";
+      setAddToBatchAfterCreate(true); // Reset to default
+      // Reload products list to show the new product
+      await loadData();
     } else {
       const error = await res.json();
       await showAlert(
@@ -1889,6 +1927,71 @@ export default function CalculatorPage() {
               </label>
 
               <label className="block">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Square Catalog ID (optional)</span>
+                  {!newProduct.squareCatalogId && (
+                    <button
+                      type="button"
+                      className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                      onClick={async () => {
+                        if (!newProduct.name || !newProduct.name.trim()) {
+                          alert("Please enter a product name first");
+                          return;
+                        }
+                        if (!newProduct.price || newProduct.price <= 0) {
+                          alert("Please enter a valid price first");
+                          return;
+                        }
+
+                        try {
+                          setSavingProduct(true);
+                          const res = await fetch("/api/admin/create-square-product", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              name: newProduct.name,
+                              price: newProduct.price,
+                              description: newProduct.seoDescription,
+                            }),
+                          });
+
+                          const data = await res.json();
+
+                          if (!res.ok) {
+                            throw new Error(data.details || data.error || "Failed to create Square product");
+                          }
+
+                          setNewProduct({ ...newProduct, squareCatalogId: data.catalogId });
+
+                          alert(
+                            `Square product created successfully!\n\nCatalog ID: ${data.catalogId}`
+                          );
+                        } catch (error) {
+                          console.error("[Create Square Product] Error:", error);
+                          alert(error instanceof Error ? error.message : "Failed to create Square product");
+                        } finally {
+                          setSavingProduct(false);
+                        }
+                      }}
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                      </svg>
+                      Create Square Product
+                    </button>
+                  )}
+                </div>
+                <input
+                  className="input"
+                  value={newProduct.squareCatalogId || ""}
+                  onChange={(e) =>
+                    setNewProduct({ ...newProduct, squareCatalogId: e.target.value || undefined })
+                  }
+                  placeholder="Click 'Create Square Product' or paste manually"
+                />
+              </label>
+
+              <label className="block">
                 <div className="text-sm font-medium mb-2">Container (for description)</div>
                 <select
                   className="input"
@@ -2043,23 +2146,35 @@ export default function CalculatorPage() {
                 onClick={() => {
                   setShowProductModal(false);
                   setNewProduct(null);
+                  setAddToBatchAfterCreate(true); // Reset to default
                 }}
               >
                 Cancel
               </button>
-              <button
-                className="btn btn-primary"
-                onClick={() => void saveProduct()}
-                disabled={
-                  savingProduct ||
-                  !newProduct.name ||
-                  !newProduct.slug ||
-                  !newProduct.price ||
-                  newProduct.price <= 0
-                }
-              >
-                {savingProduct ? "Creating..." : "Create Product"}
-              </button>
+              <div className="flex items-center gap-4">
+                <label className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={addToBatchAfterCreate}
+                    onChange={(e) => setAddToBatchAfterCreate(e.target.checked)}
+                    className="w-4 h-4"
+                  />
+                  <span>Add to batch after creating</span>
+                </label>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => void saveProduct()}
+                  disabled={
+                    savingProduct ||
+                    !newProduct.name ||
+                    !newProduct.slug ||
+                    !newProduct.price ||
+                    newProduct.price <= 0
+                  }
+                >
+                  {savingProduct ? "Creating..." : "Create Product"}
+                </button>
+              </div>
             </div>
           </div>
         </div>
