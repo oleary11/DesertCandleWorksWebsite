@@ -1,7 +1,5 @@
-import { db } from "./db/client";
-import { products } from "./db/schema";
-import { eq } from "drizzle-orm";
-import { getProduct as getStaticProduct, type Product, type VariantConfig } from "@/lib/products";
+import { redis } from "./redis";
+import { getProduct as getStaticProduct, type Product } from "@/lib/products";
 
 export type {
   Product,
@@ -10,6 +8,9 @@ export type {
   VariantConfig,
 } from "@/lib/products";
 
+const key = (slug: string) => `product:${slug}`;
+const INDEX_KEY = "products:index";
+
 function coerceBool(v: unknown): boolean {
   if (typeof v === "boolean") return v;
   if (typeof v === "string") return /^(true|1|yes|on)$/i.test(v.trim());
@@ -17,124 +18,33 @@ function coerceBool(v: unknown): boolean {
   return false;
 }
 
-// Convert cents to dollars for external API
-function centsToPrice(cents: number): number {
-  return cents / 100;
-}
-
-// Convert dollars to cents for storage
-function priceToCents(price: number): number {
-  return Math.round(price * 100);
-}
-
 export async function listProducts(): Promise<Product[]> {
-  const result = await db.select().from(products).orderBy(products.name);
-
-  return result.map((p) => ({
-    slug: p.slug,
-    name: p.name,
-    price: centsToPrice(p.priceCents), // Convert back to dollars
-    stock: p.stock,
-    sku: p.sku || `DCW-${p.slug.toUpperCase()}`, // Use stored SKU or generate from slug
-    seoDescription: p.description || '',
-    stripePriceId: p.stripePriceId || undefined,
-    squareCatalogId: p.squareCatalogId || undefined,
-    squareVariantMapping: (p.squareVariantMapping as Record<string, string>) || undefined,
-    image: p.imageUrl || undefined,
-    images: (p.images as string[]) || undefined,
-    bestSeller: p.bestSeller || false,
-    youngDumb: p.youngDumb || false,
-    alcoholType: p.alcoholType || undefined,
-    materialCost: p.materialCost ? p.materialCost / 100 : undefined,
-    visibleOnWebsite: p.visibleOnWebsite ?? true,
-    variantConfig: p.variantConfig as VariantConfig | undefined,
-  }));
+  const slugs = (await redis.smembers(INDEX_KEY)) as string[];
+  if (!Array.isArray(slugs) || slugs.length === 0) return [];
+  const keys = slugs.map((s: string) => key(s));
+  const raw = (await redis.mget(...keys)) as Array<Product | null>;
+  const items = raw.filter((p): p is Product => Boolean(p));
+  return items.sort((a: Product, b: Product) => a.name.localeCompare(b.name));
 }
 
 export async function getProductBySlug(slug: string): Promise<Product | null> {
-  const result = await db.select().from(products).where(eq(products.slug, slug)).limit(1);
-
-  if (result.length === 0) return null;
-
-  const p = result[0];
-  return {
-    slug: p.slug,
-    name: p.name,
-    price: centsToPrice(p.priceCents),
-    stock: p.stock,
-    sku: p.sku || `DCW-${p.slug.toUpperCase()}`,
-    seoDescription: p.description || '',
-    stripePriceId: p.stripePriceId || undefined,
-    squareCatalogId: p.squareCatalogId || undefined,
-    squareVariantMapping: (p.squareVariantMapping as Record<string, string>) || undefined,
-    image: p.imageUrl || undefined,
-    images: (p.images as string[]) || undefined,
-    bestSeller: p.bestSeller || false,
-    youngDumb: p.youngDumb || false,
-    alcoholType: p.alcoholType || undefined,
-    materialCost: p.materialCost ? p.materialCost / 100 : undefined,
-    visibleOnWebsite: p.visibleOnWebsite ?? true,
-    variantConfig: p.variantConfig as VariantConfig | undefined,
-  };
+  const p = (await redis.get(key(slug))) as Product | null;
+  return p ?? null;
 }
 
 export async function upsertProduct(p: Product): Promise<Product> {
   if (!p.slug) throw new Error("Missing slug");
-
-  const priceCents = priceToCents(p.price);
-  const materialCostCents = p.materialCost ? Math.round(p.materialCost * 100) : null;
-
-  await db
-    .insert(products)
-    .values({
-      slug: p.slug,
-      name: p.name,
-      description: p.seoDescription || null,
-      priceCents,
-      stock: p.stock ?? 0,
-      sku: p.sku || null,
-      stripePriceId: p.stripePriceId || null,
-      squareCatalogId: p.squareCatalogId || null,
-      squareVariantMapping: p.squareVariantMapping as any || null,
-      imageUrl: p.image || null,
-      images: p.images as any || null,
-      bestSeller: p.bestSeller ?? false,
-      youngDumb: p.youngDumb ?? false,
-      alcoholType: p.alcoholType || null,
-      materialCost: materialCostCents,
-      visibleOnWebsite: p.visibleOnWebsite ?? true,
-      variantConfig: p.variantConfig as VariantConfig | undefined,
-    })
-    .onConflictDoUpdate({
-      target: products.slug,
-      set: {
-        name: p.name,
-        description: p.seoDescription || null,
-        priceCents,
-        stock: p.stock ?? 0,
-        sku: p.sku || null,
-        stripePriceId: p.stripePriceId || null,
-        squareCatalogId: p.squareCatalogId || null,
-        squareVariantMapping: p.squareVariantMapping as any || null,
-        imageUrl: p.image || null,
-        images: p.images as any || null,
-        bestSeller: p.bestSeller ?? false,
-        youngDumb: p.youngDumb ?? false,
-        alcoholType: p.alcoholType || null,
-        materialCost: materialCostCents,
-        visibleOnWebsite: p.visibleOnWebsite ?? true,
-        variantConfig: p.variantConfig as VariantConfig | undefined,
-      },
-    });
-
+  await redis.set(key(p.slug), p);
+  await redis.sadd(INDEX_KEY, p.slug);
   return p;
 }
 
 export async function deleteProduct(slug: string): Promise<void> {
-  await db.delete(products).where(eq(products.slug, slug));
+  await redis.del(key(slug));
+  await redis.srem(INDEX_KEY, slug);
 }
 
-/** Ensure a live (Postgres) record exists, seeding from static if needed */
+/** Ensure a live (Redis) record exists, seeding from static if needed */
 async function ensureLive(slug: string): Promise<Product> {
   const live = await getProductBySlug(slug);
   if (live) return live;
@@ -154,44 +64,19 @@ async function ensureLive(slug: string): Promise<Product> {
 }
 
 export async function setStock(slug: string, value: number): Promise<number> {
-  const newStock = Math.max(0, Math.floor(value));
-
-  // Use atomic update with row-level locking for safety
-  await db.transaction(async (tx) => {
-    await tx
-      .update(products)
-      .set({ stock: newStock })
-      .where(eq(products.slug, slug));
-  });
-
-  return newStock;
+  const p = await ensureLive(slug);
+  p.stock = Math.max(0, Math.floor(value));
+  await upsertProduct(p);
+  return p.stock;
 }
 
 export async function incrStock(slug: string, delta: number): Promise<number> {
-  const deltaFloor = Math.floor(delta);
-
-  // Use atomic SQL increment with row-level locking
-  const [result] = await db.transaction(async (tx) => {
-    // Lock the row
-    const [current] = await tx
-      .select()
-      .from(products)
-      .where(eq(products.slug, slug))
-      .for("update");
-
-    if (!current) throw new Error("Product not found");
-
-    const next = current.stock + deltaFloor;
-    if (next < 0) throw new Error("Stock would go negative");
-
-    return await tx
-      .update(products)
-      .set({ stock: next })
-      .where(eq(products.slug, slug))
-      .returning({ stock: products.stock });
-  });
-
-  return result.stock;
+  const p = await ensureLive(slug);
+  const next = (p.stock ?? 0) + Math.floor(delta);
+  if (next < 0) throw new Error("Stock would go negative");
+  p.stock = next;
+  await upsertProduct(p);
+  return p.stock;
 }
 
 /**

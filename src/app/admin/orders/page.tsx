@@ -34,6 +34,10 @@ type Order = {
     country?: string;
   };
   phone?: string;
+  trackingNumber?: string;
+  shippingStatus?: "pending" | "shipped" | "delivered";
+  shippedAt?: string;
+  deliveredAt?: string;
   createdAt: string;
   completedAt?: string;
 };
@@ -81,6 +85,9 @@ export default function AdminOrdersPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "pending">("all");
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [trackingInput, setTrackingInput] = useState<{ [orderId: string]: string }>({});
+  const [updatingShipping, setUpdatingShipping] = useState<string | null>(null);
+  const [checkingDeliveries, setCheckingDeliveries] = useState(false);
 
   useEffect(() => {
     loadOrders();
@@ -190,6 +197,90 @@ export default function AdminOrdersPage() {
     }
   }
 
+  async function updateShippingStatus(orderId: string, status: "shipped" | "delivered") {
+    const trackingNumber = trackingInput[orderId]?.trim();
+
+    if (!trackingNumber) {
+      alert("Please enter a tracking number");
+      return;
+    }
+
+    setUpdatingShipping(orderId);
+
+    try {
+      const res = await fetch("/api/admin/orders/update-shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          trackingNumber,
+          shippingStatus: status,
+        }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to update shipping");
+      }
+
+      const data = await res.json();
+
+      // Update order in state
+      setOrders(orders.map((o) => (o.id === orderId ? data.order : o)));
+
+      // Clear tracking input
+      setTrackingInput({ ...trackingInput, [orderId]: "" });
+
+      // Show success message
+      alert(data.message + (data.warning ? `\n\nWarning: ${data.warning}` : ""));
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to update shipping");
+      console.error(err);
+    } finally {
+      setUpdatingShipping(null);
+    }
+  }
+
+  async function checkAllDeliveries() {
+    if (!confirm("Check USPS tracking for all shipped orders and auto-send delivery emails?")) {
+      return;
+    }
+
+    setCheckingDeliveries(true);
+
+    try {
+      const res = await fetch("/api/admin/check-deliveries", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to check deliveries");
+      }
+
+      const data = await res.json();
+
+      // Reload orders to show updated statuses
+      await loadOrders();
+
+      // Show results
+      const summary = `Delivery Check Complete!\n\n` +
+        `Checked: ${data.results.checked} orders\n` +
+        `Delivered: ${data.results.delivered} emails sent\n` +
+        `Errors: ${data.results.errors}\n\n` +
+        `${data.results.details.map((d: { orderId: string; delivered?: boolean; status?: string; error?: string }) =>
+          `${d.orderId}: ${d.delivered ? '✅ Delivered' : '📦 ' + d.status}${d.error ? ' (Error: ' + d.error + ')' : ''}`
+        ).join('\n')}`;
+
+      alert(summary);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to check deliveries");
+      console.error(err);
+    } finally {
+      setCheckingDeliveries(false);
+    }
+  }
+
   // Calculate Stripe fee for an order (2.9% + $0.30)
   function calculateStripeFee(amountCents: number): number {
     return Math.round(amountCents * 0.029) + 30; // 2.9% + 30 cents
@@ -288,10 +379,21 @@ export default function AdminOrdersPage() {
             <ArrowLeft className="w-4 h-4" />
             Back to Admin
           </Link>
-          <h1 className="text-3xl font-bold">All Orders</h1>
-          <p className="text-[var(--color-muted)] mt-1">
-            View all orders including Stripe and manual sales
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold">All Orders</h1>
+              <p className="text-[var(--color-muted)] mt-1">
+                View all orders including Stripe and manual sales
+              </p>
+            </div>
+            <button
+              onClick={checkAllDeliveries}
+              disabled={checkingDeliveries}
+              className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {checkingDeliveries ? "Checking..." : "🔄 Check All Deliveries"}
+            </button>
+          </div>
         </div>
 
         {/* Stats Summary */}
@@ -616,6 +718,101 @@ export default function AdminOrdersPage() {
                           </div>
                         </div>
                       )}
+
+                      {/* Shipping Management */}
+                      <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                        <h4 className="font-bold mb-3 text-sm">Shipping Status:</h4>
+
+                        {/* Current Tracking Info */}
+                        {order.trackingNumber && (
+                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                            <div className="text-sm space-y-2">
+                              <div>
+                                <span className="font-medium text-blue-900">Tracking Number: </span>
+                                <a
+                                  href={`https://tools.usps.com/go/TrackConfirmAction?tLabels=${order.trackingNumber}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-blue-600 hover:underline font-mono"
+                                >
+                                  {order.trackingNumber}
+                                </a>
+                              </div>
+                              <div>
+                                <span className="font-medium text-blue-900">Status: </span>
+                                <span className={`badge text-xs ${
+                                  order.shippingStatus === "delivered"
+                                    ? "bg-green-100 text-green-700"
+                                    : order.shippingStatus === "shipped"
+                                    ? "bg-blue-100 text-blue-700"
+                                    : "bg-gray-100 text-gray-700"
+                                }`}>
+                                  {order.shippingStatus || "pending"}
+                                </span>
+                              </div>
+                              {order.shippedAt && (
+                                <div className="text-xs text-blue-700">
+                                  Shipped: {formatDate(order.shippedAt)}
+                                </div>
+                              )}
+                              {order.deliveredAt && (
+                                <div className="text-xs text-green-700">
+                                  Delivered: {formatDate(order.deliveredAt)}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Update Shipping Form */}
+                        {!isManualSale(order.id) && order.status === "completed" && (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-sm font-medium mb-1">
+                                USPS Tracking Number:
+                              </label>
+                              <input
+                                type="text"
+                                placeholder="e.g., 9400100000000000000000"
+                                className="input w-full"
+                                value={trackingInput[order.id] || order.trackingNumber || ""}
+                                onChange={(e) =>
+                                  setTrackingInput({
+                                    ...trackingInput,
+                                    [order.id]: e.target.value,
+                                  })
+                                }
+                                disabled={updatingShipping === order.id}
+                              />
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => updateShippingStatus(order.id, "shipped")}
+                                disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
+                                className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {updatingShipping === order.id ? "Updating..." : "📦 Mark as Shipped & Email"}
+                              </button>
+                              <button
+                                onClick={() => updateShippingStatus(order.id, "delivered")}
+                                disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
+                                className="btn btn-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              >
+                                {updatingShipping === order.id ? "Updating..." : "✅ Mark as Delivered & Email"}
+                              </button>
+                            </div>
+                            <p className="text-xs text-[var(--color-muted)]">
+                              Clicking these buttons will update the order status and automatically send a tracking/delivery email to the customer.
+                            </p>
+                          </div>
+                        )}
+
+                        {isManualSale(order.id) && (
+                          <p className="text-sm text-[var(--color-muted)] italic">
+                            Shipping tracking not available for manual sales
+                          </p>
+                        )}
+                      </div>
 
                       {/* Payment Method & Notes */}
                       {(order.paymentMethod || order.notes) && (

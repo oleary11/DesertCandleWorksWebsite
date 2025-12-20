@@ -207,7 +207,7 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
   }
 
   // Format order items for email
-  const itemsHtml = order.items.map(item => `
+  const itemsHtml = order.items.map((item: { productName: string; quantity: number; priceCents: number }) => `
     <tr>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.productName}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
@@ -215,7 +215,7 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
     </tr>
   `).join('');
 
-  const itemsText = order.items.map(item =>
+  const itemsText = order.items.map((item: { productName: string; quantity: number; priceCents: number }) =>
     `${item.productName} x${item.quantity} - $${(item.priceCents / 100).toFixed(2)}`
   ).join('\n');
 
@@ -384,6 +384,296 @@ Scottsdale, AZ | www.desertcandleworks.com
   await sendEmail({
     to: recipientEmail,
     subject: `Order Confirmation #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send shipping confirmation email with USPS tracking
+ * @param orderId - The order ID
+ * @param trackingNumber - USPS tracking number
+ */
+export async function sendShippingConfirmationEmail(orderId: string, trackingNumber: string): Promise<void> {
+  const { getOrderById } = await import("@/lib/userStore");
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  const recipientEmail = order.email;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+  // USPS tracking URL
+  const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`;
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 20px; background: white; border: 1px solid #e5e7eb; }
+          .button { display: inline-block; padding: 12px 24px; background: #d4a574; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .tracking-box { background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+          .tracking-number { font-size: 24px; font-weight: bold; color: #1e40af; font-family: 'Courier New', monospace; letter-spacing: 2px; }
+          .footer { padding: 20px; text-align: center; color: #666; font-size: 14px; }
+          .shipping-info { background: #fef3c7; border-left: 4px solid #d4a574; border-radius: 4px; padding: 15px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; color: #333;">Desert Candle Works</h1>
+            <p style="margin: 10px 0 0 0; color: #666;">Your order is on its way!</p>
+          </div>
+          <div class="content">
+            <h2>📦 Shipped!</h2>
+            <p>Great news! Your order has been shipped via USPS and is on its way to you.</p>
+
+            <p style="margin: 20px 0;">
+              <strong>Order #${orderId.slice(0, 8).toUpperCase()}</strong><br>
+              <span style="color: #666; font-size: 14px;">Shipped on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </p>
+
+            <div class="tracking-box">
+              <p style="margin: 0 0 10px 0; color: #1e40af; font-weight: 600;">USPS Tracking Number</p>
+              <div class="tracking-number">${trackingNumber}</div>
+              <p style="margin: 15px 0 0 0;">
+                <a href="${trackingUrl}" class="button">Track Your Package</a>
+              </p>
+            </div>
+
+            ${order.shippingAddress ? `
+            <div style="margin: 20px 0;">
+              <h3 style="font-size: 16px; margin-bottom: 10px;">Shipping To:</h3>
+              <div style="color: #666; font-size: 14px; line-height: 1.8;">
+                ${order.shippingAddress.name ? `<strong>${order.shippingAddress.name}</strong><br>` : ''}
+                ${order.shippingAddress.line1 || ''}<br>
+                ${order.shippingAddress.line2 ? `${order.shippingAddress.line2}<br>` : ''}
+                ${order.shippingAddress.city ? `${order.shippingAddress.city}, ` : ''}${order.shippingAddress.state || ''} ${order.shippingAddress.postalCode || ''}<br>
+                ${order.shippingAddress.country || ''}
+              </div>
+            </div>
+            ` : ''}
+
+            <div class="shipping-info">
+              <p style="margin: 0 0 10px 0; color: #92400e;">
+                <strong>📬 Estimated Delivery</strong>
+              </p>
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                USPS Flat Rate shipping typically arrives within <strong>2-3 business days</strong> from the ship date. You can track your package in real-time using the tracking number above.
+              </p>
+            </div>
+
+            <p style="font-size: 14px; color: #666; margin-top: 20px;">
+              <strong>What's in your package?</strong><br>
+              ${order.items.map((item: { productName: string; quantity: number }) => `${item.productName} (x${item.quantity})`).join('<br>')}
+            </p>
+
+            <p style="font-size: 14px; color: #666; margin-top: 20px;">
+              Questions about your delivery? Contact us at <a href="mailto:contact@desertcandleworks.com" style="color: #d4a574;">contact@desertcandleworks.com</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Desert Candle Works. All rights reserved.</p>
+            <p style="margin-top: 10px;">Scottsdale, AZ | www.desertcandleworks.com</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const text = `
+Desert Candle Works - Your Order Has Shipped!
+
+📦 Great news! Your order has been shipped via USPS and is on its way to you.
+
+Order #${orderId.slice(0, 8).toUpperCase()}
+Shipped on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+
+USPS TRACKING NUMBER:
+${trackingNumber}
+
+Track your package:
+${trackingUrl}
+
+${order.shippingAddress ? `
+SHIPPING TO:
+${order.shippingAddress.name || ''}
+${order.shippingAddress.line1 || ''}
+${order.shippingAddress.line2 || ''}
+${order.shippingAddress.city ? `${order.shippingAddress.city}, ` : ''}${order.shippingAddress.state || ''} ${order.shippingAddress.postalCode || ''}
+${order.shippingAddress.country || ''}
+` : ''}
+
+📬 ESTIMATED DELIVERY:
+USPS Flat Rate shipping typically arrives within 2-3 business days from the ship date. You can track your package in real-time using the tracking number above.
+
+WHAT'S IN YOUR PACKAGE:
+${order.items.map((item: { productName: string; quantity: number }) => `- ${item.productName} (x${item.quantity})`).join('\n')}
+
+Questions about your delivery? Contact us at contact@desertcandleworks.com
+
+© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
+Scottsdale, AZ | www.desertcandleworks.com
+  `;
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `📦 Your Order Has Shipped! #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
+    html,
+    text,
+  });
+}
+
+/**
+ * Send delivery confirmation email
+ * @param orderId - The order ID
+ * @param trackingNumber - USPS tracking number
+ */
+export async function sendDeliveryConfirmationEmail(orderId: string, trackingNumber: string): Promise<void> {
+  const { getOrderById } = await import("@/lib/userStore");
+  const order = await getOrderById(orderId);
+
+  if (!order) {
+    throw new Error("Order not found");
+  }
+
+  const recipientEmail = order.email;
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: #f8f9fa; padding: 20px; text-align: center; border-radius: 8px 8px 0 0; }
+          .content { padding: 20px; background: white; border: 1px solid #e5e7eb; }
+          .button { display: inline-block; padding: 12px 24px; background: #d4a574; color: white; text-decoration: none; border-radius: 6px; margin: 20px 0; }
+          .delivery-box { background: #f0fdf4; border: 2px solid #22c55e; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center; }
+          .footer { padding: 20px; text-align: center; color: #666; font-size: 14px; }
+          .thank-you { background: #fef3c7; border-left: 4px solid #d4a574; border-radius: 4px; padding: 15px; margin: 20px 0; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1 style="margin: 0; color: #333;">Desert Candle Works</h1>
+            <p style="margin: 10px 0 0 0; color: #666;">Your order has been delivered!</p>
+          </div>
+          <div class="content">
+            <h2>✅ Delivered!</h2>
+            <p>Your Desert Candle Works order has been successfully delivered!</p>
+
+            <p style="margin: 20px 0;">
+              <strong>Order #${orderId.slice(0, 8).toUpperCase()}</strong><br>
+              <span style="color: #666; font-size: 14px;">Delivered on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+            </p>
+
+            <div class="delivery-box">
+              <div style="font-size: 48px; margin-bottom: 10px;">📬</div>
+              <p style="margin: 0; font-size: 18px; font-weight: 600; color: #15803d;">
+                Package Delivered!
+              </p>
+              <p style="margin: 10px 0 0 0; color: #166534; font-size: 14px;">
+                Tracking #${trackingNumber}
+              </p>
+            </div>
+
+            <div class="thank-you">
+              <p style="margin: 0 0 10px 0; color: #92400e;">
+                <strong>🕯️ Enjoy Your Candles!</strong>
+              </p>
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                We hope you love your hand-poured candles! Each one is crafted with care right here in Scottsdale, Arizona.
+              </p>
+            </div>
+
+            <p style="font-size: 14px; color: #666;">
+              <strong>Your Order:</strong><br>
+              ${order.items.map((item: { productName: string; quantity: number }) => `${item.productName} (x${item.quantity})`).join('<br>')}
+            </p>
+
+            ${!order.isGuest ? `
+            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-left: 4px solid #d4a574; border-radius: 4px;">
+              <p style="margin: 0; color: #92400e;">
+                <strong>💡 Don't forget!</strong><br>
+                <span style="font-size: 14px;">You earned <strong>${order.pointsEarned} points</strong> on this order. Use them on your next purchase!</span>
+              </p>
+            </div>
+            ` : `
+            <div style="margin: 20px 0; padding: 15px; background: #fef3c7; border-left: 4px solid #d4a574; border-radius: 4px;">
+              <p style="margin: 0 0 10px 0; color: #92400e;">
+                <strong>💡 Love our candles?</strong>
+              </p>
+              <p style="margin: 0; font-size: 14px; color: #92400e;">
+                Create an account to earn points on your next purchase! You could have earned <strong>${order.pointsEarned} points</strong> on this order.
+              </p>
+              <p style="margin: 10px 0 0 0;">
+                <a href="${baseUrl}/account/register" style="color: #d4a574; font-weight: 600;">Create Account →</a>
+              </p>
+            </div>
+            `}
+
+            <p style="font-size: 14px; color: #666; margin-top: 20px;">
+              <strong>We'd love your feedback!</strong><br>
+              How was your experience? Let us know at <a href="mailto:contact@desertcandleworks.com" style="color: #d4a574;">contact@desertcandleworks.com</a>
+            </p>
+
+            <p style="text-align: center;">
+              <a href="${baseUrl}/products" class="button">Shop More Candles</a>
+            </p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} Desert Candle Works. All rights reserved.</p>
+            <p style="margin-top: 10px;">Scottsdale, AZ | www.desertcandleworks.com</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+
+  const text = `
+Desert Candle Works - Your Order Has Been Delivered!
+
+✅ Your Desert Candle Works order has been successfully delivered!
+
+Order #${orderId.slice(0, 8).toUpperCase()}
+Delivered on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+
+📬 PACKAGE DELIVERED!
+Tracking #${trackingNumber}
+
+🕯️ ENJOY YOUR CANDLES!
+We hope you love your hand-poured candles! Each one is crafted with care right here in Scottsdale, Arizona.
+
+YOUR ORDER:
+${order.items.map((item: { productName: string; quantity: number }) => `- ${item.productName} (x${item.quantity})`).join('\n')}
+
+${!order.isGuest ? `
+💡 Don't forget! You earned ${order.pointsEarned} points on this order. Use them on your next purchase!
+` : `
+💡 Love our candles? Create an account to earn points on your next purchase! You could have earned ${order.pointsEarned} points on this order.
+Create account: ${baseUrl}/account/register
+`}
+
+We'd love your feedback! How was your experience? Let us know at contact@desertcandleworks.com
+
+Shop more candles: ${baseUrl}/products
+
+© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
+Scottsdale, AZ | www.desertcandleworks.com
+  `;
+
+  await sendEmail({
+    to: recipientEmail,
+    subject: `✅ Delivered! Order #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
     html,
     text,
   });

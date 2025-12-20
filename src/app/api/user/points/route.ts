@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAuth } from "@/lib/userSession";
-import { getUserById, getUserPointsTransactions } from "@/lib/userStore";
+import { getUserById, getUserPointsTransactions, type PointsTransaction } from "@/lib/userStore";
 
 export async function GET() {
   try {
@@ -16,7 +16,7 @@ export async function GET() {
 
     return NextResponse.json({
       points: user.points,
-      transactions: transactions.map((t) => ({
+      transactions: transactions.map((t: PointsTransaction) => ({
         id: t.id,
         amount: t.amount,
         type: t.type,

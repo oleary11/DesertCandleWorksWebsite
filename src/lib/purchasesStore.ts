@@ -1,54 +1,51 @@
-import { kv } from "@vercel/kv";
+// Purchases management using Postgres
+import { db } from "./db/client";
+import { purchases, purchaseItems } from "./db/schema";
+import { eq, and, gte, lte, desc } from "drizzle-orm";
 import crypto from "crypto";
 
 export type PurchaseItem = {
   name: string;
   quantity: number;
-  unitCostCents: number; // Cost per unit before shipping/tax
-  category: string; // "wax", "wicks", "bottles", "scents", "labels", "packaging", "equipment", "other"
+  unitCostCents: number;
+  category: string;
   notes?: string;
 };
 
 export type Purchase = {
-  id: string; // UUID
+  id: string;
   vendorName: string;
-  purchaseDate: string; // ISO date (YYYY-MM-DD)
+  purchaseDate: string;
   items: PurchaseItem[];
-  subtotalCents: number; // Sum of all items (quantity * unitCost)
-  shippingCents: number; // Total shipping cost
-  taxCents: number; // Total tax
-  totalCents: number; // subtotal + shipping + tax
-  receiptImageUrl?: string; // Vercel Blob URL
+  subtotalCents: number;
+  shippingCents: number;
+  taxCents: number;
+  totalCents: number;
+  receiptImageUrl?: string;
   notes?: string;
-  createdAt: string; // ISO timestamp
-  updatedAt: string; // ISO timestamp
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PurchaseItemWithAllocations = PurchaseItem & {
-  totalCostCents: number; // quantity * unitCost
-  allocatedShippingCents: number; // Proportional share of shipping
-  allocatedTaxCents: number; // Proportional share of tax
-  fullyLoadedCostCents: number; // totalCost + allocatedShipping + allocatedTax
-  costPerUnitCents: number; // fullyLoadedCost / quantity
+  totalCostCents: number;
+  allocatedShippingCents: number;
+  allocatedTaxCents: number;
+  fullyLoadedCostCents: number;
+  costPerUnitCents: number;
 };
 
-/**
- * Calculate allocated shipping and tax for each item in a purchase
- * Shipping and tax are allocated proportionally based on item cost
- */
 export function calculateItemAllocations(
   items: PurchaseItem[],
   shippingCents: number,
   taxCents: number
 ): PurchaseItemWithAllocations[] {
-  // Calculate subtotal
   const subtotalCents = items.reduce(
     (sum, item) => sum + item.quantity * item.unitCostCents,
     0
   );
 
   if (subtotalCents === 0) {
-    // Avoid division by zero - return items with zero allocations
     return items.map((item) => ({
       ...item,
       totalCostCents: 0,
@@ -63,7 +60,6 @@ export function calculateItemAllocations(
     const itemCostCents = item.quantity * item.unitCostCents;
     const costRatio = itemCostCents / subtotalCents;
 
-    // Allocate shipping and tax proportionally
     const allocatedShippingCents = Math.round(shippingCents * costRatio);
     const allocatedTaxCents = Math.round(taxCents * costRatio);
 
@@ -81,9 +77,6 @@ export function calculateItemAllocations(
   });
 }
 
-/**
- * Create a new purchase
- */
 export async function createPurchase(
   vendorName: string,
   purchaseDate: string,
@@ -95,7 +88,6 @@ export async function createPurchase(
 ): Promise<Purchase> {
   const id = crypto.randomUUID();
 
-  // Calculate subtotal
   const subtotalCents = items.reduce(
     (sum, item) => sum + item.quantity * item.unitCostCents,
     0
@@ -103,7 +95,35 @@ export async function createPurchase(
 
   const totalCents = subtotalCents + shippingCents + taxCents;
 
-  const purchase: Purchase = {
+  await db.transaction(async (tx) => {
+    await tx.insert(purchases).values({
+      id,
+      vendorName,
+      purchaseDate,
+      subtotalCents,
+      shippingCents,
+      taxCents,
+      totalCents,
+      receiptImageUrl: receiptImageUrl || null,
+      notes: notes || null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    for (const item of items) {
+      await tx.insert(purchaseItems).values({
+        purchaseId: id,
+        name: item.name,
+        quantity: item.quantity,
+        unitCostCents: item.unitCostCents,
+        category: item.category,
+        notes: item.notes || null,
+        createdAt: new Date(),
+      });
+    }
+  });
+
+  return {
     id,
     vendorName,
     purchaseDate,
@@ -117,79 +137,138 @@ export async function createPurchase(
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
   };
-
-  // Store purchase
-  await kv.set(`purchase:${id}`, purchase);
-
-  // Add to index
-  await kv.sadd("purchases:index", id);
-
-  // Index by vendor for filtering
-  await kv.sadd(`purchases:vendor:${vendorName.toLowerCase()}`, id);
-
-  // Index by date (year-month) for analytics
-  const yearMonth = purchaseDate.substring(0, 7); // YYYY-MM
-  await kv.sadd(`purchases:date:${yearMonth}`, id);
-
-  return purchase;
 }
 
-/**
- * Get a purchase by ID
- */
 export async function getPurchaseById(id: string): Promise<Purchase | null> {
-  return await kv.get<Purchase>(`purchase:${id}`);
+  const [purchase] = await db
+    .select()
+    .from(purchases)
+    .where(eq(purchases.id, id))
+    .limit(1);
+
+  if (!purchase) return null;
+
+  const items = await db
+    .select()
+    .from(purchaseItems)
+    .where(eq(purchaseItems.purchaseId, id));
+
+  return {
+    id: purchase.id,
+    vendorName: purchase.vendorName,
+    purchaseDate: purchase.purchaseDate,
+    items: items.map((item) => ({
+      name: item.name,
+      quantity: item.quantity,
+      unitCostCents: item.unitCostCents,
+      category: item.category,
+      notes: item.notes || undefined,
+    })),
+    subtotalCents: purchase.subtotalCents,
+    shippingCents: purchase.shippingCents,
+    taxCents: purchase.taxCents,
+    totalCents: purchase.totalCents,
+    receiptImageUrl: purchase.receiptImageUrl || undefined,
+    notes: purchase.notes || undefined,
+    createdAt: purchase.createdAt.toISOString(),
+    updatedAt: purchase.updatedAt.toISOString(),
+  };
 }
 
-/**
- * Get all purchases
- */
 export async function getAllPurchases(): Promise<Purchase[]> {
-  const ids = await kv.smembers("purchases:index");
-  if (!ids || ids.length === 0) return [];
+  const allPurchases = await db
+    .select()
+    .from(purchases)
+    .orderBy(desc(purchases.purchaseDate));
 
-  const purchases = await Promise.all(
-    ids.map((id) => kv.get<Purchase>(`purchase:${id}`))
-  );
+  const result: Purchase[] = [];
 
-  return purchases
-    .filter((p): p is Purchase => p !== null)
-    .sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
+  for (const purchase of allPurchases) {
+    const items = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, purchase.id));
+
+    result.push({
+      id: purchase.id,
+      vendorName: purchase.vendorName,
+      purchaseDate: purchase.purchaseDate,
+      items: items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unitCostCents: item.unitCostCents,
+        category: item.category,
+        notes: item.notes || undefined,
+      })),
+      subtotalCents: purchase.subtotalCents,
+      shippingCents: purchase.shippingCents,
+      taxCents: purchase.taxCents,
+      totalCents: purchase.totalCents,
+      receiptImageUrl: purchase.receiptImageUrl || undefined,
+      notes: purchase.notes || undefined,
+      createdAt: purchase.createdAt.toISOString(),
+      updatedAt: purchase.updatedAt.toISOString(),
+    });
+  }
+
+  return result;
 }
 
-/**
- * Get purchases by vendor
- */
 export async function getPurchasesByVendor(vendorName: string): Promise<Purchase[]> {
-  const ids = await kv.smembers(`purchases:vendor:${vendorName.toLowerCase()}`);
-  if (!ids || ids.length === 0) return [];
-
-  const purchases = await Promise.all(
-    ids.map((id) => kv.get<Purchase>(`purchase:${id}`))
+  const allPurchases = await getAllPurchases();
+  return allPurchases.filter(
+    (p) => p.vendorName.toLowerCase() === vendorName.toLowerCase()
   );
-
-  return purchases
-    .filter((p): p is Purchase => p !== null)
-    .sort((a, b) => new Date(b.purchaseDate).getTime() - new Date(a.purchaseDate).getTime());
 }
 
-/**
- * Get purchases by date range
- */
 export async function getPurchasesByDateRange(
   startDate: string,
   endDate: string
 ): Promise<Purchase[]> {
-  const allPurchases = await getAllPurchases();
+  const allPurchases = await db
+    .select()
+    .from(purchases)
+    .where(
+      and(
+        gte(purchases.purchaseDate, startDate),
+        lte(purchases.purchaseDate, endDate)
+      )
+    )
+    .orderBy(desc(purchases.purchaseDate));
 
-  return allPurchases.filter((p) => {
-    return p.purchaseDate >= startDate && p.purchaseDate <= endDate;
-  });
+  const result: Purchase[] = [];
+
+  for (const purchase of allPurchases) {
+    const items = await db
+      .select()
+      .from(purchaseItems)
+      .where(eq(purchaseItems.purchaseId, purchase.id));
+
+    result.push({
+      id: purchase.id,
+      vendorName: purchase.vendorName,
+      purchaseDate: purchase.purchaseDate,
+      items: items.map((item) => ({
+        name: item.name,
+        quantity: item.quantity,
+        unitCostCents: item.unitCostCents,
+        category: item.category,
+        notes: item.notes || undefined,
+      })),
+      subtotalCents: purchase.subtotalCents,
+      shippingCents: purchase.shippingCents,
+      taxCents: purchase.taxCents,
+      totalCents: purchase.totalCents,
+      receiptImageUrl: purchase.receiptImageUrl || undefined,
+      notes: purchase.notes || undefined,
+      createdAt: purchase.createdAt.toISOString(),
+      updatedAt: purchase.updatedAt.toISOString(),
+    });
+  }
+
+  return result;
 }
 
-/**
- * Update a purchase
- */
 export async function updatePurchase(
   id: string,
   updates: Partial<Omit<Purchase, "id" | "createdAt">>
@@ -197,75 +276,51 @@ export async function updatePurchase(
   const existing = await getPurchaseById(id);
   if (!existing) return null;
 
-  // Recalculate totals if items or costs changed
-  let subtotalCents = existing.subtotalCents;
-  let totalCents = existing.totalCents;
+  await db.transaction(async (tx) => {
+    const setValues: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
 
-  if (updates.items) {
-    subtotalCents = updates.items.reduce(
-      (sum, item) => sum + item.quantity * item.unitCostCents,
-      0
-    );
-  }
+    if (updates.vendorName !== undefined) setValues.vendorName = updates.vendorName;
+    if (updates.purchaseDate !== undefined) setValues.purchaseDate = updates.purchaseDate;
+    if (updates.subtotalCents !== undefined) setValues.subtotalCents = updates.subtotalCents;
+    if (updates.shippingCents !== undefined) setValues.shippingCents = updates.shippingCents;
+    if (updates.taxCents !== undefined) setValues.taxCents = updates.taxCents;
+    if (updates.totalCents !== undefined) setValues.totalCents = updates.totalCents;
+    if (updates.receiptImageUrl !== undefined) setValues.receiptImageUrl = updates.receiptImageUrl || null;
+    if (updates.notes !== undefined) setValues.notes = updates.notes || null;
 
-  const shippingCents = updates.shippingCents ?? existing.shippingCents;
-  const taxCents = updates.taxCents ?? existing.taxCents;
-  totalCents = subtotalCents + shippingCents + taxCents;
+    await tx.update(purchases).set(setValues).where(eq(purchases.id, id));
 
-  const updated: Purchase = {
-    ...existing,
-    ...updates,
-    subtotalCents,
-    totalCents,
-    updatedAt: new Date().toISOString(),
-  };
+    if (updates.items) {
+      await tx.delete(purchaseItems).where(eq(purchaseItems.purchaseId, id));
 
-  await kv.set(`purchase:${id}`, updated);
+      for (const item of updates.items) {
+        await tx.insert(purchaseItems).values({
+          purchaseId: id,
+          name: item.name,
+          quantity: item.quantity,
+          unitCostCents: item.unitCostCents,
+          category: item.category,
+          notes: item.notes || null,
+          createdAt: new Date(),
+        });
+      }
+    }
+  });
 
-  // Update vendor index if vendor changed
-  if (updates.vendorName && updates.vendorName !== existing.vendorName) {
-    await kv.srem(`purchases:vendor:${existing.vendorName.toLowerCase()}`, id);
-    await kv.sadd(`purchases:vendor:${updates.vendorName.toLowerCase()}`, id);
-  }
-
-  // Update date index if date changed
-  if (updates.purchaseDate && updates.purchaseDate !== existing.purchaseDate) {
-    const oldYearMonth = existing.purchaseDate.substring(0, 7);
-    const newYearMonth = updates.purchaseDate.substring(0, 7);
-    await kv.srem(`purchases:date:${oldYearMonth}`, id);
-    await kv.sadd(`purchases:date:${newYearMonth}`, id);
-  }
-
-  return updated;
+  return await getPurchaseById(id);
 }
 
-/**
- * Delete a purchase
- */
-export async function deletePurchase(id: string): Promise<boolean> {
-  const purchase = await getPurchaseById(id);
-  if (!purchase) return false;
-
-  // Remove from indexes
-  await kv.srem("purchases:index", id);
-  await kv.srem(`purchases:vendor:${purchase.vendorName.toLowerCase()}`, id);
-  const yearMonth = purchase.purchaseDate.substring(0, 7);
-  await kv.srem(`purchases:date:${yearMonth}`, id);
-
-  // Delete the purchase
-  await kv.del(`purchase:${id}`);
-
-  return true;
+export async function deletePurchase(id: string): Promise<void> {
+  await db.delete(purchases).where(eq(purchases.id, id));
 }
 
-/**
- * Get total spending by category
- */
 export async function getSpendingByCategory(): Promise<Record<string, number>> {
-  const purchases = await getAllPurchases();
+  const allPurchases = await getAllPurchases();
   const spending: Record<string, number> = {};
 
-  for (const purchase of purchases) {
+  for (const purchase of allPurchases) {
     const allocations = calculateItemAllocations(
       purchase.items,
       purchase.shippingCents,
@@ -281,28 +336,22 @@ export async function getSpendingByCategory(): Promise<Record<string, number>> {
   return spending;
 }
 
-/**
- * Get total spending by vendor
- */
 export async function getSpendingByVendor(): Promise<Record<string, number>> {
-  const purchases = await getAllPurchases();
+  const allPurchases = await getAllPurchases();
   const spending: Record<string, number> = {};
 
-  for (const purchase of purchases) {
+  for (const purchase of allPurchases) {
     spending[purchase.vendorName] = (spending[purchase.vendorName] || 0) + purchase.totalCents;
   }
 
   return spending;
 }
 
-/**
- * Get unique vendors
- */
 export async function getVendors(): Promise<string[]> {
-  const purchases = await getAllPurchases();
+  const allPurchases = await getAllPurchases();
   const vendors = new Set<string>();
 
-  for (const purchase of purchases) {
+  for (const purchase of allPurchases) {
     vendors.add(purchase.vendorName);
   }
 

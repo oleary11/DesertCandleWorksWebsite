@@ -1,5 +1,7 @@
-// Refund management using Vercel KV (Redis)
-import { kv } from "@vercel/kv";
+// Refund management using Postgres
+import { db } from "./db/client";
+import { refunds, refundItems } from "./db/schema";
+import { eq, desc } from "drizzle-orm";
 
 export type RefundReason =
   | "customer_request"
@@ -13,57 +15,102 @@ export type RefundReason =
 export type RefundStatus = "pending" | "processing" | "completed" | "failed";
 
 export type Refund = {
-  id: string; // UUID
-  orderId: string; // Stripe checkout session ID
-  stripeRefundId?: string; // Stripe refund ID (set after processing)
-  email: string; // Customer email
-  userId?: string; // Optional - null for guest orders
-  amountCents: number; // Refund amount in cents
+  id: string;
+  orderId: string;
+  stripeRefundId?: string;
+  email: string;
+  userId?: string;
+  amountCents: number;
   reason: RefundReason;
-  reasonNote?: string; // Additional details from admin
+  reasonNote?: string;
   status: RefundStatus;
-  restoreInventory: boolean; // Whether to restore stock
-  pointsToDeduct?: number; // Points to remove if order earned points
-  processedBy?: string; // Admin user ID who processed it
-  createdAt: string; // ISO timestamp
-  processedAt?: string; // ISO timestamp when completed
+  restoreInventory: boolean;
+  pointsToDeduct?: number;
+  processedBy?: string;
+  createdAt: string;
+  processedAt?: string;
   items: Array<{
     productSlug: string;
     productName: string;
     quantity: number;
-    variantId?: string; // For variant products
-    refundAmountCents: number; // Refund amount for this item
+    variantId?: string;
+    refundAmountCents: number;
   }>;
 };
 
-const REFUND_KEY = (id: string) => `refund:${id}`;
-const REFUNDS_INDEX = "refunds:index";
-const ORDER_REFUNDS_KEY = (orderId: string) => `order:${orderId}:refunds`;
-
-/**
- * Create a new refund record
- */
 export async function createRefund(refund: Refund): Promise<Refund> {
-  await kv.set(REFUND_KEY(refund.id), refund);
-  await kv.sadd(REFUNDS_INDEX, refund.id);
+  await db.transaction(async (tx) => {
+    await tx.insert(refunds).values({
+      id: refund.id,
+      orderId: refund.orderId,
+      stripeRefundId: refund.stripeRefundId || null,
+      userId: refund.userId || null,
+      email: refund.email,
+      amountCents: refund.amountCents,
+      reason: refund.reason,
+      reasonNote: refund.reasonNote || null,
+      status: refund.status,
+      restoreInventory: refund.restoreInventory,
+      pointsToDeduct: refund.pointsToDeduct || 0,
+      processedBy: refund.processedBy || null,
+      createdAt: new Date(refund.createdAt),
+      processedAt: refund.processedAt ? new Date(refund.processedAt) : null,
+    });
 
-  // Index by order ID for quick lookups
-  await kv.sadd(ORDER_REFUNDS_KEY(refund.orderId), refund.id);
+    for (const item of refund.items) {
+      await tx.insert(refundItems).values({
+        refundId: refund.id,
+        productSlug: item.productSlug,
+        productName: item.productName,
+        variantId: item.variantId || null,
+        quantity: item.quantity,
+        refundAmountCents: item.refundAmountCents,
+      });
+    }
+  });
 
   return refund;
 }
 
-/**
- * Get a refund by ID
- */
 export async function getRefundById(id: string): Promise<Refund | null> {
-  const refund = await kv.get<Refund>(REFUND_KEY(id));
-  return refund || null;
+  const [refund] = await db
+    .select()
+    .from(refunds)
+    .where(eq(refunds.id, id))
+    .limit(1);
+
+  if (!refund) return null;
+
+  const items = await db
+    .select()
+    .from(refundItems)
+    .where(eq(refundItems.refundId, id));
+
+  return {
+    id: refund.id,
+    orderId: refund.orderId,
+    stripeRefundId: refund.stripeRefundId || undefined,
+    userId: refund.userId || undefined,
+    email: refund.email,
+    amountCents: refund.amountCents,
+    reason: refund.reason,
+    reasonNote: refund.reasonNote || undefined,
+    status: refund.status,
+    restoreInventory: refund.restoreInventory,
+    pointsToDeduct: refund.pointsToDeduct || undefined,
+    processedBy: refund.processedBy || undefined,
+    createdAt: refund.createdAt.toISOString(),
+    processedAt: refund.processedAt?.toISOString(),
+    items: items.map((item) => ({
+      productSlug: item.productSlug,
+      productName: item.productName,
+      variantId: item.variantId || undefined,
+      quantity: item.quantity,
+      refundAmountCents: item.refundAmountCents,
+    })),
+  };
 }
 
-/**
- * Update refund status
- */
 export async function updateRefundStatus(
   id: string,
   status: RefundStatus,
@@ -73,50 +120,104 @@ export async function updateRefundStatus(
   const refund = await getRefundById(id);
   if (!refund) return null;
 
-  refund.status = status;
-  if (stripeRefundId) refund.stripeRefundId = stripeRefundId;
-  if (processedAt) refund.processedAt = processedAt;
+  const updateValues: Record<string, unknown> = { status };
 
-  await kv.set(REFUND_KEY(id), refund);
-  return refund;
+  if (stripeRefundId) updateValues.stripeRefundId = stripeRefundId;
+  if (processedAt) updateValues.processedAt = new Date(processedAt);
+
+  await db.update(refunds).set(updateValues).where(eq(refunds.id, id));
+
+  return await getRefundById(id);
 }
 
-/**
- * List all refunds
- */
 export async function listRefunds(): Promise<Refund[]> {
-  const ids = await kv.smembers(REFUNDS_INDEX);
-  if (!Array.isArray(ids) || ids.length === 0) return [];
+  const allRefunds = await db
+    .select()
+    .from(refunds)
+    .orderBy(desc(refunds.createdAt));
 
-  const keys = ids.map((id: string) => REFUND_KEY(id));
-  const refunds = await kv.mget<Refund[]>(...keys);
+  const result: Refund[] = [];
 
-  return refunds
-    .filter((r): r is Refund => Boolean(r))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  for (const refund of allRefunds) {
+    const items = await db
+      .select()
+      .from(refundItems)
+      .where(eq(refundItems.refundId, refund.id));
+
+    result.push({
+      id: refund.id,
+      orderId: refund.orderId,
+      stripeRefundId: refund.stripeRefundId || undefined,
+      userId: refund.userId || undefined,
+      email: refund.email,
+      amountCents: refund.amountCents,
+      reason: refund.reason,
+      reasonNote: refund.reasonNote || undefined,
+      status: refund.status,
+      restoreInventory: refund.restoreInventory,
+      pointsToDeduct: refund.pointsToDeduct || undefined,
+      processedBy: refund.processedBy || undefined,
+      createdAt: refund.createdAt.toISOString(),
+      processedAt: refund.processedAt?.toISOString(),
+      items: items.map((item) => ({
+        productSlug: item.productSlug,
+        productName: item.productName,
+        variantId: item.variantId || undefined,
+        quantity: item.quantity,
+        refundAmountCents: item.refundAmountCents,
+      })),
+    });
+  }
+
+  return result;
 }
 
-/**
- * Get refunds for a specific order
- */
 export async function getRefundsByOrderId(orderId: string): Promise<Refund[]> {
-  const refundIds = await kv.smembers(ORDER_REFUNDS_KEY(orderId));
-  if (!Array.isArray(refundIds) || refundIds.length === 0) return [];
+  const orderRefunds = await db
+    .select()
+    .from(refunds)
+    .where(eq(refunds.orderId, orderId))
+    .orderBy(desc(refunds.createdAt));
 
-  const keys = refundIds.map((id: string) => REFUND_KEY(id));
-  const refunds = await kv.mget<Refund[]>(...keys);
+  const result: Refund[] = [];
 
-  return refunds
-    .filter((r): r is Refund => Boolean(r))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  for (const refund of orderRefunds) {
+    const items = await db
+      .select()
+      .from(refundItems)
+      .where(eq(refundItems.refundId, refund.id));
+
+    result.push({
+      id: refund.id,
+      orderId: refund.orderId,
+      stripeRefundId: refund.stripeRefundId || undefined,
+      userId: refund.userId || undefined,
+      email: refund.email,
+      amountCents: refund.amountCents,
+      reason: refund.reason,
+      reasonNote: refund.reasonNote || undefined,
+      status: refund.status,
+      restoreInventory: refund.restoreInventory,
+      pointsToDeduct: refund.pointsToDeduct || undefined,
+      processedBy: refund.processedBy || undefined,
+      createdAt: refund.createdAt.toISOString(),
+      processedAt: refund.processedAt?.toISOString(),
+      items: items.map((item) => ({
+        productSlug: item.productSlug,
+        productName: item.productName,
+        variantId: item.variantId || undefined,
+        quantity: item.quantity,
+        refundAmountCents: item.refundAmountCents,
+      })),
+    });
+  }
+
+  return result;
 }
 
-/**
- * Check if an order has been fully or partially refunded
- */
 export async function getOrderRefundTotal(orderId: string): Promise<number> {
-  const refunds = await getRefundsByOrderId(orderId);
-  return refunds
-    .filter(r => r.status === "completed")
+  const orderRefunds = await getRefundsByOrderId(orderId);
+  return orderRefunds
+    .filter((r) => r.status === "completed")
     .reduce((total, r) => total + r.amountCents, 0);
 }

@@ -12,6 +12,9 @@ import ProductPageTracker from "@/components/ProductPageTracker";
 import ShareButtons from "@/components/ShareButtons";
 import ProductImageGallery from "./ProductImageGallery";
 
+// Cache product pages for 1 minute in production
+export const revalidate = 60;
+
 type Props = { params: Promise<{ slug: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

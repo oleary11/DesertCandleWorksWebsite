@@ -1,82 +1,76 @@
-// User management and points system using Vercel KV (Redis)
-import { kv } from "@vercel/kv";
+// User management and points system using Postgres
+import { db } from "./db/client";
+import {
+  users,
+  orders,
+  orderItems,
+  pointsTransactions,
+  passwordResetTokens,
+  emailVerificationTokens,
+  invoiceAccessTokens,
+} from "./db/schema";
+import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
 import crypto from "crypto";
+import { kv } from "@vercel/kv";
 
-// Webhook event ID tracking for idempotency
-const WEBHOOK_EVENTS_PREFIX = "webhook:event:";
-const WEBHOOK_EVENT_TTL = 7 * 24 * 60 * 60; // 7 days
-
-/**
- * Check if a webhook event has already been processed
- */
-export async function isWebhookProcessed(eventId: string): Promise<boolean> {
-  const exists = await kv.exists(`${WEBHOOK_EVENTS_PREFIX}${eventId}`);
-  return exists === 1;
-}
-
-/**
- * Mark a webhook event as processed
- */
-export async function markWebhookProcessed(eventId: string): Promise<void> {
-  await kv.set(`${WEBHOOK_EVENTS_PREFIX}${eventId}`, true, { ex: WEBHOOK_EVENT_TTL });
-}
-
+// Type definitions
 export type User = {
-  id: string; // UUID
+  id: string;
   email: string;
-  passwordHash: string; // bcrypt hash
+  passwordHash: string;
   firstName: string;
   lastName: string;
   points: number;
-  emailVerified: boolean; // Email verification status
-  createdAt: string; // ISO timestamp
-  updatedAt: string; // ISO timestamp
+  emailVerified: boolean;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type PasswordResetToken = {
-  token: string; // Random token
+  token: string;
   userId: string;
   email: string;
-  expiresAt: string; // ISO timestamp
+  expiresAt: string;
   createdAt: string;
 };
 
 export type EmailVerificationToken = {
-  token: string; // Random token
+  token: string;
   userId: string;
   email: string;
-  expiresAt: string; // ISO timestamp
+  expiresAt: string;
   createdAt: string;
 };
 
 export type PointsTransaction = {
-  id: string; // UUID
+  id: string;
   userId: string;
-  amount: number; // positive for earn, negative for redeem
+  amount: number;
   type: "earn" | "redeem" | "admin_adjustment";
-  description: string; // e.g., "Purchase #abc123", "Redeemed for $5 off"
-  orderId?: string; // Stripe checkout session ID
-  createdAt: string; // ISO timestamp
+  description: string;
+  orderId?: string;
+  createdAt: string;
 };
 
 export type Order = {
-  id: string; // Stripe checkout session ID
-  userId?: string; // Optional - null for guest orders
+  id: string;
+  userId?: string;
   email: string;
-  totalCents: number; // Full order total (products + shipping + tax)
-  productSubtotalCents?: number; // Products only (for points calculation)
-  shippingCents?: number; // Shipping cost
-  taxCents?: number; // Tax amount
+  totalCents: number;
+  productSubtotalCents?: number;
+  shippingCents?: number;
+  taxCents?: number;
   pointsEarned: number;
-  pointsRedeemed?: number; // Points used for discount
-  promotionId?: string; // Promotion code applied
-  paymentMethod?: string; // Payment method (for manual sales: "cash", "card", "other")
-  notes?: string; // Admin notes (for manual sales)
+  pointsRedeemed?: number;
+  promotionId?: string;
+  paymentMethod?: string;
+  notes?: string;
   status: "pending" | "completed" | "cancelled";
-  isGuest: boolean; // True if order was placed without account
+  isGuest: boolean;
   items: Array<{
     productSlug: string;
     productName: string;
+    variantId?: string;
     quantity: number;
     priceCents: number;
   }>;
@@ -89,24 +83,39 @@ export type Order = {
     postalCode?: string;
     country?: string;
   };
-  phone?: string; // Customer phone number
+  phone?: string;
+  trackingNumber?: string;
+  shippingStatus?: "pending" | "shipped" | "delivered";
+  shippedAt?: string;
+  deliveredAt?: string;
   createdAt: string;
   completedAt?: string;
 };
 
 export type InvoiceAccessToken = {
-  token: string; // Random secure token
+  token: string;
   orderId: string;
   email: string;
-  expiresAt: string; // ISO timestamp
+  expiresAt: string;
   createdAt: string;
 };
 
+// ============ Webhook Deduplication (Keep in Redis - Perfect for TTL) ============
+
+const WEBHOOK_EVENTS_PREFIX = "webhook:event:";
+const WEBHOOK_EVENT_TTL = 7 * 24 * 60 * 60; // 7 days
+
+export async function isWebhookProcessed(eventId: string): Promise<boolean> {
+  const exists = await kv.exists(`${WEBHOOK_EVENTS_PREFIX}${eventId}`);
+  return exists === 1;
+}
+
+export async function markWebhookProcessed(eventId: string): Promise<void> {
+  await kv.set(`${WEBHOOK_EVENTS_PREFIX}${eventId}`, true, { ex: WEBHOOK_EVENT_TTL });
+}
+
 // ============ User Management ============
 
-/**
- * Create a new user account
- */
 export async function createUser(
   email: string,
   password: string,
@@ -116,71 +125,99 @@ export async function createUser(
   const normalizedEmail = email.toLowerCase().trim();
 
   // Check if email already exists
-  const existingId = await kv.get<string>(`user:email:${normalizedEmail}`);
-  if (existingId) {
+  const existing = await db
+    .select()
+    .from(users)
+    .where(eq(users.email, normalizedEmail))
+    .limit(1);
+
+  if (existing.length > 0) {
     throw new Error("Email already registered");
   }
 
   const bcrypt = await import("bcryptjs");
   const passwordHash = await bcrypt.hash(password, 12);
 
-  const user: User = {
-    id: crypto.randomUUID(),
-    email: normalizedEmail,
-    passwordHash,
-    firstName,
-    lastName,
-    points: 0,
-    emailVerified: false,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+  const [user] = await db
+    .insert(users)
+    .values({
+      email: normalizedEmail,
+      passwordHash,
+      firstName,
+      lastName,
+      points: 0,
+      emailVerified: false,
+    })
+    .returning();
+
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    points: user.points,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
   };
-
-  // Store user data
-  await kv.set(`user:${user.id}`, user);
-  // Create email -> userId mapping for login
-  await kv.set(`user:email:${normalizedEmail}`, user.id);
-  // Add to users index
-  await kv.sadd("users:index", user.id);
-
-  return user;
 }
 
-/**
- * Get user by ID
- */
 export async function getUserById(userId: string): Promise<User | null> {
-  return await kv.get<User>(`user:${userId}`);
+  const result = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+
+  if (result.length === 0) return null;
+
+  const user = result[0];
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    points: user.points,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
 }
 
-/**
- * Get user by email
- */
 export async function getUserByEmail(email: string): Promise<User | null> {
   const normalizedEmail = email.toLowerCase().trim();
-  const userId = await kv.get<string>(`user:email:${normalizedEmail}`);
-  if (!userId) return null;
-  return await getUserById(userId);
+  const result = await db.select().from(users).where(eq(users.email, normalizedEmail)).limit(1);
+
+  if (result.length === 0) return null;
+
+  const user = result[0];
+  return {
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    points: user.points,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  };
 }
 
-/**
- * List all users (for admin purposes)
- */
 export async function listAllUsers(): Promise<User[]> {
-  const userIds = await kv.smembers("users:index");
-  if (!userIds || userIds.length === 0) return [];
+  const result = await db.select().from(users).orderBy(desc(users.createdAt));
 
-  const users = await Promise.all(
-    userIds.map(async (userId) => await getUserById(userId))
-  );
-
-  // Filter out nulls and return
-  return users.filter((user): user is User => user !== null);
+  return result.map((user) => ({
+    id: user.id,
+    email: user.email,
+    passwordHash: user.passwordHash,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    points: user.points,
+    emailVerified: user.emailVerified,
+    createdAt: user.createdAt.toISOString(),
+    updatedAt: user.updatedAt.toISOString(),
+  }));
 }
 
-/**
- * Verify user password
- */
 export async function verifyPassword(email: string, password: string): Promise<User | null> {
   const user = await getUserByEmail(email);
   if (!user) return null;
@@ -190,68 +227,43 @@ export async function verifyPassword(email: string, password: string): Promise<U
   return isValid ? user : null;
 }
 
-/**
- * Update user password
- */
 export async function updatePassword(userId: string, newPassword: string): Promise<void> {
-  const user = await getUserById(userId);
-  if (!user) throw new Error("User not found");
-
   const bcrypt = await import("bcryptjs");
   const passwordHash = await bcrypt.hash(newPassword, 10);
 
-  const updated: User = {
-    ...user,
-    passwordHash,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await kv.set(`user:${userId}`, updated);
+  await db.update(users).set({ passwordHash }).where(eq(users.id, userId));
 }
 
-/**
- * Update user profile
- */
 export async function updateUserProfile(
   userId: string,
   updates: { firstName?: string; lastName?: string }
 ): Promise<User> {
-  const user = await getUserById(userId);
-  if (!user) throw new Error("User not found");
+  const [updated] = await db
+    .update(users)
+    .set(updates)
+    .where(eq(users.id, userId))
+    .returning();
 
-  const updated: User = {
-    ...user,
-    ...updates,
-    updatedAt: new Date().toISOString(),
+  return {
+    id: updated.id,
+    email: updated.email,
+    passwordHash: updated.passwordHash,
+    firstName: updated.firstName,
+    lastName: updated.lastName,
+    points: updated.points,
+    emailVerified: updated.emailVerified,
+    createdAt: updated.createdAt.toISOString(),
+    updatedAt: updated.updatedAt.toISOString(),
   };
-
-  await kv.set(`user:${userId}`, updated);
-  return updated;
 }
 
-/**
- * Delete user account
- */
 export async function deleteUser(userId: string): Promise<void> {
-  const user = await getUserById(userId);
-  if (!user) return;
-
-  // Remove from email mapping
-  await kv.del(`user:email:${user.email}`);
-  // Remove from users index
-  await kv.srem("users:index", userId);
-  // Delete user data
-  await kv.del(`user:${userId}`);
-
-  // Note: Points transactions and orders are kept for audit trail
-  // but marked as belonging to deleted user
+  await db.delete(users).where(eq(users.id, userId));
+  // Note: Cascading deletes handled by foreign key constraints
 }
 
 // ============ Points Management ============
 
-/**
- * Add points to user account
- */
 export async function addPoints(
   userId: string,
   amount: number,
@@ -259,55 +271,61 @@ export async function addPoints(
   description: string,
   orderId?: string
 ): Promise<PointsTransaction> {
-  const user = await getUserById(userId);
-  if (!user) throw new Error("User not found");
+  return await db.transaction(async (tx) => {
+    // Update user points
+    await tx
+      .update(users)
+      .set({
+        points: drizzleSql`${users.points} + ${amount}`,
+      })
+      .where(eq(users.id, userId));
 
-  const transaction: PointsTransaction = {
-    id: crypto.randomUUID(),
-    userId,
-    amount,
-    type,
-    description,
-    orderId,
-    createdAt: new Date().toISOString(),
-  };
+    // Create transaction record
+    const [transaction] = await tx
+      .insert(pointsTransactions)
+      .values({
+        userId,
+        amount,
+        type,
+        description,
+        orderId: orderId || null,
+      })
+      .returning();
 
-  // Update user points
-  const updatedUser: User = {
-    ...user,
-    points: user.points + amount,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await kv.set(`user:${userId}`, updatedUser);
-  // Store transaction
-  await kv.set(`points:transaction:${transaction.id}`, transaction);
-  // Add to user's transaction index
-  await kv.lpush(`points:user:${userId}`, transaction.id);
-
-  return transaction;
+    return {
+      id: transaction.id,
+      userId: transaction.userId,
+      amount: transaction.amount,
+      type: transaction.type,
+      description: transaction.description,
+      orderId: transaction.orderId || undefined,
+      createdAt: transaction.createdAt.toISOString(),
+    };
+  });
 }
 
-/**
- * Get user's points transactions
- */
 export async function getUserPointsTransactions(
   userId: string,
   limit = 50
 ): Promise<PointsTransaction[]> {
-  const transactionIds = await kv.lrange<string>(`points:user:${userId}`, 0, limit - 1);
-  if (!transactionIds || transactionIds.length === 0) return [];
+  const result = await db
+    .select()
+    .from(pointsTransactions)
+    .where(eq(pointsTransactions.userId, userId))
+    .orderBy(desc(pointsTransactions.createdAt))
+    .limit(limit);
 
-  const transactions = await Promise.all(
-    transactionIds.map((id) => kv.get<PointsTransaction>(`points:transaction:${id}`))
-  );
-
-  return transactions.filter((t): t is PointsTransaction => t !== null);
+  return result.map((t) => ({
+    id: t.id,
+    userId: t.userId,
+    amount: t.amount,
+    type: t.type,
+    description: t.description,
+    orderId: t.orderId || undefined,
+    createdAt: t.createdAt.toISOString(),
+  }));
 }
 
-/**
- * Redeem points (subtract from balance)
- */
 export async function redeemPoints(
   userId: string,
   amount: number,
@@ -320,10 +338,6 @@ export async function redeemPoints(
   return addPoints(userId, -amount, "redeem", description);
 }
 
-/**
- * Deduct points from user (for refunds or adjustments)
- * Unlike redeemPoints, this can deduct more points than the user has (going negative)
- */
 export async function deductPoints(
   userId: string,
   amount: number,
@@ -337,203 +351,415 @@ export async function deductPoints(
 
 // ============ Order Management ============
 
-/**
- * Create order record (supports both authenticated users and guests)
- */
 export async function createOrder(
   email: string,
   checkoutSessionId: string,
   totalCents: number,
   items: Order["items"],
-  userId?: string, // Optional - omit for guest orders
-  productSubtotalCents?: number, // Product subtotal (for points calculation)
-  shippingCents?: number, // Shipping cost
-  taxCents?: number, // Tax amount
-  paymentMethod?: string, // Payment method (for manual sales)
-  notes?: string, // Admin notes (for manual sales)
-  shippingAddress?: Order["shippingAddress"], // Shipping address
-  phone?: string // Customer phone number
+  userId?: string,
+  productSubtotalCents?: number,
+  shippingCents?: number,
+  taxCents?: number,
+  paymentMethod?: string,
+  notes?: string,
+  shippingAddress?: Order["shippingAddress"],
+  phone?: string
 ): Promise<Order> {
-  // Calculate points based on product subtotal only (not shipping/tax)
+  // Calculate points based on product subtotal only
   const pointsBase = productSubtotalCents ?? totalCents;
-  const pointsEarned = Math.round(pointsBase / 100); // 1 point per dollar, rounded ($44.99 = 45 points)
+  const pointsEarned = Math.round(pointsBase / 100);
 
-  const order: Order = {
-    id: checkoutSessionId,
-    userId,
-    email,
-    totalCents,
-    productSubtotalCents,
-    shippingCents,
-    taxCents,
-    paymentMethod,
-    notes,
-    pointsEarned,
-    status: "pending",
-    isGuest: !userId,
-    items,
-    shippingAddress,
-    phone,
-    createdAt: new Date().toISOString(),
-  };
+  return await db.transaction(async (tx) => {
+    // Insert order
+    const [order] = await tx
+      .insert(orders)
+      .values({
+        id: checkoutSessionId,
+        userId: userId || null,
+        email,
+        isGuest: !userId,
+        totalCents,
+        productSubtotalCents: productSubtotalCents || null,
+        shippingCents: shippingCents || null,
+        taxCents: taxCents || null,
+        paymentMethod: (paymentMethod as "stripe" | "cash" | "card" | "square" | "other" | null) || null,
+        notes: notes || null,
+        pointsEarned,
+        status: "pending",
+        shippingStatus: "pending",
+        phone: phone || null,
+        shippingName: shippingAddress?.name || null,
+        shippingLine1: shippingAddress?.line1 || null,
+        shippingLine2: shippingAddress?.line2 || null,
+        shippingCity: shippingAddress?.city || null,
+        shippingState: shippingAddress?.state || null,
+        shippingPostalCode: shippingAddress?.postalCode || null,
+        shippingCountry: shippingAddress?.country || "US",
+      })
+      .returning();
 
-  await kv.set(`order:${order.id}`, order);
+    // Insert order items
+    for (const item of items) {
+      await tx.insert(orderItems).values({
+        orderId: order.id,
+        productSlug: item.productSlug,
+        productName: item.productName,
+        variantId: (item as { variantId?: string }).variantId || null,
+        quantity: item.quantity,
+        priceCents: item.priceCents,
+      });
+    }
 
-  // Add to global orders index for analytics
-  await kv.sadd("orders:index", order.id);
-
-  // Only add to user's order list if they have an account
-  if (userId) {
-    await kv.lpush(`orders:user:${userId}`, order.id);
-  }
-
-  // Index guest orders by email for retroactive linking
-  if (!userId) {
-    await kv.lpush(`orders:guest:${email.toLowerCase()}`, order.id);
-  }
-
-  return order;
+    return {
+      id: order.id,
+      userId: order.userId || undefined,
+      email: order.email,
+      totalCents: order.totalCents,
+      productSubtotalCents: order.productSubtotalCents || undefined,
+      shippingCents: order.shippingCents || undefined,
+      taxCents: order.taxCents || undefined,
+      pointsEarned: order.pointsEarned,
+      pointsRedeemed: order.pointsRedeemed || undefined,
+      promotionId: order.promotionId || undefined,
+      paymentMethod: order.paymentMethod || undefined,
+      notes: order.notes || undefined,
+      status: order.status,
+      isGuest: order.isGuest,
+      items,
+      shippingAddress: shippingAddress || undefined,
+      phone: order.phone || undefined,
+      trackingNumber: order.trackingNumber || undefined,
+      shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+      shippedAt: order.shippedAt?.toISOString(),
+      deliveredAt: order.deliveredAt?.toISOString(),
+      createdAt: order.createdAt.toISOString(),
+      completedAt: order.completedAt?.toISOString(),
+    };
+  });
 }
 
-/**
- * Complete order and award points (only if user has account)
- */
 export async function completeOrder(orderId: string): Promise<void> {
-  const order = await kv.get<Order>(`order:${orderId}`);
-  if (!order) throw new Error("Order not found");
-  if (order.status === "completed") return; // Already completed
+  await db.transaction(async (tx) => {
+    const [order] = await tx.select().from(orders).where(eq(orders.id, orderId)).limit(1);
 
-  const updated: Order = {
-    ...order,
-    status: "completed",
-    completedAt: new Date().toISOString(),
-  };
+    if (!order) throw new Error("Order not found");
+    if (order.status === "completed") return; // Already completed
 
-  await kv.set(`order:${orderId}`, updated);
+    // Update order status
+    await tx
+      .update(orders)
+      .set({
+        status: "completed",
+        completedAt: new Date(),
+      })
+      .where(eq(orders.id, orderId));
 
-  // Award points only if user has an account
-  if (order.userId) {
-    await addPoints(
-      order.userId,
-      order.pointsEarned,
-      "earn",
-      `Purchase #${orderId.slice(0, 8)}`,
-      orderId
-    );
-  }
+    // Award points if user has an account
+    if (order.userId) {
+      await tx
+        .update(users)
+        .set({
+          points: drizzleSql`${users.points} + ${order.pointsEarned}`,
+        })
+        .where(eq(users.id, order.userId));
+
+      await tx.insert(pointsTransactions).values({
+        userId: order.userId,
+        amount: order.pointsEarned,
+        type: "earn",
+        description: `Purchase #${orderId.slice(0, 8)}`,
+        orderId,
+      });
+    }
+  });
 }
 
-/**
- * Get user's orders
- */
 export async function getUserOrders(userId: string, limit = 50): Promise<Order[]> {
-  const orderIds = await kv.lrange<string>(`orders:user:${userId}`, 0, limit - 1);
-  if (!orderIds || orderIds.length === 0) return [];
+  const orderResults = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.userId, userId))
+    .orderBy(desc(orders.createdAt))
+    .limit(limit);
 
-  const orders = await Promise.all(orderIds.map((id) => kv.get<Order>(`order:${id}`)));
+  const ordersWithItems = await Promise.all(
+    orderResults.map(async (order) => {
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
 
-  return orders.filter((o): o is Order => o !== null);
-}
-
-/**
- * Get order by ID
- */
-export async function getOrderById(orderId: string): Promise<Order | null> {
-  return await kv.get<Order>(`order:${orderId}`);
-}
-
-/**
- * Get all orders (for admin analytics)
- */
-export async function getAllOrders(): Promise<Order[]> {
-  const orderIds = await kv.smembers("orders:index");
-  if (!orderIds || orderIds.length === 0) return [];
-
-  const orders = await Promise.all(
-    orderIds.map((id) => kv.get<Order>(`order:${id}`))
+      return {
+        id: order.id,
+        userId: order.userId || undefined,
+        email: order.email,
+        totalCents: order.totalCents,
+        productSubtotalCents: order.productSubtotalCents || undefined,
+        shippingCents: order.shippingCents || undefined,
+        taxCents: order.taxCents || undefined,
+        pointsEarned: order.pointsEarned,
+        pointsRedeemed: order.pointsRedeemed || undefined,
+        promotionId: order.promotionId || undefined,
+        paymentMethod: order.paymentMethod || undefined,
+        notes: order.notes || undefined,
+        status: order.status,
+        isGuest: order.isGuest,
+        items: items.map((item) => ({
+          productSlug: item.productSlug,
+          productName: item.productName,
+          variantId: item.variantId || undefined,
+          quantity: item.quantity,
+          priceCents: item.priceCents,
+        })),
+        shippingAddress: order.shippingLine1
+          ? {
+              name: order.shippingName || undefined,
+              line1: order.shippingLine1 || undefined,
+              line2: order.shippingLine2 || undefined,
+              city: order.shippingCity || undefined,
+              state: order.shippingState || undefined,
+              postalCode: order.shippingPostalCode || undefined,
+              country: order.shippingCountry || undefined,
+            }
+          : undefined,
+        phone: order.phone || undefined,
+        trackingNumber: order.trackingNumber || undefined,
+        shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+        shippedAt: order.shippedAt?.toISOString(),
+        deliveredAt: order.deliveredAt?.toISOString(),
+        createdAt: order.createdAt.toISOString(),
+        completedAt: order.completedAt?.toISOString(),
+      };
+    })
   );
 
-  return orders
-    .filter((o): o is Order => o !== null)
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  return ordersWithItems;
 }
 
-/**
- * Delete order (for admin cleanup of test orders)
- */
+export async function getOrderById(orderId: string): Promise<Order | null> {
+  const [order] = await db.select().from(orders).where(eq(orders.id, orderId)).limit(1);
+
+  if (!order) return null;
+
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+
+  return {
+    id: order.id,
+    userId: order.userId || undefined,
+    email: order.email,
+    totalCents: order.totalCents,
+    productSubtotalCents: order.productSubtotalCents || undefined,
+    shippingCents: order.shippingCents || undefined,
+    taxCents: order.taxCents || undefined,
+    pointsEarned: order.pointsEarned,
+    pointsRedeemed: order.pointsRedeemed || undefined,
+    promotionId: order.promotionId || undefined,
+    paymentMethod: order.paymentMethod || undefined,
+    notes: order.notes || undefined,
+    status: order.status,
+    isGuest: order.isGuest,
+    items: items.map((item) => ({
+      productSlug: item.productSlug,
+      productName: item.productName,
+      variantId: item.variantId || undefined,
+      quantity: item.quantity,
+      priceCents: item.priceCents,
+    })),
+    shippingAddress: order.shippingLine1
+      ? {
+          name: order.shippingName || undefined,
+          line1: order.shippingLine1 || undefined,
+          line2: order.shippingLine2 || undefined,
+          city: order.shippingCity || undefined,
+          state: order.shippingState || undefined,
+          postalCode: order.shippingPostalCode || undefined,
+          country: order.shippingCountry || undefined,
+        }
+      : undefined,
+    phone: order.phone || undefined,
+    trackingNumber: order.trackingNumber || undefined,
+    shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+    shippedAt: order.shippedAt?.toISOString(),
+    deliveredAt: order.deliveredAt?.toISOString(),
+    createdAt: order.createdAt.toISOString(),
+    completedAt: order.completedAt?.toISOString(),
+  };
+}
+
+export async function getAllOrders(): Promise<Order[]> {
+  const orderResults = await db.select().from(orders).orderBy(desc(orders.createdAt));
+
+  const ordersWithItems = await Promise.all(
+    orderResults.map(async (order) => {
+      const items = await db.select().from(orderItems).where(eq(orderItems.orderId, order.id));
+
+      return {
+        id: order.id,
+        userId: order.userId || undefined,
+        email: order.email,
+        totalCents: order.totalCents,
+        productSubtotalCents: order.productSubtotalCents || undefined,
+        shippingCents: order.shippingCents || undefined,
+        taxCents: order.taxCents || undefined,
+        pointsEarned: order.pointsEarned,
+        pointsRedeemed: order.pointsRedeemed || undefined,
+        promotionId: order.promotionId || undefined,
+        paymentMethod: order.paymentMethod || undefined,
+        notes: order.notes || undefined,
+        status: order.status,
+        isGuest: order.isGuest,
+        items: items.map((item) => ({
+          productSlug: item.productSlug,
+          productName: item.productName,
+          variantId: item.variantId || undefined,
+          quantity: item.quantity,
+          priceCents: item.priceCents,
+        })),
+        shippingAddress: order.shippingLine1
+          ? {
+              name: order.shippingName || undefined,
+              line1: order.shippingLine1 || undefined,
+              line2: order.shippingLine2 || undefined,
+              city: order.shippingCity || undefined,
+              state: order.shippingState || undefined,
+              postalCode: order.shippingPostalCode || undefined,
+              country: order.shippingCountry || undefined,
+            }
+          : undefined,
+        phone: order.phone || undefined,
+        trackingNumber: order.trackingNumber || undefined,
+        shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+        shippedAt: order.shippedAt?.toISOString(),
+        deliveredAt: order.deliveredAt?.toISOString(),
+        createdAt: order.createdAt.toISOString(),
+        completedAt: order.completedAt?.toISOString(),
+      };
+    })
+  );
+
+  return ordersWithItems;
+}
+
 export async function deleteOrder(orderId: string): Promise<void> {
-  const order = await getOrderById(orderId);
-  if (!order) return;
+  await db.delete(orders).where(eq(orders.id, orderId));
+  // orderItems cascade delete automatically
+}
 
-  // Remove from global orders index
-  await kv.srem("orders:index", orderId);
+export async function updateOrderShipping(
+  orderId: string,
+  trackingNumber: string,
+  shippingStatus: "shipped" | "delivered"
+): Promise<Order> {
+  const now = new Date();
 
-  // Remove from user's order list if it's a user order
-  if (order.userId) {
-    await kv.lrem(`orders:user:${order.userId}`, 0, orderId);
-  } else {
-    // Remove from guest orders list
-    await kv.lrem(`orders:guest:${order.email.toLowerCase()}`, 0, orderId);
-  }
+  const [updated] = await db
+    .update(orders)
+    .set({
+      trackingNumber,
+      shippingStatus,
+      shippedAt: shippingStatus === "shipped" ? now : undefined,
+      deliveredAt: shippingStatus === "delivered" ? now : undefined,
+    })
+    .where(eq(orders.id, orderId))
+    .returning();
 
-  // Delete the order data
-  await kv.del(`order:${orderId}`);
+  // Fetch items
+  const items = await db.select().from(orderItems).where(eq(orderItems.orderId, updated.id));
+
+  return {
+    id: updated.id,
+    userId: updated.userId || undefined,
+    email: updated.email,
+    totalCents: updated.totalCents,
+    productSubtotalCents: updated.productSubtotalCents || undefined,
+    shippingCents: updated.shippingCents || undefined,
+    taxCents: updated.taxCents || undefined,
+    pointsEarned: updated.pointsEarned,
+    pointsRedeemed: updated.pointsRedeemed || undefined,
+    promotionId: updated.promotionId || undefined,
+    paymentMethod: updated.paymentMethod || undefined,
+    notes: updated.notes || undefined,
+    status: updated.status,
+    isGuest: updated.isGuest,
+    items: items.map((item) => ({
+      productSlug: item.productSlug,
+      productName: item.productName,
+      variantId: item.variantId || undefined,
+      quantity: item.quantity,
+      priceCents: item.priceCents,
+    })),
+    shippingAddress: updated.shippingLine1
+      ? {
+          name: updated.shippingName || undefined,
+          line1: updated.shippingLine1 || undefined,
+          line2: updated.shippingLine2 || undefined,
+          city: updated.shippingCity || undefined,
+          state: updated.shippingState || undefined,
+          postalCode: updated.shippingPostalCode || undefined,
+          country: updated.shippingCountry || undefined,
+        }
+      : undefined,
+    phone: updated.phone || undefined,
+    trackingNumber: updated.trackingNumber || undefined,
+    shippingStatus: (updated.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+    shippedAt: updated.shippedAt?.toISOString(),
+    deliveredAt: updated.deliveredAt?.toISOString(),
+    createdAt: updated.createdAt.toISOString(),
+    completedAt: updated.completedAt?.toISOString(),
+  };
 }
 
 // ============ Password Reset ============
 
-/**
- * Create password reset token
- * Invalidates any existing tokens for this user
- */
 export async function createPasswordResetToken(email: string): Promise<PasswordResetToken | null> {
   const user = await getUserByEmail(email);
   if (!user) return null;
 
-  // Invalidate any existing reset token for this user
-  const existingTokenKey = `password:reset:user:${user.id}`;
-  const oldToken = await kv.get<string>(existingTokenKey);
-  if (oldToken) {
-    await kv.del(`password:reset:${oldToken}`);
-  }
+  // Delete any existing tokens for this user
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.userId, user.id));
 
   const token = crypto.randomBytes(32).toString("hex");
-  const resetToken: PasswordResetToken = {
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
+
+  await db.insert(passwordResetTokens).values({
     token,
     userId: user.id,
     email: user.email,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
+    expiresAt,
+  });
+
+  return {
+    token,
+    userId: user.id,
+    email: user.email,
+    expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString(),
   };
-
-  // Store token with 1 hour expiration
-  await kv.set(`password:reset:${token}`, resetToken, { ex: 3600 });
-  // Track latest token for this user (for invalidation)
-  await kv.set(existingTokenKey, token, { ex: 3600 });
-
-  return resetToken;
 }
 
-/**
- * Get password reset token
- */
 export async function getPasswordResetToken(token: string): Promise<PasswordResetToken | null> {
-  return await kv.get<PasswordResetToken>(`password:reset:${token}`);
+  const result = await db
+    .select()
+    .from(passwordResetTokens)
+    .where(eq(passwordResetTokens.token, token))
+    .limit(1);
+
+  if (result.length === 0) return null;
+
+  const resetToken = result[0];
+  return {
+    token: resetToken.token,
+    userId: resetToken.userId,
+    email: resetToken.email,
+    expiresAt: resetToken.expiresAt.toISOString(),
+    createdAt: resetToken.createdAt.toISOString(),
+  };
 }
 
-/**
- * Reset password using token
- */
-export async function resetPasswordWithToken(
-  token: string,
-  newPassword: string
-): Promise<boolean> {
+export async function resetPasswordWithToken(token: string, newPassword: string): Promise<boolean> {
   const resetToken = await getPasswordResetToken(token);
   if (!resetToken) return false;
 
   // Check if token is expired
   if (new Date(resetToken.expiresAt) < new Date()) {
-    await kv.del(`password:reset:${token}`);
+    await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
     return false;
   }
 
@@ -541,54 +767,62 @@ export async function resetPasswordWithToken(
   await updatePassword(resetToken.userId, newPassword);
 
   // Delete used token
-  await kv.del(`password:reset:${token}`);
+  await db.delete(passwordResetTokens).where(eq(passwordResetTokens.token, token));
 
   return true;
 }
 
 // ============ Guest Order Invoice Access ============
 
-/**
- * Create invoice access token for guest orders
- */
 export async function createInvoiceAccessToken(orderId: string): Promise<InvoiceAccessToken> {
   const order = await getOrderById(orderId);
   if (!order) throw new Error("Order not found");
 
   const token = crypto.randomBytes(32).toString("hex");
-  const accessToken: InvoiceAccessToken = {
+  const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000); // 30 days
+
+  await db.insert(invoiceAccessTokens).values({
     token,
     orderId,
     email: order.email,
-    expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 days
+    expiresAt,
+  });
+
+  return {
+    token,
+    orderId,
+    email: order.email,
+    expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString(),
   };
-
-  // Store token with 30 day expiration
-  await kv.set(`invoice:token:${token}`, accessToken, { ex: 30 * 24 * 60 * 60 });
-
-  return accessToken;
 }
 
-/**
- * Get invoice access token
- */
 export async function getInvoiceAccessToken(token: string): Promise<InvoiceAccessToken | null> {
-  return await kv.get<InvoiceAccessToken>(`invoice:token:${token}`);
+  const result = await db
+    .select()
+    .from(invoiceAccessTokens)
+    .where(eq(invoiceAccessTokens.token, token))
+    .limit(1);
+
+  if (result.length === 0) return null;
+
+  const accessToken = result[0];
+  return {
+    token: accessToken.token,
+    orderId: accessToken.orderId,
+    email: accessToken.email,
+    expiresAt: accessToken.expiresAt.toISOString(),
+    createdAt: accessToken.createdAt.toISOString(),
+  };
 }
 
-/**
- * Verify invoice access token and return order
- * Uses constant-time comparison to prevent timing attacks
- */
 export async function getOrderByToken(token: string): Promise<Order | null> {
   const accessToken = await getInvoiceAccessToken(token);
   const isExpired = accessToken ? new Date(accessToken.expiresAt) < new Date() : false;
 
-  // Constant-time check - always evaluate both conditions
   if (!accessToken || isExpired) {
     if (isExpired && accessToken) {
-      await kv.del(`invoice:token:${token}`);
+      await db.delete(invoiceAccessTokens).where(eq(invoiceAccessTokens.token, token));
     }
     return null;
   }
@@ -596,113 +830,119 @@ export async function getOrderByToken(token: string): Promise<Order | null> {
   return await getOrderById(accessToken.orderId);
 }
 
-/**
- * Link guest orders to newly created user account
- * Returns the number of orders linked
- */
 export async function linkGuestOrdersToUser(email: string, userId: string): Promise<number> {
   const normalizedEmail = email.toLowerCase().trim();
 
   // Get all guest orders for this email
-  const guestOrderIds = await kv.lrange<string>(`orders:guest:${normalizedEmail}`, 0, -1);
-  if (!guestOrderIds || guestOrderIds.length === 0) return 0;
+  const guestOrders = await db
+    .select()
+    .from(orders)
+    .where(and(eq(orders.email, normalizedEmail), eq(orders.isGuest, true)));
+
+  if (guestOrders.length === 0) return 0;
 
   let linkedCount = 0;
 
-  for (const orderId of guestOrderIds) {
-    const order = await getOrderById(orderId);
-    if (!order || !order.isGuest) continue;
+  for (const order of guestOrders) {
+    await db.transaction(async (tx) => {
+      // Update order to link to user
+      await tx
+        .update(orders)
+        .set({
+          userId,
+          isGuest: false,
+        })
+        .where(eq(orders.id, order.id));
 
-    // Update order to link to user
-    const updated: Order = {
-      ...order,
-      userId,
-      isGuest: false,
-    };
+      // Award retroactive points if order is completed
+      if (order.status === "completed") {
+        await tx
+          .update(users)
+          .set({
+            points: drizzleSql`${users.points} + ${order.pointsEarned}`,
+          })
+          .where(eq(users.id, userId));
 
-    await kv.set(`order:${orderId}`, updated);
-    await kv.lpush(`orders:user:${userId}`, orderId);
+        await tx.insert(pointsTransactions).values({
+          userId,
+          amount: order.pointsEarned,
+          type: "earn",
+          description: `Retroactive points for order #${order.id.slice(0, 8)}`,
+          orderId: order.id,
+        });
+      }
 
-    // Award retroactive points if order is completed
-    if (order.status === "completed") {
-      await addPoints(
-        userId,
-        order.pointsEarned,
-        "earn",
-        `Retroactive points for order #${orderId.slice(0, 8)}`,
-        orderId
-      );
-    }
-
-    linkedCount++;
+      linkedCount++;
+    });
   }
-
-  // Remove guest order index (orders are now in user's list)
-  await kv.del(`orders:guest:${normalizedEmail}`);
 
   return linkedCount;
 }
 
 // ============ Email Verification ============
 
-/**
- * Create email verification token
- */
 export async function createEmailVerificationToken(userId: string): Promise<EmailVerificationToken> {
   const user = await getUserById(userId);
   if (!user) throw new Error("User not found");
 
   const token = crypto.randomBytes(32).toString("hex");
-  const verificationToken: EmailVerificationToken = {
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000); // 24 hours
+
+  await db.insert(emailVerificationTokens).values({
     token,
     userId: user.id,
     email: user.email,
-    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(), // 24 hours
+    expiresAt,
+  });
+
+  return {
+    token,
+    userId: user.id,
+    email: user.email,
+    expiresAt: expiresAt.toISOString(),
     createdAt: new Date().toISOString(),
   };
-
-  // Store token with 24 hour expiration
-  await kv.set(`email:verify:${token}`, verificationToken, { ex: 86400 });
-
-  return verificationToken;
 }
 
-/**
- * Get email verification token
- */
 export async function getEmailVerificationToken(
   token: string
 ): Promise<EmailVerificationToken | null> {
-  return await kv.get<EmailVerificationToken>(`email:verify:${token}`);
+  const result = await db
+    .select()
+    .from(emailVerificationTokens)
+    .where(eq(emailVerificationTokens.token, token))
+    .limit(1);
+
+  if (result.length === 0) return null;
+
+  const verificationToken = result[0];
+  return {
+    token: verificationToken.token,
+    userId: verificationToken.userId,
+    email: verificationToken.email,
+    expiresAt: verificationToken.expiresAt.toISOString(),
+    createdAt: verificationToken.createdAt.toISOString(),
+  };
 }
 
-/**
- * Verify email using token
- */
 export async function verifyEmailWithToken(token: string): Promise<boolean> {
   const verificationToken = await getEmailVerificationToken(token);
   if (!verificationToken) return false;
 
   // Check if token is expired
   if (new Date(verificationToken.expiresAt) < new Date()) {
-    await kv.del(`email:verify:${token}`);
+    await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.token, token));
     return false;
   }
 
   // Mark email as verified
-  const user = await getUserById(verificationToken.userId);
-  if (!user) return false;
-
-  const updated: User = {
-    ...user,
-    emailVerified: true,
-    updatedAt: new Date().toISOString(),
-  };
-
-  await kv.set(`user:${user.id}`, updated);
+  await db
+    .update(users)
+    .set({ emailVerified: true })
+    .where(eq(users.id, verificationToken.userId));
 
   // Delete used token
-  await kv.del(`email:verify:${token}`);
+  await db.delete(emailVerificationTokens).where(eq(emailVerificationTokens.token, token));
 
   return true;
 }

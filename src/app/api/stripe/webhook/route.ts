@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
 
     // Extract shipping address from Stripe session
     // TypeScript doesn't include shipping in the type, but it exists at runtime when shipping is collected
-    const sessionWithShipping = session as any;
+    const sessionWithShipping = session as { shipping?: { name?: string; address?: { line1?: string; line2?: string; city?: string; state?: string; postal_code?: string; country?: string } } };
     const shippingAddress = sessionWithShipping.shipping?.address ? {
       name: sessionWithShipping.shipping.name || undefined,
       line1: sessionWithShipping.shipping.address.line1 || undefined,

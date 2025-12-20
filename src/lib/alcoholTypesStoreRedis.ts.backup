@@ -1,7 +1,5 @@
-// Alcohol types management using Postgres
-import { db } from "./db/client";
-import { alcoholTypes } from "./db/schema";
-import { eq, asc } from "drizzle-orm";
+// lib/alcoholTypesStore.ts
+import { kv } from "@vercel/kv";
 
 export const ALCOHOL_TYPES_TAG = "alcohol-types";
 
@@ -24,31 +22,22 @@ const SEED_DATA: AlcoholType[] = [
 ];
 
 async function readAll(): Promise<AlcoholType[]> {
-  const results = await db.select().from(alcoholTypes);
-
-  if (results.length === 0) {
+  const ids = (await kv.smembers("alcohol-types:index")) as string[];
+  if (ids.length === 0) {
+    // Seed default data
     await seedDefaults();
     return [...SEED_DATA];
   }
 
-  return results.map((t) => ({
-    id: t.id,
-    name: t.name,
-    sortOrder: t.sortOrder ?? undefined,
-    archived: t.archived,
-  }));
+  const promises = ids.map((id) => kv.get<AlcoholType>(`alcohol-type:${id}`));
+  const results = await Promise.all(promises);
+  return results.filter((t): t is AlcoholType => t !== null);
 }
 
 async function seedDefaults(): Promise<void> {
   for (const type of SEED_DATA) {
-    await db.insert(alcoholTypes).values({
-      id: type.id,
-      name: type.name,
-      sortOrder: type.sortOrder ?? 9999,
-      archived: type.archived ?? false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
+    await kv.set(`alcohol-type:${type.id}`, type);
+    await kv.sadd("alcohol-types:index", type.id);
   }
 }
 
@@ -80,88 +69,46 @@ export async function addAlcoholType(name: string, sortOrder?: number): Promise<
   const existing = list.find(
     (t) => t.id === id || t.name.toLowerCase() === name.toLowerCase()
   );
-
   if (existing) {
     if (existing.archived) {
-      await db
-        .update(alcoholTypes)
-        .set({ archived: false, updatedAt: new Date() })
-        .where(eq(alcoholTypes.id, existing.id));
-      return { ...existing, archived: false };
+      existing.archived = false;
+      await kv.set(`alcohol-type:${existing.id}`, existing);
     }
     return existing;
   }
 
   const created: AlcoholType = { id, name, sortOrder, archived: false };
-
-  await db.insert(alcoholTypes).values({
-    id: created.id,
-    name: created.name,
-    sortOrder: created.sortOrder ?? 9999,
-    archived: false,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  });
-
+  await kv.set(`alcohol-type:${id}`, created);
+  await kv.sadd("alcohol-types:index", id);
   return created;
 }
 
-export async function setAlcoholTypeArchived(id: string, archived: boolean): Promise<AlcoholType | null> {
-  const [found] = await db
-    .select()
-    .from(alcoholTypes)
-    .where(eq(alcoholTypes.id, id))
-    .limit(1);
-
+export async function setAlcoholTypeArchived(id: string, archived: boolean) {
+  const found = await kv.get<AlcoholType>(`alcohol-type:${id}`);
   if (!found) return null;
-
-  await db
-    .update(alcoholTypes)
-    .set({ archived: !!archived, updatedAt: new Date() })
-    .where(eq(alcoholTypes.id, id));
-
-  return {
-    id: found.id,
-    name: found.name,
-    sortOrder: found.sortOrder ?? undefined,
-    archived: !!archived,
-  };
+  found.archived = !!archived;
+  await kv.set(`alcohol-type:${id}`, found);
+  return found;
 }
 
 export async function updateAlcoholType(
   id: string,
   patch: { name?: string; sortOrder?: number; archived?: boolean }
-): Promise<AlcoholType | null> {
-  const [found] = await db
-    .select()
-    .from(alcoholTypes)
-    .where(eq(alcoholTypes.id, id))
-    .limit(1);
-
+) {
+  const found = await kv.get<AlcoholType>(`alcohol-type:${id}`);
   if (!found) return null;
 
-  const updateValues: Record<string, unknown> = { updatedAt: new Date() };
+  if (typeof patch.name !== "undefined") found.name = patch.name;
+  if (typeof patch.sortOrder !== "undefined") found.sortOrder = patch.sortOrder;
+  if (typeof patch.archived !== "undefined") found.archived = !!patch.archived;
 
-  if (typeof patch.name !== "undefined") updateValues.name = patch.name;
-  if (typeof patch.sortOrder !== "undefined") updateValues.sortOrder = patch.sortOrder;
-  if (typeof patch.archived !== "undefined") updateValues.archived = !!patch.archived;
-
-  await db
-    .update(alcoholTypes)
-    .set(updateValues)
-    .where(eq(alcoholTypes.id, id));
-
-  return {
-    id: found.id,
-    name: patch.name ?? found.name,
-    sortOrder: patch.sortOrder ?? (found.sortOrder ?? undefined),
-    archived: typeof patch.archived !== "undefined" ? !!patch.archived : found.archived,
-  };
+  await kv.set(`alcohol-type:${id}`, found);
+  return found;
 }
 
 export async function updateAlcoholTypesMany(
   updates: Array<{ id: string; name?: string; sortOrder?: number; archived?: boolean }>
-): Promise<AlcoholType[]> {
+) {
   const list = await readAll();
   const byId = new Map(list.map((t) => [t.id, t]));
 
@@ -169,30 +116,22 @@ export async function updateAlcoholTypesMany(
     const found = byId.get(u.id);
     if (!found) continue;
 
-    const updateValues: Record<string, unknown> = { updatedAt: new Date() };
     let changed = false;
-
     if (typeof u.name !== "undefined" && u.name !== found.name) {
-      updateValues.name = u.name;
       found.name = u.name;
       changed = true;
     }
     if (typeof u.sortOrder !== "undefined" && u.sortOrder !== found.sortOrder) {
-      updateValues.sortOrder = u.sortOrder;
       found.sortOrder = u.sortOrder;
       changed = true;
     }
     if (typeof u.archived !== "undefined" && u.archived !== found.archived) {
-      updateValues.archived = !!u.archived;
       found.archived = !!u.archived;
       changed = true;
     }
 
     if (changed) {
-      await db
-        .update(alcoholTypes)
-        .set(updateValues)
-        .where(eq(alcoholTypes.id, u.id));
+      await kv.set(`alcohol-type:${u.id}`, found);
     }
   }
 
@@ -200,14 +139,10 @@ export async function updateAlcoholTypesMany(
 }
 
 export async function deleteAlcoholType(id: string): Promise<boolean> {
-  const [found] = await db
-    .select()
-    .from(alcoholTypes)
-    .where(eq(alcoholTypes.id, id))
-    .limit(1);
-
+  const found = await kv.get<AlcoholType>(`alcohol-type:${id}`);
   if (!found) return false;
 
-  await db.delete(alcoholTypes).where(eq(alcoholTypes.id, id));
+  await kv.del(`alcohol-type:${id}`);
+  await kv.srem("alcohol-types:index", id);
   return true;
 }
