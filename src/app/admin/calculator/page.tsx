@@ -1871,11 +1871,11 @@ export default function CalculatorPage() {
                       className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
                       onClick={async () => {
                         if (!newProduct.name || !newProduct.name.trim()) {
-                          alert("Please enter a product name first");
+                          await showAlert("Please enter a product name first", "Validation Error");
                           return;
                         }
                         if (!newProduct.price || newProduct.price <= 0) {
-                          alert("Please enter a valid price first");
+                          await showAlert("Please enter a valid price first", "Validation Error");
                           return;
                         }
 
@@ -1900,12 +1900,16 @@ export default function CalculatorPage() {
 
                           setNewProduct({ ...newProduct, stripePriceId: data.priceId });
 
-                          alert(
-                            `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`
+                          await showAlert(
+                            `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
+                            "Success"
                           );
                         } catch (error) {
                           console.error("[Create Stripe Product] Error:", error);
-                          alert(error instanceof Error ? error.message : "Failed to create Stripe product");
+                          await showAlert(
+                            error instanceof Error ? error.message : "Failed to create Stripe product",
+                            "Error"
+                          );
                         } finally {
                           setSavingProduct(false);
                         }
@@ -1935,11 +1939,11 @@ export default function CalculatorPage() {
                       className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
                       onClick={async () => {
                         if (!newProduct.name || !newProduct.name.trim()) {
-                          alert("Please enter a product name first");
+                          await showAlert("Please enter a product name first", "Validation Error");
                           return;
                         }
                         if (!newProduct.price || newProduct.price <= 0) {
-                          alert("Please enter a valid price first");
+                          await showAlert("Please enter a valid price first", "Validation Error");
                           return;
                         }
 
@@ -1961,14 +1965,19 @@ export default function CalculatorPage() {
                             throw new Error(data.details || data.error || "Failed to create Square product");
                           }
 
-                          setNewProduct({ ...newProduct, squareCatalogId: data.catalogId });
+                          // API returns catalogItemId, not catalogId
+                          setNewProduct({ ...newProduct, squareCatalogId: data.catalogItemId });
 
-                          alert(
-                            `Square product created successfully!\n\nCatalog ID: ${data.catalogId}`
+                          await showAlert(
+                            `Square product created successfully!\n\nCatalog ID: ${data.catalogItemId}`,
+                            "Success"
                           );
                         } catch (error) {
                           console.error("[Create Square Product] Error:", error);
-                          alert(error instanceof Error ? error.message : "Failed to create Square product");
+                          await showAlert(
+                            error instanceof Error ? error.message : "Failed to create Square product",
+                            "Error"
+                          );
                         } finally {
                           setSavingProduct(false);
                         }
