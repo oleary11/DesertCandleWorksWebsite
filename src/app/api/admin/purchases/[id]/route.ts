@@ -138,11 +138,7 @@ export async function DELETE(
 
   try {
     const { id } = await params;
-    const success = await deletePurchase(id);
-
-    if (!success) {
-      return NextResponse.json({ error: "Purchase not found" }, { status: 404 });
-    }
+    await deletePurchase(id);
 
     return NextResponse.json({ success: true });
   } catch (error) {
