@@ -2273,7 +2273,7 @@ export default function CalculatorPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
                   <input
                     type="text"
-                    className="input w-full pl-10"
+                    className="input w-full !pl-10"
                     placeholder="Search products by name or SKU..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
