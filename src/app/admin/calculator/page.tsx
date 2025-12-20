@@ -461,10 +461,28 @@ export default function CalculatorPage() {
   const [initialStock, setInitialStock] = useState<number>(1);
   const [addToBatchAfterCreate, setAddToBatchAfterCreate] = useState<boolean>(true);
 
-  // Batch tracking state
-  const [batchItems, setBatchItems] = useState<BatchItem[]>([]);
+  // Batch tracking state - persisted to localStorage
+  const [batchItems, setBatchItems] = useState<BatchItem[]>(() => {
+    if (typeof window === "undefined") return [];
+    const saved = localStorage.getItem("calculator-batch");
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  });
   const [showExistingProductModal, setShowExistingProductModal] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+
+  // Persist batch to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("calculator-batch", JSON.stringify(batchItems));
+    }
+  }, [batchItems]);
 
   // Load all data
   async function loadData() {
@@ -2000,23 +2018,26 @@ export default function CalculatorPage() {
                 />
               </label>
 
-              <label className="block">
-                <div className="text-sm font-medium mb-2">Container (for description)</div>
-                <select
-                  className="input"
+              <div className="block">
+                <ComboBox
+                  id="product-container-combobox"
+                  label="Container (for description)"
+                  placeholder="Search containers..."
                   value={newProduct.containerId || ""}
-                  onChange={(e) =>
-                    setNewProduct({ ...newProduct, containerId: e.target.value || undefined })
+                  items={[
+                    { value: "", label: "— Select container —", sublabel: "Optional" },
+                    ...containers.map((c) => ({
+                      value: c.id,
+                      label: c.name,
+                      sublabel: `${c.capacityWaterOz} oz water • ${c.shape}`,
+                    })),
+                  ]}
+                  emptyMessage="No containers match your search."
+                  onChange={(val) =>
+                    setNewProduct({ ...newProduct, containerId: val || undefined })
                   }
-                >
-                  <option value="">— Select container —</option>
-                  {containers.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name} ({c.capacityWaterOz} oz water)
-                    </option>
-                  ))}
-                </select>
-              </label>
+                />
+              </div>
 
               <label className="block">
                 <div className="flex items-center justify-between mb-2">

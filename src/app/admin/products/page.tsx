@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Search } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
 import QRCode from "qrcode";
 
@@ -202,6 +202,210 @@ function generateDescription(
 Golden Brands 454 Coconut Soy Wax
 
 Approx. - ${waxOzText}`;
+}
+
+/* ---------- Searchable ComboBox Component ---------- */
+type ComboItem<TValue extends string> = {
+  value: TValue;
+  label: string;
+  sublabel?: string;
+  disabled?: boolean;
+};
+
+function ComboBox<TValue extends string>(props: {
+  id: string;
+  label: string;
+  placeholder?: string;
+  value: TValue;
+  items: Array<ComboItem<TValue>>;
+  onChange: (value: TValue) => void;
+  emptyMessage?: string;
+  className?: string;
+}) {
+  const {
+    id,
+    label,
+    placeholder = "Search...",
+    value,
+    items,
+    onChange,
+    emptyMessage = "No results.",
+    className = "",
+  } = props;
+
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const selected = items.find((i) => i.value === value);
+
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return items;
+
+    return items.filter((i) => {
+      const hay = `${i.label} ${i.sublabel || ""}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [items, query]);
+
+  useEffect(() => {
+    if (activeIndex >= filtered.length) setActiveIndex(0);
+  }, [filtered.length, activeIndex]);
+
+  useEffect(() => {
+    function onDocMouseDown(e: MouseEvent) {
+      const el = rootRef.current;
+      if (!el) return;
+      if (e.target instanceof Node && !el.contains(e.target)) setOpen(false);
+    }
+    function onDocKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDocMouseDown);
+    document.addEventListener("keydown", onDocKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onDocMouseDown);
+      document.removeEventListener("keydown", onDocKeyDown);
+    };
+  }, []);
+
+  function openAndFocus({ clearSearch }: { clearSearch: boolean }) {
+    setOpen(true);
+    setActiveIndex(0);
+    if (clearSearch) setQuery("");
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function commitSelection(idx: number) {
+    const item = filtered[idx];
+    if (!item || item.disabled) return;
+    onChange(item.value);
+    setOpen(false);
+    setQuery("");
+  }
+
+  const inputDisplayValue = open ? query : selected?.label || "";
+
+  return (
+    <div ref={rootRef} className={`w-full ${className}`}>
+      <label htmlFor={id} className="block text-xs mb-1">
+        {label}
+      </label>
+
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+
+        <input
+          id={id}
+          ref={inputRef}
+          className="input w-full !pl-10 !pr-10"
+          placeholder={open ? placeholder : selected ? "" : placeholder}
+          value={inputDisplayValue}
+          onFocus={() => openAndFocus({ clearSearch: true })}
+          onClick={() => openAndFocus({ clearSearch: true })}
+          onChange={(e) => {
+            if (!open) setOpen(true);
+            setQuery(e.target.value);
+            setActiveIndex(0);
+          }}
+          onKeyDown={(e) => {
+            if (!open && (e.key === "ArrowDown" || e.key === "Enter")) {
+              e.preventDefault();
+              openAndFocus({ clearSearch: true });
+              return;
+            }
+
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setOpen(true);
+              setActiveIndex((i) => Math.min(i + 1, filtered.length - 1));
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setOpen(true);
+              setActiveIndex((i) => Math.max(i - 1, 0));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              if (!open) return;
+              commitSelection(activeIndex);
+            }
+          }}
+          aria-expanded={open}
+          aria-controls={`${id}-listbox`}
+          aria-autocomplete="list"
+          autoComplete="off"
+          inputMode="search"
+        />
+
+        {open && query && (
+          <button
+            type="button"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-neutral-100"
+            onClick={() => {
+              setQuery("");
+              setActiveIndex(0);
+              inputRef.current?.focus();
+            }}
+            aria-label="Clear search"
+          >
+            <span className="text-[var(--color-muted)]">✕</span>
+          </button>
+        )}
+
+        {open && (
+          <div
+            id={`${id}-listbox`}
+            role="listbox"
+            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
+          >
+            <div className="max-h-72 overflow-y-auto overscroll-contain">
+              {filtered.length === 0 ? (
+                <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                  {emptyMessage}
+                </div>
+              ) : (
+                filtered.map((item, idx) => {
+                  const isActive = idx === activeIndex;
+                  const isSelected = item.value === value;
+
+                  return (
+                    <button
+                      key={`${item.value}-${idx}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      disabled={item.disabled}
+                      className={[
+                        "w-full text-left px-4 py-3",
+                        "transition-colors",
+                        item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
+                        isActive ? "bg-[var(--color-accent-light)]" : "",
+                        isSelected ? "font-medium" : "",
+                      ]
+                        .filter(Boolean)
+                        .join(" ")}
+                      onClick={() => commitSelection(idx)}
+                      onMouseEnter={() => setActiveIndex(idx)}
+                    >
+                      <div className="text-sm">{item.label}</div>
+                      {item.sublabel && (
+                        <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                          {item.sublabel}
+                        </div>
+                      )}
+                    </button>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 /* ---------- Component ---------- */
@@ -1879,21 +2083,24 @@ export default function AdminProductsPage() {
                   </label>
 
                   {/* Container Selection */}
-                  <label className="block">
-                    <div className="text-xs mb-1">Container (for description)</div>
-                    <select
-                      className="input"
+                  <div className="block">
+                    <ComboBox
+                      id="edit-product-container"
+                      label="Container (for description)"
+                      placeholder="Search containers..."
                       value={editing.containerId || ""}
-                      onChange={(e) => setEditing({ ...editing, containerId: e.target.value || undefined })}
-                    >
-                      <option value="">— Select container —</option>
-                      {containers.map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name} ({c.capacityWaterOz} oz water)
-                        </option>
-                      ))}
-                    </select>
-                  </label>
+                      items={[
+                        { value: "", label: "— Select container —", sublabel: "Optional" },
+                        ...containers.map((c) => ({
+                          value: c.id,
+                          label: c.name,
+                          sublabel: `${c.capacityWaterOz} oz water • ${c.shape}`,
+                        })),
+                      ]}
+                      emptyMessage="No containers match your search."
+                      onChange={(val) => setEditing({ ...editing, containerId: val || undefined })}
+                    />
+                  </div>
 
                   {/* Description */}
                   <label className="block sm:col-span-2">
