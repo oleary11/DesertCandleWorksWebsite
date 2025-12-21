@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { sendEmail } from "@/lib/email";
-import { getOrderById, listOrders } from "@/lib/userStore";
+import { getOrderById, getAllOrders } from "@/lib/userStore";
 import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       recipientEmails = [order.email];
     } else if (body.recipients === "all_customers") {
       // Get all unique customer emails from orders
-      const orders = await listOrders();
+      const orders = await getAllOrders();
       const uniqueEmails = new Set<string>();
       orders.forEach(order => {
         if (order.email && !order.email.includes("@admin.local")) {

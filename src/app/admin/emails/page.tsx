@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 
 type EmailTemplate = "shipping" | "delivery" | "custom";
@@ -19,15 +19,7 @@ export default function AdminEmailsPage() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
 
-  // Load template when template type, orderId, or trackingNumber changes
-  useEffect(() => {
-    if (template === "shipping" || template === "delivery") {
-      if (!orderId || !trackingNumber) return;
-    }
-    loadTemplate();
-  }, [template, orderId, trackingNumber]);
-
-  const loadTemplate = async () => {
+  const loadTemplate = useCallback(async () => {
     try {
       const params = new URLSearchParams({ template });
       if (orderId) params.append("orderId", orderId);
@@ -44,7 +36,15 @@ export default function AdminEmailsPage() {
       console.error("Failed to load template:", err);
       setMessage({ type: "error", text: "Failed to load template" });
     }
-  };
+  }, [template, orderId, trackingNumber]);
+
+  // Load template when template type, orderId, or trackingNumber changes
+  useEffect(() => {
+    if (template === "shipping" || template === "delivery") {
+      if (!orderId || !trackingNumber) return;
+    }
+    void loadTemplate();
+  }, [template, orderId, trackingNumber, loadTemplate]);
 
   const handleSend = async () => {
     setLoading(true);
@@ -431,7 +431,7 @@ export default function AdminEmailsPage() {
               }}
             >
               <p style={{ fontSize: "48px", margin: "0 0 10px 0" }}>📧</p>
-              <p style={{ margin: 0 }}>Click "Show Preview" to see how your email will look</p>
+              <p style={{ margin: 0 }}>Click &ldquo;Show Preview&rdquo; to see how your email will look</p>
             </div>
           )}
         </div>
