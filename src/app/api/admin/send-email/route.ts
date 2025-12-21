@@ -184,7 +184,7 @@ export async function GET(req: NextRequest) {
   const trackingNumber = searchParams.get("trackingNumber");
 
   try {
-    let template = {
+    const template = {
       subject: "",
       html: "",
       text: "",
