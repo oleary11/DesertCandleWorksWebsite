@@ -269,18 +269,19 @@ export default function AdminEmailsPage() {
       // Load saved template
       const savedTemplate = savedTemplates.find(t => t.id === template);
       if (savedTemplate) {
-        let subjectText = savedTemplate.subject;
-        let messageText = savedTemplate.message;
+        const subjectText = savedTemplate.subject;
+        const messageText = savedTemplate.message;
 
         // Replace placeholders with actual values
         const orderIdText = orderId || "[Order ID]";
         const trackingText = trackingNumber || "[Tracking Number]";
 
-        messageText = messageText.replace(/\[Order ID\]/g, orderIdText);
-        messageText = messageText.replace(/\[Tracking Number\]/g, trackingText);
+        const finalMessage = messageText
+          .replace(/\[Order ID\]/g, orderIdText)
+          .replace(/\[Tracking Number\]/g, trackingText);
 
         setSubject(subjectText);
-        setMessage(messageText);
+        setMessage(finalMessage);
       }
     }
   }, [template, orderId, trackingNumber, savedTemplates]);
