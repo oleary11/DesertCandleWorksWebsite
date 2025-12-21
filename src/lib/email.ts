@@ -621,9 +621,18 @@ export async function sendDeliveryConfirmationEmail(orderId: string, trackingNum
             </div>
             `}
 
+            <div style="margin: 30px 0; padding: 20px; background: #f0f9ff; border: 2px solid #3b82f6; border-radius: 8px; text-align: center;">
+              <p style="margin: 0 0 10px 0; font-size: 16px; font-weight: 600; color: #1e40af;">
+                ⭐ Love Your Candles?
+              </p>
+              <p style="margin: 0 0 15px 0; font-size: 14px; color: #1e40af;">
+                We'd love to hear from you! Leave us a review and help others discover our hand-poured candles.
+              </p>
+              <a href="https://g.page/r/CQcLSwY5Vml0EBM/review" style="display: inline-block; padding: 12px 30px; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px; font-weight: 600; font-size: 15px;">Leave a Review</a>
+            </div>
+
             <p style="font-size: 14px; color: #666; margin-top: 20px;">
-              <strong>We'd love your feedback!</strong><br>
-              How was your experience? Let us know at <a href="mailto:contact@desertcandleworks.com" style="color: #d4a574;">contact@desertcandleworks.com</a>
+              Questions or feedback? Contact us at <a href="mailto:contact@desertcandleworks.com" style="color: #d4a574;">contact@desertcandleworks.com</a>
             </p>
 
             <p style="text-align: center;">
@@ -663,7 +672,12 @@ ${!order.isGuest ? `
 Create account: ${baseUrl}/account/register
 `}
 
-We'd love your feedback! How was your experience? Let us know at contact@desertcandleworks.com
+⭐ LOVE YOUR CANDLES?
+We'd love to hear from you! Leave us a review and help others discover our hand-poured candles.
+
+Leave a Review: https://g.page/r/CQcLSwY5Vml0EBM/review
+
+Questions or feedback? Contact us at contact@desertcandleworks.com
 
 Shop more candles: ${baseUrl}/products
 
