@@ -8,6 +8,13 @@
       "when": 1766185175042,
       "tag": "0000_typical_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1766296558918,
+      "tag": "0001_redundant_viper",
+      "breakpoints": true
     }
   ]
 }

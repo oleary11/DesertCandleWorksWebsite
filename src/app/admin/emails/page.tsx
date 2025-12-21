@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, X, Mail, Users, User, Package } from "lucide-react";
+import { Search, X, Mail, Users, User, Package, Edit, Trash2, Plus, Save } from "lucide-react";
 
 type Recipient = {
   email: string;
@@ -21,7 +21,17 @@ type Order = {
   totalCents: number;
 };
 
-type EmailTemplate = "shipping" | "delivery" | "custom";
+type SavedTemplate = {
+  id: string;
+  name: string;
+  subject: string;
+  message: string;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
 export default function AdminEmailsPage() {
   const [template, setTemplate] = useState<EmailTemplate>("custom");
@@ -50,6 +60,18 @@ export default function AdminEmailsPage() {
   const [sending, setSending] = useState(false);
   const [sendMessage, setSendMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+
+  // Template management
+  const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
+  const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<SavedTemplate | null>(null);
+  const [templateName, setTemplateName] = useState("");
+  const [loadingTemplates, setLoadingTemplates] = useState(false);
+
+  // Load templates on mount
+  useEffect(() => {
+    loadTemplates();
+  }, []);
 
   // Load recipients when modal opens
   useEffect(() => {
@@ -90,6 +112,101 @@ export default function AdminEmailsPage() {
       console.error("Failed to load orders:", err);
     } finally {
       setLoadingOrders(false);
+    }
+  };
+
+  const loadTemplates = async () => {
+    setLoadingTemplates(true);
+    try {
+      const res = await fetch("/api/admin/email-templates");
+      if (!res.ok) throw new Error("Failed to load templates");
+      const data = await res.json();
+      setSavedTemplates(data.templates);
+    } catch (err) {
+      console.error("Failed to load templates:", err);
+    } finally {
+      setLoadingTemplates(false);
+    }
+  };
+
+  const saveTemplate = async () => {
+    if (!templateName.trim() || !subject.trim() || !message.trim()) {
+      alert("Please provide a template name, subject, and message");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/email-templates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: templateName,
+          subject,
+          message,
+          isDefault: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to save template");
+
+      await loadTemplates();
+      setTemplateName("");
+      setShowTemplateModal(false);
+      setSendMessage({ type: "success", text: "Template saved successfully" });
+    } catch (err) {
+      console.error("Failed to save template:", err);
+      setSendMessage({ type: "error", text: "Failed to save template" });
+    }
+  };
+
+  const updateTemplate = async (templateId: string) => {
+    if (!subject.trim() || !message.trim()) {
+      alert("Please provide subject and message");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/admin/email-templates", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: templateId,
+          name: editingTemplate?.name,
+          subject,
+          message,
+          isDefault: false,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed to update template");
+
+      await loadTemplates();
+      setEditingTemplate(null);
+      setSendMessage({ type: "success", text: "Template updated successfully" });
+    } catch (err) {
+      console.error("Failed to update template:", err);
+      setSendMessage({ type: "error", text: "Failed to update template" });
+    }
+  };
+
+  const deleteTemplate = async (templateId: string) => {
+    if (!confirm("Are you sure you want to delete this template?")) return;
+
+    try {
+      const res = await fetch(`/api/admin/email-templates?id=${templateId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete template");
+
+      await loadTemplates();
+      if (template === templateId) {
+        setTemplate("custom");
+      }
+      setSendMessage({ type: "success", text: "Template deleted successfully" });
+    } catch (err) {
+      console.error("Failed to delete template:", err);
+      setSendMessage({ type: "error", text: "Failed to delete template" });
     }
   };
 
@@ -145,62 +262,28 @@ export default function AdminEmailsPage() {
 
   // Load template when template type changes
   useEffect(() => {
-    if (template === "shipping") {
-      loadShippingTemplate();
-    } else if (template === "delivery") {
-      loadDeliveryTemplate();
-    } else if (template === "custom") {
+    if (template === "custom") {
       setSubject("");
       setMessage("");
+    } else {
+      // Load saved template
+      const savedTemplate = savedTemplates.find(t => t.id === template);
+      if (savedTemplate) {
+        let subjectText = savedTemplate.subject;
+        let messageText = savedTemplate.message;
+
+        // Replace placeholders with actual values
+        const orderIdText = orderId || "[Order ID]";
+        const trackingText = trackingNumber || "[Tracking Number]";
+
+        messageText = messageText.replace(/\[Order ID\]/g, orderIdText);
+        messageText = messageText.replace(/\[Tracking Number\]/g, trackingText);
+
+        setSubject(subjectText);
+        setMessage(messageText);
+      }
     }
-  }, [template, orderId, trackingNumber]);
-
-  const loadShippingTemplate = () => {
-    const orderIdText = orderId || "[Order ID]";
-    const trackingText = trackingNumber || "[Tracking Number]";
-
-    setSubject(`Your Order Has Shipped! #${orderIdText}`);
-    setMessage(`Hi there,
-
-Great news! Your order #${orderIdText} has been shipped and is on its way to you.
-
-Tracking Number: ${trackingText}
-
-Your candles were hand-poured with care in Scottsdale, Arizona. We hope you enjoy them!
-
-If you have any questions about your delivery, please don't hesitate to contact us.
-
-Best regards,
-Desert Candle Works Team`);
-  };
-
-  const loadDeliveryTemplate = () => {
-    const orderIdText = orderId || "[Order ID]";
-    const trackingText = trackingNumber || "[Tracking Number]";
-
-    setSubject(`Your Order Has Been Delivered! #${orderIdText}`);
-    setMessage(`Hi there,
-
-Your Desert Candle Works order #${orderIdText} has been successfully delivered!
-
-Tracking Number: ${trackingText}
-
-Enjoy Your Candles!
-We hope you love your hand-poured candles! Each one is crafted with care right here in Scottsdale, Arizona.
-
-Care Tips:
-- Trim wick to 1/4" before each use
-- Burn for 2-3 hours at a time for best results
-- Keep away from drafts and flammable materials
-
-Love your candles? We'd appreciate it if you could leave us a review!
-Leave a Review: https://g.page/r/CQcLSwY5Vml0EBM/review
-
-You can also tag us on social media @desertcandleworks
-
-Best regards,
-Desert Candle Works Team`);
-  };
+  }, [template, orderId, trackingNumber, savedTemplates]);
 
   const handleSend = async () => {
     if (selectedRecipients.length === 0) {
@@ -344,9 +427,81 @@ contact@desertcandleworks.com`;
       >
         {/* Template Selection */}
         <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-            Email Template
-          </label>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
+            <label style={{ fontWeight: "600" }}>
+              Email Template
+            </label>
+            <div style={{ display: "flex", gap: "8px" }}>
+              <button
+                onClick={() => {
+                  setShowTemplateModal(true);
+                  setTemplateName("");
+                }}
+                style={{
+                  padding: "6px 12px",
+                  background: "#1e40af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "13px",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "4px",
+                }}
+              >
+                <Save size={14} />
+                Save as Template
+              </button>
+              {template !== "custom" && (
+                <>
+                  <button
+                    onClick={() => {
+                      const savedTemplate = savedTemplates.find(t => t.id === template);
+                      if (savedTemplate) {
+                        setEditingTemplate(savedTemplate);
+                      }
+                    }}
+                    style={{
+                      padding: "6px 12px",
+                      background: "#3b82f6",
+                      color: "white",
+                      border: "none",
+                      borderRadius: "6px",
+                      cursor: "pointer",
+                      fontSize: "13px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                  >
+                    <Edit size={14} />
+                    Edit
+                  </button>
+                  {!savedTemplates.find(t => t.id === template)?.isDefault && (
+                    <button
+                      onClick={() => deleteTemplate(template)}
+                      style={{
+                        padding: "6px 12px",
+                        background: "#dc2626",
+                        color: "white",
+                        border: "none",
+                        borderRadius: "6px",
+                        cursor: "pointer",
+                        fontSize: "13px",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: "4px",
+                      }}
+                    >
+                      <Trash2 size={14} />
+                      Delete
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
           <select
             value={template}
             onChange={(e) => setTemplate(e.target.value as EmailTemplate)}
@@ -359,13 +514,14 @@ contact@desertcandleworks.com`;
             }}
           >
             <option value="custom">Custom Message</option>
-            <option value="shipping">Shipping Notification</option>
-            <option value="delivery">Delivery Notification</option>
+            {savedTemplates.length > 0 && savedTemplates.map(t => (
+              <option key={t.id} value={t.id}>{t.name}</option>
+            ))}
           </select>
         </div>
 
         {/* Order-specific fields */}
-        {(template === "shipping" || template === "delivery") && (
+        {template !== "custom" && savedTemplates.find(t => t.id === template)?.message.includes("[Order ID]") && (
           <>
             <div style={{ marginBottom: "20px" }}>
               <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
@@ -1111,6 +1267,206 @@ contact@desertcandleworks.com`}</pre>
                 }}
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Template Modal */}
+      {showTemplateModal && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setShowTemplateModal(false)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "500px",
+              width: "90%",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: "16px", fontSize: "20px" }}>Save as Template</h2>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
+                Template Name
+              </label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., Welcome Email, Promo Announcement"
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <p style={{ fontSize: "14px", color: "#666" }}>
+                Subject: <strong>{subject}</strong>
+              </p>
+              <p style={{ fontSize: "14px", color: "#666", marginTop: "8px" }}>
+                Message length: {message.length} characters
+              </p>
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setShowTemplateModal(false)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#f3f4f6",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={saveTemplate}
+                style={{
+                  padding: "10px 20px",
+                  background: "#1e40af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Save Template
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Template Modal */}
+      {editingTemplate && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+          onClick={() => setEditingTemplate(null)}
+        >
+          <div
+            style={{
+              background: "white",
+              borderRadius: "12px",
+              padding: "24px",
+              maxWidth: "600px",
+              width: "90%",
+              maxHeight: "80vh",
+              overflow: "auto",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: "16px", fontSize: "20px" }}>
+              Edit Template: {editingTemplate.name}
+            </h2>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
+                Subject
+              </label>
+              <input
+                type="text"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                }}
+              />
+            </div>
+
+            <div style={{ marginBottom: "16px" }}>
+              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
+                Message
+              </label>
+              <textarea
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                rows={12}
+                style={{
+                  width: "100%",
+                  padding: "10px",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  fontSize: "14px",
+                  fontFamily: "monospace",
+                  resize: "vertical",
+                }}
+              />
+            </div>
+
+            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
+              <button
+                onClick={() => setEditingTemplate(null)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#f3f4f6",
+                  color: "#374151",
+                  border: "1px solid #d1d5db",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => updateTemplate(editingTemplate.id)}
+                style={{
+                  padding: "10px 20px",
+                  background: "#1e40af",
+                  color: "white",
+                  border: "none",
+                  borderRadius: "6px",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                }}
+              >
+                Update Template
               </button>
             </div>
           </div>

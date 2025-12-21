@@ -316,6 +316,20 @@ export const orderCounters = pgTable('order_counters', {
 });
 
 // ============================================
+// EMAIL TEMPLATES
+// ============================================
+
+export const emailTemplates = pgTable('email_templates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: varchar('name', { length: 255 }).notNull(),
+  subject: varchar('subject', { length: 500 }).notNull(),
+  message: text('message').notNull(),
+  isDefault: boolean('is_default').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 
