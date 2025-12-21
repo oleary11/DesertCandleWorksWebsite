@@ -18,7 +18,8 @@ import {
   Tag,
   Receipt,
   Video,
-  Undo2
+  Undo2,
+  Send
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -210,6 +211,21 @@ export default function AdminHomePage() {
                 <h2 className="text-lg font-semibold mb-1">Order Invoices</h2>
                 <p className="text-sm text-[var(--color-muted)]">
                   Search orders and send invoice emails
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Email Management */}
+          <Link href="/admin/emails" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-sky-100 flex items-center justify-center flex-shrink-0">
+                <Send className="w-6 h-6 text-sky-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Send Emails</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Send custom emails and shipping notifications
                 </p>
               </div>
             </div>

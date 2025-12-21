@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
-import { createOrder, completeOrder } from "@/lib/userStore";
+import { createOrder, completeOrder, generateOrderId } from "@/lib/userStore";
 import { logAdminAction } from "@/lib/adminLogs";
 import { getSquareProductMapping } from "@/lib/squareMapping";
 
@@ -137,8 +137,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Generate unique order ID for our system
-      const squareOrderId = `SQ${payment.id.substring(0, 16).toUpperCase()}`;
+      // Generate sequential order ID for our system (format: SQ00001, SQ00002, etc.)
+      const squareOrderId = await generateOrderId('square');
 
       // Parse line items from order
       const orderItems: Array<{

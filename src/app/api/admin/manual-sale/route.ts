@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
-import { createOrder, completeOrder } from "@/lib/userStore";
+import { createOrder, completeOrder, generateOrderId } from "@/lib/userStore";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
 import { logAdminAction } from "@/lib/adminLogs";
-import crypto from "crypto";
 
 export const runtime = "nodejs";
 
@@ -99,9 +98,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Generate a unique order ID for manual sales (uppercase alphanumeric)
-    const randomBytes = crypto.randomBytes(16).toString("hex").toUpperCase();
-    const orderId = `MS${randomBytes}`;
+    // Generate a sequential order ID for manual sales (format: MS00001, MS00002, etc.)
+    const orderId = await generateOrderId('manual');
 
     // Calculate total
     const totalCents = body.items.reduce((sum, item) => sum + item.priceCents, 0);

@@ -254,7 +254,7 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
             <p>Thank you for your purchase! Your order has been confirmed and will be processed shortly.</p>
 
             <p style="margin: 20px 0;">
-              <strong>Order #${orderId.slice(0, 8).toUpperCase()}</strong><br>
+              <strong>Order #${orderId}</strong><br>
               <span style="color: #666; font-size: 14px;">${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </p>
 
@@ -345,7 +345,7 @@ Desert Candle Works - Order Confirmation
 
 Thank you for your order!
 
-Order #${orderId.slice(0, 8).toUpperCase()}
+Order #${orderId}
 Date: ${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 
 ORDER ITEMS:
@@ -383,7 +383,7 @@ Scottsdale, AZ | www.desertcandleworks.com
 
   await sendEmail({
     to: recipientEmail,
-    subject: `Order Confirmation #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
+    subject: `Order Confirmation #${orderId} - Desert Candle Works`,
     html,
     text,
   });
@@ -435,7 +435,7 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
             <p>Great news! Your order has been shipped via USPS and is on its way to you.</p>
 
             <p style="margin: 20px 0;">
-              <strong>Order #${orderId.slice(0, 8).toUpperCase()}</strong><br>
+              <strong>Order #${orderId}</strong><br>
               <span style="color: #666; font-size: 14px;">Shipped on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </p>
 
@@ -492,7 +492,7 @@ Desert Candle Works - Your Order Has Shipped!
 
 📦 Great news! Your order has been shipped via USPS and is on its way to you.
 
-Order #${orderId.slice(0, 8).toUpperCase()}
+Order #${orderId}
 Shipped on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 
 USPS TRACKING NUMBER:
@@ -524,7 +524,7 @@ Scottsdale, AZ | www.desertcandleworks.com
 
   await sendEmail({
     to: recipientEmail,
-    subject: `📦 Your Order Has Shipped! #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
+    subject: `📦 Your Order Has Shipped! #${orderId} - Desert Candle Works`,
     html,
     text,
   });
@@ -572,7 +572,7 @@ export async function sendDeliveryConfirmationEmail(orderId: string, trackingNum
             <p>Your Desert Candle Works order has been successfully delivered!</p>
 
             <p style="margin: 20px 0;">
-              <strong>Order #${orderId.slice(0, 8).toUpperCase()}</strong><br>
+              <strong>Order #${orderId}</strong><br>
               <span style="color: #666; font-size: 14px;">Delivered on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </p>
 
@@ -644,7 +644,7 @@ Desert Candle Works - Your Order Has Been Delivered!
 
 ✅ Your Desert Candle Works order has been successfully delivered!
 
-Order #${orderId.slice(0, 8).toUpperCase()}
+Order #${orderId}
 Delivered on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 
 📬 PACKAGE DELIVERED!
@@ -673,7 +673,7 @@ Scottsdale, AZ | www.desertcandleworks.com
 
   await sendEmail({
     to: recipientEmail,
-    subject: `✅ Delivered! Order #${orderId.slice(0, 8).toUpperCase()} - Desert Candle Works`,
+    subject: `✅ Delivered! Order #${orderId} - Desert Candle Works`,
     html,
     text,
   });

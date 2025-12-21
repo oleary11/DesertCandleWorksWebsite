@@ -306,6 +306,16 @@ export const webhookEvents = pgTable('webhook_events', {
 });
 
 // ============================================
+// ORDER COUNTERS
+// ============================================
+
+export const orderCounters = pgTable('order_counters', {
+  type: varchar('type', { length: 20 }).primaryKey(), // 'stripe', 'square', 'manual'
+  counter: integer('counter').notNull().default(0),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 

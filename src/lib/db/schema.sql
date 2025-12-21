@@ -33,10 +33,10 @@ CREATE INDEX idx_users_created_at ON users(created_at DESC);
 
 CREATE TYPE order_status AS ENUM ('pending', 'completed', 'cancelled');
 CREATE TYPE shipping_status AS ENUM ('pending', 'shipped', 'delivered');
-CREATE TYPE payment_method_type AS ENUM ('stripe', 'cash', 'card', 'other');
+CREATE TYPE payment_method_type AS ENUM ('stripe', 'cash', 'card', 'square', 'other');
 
 CREATE TABLE orders (
-  id VARCHAR(255) PRIMARY KEY, -- Stripe checkout session ID
+  id VARCHAR(255) PRIMARY KEY, -- Order ID (format: STXXXXX for Stripe, SQXXXXX for Square, MSXXXXX for Manual)
   user_id UUID REFERENCES users(id) ON DELETE SET NULL,
   email VARCHAR(255) NOT NULL,
   is_guest BOOLEAN NOT NULL DEFAULT false,
@@ -381,6 +381,25 @@ CREATE TRIGGER update_promotions_updated_at BEFORE UPDATE ON promotions
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_alcohol_types_updated_at BEFORE UPDATE ON alcohol_types
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ============================================
+-- ORDER COUNTERS
+-- ============================================
+-- Sequential counters for generating order IDs (STXXXXX, SQXXXXX, MSXXXXX)
+
+CREATE TABLE order_counters (
+  type VARCHAR(20) PRIMARY KEY, -- 'stripe', 'square', 'manual'
+  counter INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+COMMENT ON TABLE order_counters IS 'Sequential counters for generating formatted order IDs';
+COMMENT ON COLUMN order_counters.type IS 'Order source: stripe, square, or manual';
+COMMENT ON COLUMN order_counters.counter IS 'Current counter value (increments atomically)';
+
+-- Trigger to update timestamp
+CREATE TRIGGER update_order_counters_updated_at BEFORE UPDATE ON order_counters
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- ============================================

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
-import { getUserByEmail, createOrder, completeOrder, redeemPoints, isWebhookProcessed, markWebhookProcessed } from "@/lib/userStore";
+import { getUserByEmail, createOrder, completeOrder, redeemPoints, isWebhookProcessed, markWebhookProcessed, generateOrderId } from "@/lib/userStore";
 import { incrementRedemptions } from "@/lib/promotionsStore";
 
 export const runtime = "nodejs";
@@ -51,9 +51,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, skipped: "event_already_processed" }, { status: 200 });
     }
 
+    // Generate a sequential order ID (format: ST00001, ST00002, etc.)
+    const orderId = await generateOrderId('stripe');
+
     // Additional check: verify order wasn't already processed (defense in depth)
     const { getOrderById } = await import("@/lib/userStore");
-    const existingOrder = await getOrderById(session.id);
+    const existingOrder = await getOrderById(orderId);
     if (existingOrder && existingOrder.status === "completed") {
       // Verify order completeness by checking item count and total
       const sessionTotal = session.amount_total || 0;
@@ -61,12 +64,12 @@ export async function POST(req: NextRequest) {
 
       // If totals match, order is complete and correct - skip reprocessing
       if (orderTotal === sessionTotal) {
-        console.log(`[Webhook] Order ${session.id} already processed correctly - skipping (replay protection)`);
+        console.log(`[Webhook] Order ${orderId} already processed correctly - skipping (replay protection)`);
         return NextResponse.json({ received: true, skipped: "already_processed" }, { status: 200 });
       }
 
       // If totals don't match, order may be incomplete - log warning and reprocess
-      console.warn(`[Webhook] Order ${session.id} exists but totals don't match (Stripe: ${sessionTotal}, DB: ${orderTotal}) - reprocessing to fix`);
+      console.warn(`[Webhook] Order ${orderId} exists but totals don't match (Stripe: ${sessionTotal}, DB: ${orderTotal}) - reprocessing to fix`);
     }
 
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
@@ -222,7 +225,7 @@ export async function POST(req: NextRequest) {
           // Redeem points if they were used in checkout
           if (pointsRedeemed > 0 && sessionUserId === user.id) {
             try {
-              await redeemPoints(user.id, pointsRedeemed, `Redeemed for order #${session.id.slice(0, 8)}`);
+              await redeemPoints(user.id, pointsRedeemed, `Redeemed for order #${orderId}`);
               console.log(`Redeemed ${pointsRedeemed} points for ${customerEmail}`);
             } catch (err) {
               console.error(`Failed to redeem points for ${customerEmail}:`, err);
@@ -232,8 +235,8 @@ export async function POST(req: NextRequest) {
           // User has an account - create order and award points
           // IMPORTANT: Use productSubtotalCents (products only, no shipping/tax) for points
           console.log(`Creating order for user ${user.id} (${customerEmail})`);
-          await createOrder(customerEmail, session.id, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents, undefined, undefined, shippingAddress, phone);
-          await completeOrder(session.id);
+          await createOrder(customerEmail, orderId, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents, "stripe", undefined, shippingAddress, phone);
+          await completeOrder(orderId);
           console.log(`Awarded ${Math.round(productSubtotalCents / 100)} points to ${customerEmail}`);
 
           // Increment promotion redemption count if promotion was used
@@ -248,8 +251,8 @@ export async function POST(req: NextRequest) {
         } else {
           // Guest checkout - create order without userId
           console.log(`Guest checkout for ${customerEmail} - creating guest order`);
-          await createOrder(customerEmail, session.id, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents, undefined, undefined, shippingAddress, phone);
-          await completeOrder(session.id);
+          await createOrder(customerEmail, orderId, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents, "stripe", undefined, shippingAddress, phone);
+          await completeOrder(orderId);
           console.log(`Guest order created for ${customerEmail}`);
 
           // Increment promotion redemption count if promotion was used
@@ -295,7 +298,7 @@ export async function POST(req: NextRequest) {
         // Send invoice email to all customers (guest or not)
         try {
           const { sendOrderInvoiceEmail } = await import("@/lib/email");
-          await sendOrderInvoiceEmail(session.id);
+          await sendOrderInvoiceEmail(orderId);
           console.log(`Invoice email sent to ${customerEmail}`);
         } catch (emailErr) {
           console.error(`Failed to send invoice email to ${customerEmail}:`, emailErr);
