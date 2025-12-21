@@ -18,7 +18,7 @@ type Order = {
   customerName: string;
   createdAt: string;
   status: string;
-  total: number;
+  totalCents: number;
 };
 
 type EmailTemplate = "shipping" | "delivery" | "custom";
@@ -392,7 +392,7 @@ contact@desertcandleworks.com`;
                       {selectedOrder.customerName} ({selectedOrder.email})
                     </div>
                     <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
-                      {new Date(selectedOrder.createdAt).toLocaleDateString()} · ${(selectedOrder.total / 100).toFixed(2)}
+                      {new Date(selectedOrder.createdAt).toLocaleDateString()} · ${(selectedOrder.totalCents / 100).toFixed(2)}
                     </div>
                   </div>
                   <button
@@ -1066,7 +1066,7 @@ contact@desertcandleworks.com`}</pre>
                         <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#9ca3af" }}>
                           <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                           <span>·</span>
-                          <span>${(order.total / 100).toFixed(2)}</span>
+                          <span>${(order.totalCents / 100).toFixed(2)}</span>
                           <span>·</span>
                           <span style={{
                             padding: "2px 6px",

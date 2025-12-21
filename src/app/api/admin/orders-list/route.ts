@@ -10,7 +10,7 @@ type OrderListItem = {
   customerName: string;
   createdAt: string;
   status: string;
-  total: number;
+  totalCents: number;
 };
 
 /**
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
         customerName: order.shippingAddress?.name || order.email.split('@')[0],
         createdAt: order.createdAt,
         status: order.status,
-        total: order.total,
+        totalCents: order.totalCents,
       }))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
