@@ -23,10 +23,10 @@ async function checkVariantMismatches() {
   }> = [];
 
   for (const p of prods) {
-    const vc = p.variantConfig as any;
+    const vc = p.variantConfig as { wickTypes: Array<{ id: string; name: string }>; variantData: Record<string, { stock?: number }> } | null;
     if (!vc || !vc.wickTypes || !vc.variantData) continue;
 
-    const wickIds = new Set(vc.wickTypes.map((w: any) => w.id));
+    const wickIds = new Set(vc.wickTypes.map((w) => w.id));
     const variantIds = Object.keys(vc.variantData);
 
     const mismatched = variantIds.filter((vid) => {

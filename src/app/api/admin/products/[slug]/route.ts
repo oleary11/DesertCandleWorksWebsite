@@ -89,7 +89,7 @@ function migrateVariantIds(
   }
 
   // Migrate variant IDs
-  const migratedVariantData: Record<string, any> = {};
+  const migratedVariantData: Record<string, { stock: number }> = {};
 
   for (const [variantId, data] of Object.entries(newProduct.variantConfig.variantData)) {
     let newVariantId = variantId;
