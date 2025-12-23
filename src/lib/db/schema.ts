@@ -330,6 +330,35 @@ export const emailTemplates = pgTable('email_templates', {
 });
 
 // ============================================
+// SESSION MANAGEMENT
+// ============================================
+
+export const userSessions = pgTable('user_sessions', {
+  token: varchar('token', { length: 64 }).primaryKey(), // crypto.randomBytes(32).toString('hex')
+  userId: uuid('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  email: varchar('email', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+export const adminSessions = pgTable('admin_sessions', {
+  token: uuid('token').primaryKey(), // randomUUID()
+  userId: uuid('user_id').notNull(), // Admin users stored in Redis (no FK constraint)
+  email: varchar('email', { length: 255 }).notNull(),
+  role: varchar('role', { length: 20 }).notNull(), // 'super_admin' | 'admin'
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+export const mobileUploadSessions = pgTable('mobile_upload_sessions', {
+  token: varchar('token', { length: 64 }).primaryKey(), // crypto.randomBytes(32).toString('hex')
+  uploadedImages: jsonb('uploaded_images').notNull().default([]), // string[] of URLs
+  completed: boolean('completed').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 

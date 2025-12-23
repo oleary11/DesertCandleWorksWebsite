@@ -1,8 +1,9 @@
 // Mobile upload token management for QR code image uploads
-import { kv } from "@vercel/kv";
+import { db } from "@/lib/db/client";
+import { mobileUploadSessions } from "@/lib/db/schema";
 import crypto from "crypto";
+import { eq, lt } from "drizzle-orm";
 
-const UPLOAD_TOKEN_PREFIX = "mobile:upload:";
 const UPLOAD_TOKEN_TTL = 5 * 60; // 5 minutes
 
 export type MobileUploadSession = {
@@ -21,6 +22,13 @@ export async function createUploadSession(): Promise<MobileUploadSession> {
   const now = new Date();
   const expiresAt = new Date(now.getTime() + UPLOAD_TOKEN_TTL * 1000);
 
+  await db.insert(mobileUploadSessions).values({
+    token,
+    uploadedImages: [],
+    completed: false,
+    expiresAt,
+  });
+
   const session: MobileUploadSession = {
     token,
     createdAt: now.toISOString(),
@@ -28,10 +36,6 @@ export async function createUploadSession(): Promise<MobileUploadSession> {
     uploadedImages: [],
     completed: false,
   };
-
-  await kv.set(`${UPLOAD_TOKEN_PREFIX}${token}`, session, {
-    ex: UPLOAD_TOKEN_TTL,
-  });
 
   return session;
 }
@@ -42,10 +46,28 @@ export async function createUploadSession(): Promise<MobileUploadSession> {
 export async function getUploadSession(
   token: string
 ): Promise<MobileUploadSession | null> {
-  const session = await kv.get<MobileUploadSession>(
-    `${UPLOAD_TOKEN_PREFIX}${token}`
-  );
-  return session;
+  const [session] = await db
+    .select()
+    .from(mobileUploadSessions)
+    .where(eq(mobileUploadSessions.token, token))
+    .limit(1);
+
+  if (!session) return null;
+
+  // Check if session has expired
+  if (new Date(session.expiresAt) < new Date()) {
+    // Clean up expired session
+    await db.delete(mobileUploadSessions).where(eq(mobileUploadSessions.token, token));
+    return null;
+  }
+
+  return {
+    token: session.token,
+    createdAt: session.createdAt.toISOString(),
+    expiresAt: session.expiresAt.toISOString(),
+    uploadedImages: session.uploadedImages as string[],
+    completed: session.completed,
+  };
 }
 
 /**
@@ -58,12 +80,12 @@ export async function addUploadedImage(
   const session = await getUploadSession(token);
   if (!session) return false;
 
-  session.uploadedImages.push(imageUrl);
+  const updatedImages = [...session.uploadedImages, imageUrl];
 
-  // Refresh TTL when images are added
-  await kv.set(`${UPLOAD_TOKEN_PREFIX}${token}`, session, {
-    ex: UPLOAD_TOKEN_TTL,
-  });
+  await db
+    .update(mobileUploadSessions)
+    .set({ uploadedImages: updatedImages })
+    .where(eq(mobileUploadSessions.token, token));
 
   return true;
 }
@@ -75,11 +97,10 @@ export async function completeUploadSession(token: string): Promise<boolean> {
   const session = await getUploadSession(token);
   if (!session) return false;
 
-  session.completed = true;
-
-  await kv.set(`${UPLOAD_TOKEN_PREFIX}${token}`, session, {
-    ex: UPLOAD_TOKEN_TTL,
-  });
+  await db
+    .update(mobileUploadSessions)
+    .set({ completed: true })
+    .where(eq(mobileUploadSessions.token, token));
 
   return true;
 }
@@ -88,5 +109,16 @@ export async function completeUploadSession(token: string): Promise<boolean> {
  * Delete an upload session
  */
 export async function deleteUploadSession(token: string): Promise<void> {
-  await kv.del(`${UPLOAD_TOKEN_PREFIX}${token}`);
+  await db.delete(mobileUploadSessions).where(eq(mobileUploadSessions.token, token));
+}
+
+/**
+ * Clean up expired sessions (call periodically via cron)
+ */
+export async function cleanupExpiredUploadSessions(): Promise<number> {
+  const result = await db
+    .delete(mobileUploadSessions)
+    .where(lt(mobileUploadSessions.expiresAt, new Date()));
+
+  return result.rowCount ?? 0;
 }

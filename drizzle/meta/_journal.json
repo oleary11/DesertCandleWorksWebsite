@@ -15,6 +15,13 @@
       "when": 1766296558918,
       "tag": "0001_redundant_viper",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1766511710976,
+      "tag": "0002_lovely_tenebrous",
+      "breakpoints": true
     }
   ]
 }

@@ -1,8 +1,9 @@
 import { cookies } from "next/headers";
 import { randomUUID } from "crypto";
-import { redis } from "./redis";
+import { db } from "@/lib/db/client";
+import { adminSessions } from "@/lib/db/schema";
+import { eq, lt } from "drizzle-orm";
 
-const SESSIONS_PREFIX = "admin:session:";
 const COOKIE_NAME = "admin_session";
 
 export interface AdminSession {
@@ -19,14 +20,17 @@ function ttl() {
 
 export async function createAdminSession(userId: string, email: string, role: "super_admin" | "admin") {
   const token = randomUUID();
-  const session: AdminSession = {
+  const now = new Date();
+  const expiresAt = new Date(now.getTime() + ttl() * 1000);
+
+  await db.insert(adminSessions).values({
+    token,
     userId,
     email,
     role,
-    createdAt: new Date().toISOString(),
-  };
+    expiresAt,
+  });
 
-  await redis.set(SESSIONS_PREFIX + token, session, { ex: ttl() });
   (await cookies()).set({
     name: COOKIE_NAME,
     value: token,
@@ -41,25 +45,59 @@ export async function createAdminSession(userId: string, email: string, role: "s
 export async function destroyAdminSession() {
   const c = await cookies();
   const token = c.get(COOKIE_NAME)?.value;
-  if (token) await redis.del(SESSIONS_PREFIX + token);
+  if (token) {
+    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+  }
   c.delete(COOKIE_NAME);
 }
 
 export async function isAdminAuthed(): Promise<boolean> {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return false;
-  const session = await redis.get(SESSIONS_PREFIX + token);
-  return Boolean(session);
+
+  const [session] = await db
+    .select()
+    .from(adminSessions)
+    .where(eq(adminSessions.token, token))
+    .limit(1);
+
+  if (!session) return false;
+
+  // Check if session has expired
+  if (new Date(session.expiresAt) < new Date()) {
+    // Clean up expired session
+    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    return false;
+  }
+
+  return true;
 }
 
 export async function getAdminSession(): Promise<AdminSession | null> {
   const token = (await cookies()).get(COOKIE_NAME)?.value;
   if (!token) return null;
 
-  const session = await redis.get(SESSIONS_PREFIX + token);
+  const [session] = await db
+    .select()
+    .from(adminSessions)
+    .where(eq(adminSessions.token, token))
+    .limit(1);
+
   if (!session) return null;
 
-  return session as AdminSession;
+  // Check if session has expired
+  if (new Date(session.expiresAt) < new Date()) {
+    // Clean up expired session
+    await db.delete(adminSessions).where(eq(adminSessions.token, token));
+    return null;
+  }
+
+  return {
+    userId: session.userId,
+    email: session.email,
+    role: session.role as "super_admin" | "admin",
+    createdAt: session.createdAt.toISOString(),
+  };
 }
 
 export async function requireSuperAdmin(): Promise<AdminSession> {
@@ -68,4 +106,15 @@ export async function requireSuperAdmin(): Promise<AdminSession> {
     throw new Error("Unauthorized: Super admin access required");
   }
   return session;
+}
+
+/**
+ * Clean up expired sessions (call periodically via cron)
+ */
+export async function cleanupExpiredAdminSessions(): Promise<number> {
+  const result = await db
+    .delete(adminSessions)
+    .where(lt(adminSessions.expiresAt, new Date()));
+
+  return result.rowCount ?? 0;
 }

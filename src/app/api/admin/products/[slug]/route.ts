@@ -22,6 +22,100 @@ function coerceBool(v: unknown): boolean {
   return false;
 }
 
+/**
+ * Detect orphaned variants that don't match any current wick type
+ * Returns array of orphaned variant IDs
+ */
+function detectOrphanedVariants(product: Product): string[] {
+  if (!product.variantConfig) return [];
+
+  const wickIds = new Set(product.variantConfig.wickTypes.map(w => w.id));
+  const variantIds = Object.keys(product.variantConfig.variantData);
+
+  return variantIds.filter((variantId) => {
+    // Check if variant matches any wick type
+    for (const wickId of wickIds) {
+      if (variantId.startsWith(wickId + '-')) {
+        return false; // Matches, not orphaned
+      }
+    }
+    return true; // Doesn't match any wick, orphaned
+  });
+}
+
+/**
+ * Migrate variant IDs when wick type IDs change
+ * This prevents orphaned variants that don't match any current wick type
+ */
+function migrateVariantIds(
+  oldProduct: Product,
+  newProduct: Product
+): Product {
+  // Only process if both have variant configs
+  if (!oldProduct.variantConfig || !newProduct.variantConfig) {
+    return newProduct;
+  }
+
+  const oldWickIds = new Set(oldProduct.variantConfig.wickTypes.map(w => w.id));
+  const newWickIds = new Set(newProduct.variantConfig.wickTypes.map(w => w.id));
+
+  // If wick IDs haven't changed, no migration needed
+  if (
+    oldWickIds.size === newWickIds.size &&
+    Array.from(oldWickIds).every(id => newWickIds.has(id))
+  ) {
+    return newProduct;
+  }
+
+  // Build a mapping of old wick ID -> new wick ID
+  const wickIdMap = new Map<string, string>();
+
+  // Simple case: same number of wicks, just renamed
+  const oldWickArray = oldProduct.variantConfig.wickTypes;
+  const newWickArray = newProduct.variantConfig.wickTypes;
+
+  if (oldWickArray.length === newWickArray.length) {
+    // Map by position (assumes order is preserved)
+    for (let i = 0; i < oldWickArray.length; i++) {
+      if (oldWickArray[i].id !== newWickArray[i].id) {
+        wickIdMap.set(oldWickArray[i].id, newWickArray[i].id);
+      }
+    }
+  }
+
+  // If no mapping found, don't migrate (complex scenario)
+  if (wickIdMap.size === 0) {
+    return newProduct;
+  }
+
+  // Migrate variant IDs
+  const migratedVariantData: Record<string, any> = {};
+
+  for (const [variantId, data] of Object.entries(newProduct.variantConfig.variantData)) {
+    let newVariantId = variantId;
+
+    // Check if this variant uses an old wick ID
+    for (const [oldWickId, newWickId] of wickIdMap.entries()) {
+      if (variantId.startsWith(oldWickId + '-')) {
+        // Migrate: replace old wick prefix with new wick prefix
+        newVariantId = variantId.replace(oldWickId + '-', newWickId + '-');
+        console.log(`[Variant Migration] ${variantId} → ${newVariantId}`);
+        break;
+      }
+    }
+
+    migratedVariantData[newVariantId] = data;
+  }
+
+  return {
+    ...newProduct,
+    variantConfig: {
+      ...newProduct.variantConfig,
+      variantData: migratedVariantData,
+    },
+  };
+}
+
 export async function GET(_: NextRequest, ctx: RouteCtx) {
   const { slug } = await ctx.params;
   const p = await getResolvedProduct(slug);
@@ -66,16 +160,26 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   if ("stock" in patch && merged.stock != null)
     merged.stock = Math.max(0, Number(merged.stock));
 
+  // Migrate variant IDs if wick types changed
+  const migrated = migrateVariantIds(existing, merged);
+
+  // Check for orphaned variants after migration
+  const orphanedVariants = detectOrphanedVariants(migrated);
+  if (orphanedVariants.length > 0) {
+    console.warn(`[Product Update] Warning: ${orphanedVariants.length} orphaned variants detected for ${slug}:`, orphanedVariants);
+    console.warn('These variants will not be counted in stock calculations. Consider removing them.');
+  }
+
   // Track what changed
   const changes: Record<string, { from: unknown; to: unknown }> = {};
   (Object.keys(patch) as (keyof Product)[]).forEach((key) => {
     if (key === "slug") return; // Skip slug since it's in the URL
-    if (JSON.stringify(existing[key]) !== JSON.stringify(merged[key])) {
-      changes[key] = { from: existing[key], to: merged[key] };
+    if (JSON.stringify(existing[key]) !== JSON.stringify(migrated[key])) {
+      changes[key] = { from: existing[key], to: migrated[key] };
     }
   });
 
-  await upsertProduct(merged);
+  await upsertProduct(migrated);
 
   await logAdminAction({
     action: "product.update",
@@ -100,7 +204,7 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   }
 
   return NextResponse.json(
-    { ok: true, product: merged },
+    { ok: true, product: migrated },
     { headers: { "Cache-Control": "no-store" } }
   );
 }
