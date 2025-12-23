@@ -29,12 +29,19 @@ export default function ProductVariantForm({ product, variants, globalScents, va
 
   // Limited scents only show if THIS product has them configured in variantData
   const hasLimitedScents = useMemo(() => {
-    const { variantData } = variantConfig;
+    const { variantData, wickTypes } = variantConfig;
+    const wickIds = new Set(wickTypes.map(w => w.id));
 
     // Check if any variantData key contains a limited scent
     return Object.keys(variantData).some(variantId => {
-      const parts = variantId.split('-');
-      const scentId = parts.slice(1).join('-'); // Handle scent IDs with hyphens
+      // Extract scent ID by removing wick type prefix
+      let scentId = variantId;
+      for (const wickId of wickIds) {
+        if (variantId.startsWith(wickId + '-')) {
+          scentId = variantId.substring(wickId.length + 1);
+          break;
+        }
+      }
       return limitedScents.some(s => s.id === scentId);
     });
   }, [variantConfig, limitedScents]);

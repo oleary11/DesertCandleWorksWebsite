@@ -57,11 +57,28 @@ type Refund = {
 function parseVariantInfo(variantId?: string): { wick: string; scent: string } | null {
   if (!variantId) return null;
 
-  const parts = variantId.split('-');
-  if (parts.length < 2) return null;
+  // Known wick type IDs (in order of preference for matching)
+  const knownWickTypes = ['standard-wick', 'wood', 'standard'];
 
-  const wickType = parts[0];
-  const scentId = parts.slice(1).join('-'); // Handle scents with hyphens like "ocean-breeze"
+  let wickType = '';
+  let scentId = variantId;
+
+  // Try to match known wick type prefixes
+  for (const wick of knownWickTypes) {
+    if (variantId.startsWith(wick + '-')) {
+      wickType = wick;
+      scentId = variantId.substring(wick.length + 1);
+      break;
+    }
+  }
+
+  // Fallback to old logic if no match found
+  if (!wickType) {
+    const parts = variantId.split('-');
+    if (parts.length < 2) return null;
+    wickType = parts[0];
+    scentId = parts.slice(1).join('-');
+  }
 
   // Format wick type for display
   const wickDisplay = wickType === 'wood' ? 'Wood Wick' : 'Standard Wick';
