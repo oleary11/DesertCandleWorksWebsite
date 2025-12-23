@@ -1,12 +1,13 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { redis } from "./lib/redis";
+import { db } from "./lib/db/client";
+import { adminSessions } from "./lib/db/schema";
+import { eq, gt } from "drizzle-orm";
 
 export const config = {
   matcher: ["/admin/:path*", "/api/admin/:path*"],
 };
 
-const SESSIONS_PREFIX = "admin:session:";
 const COOKIE_NAME = "admin_session";
 
 export async function middleware(req: NextRequest) {
@@ -24,12 +25,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  // Verify session token in Redis (not just a simple cookie value)
+  // Verify session token in Postgres (not just a simple cookie value)
   const token = req.cookies.get(COOKIE_NAME)?.value;
   if (token) {
     try {
-      const sessionExists = await redis.get(SESSIONS_PREFIX + token);
-      if (sessionExists) {
+      // Check if session exists and hasn't expired
+      const [session] = await db
+        .select()
+        .from(adminSessions)
+        .where(eq(adminSessions.token, token))
+        .limit(1);
+
+      if (session && new Date(session.expiresAt) > new Date()) {
         return NextResponse.next();
       }
     } catch (err) {
