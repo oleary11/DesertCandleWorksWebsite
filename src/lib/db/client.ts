@@ -2,8 +2,9 @@
  * Postgres database client using Neon serverless
  */
 
-import { neon } from '@neondatabase/serverless';
-import { drizzle } from 'drizzle-orm/neon-http';
+import { neon, Pool, neonConfig } from '@neondatabase/serverless';
+import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
+import { drizzle as drizzleWs } from 'drizzle-orm/neon-serverless';
 
 // For Node.js scripts, try to load .env.local
 if (typeof window === 'undefined' && !process.env.DATABASE_URL) {
@@ -22,11 +23,19 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is required for Postgres connection');
 }
 
-// Create SQL client
-const sql = neon(process.env.DATABASE_URL);
+// Use WebSocket connection for transaction support in edge runtime
+// Falls back to WebSocket pooling if not in Edge
+neonConfig.webSocketConstructor = typeof WebSocket !== 'undefined' ? WebSocket : require('ws');
 
-// Create Drizzle ORM instance
-export const db = drizzle(sql);
+// Create Pool for WebSocket connection (supports transactions)
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+// Create Drizzle ORM instance with WebSocket driver (supports transactions)
+export const db = drizzleWs(pool);
+
+// Create HTTP SQL client for simple queries (faster, no transactions)
+const sql = neon(process.env.DATABASE_URL);
+export const dbHttp = drizzleHttp(sql);
 
 // Export raw SQL for complex queries
 export { sql };
