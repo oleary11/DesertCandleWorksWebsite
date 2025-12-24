@@ -25,7 +25,14 @@ if (!process.env.DATABASE_URL) {
 
 // Use WebSocket connection for transaction support in edge runtime
 // Falls back to WebSocket pooling if not in Edge
-neonConfig.webSocketConstructor = typeof WebSocket !== 'undefined' ? WebSocket : require('ws');
+if (typeof WebSocket !== 'undefined') {
+  neonConfig.webSocketConstructor = WebSocket;
+} else {
+  // In Node.js environment, use ws package
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const ws = require('ws');
+  neonConfig.webSocketConstructor = ws;
+}
 
 // Create Pool for WebSocket connection (supports transactions)
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
