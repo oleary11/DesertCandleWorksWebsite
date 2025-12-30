@@ -110,6 +110,7 @@ export const orderItems = pgTable('order_items', {
   productSlug: varchar('product_slug', { length: 100 }).notNull(),
   productName: varchar('product_name', { length: 255 }).notNull(),
   variantId: varchar('variant_id', { length: 100 }),
+  sizeName: varchar('size_name', { length: 100 }),
   quantity: integer('quantity').notNull(),
   priceCents: integer('price_cents').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

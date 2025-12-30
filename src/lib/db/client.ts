@@ -7,7 +7,8 @@ import { drizzle as drizzleHttp } from 'drizzle-orm/neon-http';
 import { drizzle as drizzleWs } from 'drizzle-orm/neon-serverless';
 
 // For Node.js scripts, try to load .env.local
-if (typeof window === 'undefined' && !process.env.DATABASE_URL) {
+// Note: Only attempt this in Node.js runtime (not Edge Runtime)
+if (typeof window === 'undefined' && !process.env.DATABASE_URL && typeof process.cwd === 'function') {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const dotenv = require('dotenv');

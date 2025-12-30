@@ -135,22 +135,23 @@ export async function POST(req: NextRequest) {
       if (productInfo && qty > 0) {
         const itemTotal = item.amount_total || 0;
 
-        // Get product name from session metadata (stored during checkout)
+        // Get product name, size, and variant from session metadata (stored during checkout)
         const productName = session.metadata?.[`item_${index}_name`] || item.description || "Unknown Product";
+        const sizeName = session.metadata?.[`item_${index}_sizeName`];
+        const variantId = session.metadata?.[`item_${index}_variant`];
 
         // Add to order items
         orderItems.push({
           productSlug: productInfo.slug,
           productName,
+          variantId: variantId || undefined,
+          sizeName: sizeName || undefined,
           quantity: qty,
           priceCents: itemTotal,
         });
 
         // Add to product subtotal (for points calculation)
         productSubtotalCents += itemTotal;
-
-        // Check if there's variant info in session metadata
-        const variantId = session.metadata?.[`item_${index}_variant`];
 
         try {
           if (variantId) {

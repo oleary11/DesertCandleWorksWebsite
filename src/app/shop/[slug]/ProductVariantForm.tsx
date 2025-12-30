@@ -16,8 +16,9 @@ type Props = {
 
 export default function ProductVariantForm({ product, variants, globalScents, variantConfig }: Props) {
   const { showAlert } = useModal();
-  const { wickTypes } = variantConfig;
+  const { sizes, wickTypes } = variantConfig;
   const scents = globalScents; // Use global scents instead of per-product scents
+  const hasSizes = sizes && sizes.length > 0;
 
   // Separate scents into favorites, seasonal, and limited
   const favoritesScents = useMemo(() => scents.filter(s => !s.seasonal && !s.limited), [scents]);
@@ -70,6 +71,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       }
 
       return {
+        size: inStockVariant.size,
         wickType: inStockVariant.wickType,
         scent: inStockVariant.scent,
         scentGroup
@@ -87,6 +89,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     }
 
     return {
+      size: sizes?.[0]?.id,
       wickType: wickTypes[0]?.id || "",
       scent: favoritesScents[0]?.id || seasonalScents[0]?.id || limitedScents[0]?.id || scents[0]?.id || "",
       scentGroup: fallbackScentGroup
@@ -96,6 +99,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   const defaultVariant = getDefaultVariant();
 
   // Selected options
+  const [selectedSize, setSelectedSize] = useState(defaultVariant.size);
   const [selectedWickType, setSelectedWickType] = useState(defaultVariant.wickType);
   const [scentGroup, setScentGroup] = useState<"favorites" | "seasonal" | "limited">(defaultVariant.scentGroup);
   const [selectedScent, setSelectedScent] = useState(defaultVariant.scent);
@@ -124,28 +128,47 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   // Find the matching variant
   const selectedVariant = useMemo(() => {
     return variants.find(
-      v => v.wickType === selectedWickType && v.scent === selectedScent
+      v => (!hasSizes || v.size === selectedSize) && v.wickType === selectedWickType && v.scent === selectedScent
     );
-  }, [variants, selectedWickType, selectedScent]);
+  }, [variants, selectedSize, selectedWickType, selectedScent, hasSizes]);
 
   const stock = selectedVariant?.stock ?? 0;
-  const canBuy = !!product.stripePriceId && stock > 0;
+  // Can buy if: has stock AND (has a stripe price ID from variant/size OR product fallback)
+  const hasStripePrice = hasSizes
+    ? !!(selectedVariant?.stripePriceId || product.stripePriceId)
+    : !!product.stripePriceId;
+  const canBuy = hasStripePrice && stock > 0;
   const currentQuantityInCart = getItemQuantity(product.slug, selectedVariant?.id);
   const remainingStock = stock - currentQuantityInCart;
+
+  // Get current price (from size or product)
+  const currentPrice = hasSizes && selectedSize && sizes
+    ? (sizes.find(s => s.id === selectedSize)?.priceCents ?? 0) / 100
+    : product.price;
+
+  // Helper to check if a size has ANY available stock
+  const isSizeAvailable = (sizeId: string) => {
+    return variants.some(v =>
+      v.size === sizeId &&
+      v.stock > 0 &&
+      currentScents.some(s => s.id === v.scent)
+    );
+  };
 
   // Helper to check if a wick type has ANY available stock across scents in the current group
   const isWickTypeAvailable = (wickTypeId: string) => {
     return variants.some(v =>
+      (!hasSizes || v.size === selectedSize) &&
       v.wickType === wickTypeId &&
       v.stock > 0 &&
       currentScents.some(s => s.id === v.scent) // Only count if scent is in current group
     );
   };
 
-  // Helper to check if a scent has stock for the selected wick type
+  // Helper to check if a scent has stock for the selected size + wick type
   const isScentAvailable = (scentId: string) => {
     return variants.some(
-      v => v.wickType === selectedWickType && v.scent === scentId && v.stock > 0
+      v => (!hasSizes || v.size === selectedSize) && v.wickType === selectedWickType && v.scent === scentId && v.stock > 0
     );
   };
 
@@ -166,6 +189,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   );
 
   // Get display names for selected options
+  const selectedSizeName = hasSizes && sizes ? sizes.find(s => s.id === selectedSize)?.name || "" : "";
   const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
   const selectedScentName = scents.find(s => s.id === selectedScent)?.name || "";
 
@@ -177,14 +201,16 @@ export default function ProductVariantForm({ product, variants, globalScents, va
       productSlug: product.slug,
       productName: product.name,
       productImage: product.image,
-      price: product.price,
-      stripePriceId: product.stripePriceId!,
+      price: currentPrice,
+      stripePriceId: selectedVariant.stripePriceId || product.stripePriceId!,
       maxStock: stock,
       variantId: selectedVariant.id,
       wickType: selectedVariant.wickType,
       scent: selectedVariant.scent,
       wickTypeName: selectedWickName,
       scentName: selectedScentName,
+      size: selectedVariant.size,
+      sizeName: selectedSizeName,
     });
 
     if (success) {
@@ -207,11 +233,12 @@ export default function ProductVariantForm({ product, variants, globalScents, va
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lineItems: [{
-            price: product.stripePriceId!,
+            price: selectedVariant.stripePriceId || product.stripePriceId!,
             quantity: 1,
             metadata: {
               productName: product.name,
               productImage: product.image,
+              size: selectedSizeName,
               wickType: selectedWickName,
               scent: selectedScentName,
               variantId: selectedVariant.id,
@@ -322,6 +349,50 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           </table>
         </div>
       </details>
+
+      {/* Size Selector (only if product has multiple sizes) */}
+      {hasSizes && sizes && sizes.length > 0 && (
+        <div>
+          <label className="block text-sm font-medium mb-2">Size</label>
+          <div className="grid grid-cols-2 gap-2">
+            {sizes.map(size => {
+              const available = isSizeAvailable(size.id);
+              const isSelected = size.id === selectedSize;
+              return (
+                <button
+                  key={size.id}
+                  type="button"
+                  onClick={() => {
+                    setSelectedSize(size.id);
+                    // Auto-select first wick type for this size (prefer in-stock)
+                    const firstAvailableWick = variants.find(
+                      v => v.size === size.id && v.stock > 0 && currentScents.some(s => s.id === v.scent)
+                    )?.wickType || variants.find(v => v.size === size.id && currentScents.some(s => s.id === v.scent))?.wickType || wickTypes[0]?.id || "";
+                    setSelectedWickType(firstAvailableWick);
+                    // Auto-select first scent for this size + wick (prefer in-stock)
+                    const firstAvailableScent = variants.find(
+                      v => v.size === size.id && v.wickType === firstAvailableWick && v.stock > 0 && currentScents.some(s => s.id === v.scent)
+                    )?.scent || variants.find(v => v.size === size.id && v.wickType === firstAvailableWick && currentScents.some(s => s.id === v.scent))?.scent || currentScents[0]?.id || "";
+                    setSelectedScent(firstAvailableScent);
+                  }}
+                  className={`
+                    px-4 py-3 rounded-lg border-2 text-sm font-medium transition cursor-pointer
+                    ${isSelected
+                      ? "!border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                      : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                    }
+                    ${!available ? "opacity-60" : ""}
+                  `}
+                >
+                  <div className="font-semibold">{size.name}</div>
+                  <div className="text-xs mt-0.5">${(size.priceCents / 100).toFixed(2)}</div>
+                  {!available && <span className="block text-xs mt-1">(Out of stock)</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Wick Type Selector */}
       <div>

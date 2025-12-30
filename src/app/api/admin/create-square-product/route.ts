@@ -9,7 +9,16 @@ type WickType = {
   name: string;
 };
 
+type ProductSize = {
+  id: string;
+  name: string;
+  ozs: number;
+  priceCents: number;
+  stripePriceId?: string;
+};
+
 type VariantConfig = {
+  sizes?: ProductSize[];
   wickTypes: WickType[];
   variantData: Record<string, { stock: number }>;
 };
@@ -85,33 +94,67 @@ export async function POST(req: NextRequest) {
 
     // Build variations array
     const variations: CatalogObject[] = [];
+    const hasSizes = variantConfig?.sizes && variantConfig.sizes.length > 0;
 
     if (variantConfig && scents && scents.length > 0) {
-      // Create a variation for each wick type × scent combination
-      for (const wick of variantConfig.wickTypes) {
-        for (const scent of scents) {
-          const variantKey = `${wick.id}-${scent.id}`;
-          const wickCode = wick.id === "wood" ? "WD" : "STD";
-          const scentCode = scent.id.substring(0, 3).toUpperCase();
-          const variantSku = sku ? `${sku}-${wickCode}-${scentCode}` : undefined;
-          const variantName = `${wick.name} - ${scent.name}`;
+      if (hasSizes) {
+        // Create a variation for each size × wick type × scent combination
+        for (const size of variantConfig.sizes!) {
+          for (const wick of variantConfig.wickTypes) {
+            for (const scent of scents) {
+              const variantKey = `${size.id}-${wick.id}-${scent.id}`;
+              const sizeCode = size.id.toUpperCase().replace(/[^A-Z0-9]/g, '');
+              const wickCode = wick.id === "wood" ? "WD" : "STD";
+              const scentCode = scent.id.substring(0, 3).toUpperCase();
+              const variantSku = sku ? `${sku}-${sizeCode}-${wickCode}-${scentCode}` : undefined;
+              const variantName = `${size.name} - ${wick.name} - ${scent.name}`;
 
-          variations.push(
-            {
-              type: "ITEM_VARIATION",
-              id: `#var_${slug}_${variantKey}`,
-              itemVariationData: {
-                itemId: itemTempId,
-                name: variantName,
-                pricingType: "FIXED_PRICING",
-                priceMoney: {
-                  amount: BigInt(priceInCents),
-                  currency: "USD",
+              variations.push(
+                {
+                  type: "ITEM_VARIATION",
+                  id: `#var_${slug}_${variantKey}`,
+                  itemVariationData: {
+                    itemId: itemTempId,
+                    name: variantName,
+                    pricingType: "FIXED_PRICING",
+                    priceMoney: {
+                      amount: BigInt(size.priceCents),
+                      currency: "USD",
+                    },
+                    sku: variantSku,
+                  },
+                } satisfies CatalogObject
+              );
+            }
+          }
+        }
+      } else {
+        // Create a variation for each wick type × scent combination (no sizes)
+        for (const wick of variantConfig.wickTypes) {
+          for (const scent of scents) {
+            const variantKey = `${wick.id}-${scent.id}`;
+            const wickCode = wick.id === "wood" ? "WD" : "STD";
+            const scentCode = scent.id.substring(0, 3).toUpperCase();
+            const variantSku = sku ? `${sku}-${wickCode}-${scentCode}` : undefined;
+            const variantName = `${wick.name} - ${scent.name}`;
+
+            variations.push(
+              {
+                type: "ITEM_VARIATION",
+                id: `#var_${slug}_${variantKey}`,
+                itemVariationData: {
+                  itemId: itemTempId,
+                  name: variantName,
+                  pricingType: "FIXED_PRICING",
+                  priceMoney: {
+                    amount: BigInt(priceInCents),
+                    currency: "USD",
+                  },
+                  sku: variantSku,
                 },
-                sku: variantSku,
-              },
-            } satisfies CatalogObject
-          );
+              } satisfies CatalogObject
+            );
+          }
         }
       }
     } else {
@@ -205,21 +248,45 @@ export async function POST(req: NextRequest) {
       let variationIndex = 0;
 
       // Build the mapping using idMappings
-      for (const wick of variantConfig.wickTypes) {
-        for (const scent of scents) {
-          const variantKey = `${wick.id}-${scent.id}`;
-          const clientObjectId = `#var_${slug}_${variantKey}`;
+      if (hasSizes) {
+        // Map size × wick × scent combinations
+        for (const size of variantConfig.sizes!) {
+          for (const wick of variantConfig.wickTypes) {
+            for (const scent of scents) {
+              const variantKey = `${size.id}-${wick.id}-${scent.id}`;
+              const clientObjectId = `#var_${slug}_${variantKey}`;
 
-          // Find the mapping for this client ID
-          const mapping = idMappings.find(m => m.clientObjectId === clientObjectId);
-          if (mapping?.objectId) {
-            variantMapping[variantKey] = mapping.objectId;
-            console.log(`[Create Square Product] Mapped ${variantKey} -> ${mapping.objectId}`);
-          } else {
-            console.warn(`[Create Square Product] No mapping found for ${clientObjectId}`);
+              // Find the mapping for this client ID
+              const mapping = idMappings.find(m => m.clientObjectId === clientObjectId);
+              if (mapping?.objectId) {
+                variantMapping[variantKey] = mapping.objectId;
+                console.log(`[Create Square Product] Mapped ${variantKey} -> ${mapping.objectId}`);
+              } else {
+                console.warn(`[Create Square Product] No mapping found for ${clientObjectId}`);
+              }
+
+              variationIndex++;
+            }
           }
+        }
+      } else {
+        // Map wick × scent combinations (no sizes)
+        for (const wick of variantConfig.wickTypes) {
+          for (const scent of scents) {
+            const variantKey = `${wick.id}-${scent.id}`;
+            const clientObjectId = `#var_${slug}_${variantKey}`;
 
-          variationIndex++;
+            // Find the mapping for this client ID
+            const mapping = idMappings.find(m => m.clientObjectId === clientObjectId);
+            if (mapping?.objectId) {
+              variantMapping[variantKey] = mapping.objectId;
+              console.log(`[Create Square Product] Mapped ${variantKey} -> ${mapping.objectId}`);
+            } else {
+              console.warn(`[Create Square Product] No mapping found for ${clientObjectId}`);
+            }
+
+            variationIndex++;
+          }
         }
       }
     }

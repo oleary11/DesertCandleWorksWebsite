@@ -207,17 +207,21 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
   }
 
   // Format order items for email
-  const itemsHtml = order.items.map((item: { productName: string; quantity: number; priceCents: number }) => `
+  const itemsHtml = order.items.map((item: { productName: string; sizeName?: string; quantity: number; priceCents: number }) => {
+    const displayName = item.sizeName ? `${item.productName} - ${item.sizeName}` : item.productName;
+    return `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${item.productName}</td>
+      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">${displayName}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">${item.quantity}</td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">$${(item.priceCents / 100).toFixed(2)}</td>
     </tr>
-  `).join('');
+  `;
+  }).join('');
 
-  const itemsText = order.items.map((item: { productName: string; quantity: number; priceCents: number }) =>
-    `${item.productName} x${item.quantity} - $${(item.priceCents / 100).toFixed(2)}`
-  ).join('\n');
+  const itemsText = order.items.map((item: { productName: string; sizeName?: string; quantity: number; priceCents: number }) => {
+    const displayName = item.sizeName ? `${item.productName} - ${item.sizeName}` : item.productName;
+    return `${displayName} x${item.quantity} - $${(item.priceCents / 100).toFixed(2)}`;
+  }).join('\n');
 
   // Calculate totals
   const subtotal = order.productSubtotalCents ?? order.totalCents;

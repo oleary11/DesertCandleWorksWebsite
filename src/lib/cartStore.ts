@@ -11,6 +11,8 @@ export type CartItem = {
   maxStock: number; // Track available stock
   // For variant products
   variantId?: string;
+  size?: string;      // Size ID
+  sizeName?: string;  // Display name for size
   wickType?: string;
   scent?: string;
   wickTypeName?: string;

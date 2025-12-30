@@ -12,6 +12,7 @@ type ManualSaleItem = {
   quantity: number;
   priceCents: number;
   variantId?: string;
+  sizeName?: string;
 };
 
 type ManualSaleRequest = {

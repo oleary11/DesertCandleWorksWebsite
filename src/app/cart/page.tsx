@@ -154,6 +154,7 @@ export default function CartPage() {
         metadata: {
           productName: item.productName,
           productImage: item.productImage,
+          sizeName: item.sizeName,
           wickType: item.wickTypeName,
           scent: item.scentName,
           variantId: item.variantId,
@@ -271,7 +272,8 @@ export default function CartPage() {
                     </Link>
                     {item.variantId && (
                       <p className="text-xs sm:text-sm text-[var(--color-muted)] mt-1">
-                        {item.wickTypeName && `${item.wickTypeName}`}
+                        {item.sizeName && `${item.sizeName}`}
+                        {item.wickTypeName && `${item.sizeName ? ' • ' : ''}${item.wickTypeName}`}
                         {item.scentName && ` • ${item.scentName}`}
                       </p>
                     )}

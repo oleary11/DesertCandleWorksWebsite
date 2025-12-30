@@ -476,6 +476,8 @@ export default function CalculatorPage() {
   });
   const [showExistingProductModal, setShowExistingProductModal] = useState(false);
   const [productSearch, setProductSearch] = useState("");
+  const [selectedProductForSize, setSelectedProductForSize] = useState<Product | null>(null);
+  const [selectedSizeId, setSelectedSizeId] = useState<string>("");
 
   // Persist batch to localStorage whenever it changes
   useEffect(() => {
@@ -2304,9 +2306,20 @@ export default function CalculatorPage() {
                     <button
                       key={product.slug}
                       onClick={async () => {
+                        // Check if product has sizes
+                        const hasSizes = product.variantConfig?.sizes && product.variantConfig.sizes.length > 0;
+
+                        if (hasSizes) {
+                          // Show size selector
+                          setSelectedProductForSize(product);
+                          setSelectedSizeId(product.variantConfig!.sizes![0].id); // Default to first size
+                          return;
+                        }
+
+                        // No sizes - proceed with adding variant
                         const selectedWickTypes = Object.entries(wickCounts)
                           .filter(([_, count]) => count > 0)
-                          .map(([wickId]) => {
+                          .map(([wickId, count]) => {
                             const wick = wicks.find((w) => w.id === wickId);
                             if (!wick) return null;
                             const displayName = wick.appearAs || wick.name;
@@ -2314,9 +2327,9 @@ export default function CalculatorPage() {
                               .toLowerCase()
                               .replace(/\s+/g, "-")
                               .replace(/[^a-z0-9-]/g, "");
-                            return { id: variantId, name: displayName };
+                            return { id: variantId, name: displayName, count };
                           })
-                          .filter((w) => w !== null) as Array<{ id: string; name: string }>;
+                          .filter((w) => w !== null) as Array<{ id: string; name: string; count: number }>;
 
                         const uniqueWickTypes = Array.from(
                           new Map(selectedWickTypes.map((w) => [w.id, w])).values()
@@ -2330,16 +2343,16 @@ export default function CalculatorPage() {
                         );
                         uniqueWickTypes.forEach((wick) => {
                           if (!existingWickIds.has(wick.id)) {
-                            updatedVariantConfig.wickTypes.push(wick);
+                            updatedVariantConfig.wickTypes.push({ id: wick.id, name: wick.name });
                           }
                         });
 
                         uniqueWickTypes.forEach((wickType) => {
                           const variantId = `${wickType.id}-${selectedScentId}`;
                           if (updatedVariantConfig.variantData[variantId]) {
-                            updatedVariantConfig.variantData[variantId].stock += 1;
+                            updatedVariantConfig.variantData[variantId].stock += wickType.count;
                           } else {
-                            updatedVariantConfig.variantData[variantId] = { stock: 1 };
+                            updatedVariantConfig.variantData[variantId] = { stock: wickType.count };
                           }
                         });
 
@@ -2441,6 +2454,162 @@ export default function CalculatorPage() {
                 className="btn hover:bg-white transition-colors"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Size Selector Modal (for products with multiple sizes) */}
+      {selectedProductForSize && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+          <div
+            className="absolute inset-0"
+            onClick={() => {
+              setSelectedProductForSize(null);
+              setSelectedSizeId("");
+            }}
+          />
+
+          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-6">
+            <h3 className="text-lg font-semibold mb-4">Select Size</h3>
+            <p className="text-sm text-[var(--color-muted)] mb-4">
+              {selectedProductForSize.name} has multiple sizes. Please select which size to add stock to:
+            </p>
+
+            <div className="space-y-2 mb-6">
+              {selectedProductForSize.variantConfig?.sizes?.map((size) => (
+                <button
+                  key={size.id}
+                  onClick={() => setSelectedSizeId(size.id)}
+                  className={`w-full px-4 py-3 rounded-lg border-2 text-left transition ${
+                    selectedSizeId === size.id
+                      ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                      : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                  }`}
+                >
+                  <div className="font-semibold">{size.name}</div>
+                  <div className="text-xs mt-0.5">${(size.priceCents / 100).toFixed(2)}</div>
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setSelectedProductForSize(null);
+                  setSelectedSizeId("");
+                }}
+                className="flex-1 btn hover:bg-white"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  if (!selectedSizeId || !selectedProductForSize) return;
+
+                  const product = selectedProductForSize;
+
+                  // Build wick types with counts
+                  const selectedWickTypes = Object.entries(wickCounts)
+                    .filter(([_, count]) => count > 0)
+                    .map(([wickId, count]) => {
+                      const wick = wicks.find((w) => w.id === wickId);
+                      if (!wick) return null;
+                      const displayName = wick.appearAs || wick.name;
+                      const variantId = (wick.appearAs || wick.name)
+                        .toLowerCase()
+                        .replace(/\s+/g, "-")
+                        .replace(/[^a-z0-9-]/g, "");
+                      return { id: variantId, name: displayName, count };
+                    })
+                    .filter((w) => w !== null) as Array<{ id: string; name: string; count: number }>;
+
+                  const uniqueWickTypes = Array.from(
+                    new Map(selectedWickTypes.map((w) => [w.id, w])).values()
+                  );
+
+                  const updatedVariantConfig =
+                    product.variantConfig || { wickTypes: [], variantData: {} };
+
+                  // Add wick types if they don't exist
+                  const existingWickIds = new Set(
+                    updatedVariantConfig.wickTypes.map((w) => w.id)
+                  );
+                  uniqueWickTypes.forEach((wick) => {
+                    if (!existingWickIds.has(wick.id)) {
+                      updatedVariantConfig.wickTypes.push({ id: wick.id, name: wick.name });
+                    }
+                  });
+
+                  // Add or update variant data WITH SIZE
+                  uniqueWickTypes.forEach((wickType) => {
+                    const variantId = `${selectedSizeId}-${wickType.id}-${selectedScentId}`;
+                    if (updatedVariantConfig.variantData[variantId]) {
+                      updatedVariantConfig.variantData[variantId].stock += wickType.count;
+                    } else {
+                      updatedVariantConfig.variantData[variantId] = { stock: wickType.count };
+                    }
+                  });
+
+                  const res = await fetch(`/api/admin/products/${product.slug}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ variantConfig: updatedVariantConfig }),
+                  });
+
+                  if (res.ok) {
+                    const sizeName = product.variantConfig?.sizes?.find(s => s.id === selectedSizeId)?.name || selectedSizeId;
+                    await showAlert(
+                      `Added ${selectedScent?.name} (${sizeName}) variant to ${product.name}`,
+                      "Success"
+                    );
+
+                    // Add to batch if checkbox is checked
+                    if (addToBatchAfterCreate && results && selectedScent) {
+                      const selectedContainer = containers.find((c) => c.id === selectedContainerId);
+                      const containerName = selectedContainer?.name || `Custom (${waterOz}oz)`;
+                      const scentName = scents.find((s) => s.id === selectedScentId)?.name || "";
+
+                      const newItem: BatchItem = {
+                        containerId: selectedContainerId || `custom-${waterOz}`,
+                        containerName,
+                        waterOz,
+                        scentId: selectedScentId,
+                        scentName,
+                        wickCounts: { ...wickCounts },
+                        results: { ...results },
+                      };
+
+                      // Check if batch has different scent
+                      if (batchItems.length > 0 && batchItems[0].scentId !== selectedScentId) {
+                        const shouldClear = await showConfirm(
+                          `Current batch contains ${batchItems[0].scentName}. Start a new batch with ${scentName}?`,
+                          "Different Scent Detected"
+                        );
+                        if (shouldClear) {
+                          setBatchItems([newItem]);
+                        }
+                      } else {
+                        setBatchItems([...batchItems, newItem]);
+                      }
+                    }
+
+                    setSelectedProductForSize(null);
+                    setSelectedSizeId("");
+                    setShowExistingProductModal(false);
+                    setProductSearch("");
+                    setAddToBatchAfterCreate(true);
+                    void loadData();
+                  } else {
+                    const error = await res.json();
+                    await showAlert(`Failed: ${error.error || "Unknown error"}`, "Error");
+                  }
+                }}
+                disabled={!selectedSizeId}
+                className="flex-1 btn btn-primary"
+              >
+                Add to Product
               </button>
             </div>
           </div>

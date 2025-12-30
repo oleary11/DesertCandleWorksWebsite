@@ -31,6 +31,7 @@ type SaleItem = {
   quantity: number;
   priceCents: number;
   variantId?: string;
+  sizeName?: string;
 };
 
 /* ---------- Searchable ComboBox (filters as you type, mobile-friendly) ---------- */
@@ -398,6 +399,7 @@ export default function ManualSalePage() {
             quantity: item.quantity,
             priceCents: item.priceCents,
             variantId: item.variantId,
+            sizeName: item.sizeName,
           })),
           customerEmail: customerEmail || undefined,
           paymentMethod,

@@ -69,6 +69,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
         metadata: {
           productName: item.productName,
           productImage: item.productImage,
+          sizeName: item.sizeName,
           wickType: item.wickTypeName,
           scent: item.scentName,
           variantId: item.variantId,

@@ -19,6 +19,8 @@ type ExtendedLineItem = {
   metadata?: {
     productName?: string;
     productImage?: string;
+    size?: string;
+    sizeName?: string;
     wickType?: string;
     scent?: string;
     variantId?: string;
@@ -147,8 +149,26 @@ export async function POST(req: NextRequest) {
 
       // SECURITY: Validate that the Stripe Price ID matches what we expect for this product
       // This prevents price manipulation attacks where clients submit arbitrary price IDs
-      if (product.stripePriceId && item.price !== product.stripePriceId) {
-        console.error(`[Checkout Security] Price manipulation attempt detected: Expected ${product.stripePriceId}, got ${item.price} for product ${product.slug}`);
+      // Check both base product price and size-specific prices
+      let validPriceId = false;
+
+      // Check base product price ID
+      if (product.stripePriceId && item.price === product.stripePriceId) {
+        validPriceId = true;
+      }
+
+      // Check size-specific price IDs
+      if (!validPriceId && product.variantConfig?.sizes) {
+        for (const size of product.variantConfig.sizes) {
+          if (size.stripePriceId && item.price === size.stripePriceId) {
+            validPriceId = true;
+            break;
+          }
+        }
+      }
+
+      if (!validPriceId) {
+        console.error(`[Checkout Security] Price manipulation attempt detected: Got ${item.price} for product ${product.slug}, expected one of: base=${product.stripePriceId}, sizes=${product.variantConfig?.sizes?.map(s => s.stripePriceId).filter(Boolean).join(', ')}`);
         return NextResponse.json(
           {
             error: `Invalid price for ${product.name}. Please refresh and try again.`,
@@ -244,6 +264,9 @@ export async function POST(req: NextRequest) {
       if (item.metadata?.variantId) {
         sessionMetadata[`item_${index}_variant`] =
           item.metadata.variantId;
+      }
+      if (item.metadata?.sizeName) {
+        sessionMetadata[`item_${index}_sizeName`] = item.metadata.sizeName;
       }
 
       // Build custom product name with variant details
