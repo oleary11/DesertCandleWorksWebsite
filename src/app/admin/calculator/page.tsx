@@ -21,6 +21,7 @@ type Product = {
   youngDumb?: boolean;
   stock: number;
   variantConfig?: {
+    sizes?: Array<{ id: string; name: string; ozs: number; priceCents: number; stripePriceId?: string }>;
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
   };
