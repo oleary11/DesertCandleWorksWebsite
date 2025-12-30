@@ -28,7 +28,7 @@ export async function getPriceToSlug(): Promise<Map<string, string>> {
   } catch {
   }
 
-  for (const p of staticProducts) {
+  for (const p of staticProducts as Product[]) {
     if (p.stripePriceId && !map.has(p.stripePriceId)) {
       map.set(p.stripePriceId, p.slug);
     }

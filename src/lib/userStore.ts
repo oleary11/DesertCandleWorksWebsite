@@ -72,6 +72,7 @@ export type Order = {
     productSlug: string;
     productName: string;
     variantId?: string;
+    sizeName?: string;
     quantity: number;
     priceCents: number;
   }>;
@@ -450,6 +451,7 @@ export async function createOrder(
         productSlug: item.productSlug,
         productName: item.productName,
         variantId: (item as { variantId?: string }).variantId || null,
+        sizeName: (item as { sizeName?: string }).sizeName || null,
         quantity: item.quantity,
         priceCents: item.priceCents,
       });
@@ -550,6 +552,7 @@ export async function getUserOrders(userId: string, limit = 50): Promise<Order[]
           productSlug: item.productSlug,
           productName: item.productName,
           variantId: item.variantId || undefined,
+          sizeName: item.sizeName || undefined,
           quantity: item.quantity,
           priceCents: item.priceCents,
         })),
@@ -654,6 +657,7 @@ export async function getAllOrders(): Promise<Order[]> {
           productSlug: item.productSlug,
           productName: item.productName,
           variantId: item.variantId || undefined,
+          sizeName: item.sizeName || undefined,
           quantity: item.quantity,
           priceCents: item.priceCents,
         })),

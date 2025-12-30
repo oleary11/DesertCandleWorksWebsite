@@ -39,7 +39,16 @@ type GlobalScent = {
   sortOrder?: number;
 };
 
+type ProductSize = {
+  id: string;
+  name: string;
+  ozs: number;
+  priceCents: number;
+  stripePriceId?: string;
+};
+
 type VariantConfig = {
+  sizes?: ProductSize[];
   wickTypes: WickType[];
   // scents are now global - not stored per product
   variantData: Record<string, { stock: number }>;

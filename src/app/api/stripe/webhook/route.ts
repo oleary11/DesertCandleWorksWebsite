@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
     const orderItems: Array<{
       productSlug: string;
       productName: string;
+      variantId?: string;
+      sizeName?: string;
       quantity: number;
       priceCents: number;
     }> = [];
