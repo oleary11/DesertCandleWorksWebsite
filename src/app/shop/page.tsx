@@ -86,10 +86,23 @@ export default async function ShopPage() {
 
         let total = 0;
         for (const [variantId, data] of Object.entries(variantData)) {
-          let scentId = variantId;
+          // Variant ID format: [sizeId-]wickTypeId-scentId
+          // Extract scent ID by removing size and wick prefixes
+          let remainingId = variantId;
+
+          // Remove size prefix if present (format: size-{timestamp}-)
+          if (remainingId.startsWith('size-')) {
+            const sizeEndIndex = remainingId.indexOf('-', 5); // Find second hyphen
+            if (sizeEndIndex !== -1) {
+              remainingId = remainingId.substring(sizeEndIndex + 1);
+            }
+          }
+
+          // Remove wick type prefix
+          let scentId = remainingId;
           for (const wickId of wickIds) {
-            if (variantId.startsWith(wickId + '-')) {
-              scentId = variantId.substring(wickId.length + 1);
+            if (remainingId.startsWith(wickId + '-')) {
+              scentId = remainingId.substring(wickId.length + 1);
               break;
             }
           }
