@@ -17,12 +17,12 @@ async function findDuplicateWicks() {
 
   try {
     // Query all products with variant_config
-    const products = await sql<Product[]>`
+    const products = await sql`
       SELECT slug, name, variant_config
       FROM products
       WHERE variant_config IS NOT NULL
       ORDER BY name
-    `;
+    ` as unknown as Product[];
 
     console.log(`Found ${products.length} products with variant configs\n`);
 

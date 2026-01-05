@@ -17,12 +17,12 @@ async function findOrphanedVariants() {
   console.log('🔍 Searching for products with orphaned variant data...\n');
 
   try {
-    const products = await sql<Product[]>`
+    const products = await sql`
       SELECT slug, name, variant_config
       FROM products
       WHERE variant_config IS NOT NULL
       ORDER BY name
-    `;
+    ` as unknown as Product[];
 
     console.log(`Found ${products.length} products with variant configs\n`);
 
@@ -41,7 +41,7 @@ async function findOrphanedVariants() {
       }
 
       // Get valid wick IDs from wickTypes array
-      const validWickIds = new Set(variantConfig.wickTypes.map(w => w.id));
+      const validWickIds = new Set(variantConfig.wickTypes.map((w: { id: string; name: string }) => w.id));
 
       // Check all variants in variantData
       const orphanedVariants: string[] = [];
@@ -60,7 +60,7 @@ async function findOrphanedVariants() {
         productsWithOrphans.push({
           slug: product.slug,
           name: product.name,
-          validWickIds: Array.from(validWickIds),
+          validWickIds: Array.from(validWickIds) as string[],
           orphanedVariants,
         });
       }
