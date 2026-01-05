@@ -118,7 +118,7 @@ export default function ProductCard({
           return primaryImage ? (
             <Image
               src={primaryImage}
-              alt={`${product.name} - Handmade soy candle in upcycled liquor bottle`}
+              alt={`${product.name} - Handmade coconut apricot candle in upcycled liquor bottle`}
               fill
               className="
                 object-cover object-center rounded-t-2xl

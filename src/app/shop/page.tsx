@@ -11,12 +11,12 @@ export const revalidate = 30;
 export const generateMetadata = (): Metadata => {
   const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
   return {
-    title: "Shop All-Natural Candles | Scottsdale & Phoenix Clean Burning Soy Coconut Wax Candles",
+    title: "Shop All-Natural Candles | Scottsdale & Phoenix Clean Burning Coconut Apricot Wax Candles",
     description:
-      "Shop 100% natural soy coconut wax candles made in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled liquor bottle candles with wood wicks. Local Arizona candles, natural gifts, desert scents.",
+      "Shop 100% natural coconut apricot wax candles made in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled liquor bottle candles with wood wicks. Local Arizona candles, natural gifts, desert scents.",
     keywords: [
       "buy natural candles Scottsdale",
-      "soy coconut wax candles Arizona",
+      "coconut apricot wax candles Arizona",
       "clean burning candles Phoenix",
       "smokeless candles Arizona",
       "buy candles Scottsdale",
@@ -33,9 +33,9 @@ export const generateMetadata = (): Metadata => {
     ],
     alternates: { canonical: `${base}/shop` },
     openGraph: {
-      title: "Shop All-Natural Candles | Scottsdale Clean Burning Soy Coconut Wax Candles",
+      title: "Shop All-Natural Candles | Scottsdale Clean Burning Coconut Apricot Wax Candles",
       description:
-        "100% natural soy coconut wax candles in upcycled bottles. Clean burning, smokeless, eco-friendly. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
+        "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, smokeless, eco-friendly. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
       url: `${base}/shop`,
       type: "website",
     },

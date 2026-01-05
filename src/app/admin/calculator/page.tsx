@@ -664,12 +664,8 @@ export default function CalculatorPage() {
         if (!wick) return null;
 
         const displayName = wick.appearAs || wick.name;
-        const variantId = (wick.appearAs || wick.name)
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/[^a-z0-9-]/g, "");
-
-        return { id: variantId, name: displayName };
+        // Use the actual wick ID instead of regenerating from name
+        return { id: wickId, name: displayName };
       })
       .filter((w) => w !== null) as Array<{ id: string; name: string }>;
 
@@ -2060,7 +2056,7 @@ export default function CalculatorPage() {
                         const waxOzCalc = container.capacityWaterOz * settings.waterToWaxRatio;
                         waxOzText = `${Math.round(waxOzCalc)} oz wax`;
                       }
-                      const generatedDesc = `Hand-poured candle in an upcycled ${bottleName} bottle.\n\nGolden Brands 454 Coconut Soy Wax\n\nApprox. - ${waxOzText}`;
+                      const generatedDesc = `Hand-poured candle in an upcycled ${bottleName} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - ${waxOzText}`;
                       setNewProduct({ ...newProduct, seoDescription: generatedDesc });
                     }}
                   >
@@ -2324,11 +2320,8 @@ export default function CalculatorPage() {
                             const wick = wicks.find((w) => w.id === wickId);
                             if (!wick) return null;
                             const displayName = wick.appearAs || wick.name;
-                            const variantId = (wick.appearAs || wick.name)
-                              .toLowerCase()
-                              .replace(/\s+/g, "-")
-                              .replace(/[^a-z0-9-]/g, "");
-                            return { id: variantId, name: displayName, count };
+                            // Use the actual wick ID instead of regenerating from name
+                            return { id: wickId, name: displayName, count };
                           })
                           .filter((w) => w !== null) as Array<{ id: string; name: string; count: number }>;
 
@@ -2518,11 +2511,8 @@ export default function CalculatorPage() {
                       const wick = wicks.find((w) => w.id === wickId);
                       if (!wick) return null;
                       const displayName = wick.appearAs || wick.name;
-                      const variantId = (wick.appearAs || wick.name)
-                        .toLowerCase()
-                        .replace(/\s+/g, "-")
-                        .replace(/[^a-z0-9-]/g, "");
-                      return { id: variantId, name: displayName, count };
+                      // Use the actual wick ID instead of regenerating from name
+                      return { id: wickId, name: displayName, count };
                     })
                     .filter((w) => w !== null) as Array<{ id: string; name: string; count: number }>;
 

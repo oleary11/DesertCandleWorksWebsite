@@ -231,7 +231,7 @@ function generateDescription(
 
   return `Hand-poured candle in an upcycled ${bottleName} bottle.
 
-Golden Brands 454 Coconut Soy Wax
+coco apricot creme™ candle wax
 
 Approx. - ${waxOzText}`;
 }

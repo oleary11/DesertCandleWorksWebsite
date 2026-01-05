@@ -29,13 +29,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   return {
     title: `${p.name} | Scottsdale Handmade Candles`,
-    description: `${p.seoDescription} Hand-poured in Scottsdale, AZ. Premium soy wax, wood wicks, and upcycled bottles. Shop local Arizona candles.`,
+    description: `${p.seoDescription} Hand-poured in Scottsdale, AZ. Premium coconut apricot wax, wood wicks, and upcycled bottles. Shop local Arizona candles.`,
     keywords: [
       p.name,
       "Scottsdale candles",
       "Arizona candles",
       "handmade candles",
-      "soy candles",
+      "coconut apricot candles",
       "wood wick candles",
       "upcycled bottle candles",
       "local candles",
@@ -134,7 +134,7 @@ export default async function ProductPage({ params }: Props) {
         addressCountry: "US",
       },
     },
-    material: "Soy wax",
+    material: "Coconut apricot wax",
     category: "Home & Garden > Candles",
   };
 
@@ -152,7 +152,7 @@ export default async function ProductPage({ params }: Props) {
             <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex-1">{p.name}</h1>
             <ShareButtons productName={p.name} productSlug={p.slug} />
           </div>
-          <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)]">{p.seoDescription}</p>
+          <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)] whitespace-pre-line">{p.seoDescription}</p>
           <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
 
           {p.variantConfig && globalScents.length > 0 ? (

@@ -12,13 +12,13 @@ export const metadata: Metadata = {
     template: "%s · Desert Candle Works",
   },
   description:
-    "100% natural soy coconut wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and eco-friendly. Upcycled liquor bottles save waste from landfills. Premium ingredients, zero toxins, safe for family and pets.",
+    "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and eco-friendly. Upcycled liquor bottles save waste from landfills. Premium ingredients, zero toxins, safe for family and pets.",
   keywords: [
     "natural candles Scottsdale",
     "all-natural candles Arizona",
     "clean burning candles Phoenix",
     "smokeless candles Arizona",
-    "soy coconut wax candles Scottsdale",
+    "coconut apricot wax candles Scottsdale",
     "coconut wax candles Arizona",
     "eco-friendly candles Phoenix",
     "sustainable candles Arizona",
@@ -30,7 +30,7 @@ export const metadata: Metadata = {
     "renewable candles Arizona",
     "biodegradable candles Scottsdale",
     "clean candles Phoenix",
-    "natural soy candles Arizona",
+    "natural coconut apricot candles Arizona",
     "organic candles Scottsdale",
     "green candles Phoenix",
     "candles Scottsdale",
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     siteName: "Desert Candle Works",
     title: "Desert Candle Works | All-Natural, Eco-Friendly Candles in Scottsdale, AZ",
     description:
-      "100% natural soy coconut wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and safe for your family. Upcycled bottles save waste from landfills. Premium eco-friendly ingredients.",
+      "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and safe for your family. Upcycled bottles save waste from landfills. Premium eco-friendly ingredients.",
     images: [{ url: "/images/logo.svg" }],
     locale: "en_US",
   },
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Desert Candle Works | All-Natural, Clean Burning Candles",
     description:
-      "100% natural soy coconut wax candles in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled bottles save waste from landfills.",
+      "100% natural coconut apricot wax candles in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled bottles save waste from landfills.",
     images: ["/images/logo.svg"],
   },
   robots: { index: true, follow: true },
@@ -67,7 +67,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     url: BASE,
     logo: `${BASE}/images/logo.svg`,
     image: `${BASE}/images/logo.svg`,
-    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural soy coconut wax blend—clean burning, smokeless, and non-toxic. Upcycled liquor bottles save waste from landfills. Safe for family and pets.",
+    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend—clean burning, smokeless, and non-toxic. Upcycled liquor bottles save waste from landfills. Safe for family and pets.",
     priceRange: "$$",
     telephone: "",
     address: {
@@ -118,8 +118,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           "@type": "Offer",
           itemOffered: {
             "@type": "Product",
-            name: "100% Natural Soy Coconut Wax Candles in Upcycled Bottles",
-            description: "All-natural, clean burning soy coconut wax candles. Smokeless, non-toxic, and eco-friendly. Poured into upcycled liquor bottles rescued from landfills. Safe for family and pets.",
+            name: "100% Natural Coconut Apricot Wax Candles in Upcycled Bottles",
+            description: "All-natural, clean burning coconut apricot wax candles. Smokeless, non-toxic, and eco-friendly. Poured into upcycled liquor bottles rescued from landfills. Safe for family and pets.",
             brand: {
               "@type": "Brand",
               name: "Desert Candle Works",
@@ -145,7 +145,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     name: "Desert Candle Works",
     url: BASE,
     logo: `${BASE}/images/logo.svg`,
-    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural soy coconut wax blend, clean burning, smokeless, and non-toxic. Upcycled bottles save waste from landfills.",
+    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend, clean burning, smokeless, and non-toxic. Upcycled bottles save waste from landfills.",
     founder: {
       "@type": "Person",
       name: "Desert Candle Works Team",

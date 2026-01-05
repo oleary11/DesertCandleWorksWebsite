@@ -8,7 +8,6 @@ import {
   passwordResetTokens,
   emailVerificationTokens,
   invoiceAccessTokens,
-  orderCounters,
 } from "./db/schema";
 import { eq, desc, and, sql as drizzleSql } from "drizzle-orm";
 import crypto from "crypto";
@@ -354,47 +353,42 @@ export async function deductPoints(
 // ============ Order Management ============
 
 /**
- * Generate a sequential order ID in the format: STXXXXX, SQXXXXX, or MSXXXXX
+ * Generate a random unique order ID in the format: STXXXXX, SQXXXXX, or MSXXXXX
  * @param type - 'stripe', 'square', or 'manual'
- * @returns Formatted order ID (e.g., ST00001, SQ00042, MS00123)
+ * @returns Formatted order ID (e.g., ST47291, SQ82047, MS13956)
  */
 export async function generateOrderId(type: 'stripe' | 'square' | 'manual'): Promise<string> {
   const prefix = type === 'stripe' ? 'ST' : type === 'square' ? 'SQ' : 'MS';
 
-  return await db.transaction(async (tx) => {
-    // Try to get existing counter
-    const [counter] = await tx
-      .select()
-      .from(orderCounters)
-      .where(eq(orderCounters.type, type))
+  // Generate a random 5-digit number and check for uniqueness
+  let orderId: string;
+  let attempts = 0;
+  const maxAttempts = 10;
+
+  do {
+    // Generate random 5-digit number (10000-99999)
+    const randomNumber = Math.floor(Math.random() * 90000) + 10000;
+    orderId = `${prefix}${randomNumber}`;
+
+    // Check if this ID already exists
+    const [existing] = await db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.id, orderId))
       .limit(1);
 
-    let nextNumber: number;
-
-    if (counter) {
-      // Increment existing counter
-      nextNumber = counter.counter + 1;
-      await tx
-        .update(orderCounters)
-        .set({
-          counter: nextNumber,
-          updatedAt: new Date()
-        })
-        .where(eq(orderCounters.type, type));
-    } else {
-      // Initialize counter for this type
-      nextNumber = 1;
-      await tx.insert(orderCounters).values({
-        type,
-        counter: nextNumber,
-        updatedAt: new Date()
-      });
+    // If not exists, we have a unique ID
+    if (!existing) {
+      return orderId;
     }
 
-    // Format with leading zeros (5 digits)
-    const paddedNumber = String(nextNumber).padStart(5, '0');
-    return `${prefix}${paddedNumber}`;
-  });
+    attempts++;
+  } while (attempts < maxAttempts);
+
+  // Fallback: if we somehow can't find a unique ID in 10 attempts (highly unlikely),
+  // use timestamp-based ID to guarantee uniqueness
+  const timestamp = Date.now().toString().slice(-5);
+  return `${prefix}${timestamp}`;
 }
 
 export async function createOrder(

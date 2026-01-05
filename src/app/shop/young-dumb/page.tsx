@@ -37,7 +37,7 @@ export const generateMetadata = (): Metadata => {
     openGraph: {
       title: "Young & Dumb Collection | Trendy Candles Scottsdale",
       description:
-        "Bold, trendy candles in upcycled liquor bottles. Hand-poured in Scottsdale with premium soy wax and wood wicks. Perfect for dorms, apartments, and unique gifts.",
+        "Bold, trendy candles in upcycled liquor bottles. Hand-poured in Scottsdale with premium coconut apricot wax and wood wicks. Perfect for dorms, apartments, and unique gifts.",
       url: `${base}/shop/young-dumb`,
       type: "website",
       siteName: "Desert Candle Works",

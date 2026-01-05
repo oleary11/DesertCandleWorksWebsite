@@ -5,12 +5,12 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "About Us | All-Natural, Eco-Friendly Candles Made in Scottsdale, Arizona",
   description:
-    "Discover Desert Candle Works' commitment to sustainability and natural ingredients. 100% soy coconut wax candles in upcycled bottles—clean burning, smokeless, and environmentally friendly. Made in Scottsdale, AZ.",
+    "Discover Desert Candle Works' commitment to sustainability and natural ingredients. 100% coconut apricot wax candles in upcycled bottles—clean burning, smokeless, and environmentally friendly. Made in Scottsdale, AZ.",
   keywords: [
     "natural candles Scottsdale",
     "eco-friendly candles Arizona",
     "sustainable candles Phoenix",
-    "soy coconut wax candles Arizona",
+    "coconut apricot wax candles Arizona",
     "coconut wax candles Scottsdale",
     "upcycled candles Scottsdale",
     "clean burning candles",
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About Desert Candle Works | All-Natural, Eco-Friendly Candles",
-    description: "100% natural soy coconut wax candles in upcycled bottles. Clean burning, smokeless, and environmentally friendly. Made in Scottsdale, Arizona.",
+    description: "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, smokeless, and environmentally friendly. Made in Scottsdale, Arizona.",
     type: "website",
   },
 };
@@ -48,10 +48,10 @@ const TIMELINE: Array<{title: string; text: string; image: string; alt: string}>
     alt: "Sustainable bottle upcycling process - cutting bottles for eco-friendly candles",
   },
   {
-    title: "100% Natural Soy Coconut Wax Blend",
-    text: "We use only premium, all-natural soy coconut wax—a renewable, biodegradable blend that's completely petroleum-free. Our candles burn clean with zero toxic fumes, no black soot, and no smoke. Just pure, natural fragrance from sustainable ingredients that are safe for your family, pets, and the environment.",
+    title: "100% Natural Coconut Apricot Wax Blend",
+    text: "We use only premium, all-natural coconut apricot wax—a renewable, biodegradable blend that's completely petroleum-free. Our candles burn clean with zero toxic fumes, no black soot, and no smoke. Just pure, natural fragrance from sustainable ingredients that are safe for your family, pets, and the environment.",
     image: "/images/desert-bg.jpg",
-    alt: "All-natural soy coconut wax candle making - clean burning and eco-friendly",
+    alt: "All-natural coconut apricot wax candle making - clean burning and eco-friendly",
   },
 ];
 
@@ -64,7 +64,7 @@ export default function About() {
           Our Story: Natural Ingredients, Sustainable Impact
         </h1>
         <p className="text-lg text-neutral-700 mb-4">
-          We create 100% natural soy coconut wax candles that are clean burning, smokeless, and safe for your home.
+          We create 100% natural coconut apricot wax candles that are clean burning, smokeless, and safe for your home.
         </p>
         <p className="text-base text-neutral-600">
           Every candle saves beautiful bottles from landfills—hand-poured in small batches with premium, eco-friendly ingredients.

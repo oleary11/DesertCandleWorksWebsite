@@ -87,7 +87,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             All-Natural Candles in Scottsdale, Arizona
           </h1>
           <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg text-[var(--color-muted)]">
-            100% natural soy coconut wax candles in upcycled liquor bottles. Clean burning, smokeless, and eco-friendly. Desert-inspired scents made with premium natural ingredients.
+            100% natural coconut apricot wax candles in upcycled liquor bottles. Clean burning, smokeless, and eco-friendly. Desert-inspired scents made with premium natural ingredients.
           </p>
           <div className="mt-8">
             <Link
@@ -130,9 +130,9 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
               </svg>
             </div>
-            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">100% Natural Soy Coconut Wax</h3>
+            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">100% Natural Coconut Apricot Wax</h3>
             <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              Made from a premium blend of renewable soy and coconut wax—no paraffin, no petroleum. Clean burning with zero toxic fumes. Safe for you, your family, and your pets.
+              Made from a premium blend of renewable coconut and apricot wax—no paraffin, no petroleum. Clean burning with zero toxic fumes. Safe for you, your family, and your pets.
             </p>
           </div>
 
@@ -145,7 +145,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             </div>
             <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">Clean & Smokeless Burn</h3>
             <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              Premium soy coconut wax burns cleaner and longer than traditional candles. No black soot, no smoke, no harsh chemicals—just pure, natural fragrance.
+              Premium coconut apricot wax burns cleaner and longer than traditional candles. No black soot, no smoke, no harsh chemicals—just pure, natural fragrance.
             </p>
           </div>
 
