@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateOrderShipping } from "@/lib/userStore";
 import { sendShippingConfirmationEmail, sendDeliveryConfirmationEmail } from "@/lib/email";
-import { kv } from "@vercel/kv";
+import { getAdminSession } from "@/lib/adminSession";
 
 export const runtime = "nodejs";
 
@@ -12,12 +12,7 @@ export const runtime = "nodejs";
 export async function POST(req: NextRequest) {
   try {
     // Verify admin session
-    const sessionToken = req.cookies.get("admin_session")?.value;
-    if (!sessionToken) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-
-    const session = await kv.get<{ adminId: string }>(`admin:session:${sessionToken}`);
+    const session = await getAdminSession();
     if (!session) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
