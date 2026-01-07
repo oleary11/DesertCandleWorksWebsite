@@ -1203,7 +1203,7 @@ export default function AdminProductsPage() {
                       );
 
                       // Refresh products to show new mappings
-                      setMerged(await listAllProducts());
+                      await load();
                     } catch (err) {
                       await showAlert(
                         err instanceof Error ? err.message : "Failed to auto-generate mappings",
