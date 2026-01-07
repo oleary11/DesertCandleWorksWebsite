@@ -853,7 +853,7 @@ export async function validateAddress(address: {
 /**
  * Format an address for ShipStation
  */
-export function formatAddressForShipStation(address: {
+export function formatAddressForShipStation(address?: {
   name?: string;
   line1?: string;
   line2?: string;
@@ -864,14 +864,14 @@ export function formatAddressForShipStation(address: {
   phone?: string;
 }): ShipStationAddress {
   return {
-    name: address.name || "Unknown",
-    street1: address.line1 || "",
-    street2: address.line2 || "",
-    city: address.city || "",
-    state: address.state || "",
-    postalCode: address.postalCode || "",
-    country: address.country || "US",
-    phone: address.phone || "",
+    name: address?.name || "Unknown",
+    street1: address?.line1 || "",
+    street2: address?.line2 || "",
+    city: address?.city || "",
+    state: address?.state || "",
+    postalCode: address?.postalCode || "",
+    country: address?.country || "US",
+    phone: address?.phone || "",
     residential: true,  // Assume residential for candle orders
   };
 }

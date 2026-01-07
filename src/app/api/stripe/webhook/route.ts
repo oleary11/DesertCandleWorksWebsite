@@ -354,7 +354,7 @@ export async function POST(req: NextRequest) {
 
           if (isLocalPickup || isLikelyPickup) {
             console.log(`[ShipStation] Skipping ShipStation order creation for local pickup: ${orderId}`);
-          } else {
+          } else if (shippingAddress) {
             // This is a shipped order - create in ShipStation
             const { createShipStationOrder, formatAddressForShipStation, getProductWeight } = await import("@/lib/shipstation");
             const { getResolvedProduct } = await import("@/lib/liveProducts");
@@ -395,6 +395,8 @@ export async function POST(req: NextRequest) {
             });
 
             console.log(`[ShipStation] Order ${orderId} created in ShipStation`);
+          } else {
+            console.warn(`[ShipStation] Skipping ShipStation order creation - no shipping address available: ${orderId}`);
           }
         } catch (shipStationErr) {
           console.error(`[ShipStation] Failed to create order ${orderId}:`, shipStationErr);
