@@ -385,7 +385,7 @@ export default function CartPage() {
 
           {/* Order Summary */}
           <div>
-            <div className="card p-6 sticky top-24">
+            <div className="card p-6 lg:sticky lg:top-24">
               <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
 
               {/* Promo Code Input */}
