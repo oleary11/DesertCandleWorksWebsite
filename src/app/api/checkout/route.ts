@@ -669,8 +669,6 @@ export async function POST(req: NextRequest) {
       phone_number_collection: { enabled: true }, // Collect phone for shipping issues
       shipping_options: shippingOptions,
       metadata: sessionMetadata, // Pass product/variant info for webhook
-      // Pre-fill email for logged-in users
-      ...(userEmail && { customer_email: userEmail }),
       automatic_tax: { enabled: true }, // Stripe Tax enabled
     };
 
@@ -709,6 +707,10 @@ export async function POST(req: NextRequest) {
     } else {
       // No shipping address provided - let Stripe collect it
       baseParams.shipping_address_collection = { allowed_countries: ["US", "CA"] };
+      // Pre-fill email for logged-in users (only when NOT using customer ID)
+      if (userEmail) {
+        baseParams.customer_email = userEmail;
+      }
     }
 
     // ONLY send one of `discounts` or `allow_promotion_codes`
