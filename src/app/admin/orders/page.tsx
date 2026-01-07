@@ -382,7 +382,12 @@ export default function AdminOrdersPage() {
 
   const completedOrders = filteredOrders.filter((o) => o.status === "completed");
   const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
-  const totalRevenue = completedOrders.reduce((sum, o) => sum + o.totalCents, 0);
+
+  // Calculate total revenue excluding refunded amounts
+  const totalRevenue = completedOrders.reduce((sum, o) => {
+    const refundedAmount = refundMap.get(o.id) || 0;
+    return sum + (o.totalCents - refundedAmount);
+  }, 0);
 
   return (
     <div className="min-h-screen p-6 bg-neutral-50">
