@@ -169,10 +169,20 @@ export type ShipStationV2RateResponse = {
   rate_response: {
     status: "working" | "partial" | "completed" | "error";
     rates: ShipStationV2RateItem[];
-    invalid_rates?: any[];
-    errors?: any[];
+    invalid_rates?: Array<{
+      rate_id?: string;
+      error?: string;
+    }>;
+    errors?: Array<{
+      message?: string;
+      code?: string;
+    }>;
   };
-  shipment?: any;
+  shipment?: {
+    shipment_id?: string;
+    carrier_id?: string;
+    service_code?: string;
+  };
 };
 
 /**

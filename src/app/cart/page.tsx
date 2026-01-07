@@ -524,7 +524,7 @@ export default function CartPage() {
               <div className="mb-6 pb-6 border-b border-[var(--color-line)]">
                 <h3 className="text-sm font-semibold mb-3">Shipping Address</h3>
                 <p className="text-xs text-[var(--color-muted)] mb-3">
-                  You'll select your shipping method (including local pickup) in checkout
+                  You&apos;ll select your shipping method (including local pickup) in checkout
                 </p>
 
                 <div className="space-y-2">

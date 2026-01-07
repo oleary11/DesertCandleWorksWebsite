@@ -660,7 +660,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Base params shared by both flows
-    let baseParams: Stripe.Checkout.SessionCreateParams = {
+    const baseParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       line_items: lineItems,
       success_url: `${origin}/shop?status=success`,
