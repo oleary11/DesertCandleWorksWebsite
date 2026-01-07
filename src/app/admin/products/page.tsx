@@ -73,6 +73,8 @@ type Product = {
   materialCost?: number; // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean; // Controls shop page visibility
   containerId?: string; // Reference to container used for this product
+  weight?: { value: number; units: "ounces" | "pounds" }; // Product weight for shipping
+  dimensions?: { length: number; width: number; height: number; units: "inches" }; // Package dimensions for shipping
 };
 
 type SquareSyncResult = {
@@ -1735,6 +1737,28 @@ export default function AdminProductsPage() {
                       value={editing.price}
                       onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
                     />
+                  </label>
+
+                  {/* Weight */}
+                  <label className="block">
+                    <div className="text-xs mb-1">Candle Weight (ounces)</div>
+                    <input
+                      className="input"
+                      type="number"
+                      step="0.1"
+                      value={editing.weight?.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setEditing({
+                          ...editing,
+                          weight: isNaN(value) ? undefined : { value, units: "ounces" },
+                        });
+                      }}
+                      placeholder="e.g. 12 (jar + wax only)"
+                    />
+                    <div className="text-xs text-neutral-500 mt-1">
+                      Weight of jar + wax only. Packaging (~16oz) added automatically for shipping.
+                    </div>
                   </label>
 
                   {/* SKU */}

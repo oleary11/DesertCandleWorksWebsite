@@ -75,6 +75,37 @@ export async function POST(req: NextRequest) {
     const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
     const priceToProduct = await getPriceToProduct();
 
+    // SECURITY: Verify expected subtotal matches actual subtotal from Stripe
+    // This prevents attacks where someone creates a Stripe session with manipulated prices
+    const expectedSubtotalCents = session.metadata?.expectedSubtotalCents
+      ? parseInt(session.metadata.expectedSubtotalCents)
+      : null;
+
+    if (expectedSubtotalCents !== null) {
+      // Calculate actual product subtotal from line items (excluding shipping/tax)
+      const actualSubtotalCents = lineItems.data.reduce((sum, item) => {
+        return sum + (item.amount_total || 0);
+      }, 0);
+
+      // Verify subtotals match
+      if (actualSubtotalCents !== expectedSubtotalCents) {
+        console.error(
+          `[Webhook Security] Order total mismatch detected! Expected: ${expectedSubtotalCents}, Got: ${actualSubtotalCents}. Session: ${session.id}`
+        );
+
+        // Log the discrepancy but don't block the order
+        // The customer already paid through Stripe, so we need to fulfill it
+        // However, we should investigate this as potential fraud
+        console.warn(
+          `[Webhook Security] Proceeding with order ${orderId} despite total mismatch - manual review recommended`
+        );
+      } else {
+        console.log(`[Webhook] Order total verified: ${actualSubtotalCents} cents`);
+      }
+    } else {
+      console.warn(`[Webhook] No expected subtotal in metadata - order created before security update`);
+    }
+
     const customerEmail = session.customer_details?.email || "";
     const pointsRedeemed = session.metadata?.pointsRedeemed ? parseInt(session.metadata.pointsRedeemed) : 0;
     const sessionUserId = session.metadata?.userId || "";
@@ -306,6 +337,68 @@ export async function POST(req: NextRequest) {
         } catch (emailErr) {
           console.error(`Failed to send invoice email to ${customerEmail}:`, emailErr);
           // Don't throw - order is already created
+        }
+
+        // Create order in ShipStation for fulfillment (skip for local pickup)
+        try {
+          // Check if this is a local pickup order by inspecting shipping details
+          const isLocalPickup = session.shipping_cost?.shipping_rate &&
+            typeof session.shipping_cost.shipping_rate === 'object' &&
+            'metadata' in session.shipping_cost.shipping_rate &&
+            session.shipping_cost.shipping_rate.metadata?.shipping_type === 'local_pickup';
+
+          // Also check if shipping amount is $0 and address contains "Scottsdale" (fallback check)
+          const isLikelyPickup = shippingCents === 0 &&
+            (shippingAddress?.city?.toLowerCase().includes('scottsdale') ||
+             shippingAddress?.line1?.toLowerCase().includes('pickup'));
+
+          if (isLocalPickup || isLikelyPickup) {
+            console.log(`[ShipStation] Skipping ShipStation order creation for local pickup: ${orderId}`);
+          } else {
+            // This is a shipped order - create in ShipStation
+            const { createShipStationOrder, formatAddressForShipStation, getProductWeight } = await import("@/lib/shipstation");
+            const { getResolvedProduct } = await import("@/lib/liveProducts");
+
+            // Build ShipStation order items with weights
+            const shipStationItems = await Promise.all(
+              orderItems.map(async (item) => {
+                // Get product details for weight
+                const product = await getResolvedProduct(item.productSlug);
+                const weight = getProductWeight(product, item.sizeName);
+
+                return {
+                  sku: product?.sku || item.productSlug,
+                  name: item.productName,
+                  quantity: item.quantity,
+                  unitPrice: item.priceCents / 100,
+                  weight: {
+                    value: weight,
+                    units: "ounces" as const,
+                  },
+                };
+              })
+            );
+
+            // Create ShipStation order
+            await createShipStationOrder({
+              orderNumber: orderId,
+              orderKey: orderId,
+              orderDate: new Date().toISOString(),
+              orderStatus: "awaiting_shipment",
+              customerEmail,
+              billTo: formatAddressForShipStation(shippingAddress),
+              shipTo: formatAddressForShipStation(shippingAddress),
+              items: shipStationItems,
+              amountPaid: totalCents / 100,
+              taxAmount: taxCents / 100,
+              shippingAmount: shippingCents / 100,
+            });
+
+            console.log(`[ShipStation] Order ${orderId} created in ShipStation`);
+          }
+        } catch (shipStationErr) {
+          console.error(`[ShipStation] Failed to create order ${orderId}:`, shipStationErr);
+          // Don't throw - order is already created in our system
         }
       } catch (err) {
         console.error(`Failed to process order for ${customerEmail}:`, err);

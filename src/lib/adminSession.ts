@@ -5,6 +5,7 @@ import { adminSessions } from "@/lib/db/schema";
 import { eq, lt } from "drizzle-orm";
 
 const COOKIE_NAME = "admin_session";
+const isProd = process.env.NODE_ENV === "production";
 
 export interface AdminSession {
   userId: string;
@@ -13,15 +14,33 @@ export interface AdminSession {
   createdAt: string;
 }
 
-function ttl() {
+function ttlSeconds() {
   const s = Number(process.env.ADMIN_SESSION_TTL_SECONDS ?? "604800");
-  return Math.max(60, Math.min(60*60*24*30, s)); // clamp 1 min .. 30 days
+  return Math.max(60, Math.min(60 * 60 * 24 * 30, s)); // clamp 1 min .. 30 days
 }
 
-export async function createAdminSession(userId: string, email: string, role: "super_admin" | "admin") {
+function buildCookie(maxAge: number) {
+  return {
+    name: COOKIE_NAME,
+    httpOnly: true,
+    secure: isProd,          // ✅ http dev (LAN/localhost) works; https prod stays secure
+    sameSite: "lax" as const, // ✅ avoid dev/login edge cases
+    path: "/",
+    maxAge,
+    // ✅ do NOT set domain for LAN/IP dev
+    // domain: isProd ? ".desertcandleworks.com" : undefined,
+  };
+}
+
+export async function createAdminSession(
+  userId: string,
+  email: string,
+  role: "super_admin" | "admin"
+) {
   const token = randomUUID();
   const now = new Date();
-  const expiresAt = new Date(now.getTime() + ttl() * 1000);
+  const maxAge = ttlSeconds();
+  const expiresAt = new Date(now.getTime() + maxAge * 1000);
 
   await db.insert(adminSessions).values({
     token,
@@ -31,28 +50,32 @@ export async function createAdminSession(userId: string, email: string, role: "s
     expiresAt,
   });
 
-  (await cookies()).set({
-    name: COOKIE_NAME,
+  const c = await cookies();
+  c.set({
+    ...buildCookie(maxAge),
     value: token,
-    httpOnly: true,
-    secure: true,
-    sameSite: "strict", // Upgrade from "lax" for better CSRF protection
-    path: "/",
-    maxAge: ttl(),
   });
 }
 
 export async function destroyAdminSession() {
   const c = await cookies();
   const token = c.get(COOKIE_NAME)?.value;
+
   if (token) {
     await db.delete(adminSessions).where(eq(adminSessions.token, token));
   }
-  c.delete(COOKIE_NAME);
+
+  // Delete cookie reliably (path must match)
+  c.set({
+    ...buildCookie(0),
+    value: "",
+    maxAge: 0,
+  });
 }
 
 export async function isAdminAuthed(): Promise<boolean> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  const c = await cookies();
+  const token = c.get(COOKIE_NAME)?.value;
   if (!token) return false;
 
   const [session] = await db
@@ -63,9 +86,7 @@ export async function isAdminAuthed(): Promise<boolean> {
 
   if (!session) return false;
 
-  // Check if session has expired
   if (new Date(session.expiresAt) < new Date()) {
-    // Clean up expired session
     await db.delete(adminSessions).where(eq(adminSessions.token, token));
     return false;
   }
@@ -74,7 +95,8 @@ export async function isAdminAuthed(): Promise<boolean> {
 }
 
 export async function getAdminSession(): Promise<AdminSession | null> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value;
+  const c = await cookies();
+  const token = c.get(COOKIE_NAME)?.value;
   if (!token) return null;
 
   const [session] = await db
@@ -85,9 +107,7 @@ export async function getAdminSession(): Promise<AdminSession | null> {
 
   if (!session) return null;
 
-  // Check if session has expired
   if (new Date(session.expiresAt) < new Date()) {
-    // Clean up expired session
     await db.delete(adminSessions).where(eq(adminSessions.token, token));
     return null;
   }

@@ -67,8 +67,21 @@ export async function POST(req: NextRequest) {
     let extendedLineItems: ExtendedLineItem[] = [];
     let pointsToRedeem: number | undefined;
 
-    // Parse body for line items + optional pointsToRedeem + promotionId
+    // Parse body for line items + optional pointsToRedeem + promotionId + shippingRateAmountCents + shippingAddress
     let promotionId: string | undefined;
+    let shippingRateAmountCents: number | undefined;
+    let shippingRateDescription: string | undefined;
+    let isLocalPickup = false;
+    let shippingAddress: {
+      name: string;
+      line1: string;
+      line2?: string;
+      city: string;
+      state: string;
+      postalCode: string;
+      country: string;
+    } | undefined;
+
     if (ct.includes("application/json")) {
       const body: unknown = await req.json();
       if (body && typeof body === "object" && "lineItems" in body) {
@@ -90,6 +103,53 @@ export async function POST(req: NextRequest) {
           typeof (body as { promotionId: unknown }).promotionId === "string"
         ) {
           promotionId = (body as { promotionId: string }).promotionId;
+        }
+
+        if (
+          "shippingRateAmountCents" in body &&
+          typeof (body as { shippingRateAmountCents: unknown }).shippingRateAmountCents === "number"
+        ) {
+          shippingRateAmountCents = (body as { shippingRateAmountCents: number }).shippingRateAmountCents;
+        }
+
+        if (
+          "shippingRateDescription" in body &&
+          typeof (body as { shippingRateDescription: unknown }).shippingRateDescription === "string"
+        ) {
+          shippingRateDescription = (body as { shippingRateDescription: string }).shippingRateDescription;
+        }
+
+        if (
+          "isLocalPickup" in body &&
+          typeof (body as { isLocalPickup: unknown }).isLocalPickup === "boolean"
+        ) {
+          isLocalPickup = (body as { isLocalPickup: boolean }).isLocalPickup;
+        }
+
+        if (
+          "shippingAddress" in body &&
+          typeof (body as { shippingAddress: unknown }).shippingAddress === "object" &&
+          (body as { shippingAddress: unknown }).shippingAddress !== null
+        ) {
+          const addr = (body as { shippingAddress: Record<string, unknown> }).shippingAddress;
+          if (
+            typeof addr.name === "string" &&
+            typeof addr.line1 === "string" &&
+            typeof addr.city === "string" &&
+            typeof addr.state === "string" &&
+            typeof addr.postalCode === "string" &&
+            typeof addr.country === "string"
+          ) {
+            shippingAddress = {
+              name: addr.name,
+              line1: addr.line1,
+              line2: typeof addr.line2 === "string" ? addr.line2 : undefined,
+              city: addr.city,
+              state: addr.state,
+              postalCode: addr.postalCode,
+              country: addr.country,
+            };
+          }
         }
       }
     } else {
@@ -324,6 +384,10 @@ export async function POST(req: NextRequest) {
       return sum + unitAmount * quantity;
     }, 0);
 
+    // SECURITY: Store expected subtotal for verification in webhook
+    // This prevents price manipulation if someone bypasses the checkout API
+    sessionMetadata.expectedSubtotalCents = subtotal.toString();
+
     // Validate and apply promotion if provided
     if (promotionId) {
       const promotion = await getPromotionById(promotionId);
@@ -389,50 +453,170 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Determine shipping options based on subtotal
-    // Free shipping over $100, otherwise $14.99 standard or free local pickup
-    const shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] =
-      subtotal >= 10000
-        ? [
-            {
-              shipping_rate_data: {
-                type: "fixed_amount",
-                fixed_amount: { amount: 0, currency: "usd" },
-                display_name: "Free Shipping",
-                delivery_estimate: {
-                  minimum: { unit: "business_day", value: 5 },
-                  maximum: { unit: "business_day", value: 7 },
-                },
+    // Build shipping options
+    const shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] = [];
+
+    if (shippingAddress) {
+      // SECURITY: Validate shipping address before fetching rates
+      // This prevents shipping to invalid addresses and reduces fraud
+      const { validateAddress, getShippingRates, getProductWeight } = await import("@/lib/shipstation");
+
+      try {
+        const validatedAddress = await validateAddress({
+          name: shippingAddress.name,
+          line1: shippingAddress.line1,
+          line2: shippingAddress.line2,
+          city: shippingAddress.city,
+          state: shippingAddress.state,
+          postalCode: shippingAddress.postalCode,
+          country: shippingAddress.country,
+        });
+
+        console.log(`[Checkout] Address validated successfully`);
+
+        // Use validated address for shipping rate calculation
+        shippingAddress = {
+          ...shippingAddress,
+          line1: validatedAddress.street1,
+          line2: validatedAddress.street2 || shippingAddress.line2,
+          city: validatedAddress.city,
+          state: validatedAddress.state,
+          postalCode: validatedAddress.postalCode,
+          country: validatedAddress.country,
+        };
+      } catch (validationError) {
+        console.error(`[Checkout] Address validation failed:`, validationError);
+        const errorMessage = validationError instanceof Error ? validationError.message : "Invalid shipping address";
+        return NextResponse.json(
+          { error: errorMessage },
+          { status: 400 }
+        );
+      }
+
+      // Calculate total weight
+      let totalWeightOz = 0;
+      for (const item of extendedLineItems) {
+        const productInfo = priceToProduct.get(item.price);
+        if (productInfo) {
+          const product = productsBySlug.get(productInfo.slug);
+          const quantity = item.quantity || 1;
+          const sizeName = item.metadata?.sizeName;
+          const weightPerItem = getProductWeight(product, sizeName);
+          totalWeightOz += weightPerItem * quantity;
+        }
+      }
+
+      // Get business postal code from environment
+      const fromPostalCode = process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";
+
+      try {
+        // Fetch shipping rates
+        const rates = await getShippingRates(
+          fromPostalCode,
+          shippingAddress.postalCode,
+          totalWeightOz,
+          true, // residential
+          shippingAddress.city,
+          shippingAddress.state
+        );
+
+        // Add $2 for packing materials
+        const PACKING_COST = 2.00;
+
+        // Check if order qualifies for free shipping (over $100)
+        const FREE_SHIPPING_THRESHOLD = 10000; // $100 in cents
+        const qualifiesForFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+
+        // Sort rates by cost to find cheapest
+        const sortedRates = [...rates].sort((a, b) => a.shipmentCost - b.shipmentCost);
+
+        // Deduplicate rates with same delivery time - keep only cheapest for each delivery time
+        const ratesByDeliveryDays = new Map<number, typeof sortedRates[0]>();
+        for (const rate of sortedRates) {
+          const deliveryDays = rate.deliveryDays ?? 999; // Treat null as very slow
+          const existing = ratesByDeliveryDays.get(deliveryDays);
+
+          // If no rate for this delivery time, or this one is cheaper, use it
+          if (!existing || rate.shipmentCost < existing.shipmentCost) {
+            ratesByDeliveryDays.set(deliveryDays, rate);
+          }
+        }
+
+        // Convert deduplicated rates to array and sort by price (cheapest first)
+        // Stripe defaults to the first option, so we want cheapest first
+        const deduplicatedRates = Array.from(ratesByDeliveryDays.values())
+          .sort((a, b) => a.shipmentCost - b.shipmentCost);
+
+        console.log(`[Checkout] Deduplicated ${rates.length} rates to ${deduplicatedRates.length} unique delivery times`);
+
+        // Convert deduplicated rates to Stripe shipping options
+        // First rate (cheapest) will be Stripe's default selection
+        const overallCheapest = deduplicatedRates[0];
+        for (const rate of deduplicatedRates) {
+          const totalCost = rate.shipmentCost + PACKING_COST;
+          const isCheapest = rate === overallCheapest;
+
+          // Only make the cheapest option free if order qualifies
+          const finalCost = qualifiesForFreeShipping && isCheapest ? 0 : totalCost;
+          const displayName = qualifiesForFreeShipping && isCheapest
+            ? `${rate.serviceName} (FREE)`
+            : rate.serviceName;
+
+          shippingOptions.push({
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: Math.round(finalCost * 100), currency: "usd" },
+              display_name: displayName,
+              delivery_estimate: rate.deliveryDays ? {
+                minimum: { unit: "business_day", value: rate.deliveryDays },
+                maximum: { unit: "business_day", value: rate.deliveryDays },
+              } : undefined,
+              metadata: {
+                shipping_type: "carrier",
+                carrier_code: rate.carrierCode,
+                service_code: rate.serviceCode,
               },
             },
-            {
-              shipping_rate_data: {
-                type: "fixed_amount",
-                fixed_amount: { amount: 0, currency: "usd" },
-                display_name: "Free Local Pickup (Scottsdale, AZ)",
-              },
+          });
+        }
+
+        // Always add local pickup as an option
+        shippingOptions.push({
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: 0, currency: "usd" },
+            display_name: "Local Pickup (Scottsdale, AZ)",
+            metadata: {
+              shipping_type: "local_pickup",
             },
-          ]
-        : [
-            {
-              shipping_rate_data: {
-                type: "fixed_amount",
-                fixed_amount: { amount: 1499, currency: "usd" },
-                display_name: "Standard Shipping",
-                delivery_estimate: {
-                  minimum: { unit: "business_day", value: 5 },
-                  maximum: { unit: "business_day", value: 7 },
-                },
-              },
+          },
+        });
+
+        // If no carrier rates available, that's okay - we still have local pickup
+        if (shippingOptions.length === 1) {
+          console.log("[Checkout] No carrier rates available, but offering local pickup");
+        }
+      } catch (error) {
+        console.error("[Checkout] Failed to fetch shipping rates:", error);
+        // Still offer local pickup even if carrier rates fail
+        shippingOptions.push({
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: 0, currency: "usd" },
+            display_name: "Local Pickup (Scottsdale, AZ)",
+            metadata: {
+              shipping_type: "local_pickup",
             },
-            {
-              shipping_rate_data: {
-                type: "fixed_amount",
-                fixed_amount: { amount: 0, currency: "usd" },
-                display_name: "Free Local Pickup (Scottsdale, AZ)",
-              },
-            },
-          ];
+          },
+        });
+      }
+    } else {
+      // No shipping address provided
+      return NextResponse.json(
+        { error: "Please enter your shipping address" },
+        { status: 400 }
+      );
+    }
 
     // Create discount coupon (Stripe only allows 1 discount per session)
     let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
@@ -476,12 +660,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Base params shared by both flows
-    const baseParams: Stripe.Checkout.SessionCreateParams = {
+    let baseParams: Stripe.Checkout.SessionCreateParams = {
       mode: "payment",
       line_items: lineItems,
       success_url: `${origin}/shop?status=success`,
       cancel_url: `${origin}/shop?status=cancelled`,
-      shipping_address_collection: { allowed_countries: ["US", "CA"] },
       billing_address_collection: "required", // Collect billing address (includes email)
       phone_number_collection: { enabled: true }, // Collect phone for shipping issues
       shipping_options: shippingOptions,
@@ -490,6 +673,43 @@ export async function POST(req: NextRequest) {
       ...(userEmail && { customer_email: userEmail }),
       automatic_tax: { enabled: true }, // Stripe Tax enabled
     };
+
+    // If shipping address provided, create a customer and lock the address
+    // Otherwise, let Stripe collect it
+    if (shippingAddress) {
+      // Create a temporary customer with the shipping address locked
+      const customer = await stripe.customers.create({
+        name: shippingAddress.name,
+        shipping: {
+          name: shippingAddress.name,
+          address: {
+            line1: shippingAddress.line1,
+            line2: shippingAddress.line2 || undefined,
+            city: shippingAddress.city,
+            state: shippingAddress.state,
+            postal_code: shippingAddress.postalCode,
+            country: shippingAddress.country,
+          },
+        },
+        ...(userEmail && { email: userEmail }),
+      });
+
+      baseParams.customer = customer.id;
+
+      // To show the shipping address on Stripe checkout, we need shipping_address_collection
+      // but we can't make it editable since the customer already has the address locked
+      // So we'll add it to the session metadata instead
+      sessionMetadata.shipping_name = shippingAddress.name;
+      sessionMetadata.shipping_line1 = shippingAddress.line1;
+      if (shippingAddress.line2) sessionMetadata.shipping_line2 = shippingAddress.line2;
+      sessionMetadata.shipping_city = shippingAddress.city;
+      sessionMetadata.shipping_state = shippingAddress.state;
+      sessionMetadata.shipping_zip = shippingAddress.postalCode;
+      sessionMetadata.shipping_country = shippingAddress.country;
+    } else {
+      // No shipping address provided - let Stripe collect it
+      baseParams.shipping_address_collection = { allowed_countries: ["US", "CA"] };
+    }
 
     // ONLY send one of `discounts` or `allow_promotion_codes`
     let sessionParams: Stripe.Checkout.SessionCreateParams;

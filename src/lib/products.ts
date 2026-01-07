@@ -49,6 +49,16 @@ export type Product = {
   alcoholType?: string;
   materialCost?: number;    // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean;  // Controls shop page visibility (default: true)
+  weight?: {                // Product weight for shipping (ShipStation)
+    value: number;          // Weight value
+    units: "ounces" | "pounds";  // Weight unit
+  };
+  dimensions?: {            // Package dimensions for shipping (ShipStation)
+    length: number;         // Length in inches
+    width: number;          // Width in inches
+    height: number;         // Height in inches
+    units: "inches";        // Dimension unit
+  };
 };
 
 /**

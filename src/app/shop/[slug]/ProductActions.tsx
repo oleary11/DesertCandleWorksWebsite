@@ -54,25 +54,21 @@ export default function ProductActions({ product, stock }: Props) {
     if (!canBuy) return;
     setIsBuying(true);
 
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lineItems: [{ price: product.stripePriceId, quantity: 1 }],
-        }),
-      });
+    // Add item to cart
+    const success = addItem({
+      productSlug: product.slug,
+      productName: product.name,
+      productImage: product.image,
+      price: product.price,
+      stripePriceId: product.stripePriceId!,
+      maxStock: stock,
+    });
 
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        await showAlert("Failed to create checkout session", "Error");
-        setIsBuying(false);
-      }
-    } catch (error) {
-      console.error("Buy now error:", error);
-      await showAlert("An error occurred", "Error");
+    if (success) {
+      // Redirect to cart page
+      window.location.href = "/cart";
+    } else {
+      await showAlert("Cannot add more - stock limit reached", "Error");
       setIsBuying(false);
     }
   };

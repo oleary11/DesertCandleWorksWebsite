@@ -88,6 +88,9 @@ export const orders = pgTable('orders', {
 
   // Shipping info
   trackingNumber: varchar('tracking_number', { length: 100 }),
+  carrierCode: varchar('carrier_code', { length: 50 }),  // e.g., "stamps_com", "ups", "fedex"
+  serviceCode: varchar('service_code', { length: 50 }),  // e.g., "usps_priority_mail"
+  shipstationOrderId: varchar('shipstation_order_id', { length: 50 }),  // ShipStation order reference
   phone: varchar('phone', { length: 50 }),
   shippingName: varchar('shipping_name', { length: 200 }),
   shippingLine1: varchar('shipping_line1', { length: 255 }),
@@ -147,6 +150,8 @@ export const products = pgTable('products', {
   materialCost: integer('material_cost'),
   visibleOnWebsite: boolean('visible_on_website').default(true),
   variantConfig: jsonb('variant_config'),
+  weight: jsonb('weight'),  // { value: number, units: "ounces" | "pounds" }
+  dimensions: jsonb('dimensions'),  // { length: number, width: number, height: number, units: "inches" }
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

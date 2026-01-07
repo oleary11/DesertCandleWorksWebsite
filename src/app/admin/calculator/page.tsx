@@ -29,6 +29,8 @@ type Product = {
   materialCost?: number; // Cost to make the product
   visibleOnWebsite?: boolean; // Controls shop page visibility
   containerId?: string; // Reference to container used for this product
+  weight?: { value: number; units: "ounces" | "pounds" }; // Product weight for shipping
+  dimensions?: { length: number; width: number; height: number; units: "inches" }; // Package dimensions for shipping
 };
 
 type Container = {
@@ -1836,6 +1838,27 @@ export default function CalculatorPage() {
                   />
                 </label>
               </div>
+
+              <label className="block">
+                <div className="text-sm font-medium mb-2">Candle Weight (ounces)</div>
+                <input
+                  className="input"
+                  type="number"
+                  step="0.1"
+                  value={newProduct.weight?.value || ""}
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value);
+                    setNewProduct({
+                      ...newProduct,
+                      weight: isNaN(value) ? undefined : { value, units: "ounces" },
+                    });
+                  }}
+                  placeholder="e.g. 12 (jar + wax only)"
+                />
+                <p className="text-xs text-[var(--color-muted)] mt-1">
+                  Weight of jar + wax only. Packaging (~16oz) added automatically for shipping.
+                </p>
+              </label>
 
               <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
                 <div className="text-sm font-medium text-green-900">

@@ -33,6 +33,21 @@ export default function CartPage() {
   const [appliedPromotion, setAppliedPromotion] = useState<AppliedPromotion | null>(null);
   const [automaticPromotion, setAutomaticPromotion] = useState<AppliedPromotion | null>(null);
 
+  // Shipping state
+  const [shippingAddress, setShippingAddress] = useState({
+    name: "",
+    line1: "",
+    line2: "",
+    city: "",
+    state: "",
+    postalCode: "",
+    country: "US"
+  });
+
+  // Free shipping threshold
+  const FREE_SHIPPING_THRESHOLD = 100;
+  const hasFreeShipping = getTotalPrice() >= FREE_SHIPPING_THRESHOLD;
+
   // Check for automatic promotions on cart change
   useEffect(() => {
     checkAutomaticPromotions();
@@ -123,6 +138,13 @@ export default function CartPage() {
     return (activePromo.discountAmountCents || 0) / 100;
   }
 
+  function getShippingCost(): number {
+    // Shipping cost will be calculated in Stripe
+    if (hasFreeShipping) return 0; // Free shipping over $100
+    // Show "TBD" by returning 0 for now - actual cost shown in Stripe
+    return 0;
+  }
+
   const handleRemoveItem = (slug: string, variantId: string | undefined, name: string) => {
     setItemToRemove({ slug, variantId, name });
   };
@@ -144,6 +166,12 @@ export default function CartPage() {
   };
 
   const handleCheckout = async () => {
+    // Validation: Require full address
+    if (!shippingAddress.name || !shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.postalCode) {
+      await showAlert("Please enter your complete shipping address", "Error");
+      return;
+    }
+
     setIsCheckingOut(true);
 
     try {
@@ -170,6 +198,8 @@ export default function CartPage() {
           lineItems,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
           promotionId: activePromo?.id,
+          // Pass full shipping address - Stripe will show shipping options (including local pickup)
+          shippingAddress,
         }),
       });
 
@@ -226,8 +256,20 @@ export default function CartPage() {
   }
 
   return (
-    <section className="py-12 px-6">
-      <div className="mx-auto max-w-6xl">
+    <>
+      {/* Full-screen loading overlay */}
+      {isCheckingOut && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-lg p-8 flex flex-col items-center gap-4 shadow-2xl">
+            <div className="animate-spin h-12 w-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full"></div>
+            <p className="text-lg font-medium">Preparing your checkout...</p>
+            <p className="text-sm text-[var(--color-muted)]">This may take a moment</p>
+          </div>
+        </div>
+      )}
+
+      <section className="py-12 px-6">
+        <div className="mx-auto max-w-6xl">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-3xl font-bold">Shopping Cart</h1>
           <button
@@ -238,9 +280,9 @@ export default function CartPage() {
           </button>
         </div>
 
-        <div className="grid lg:grid-cols-3 gap-8">
+        <div className="grid lg:grid-cols-2 gap-8">
           {/* Cart Items */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
             {/* Free Shipping Banner */}
             <FreeShippingBanner currentTotal={getTotalPrice()} threshold={100} />
 
@@ -342,7 +384,7 @@ export default function CartPage() {
           </div>
 
           {/* Order Summary */}
-          <div className="lg:col-span-1">
+          <div>
             <div className="card p-6 sticky top-24">
               <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
 
@@ -427,12 +469,12 @@ export default function CartPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-[var(--color-muted)]">Shipping</span>
                   <span className="font-medium">
-                    {getTotalPrice() >= 100 ? "FREE" : "$14.99"}
+                    {hasFreeShipping ? "FREE" : "Calculated in checkout"}
                   </span>
                 </div>
-                {getTotalPrice() < 100 && (
-                  <p className="text-xs text-[var(--color-muted)] pt-1">
-                    Free shipping on orders $100+
+                {hasFreeShipping && (
+                  <p className="text-xs text-green-600 pt-1">
+                    🎉 You qualify for free shipping!
                   </p>
                 )}
                 <div className="flex justify-between text-sm">
@@ -475,7 +517,118 @@ export default function CartPage() {
 
               <div className="flex justify-between text-lg font-semibold mb-6">
                 <span>Total</span>
-                <span>${(getTotalPrice() - getDiscountAmount() - discountAmount).toFixed(2)}</span>
+                <span>${(getTotalPrice() - getDiscountAmount() - discountAmount + getShippingCost()).toFixed(2)}</span>
+              </div>
+
+              {/* Shipping Address */}
+              <div className="mb-6 pb-6 border-b border-[var(--color-line)]">
+                <h3 className="text-sm font-semibold mb-3">Shipping Address</h3>
+                <p className="text-xs text-[var(--color-muted)] mb-3">
+                  You'll select your shipping method (including local pickup) in checkout
+                </p>
+
+                <div className="space-y-2">
+                          <input
+                            type="text"
+                            placeholder="Full Name"
+                            value={shippingAddress.name}
+                            onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })}
+                            className="input text-sm w-full"
+                          />
+
+                          <input
+                            type="text"
+                            placeholder="Address Line 1"
+                            value={shippingAddress.line1}
+                            onChange={(e) => setShippingAddress({ ...shippingAddress, line1: e.target.value })}
+                            className="input text-sm w-full"
+                          />
+
+                          <input
+                            type="text"
+                            placeholder="Address Line 2 (Optional)"
+                            value={shippingAddress.line2}
+                            onChange={(e) => setShippingAddress({ ...shippingAddress, line2: e.target.value })}
+                            className="input text-sm w-full"
+                          />
+
+                          <div className="grid grid-cols-2 gap-2">
+                            <input
+                              type="text"
+                              placeholder="City"
+                              value={shippingAddress.city}
+                              onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
+                              className="input text-sm"
+                            />
+
+                            <select
+                              value={shippingAddress.state}
+                              onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
+                              className="input text-sm"
+                            >
+                              <option value="">State</option>
+                              <option value="AL">AL</option>
+                              <option value="AK">AK</option>
+                              <option value="AZ">AZ</option>
+                              <option value="AR">AR</option>
+                              <option value="CA">CA</option>
+                              <option value="CO">CO</option>
+                              <option value="CT">CT</option>
+                              <option value="DE">DE</option>
+                              <option value="FL">FL</option>
+                              <option value="GA">GA</option>
+                              <option value="HI">HI</option>
+                              <option value="ID">ID</option>
+                              <option value="IL">IL</option>
+                              <option value="IN">IN</option>
+                              <option value="IA">IA</option>
+                              <option value="KS">KS</option>
+                              <option value="KY">KY</option>
+                              <option value="LA">LA</option>
+                              <option value="ME">ME</option>
+                              <option value="MD">MD</option>
+                              <option value="MA">MA</option>
+                              <option value="MI">MI</option>
+                              <option value="MN">MN</option>
+                              <option value="MS">MS</option>
+                              <option value="MO">MO</option>
+                              <option value="MT">MT</option>
+                              <option value="NE">NE</option>
+                              <option value="NV">NV</option>
+                              <option value="NH">NH</option>
+                              <option value="NJ">NJ</option>
+                              <option value="NM">NM</option>
+                              <option value="NY">NY</option>
+                              <option value="NC">NC</option>
+                              <option value="ND">ND</option>
+                              <option value="OH">OH</option>
+                              <option value="OK">OK</option>
+                              <option value="OR">OR</option>
+                              <option value="PA">PA</option>
+                              <option value="RI">RI</option>
+                              <option value="SC">SC</option>
+                              <option value="SD">SD</option>
+                              <option value="TN">TN</option>
+                              <option value="TX">TX</option>
+                              <option value="UT">UT</option>
+                              <option value="VT">VT</option>
+                              <option value="VA">VA</option>
+                              <option value="WA">WA</option>
+                              <option value="WV">WV</option>
+                              <option value="WI">WI</option>
+                              <option value="WY">WY</option>
+                            </select>
+                          </div>
+
+                  <input
+                    type="text"
+                    placeholder="ZIP Code"
+                    value={shippingAddress.postalCode}
+                    onChange={(e) => setShippingAddress({ ...shippingAddress, postalCode: e.target.value.replace(/\D/g, '').slice(0, 5) })}
+                    className="input text-sm w-full"
+                    maxLength={5}
+                  />
+                </div>
               </div>
 
               {/* Guest Checkout - Encourage Account Creation */}
@@ -503,26 +656,21 @@ export default function CartPage() {
                 </div>
               )}
 
-              {/* Shipping Info */}
-              <div className="mb-6 p-3 bg-neutral-50 rounded-lg border border-[var(--color-line)]">
-                <p className="text-xs font-medium text-[var(--color-ink)] mb-1">
-                  Shipping Information
-                </p>
-                <p className="text-xs text-[var(--color-muted)]">
-                  Orders typically ship within 2-3 business days. Local pickup available in Scottsdale, AZ.
-                </p>
-              </div>
-
               <button
                 onClick={handleCheckout}
-                disabled={isCheckingOut}
+                disabled={isCheckingOut || !shippingAddress.name || !shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.postalCode}
                 className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium mb-3
                 [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
                 text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
                 hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition
                 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isCheckingOut ? "Processing..." : "Checkout"}
+                {isCheckingOut
+                  ? "Processing..."
+                  : (!shippingAddress.name || !shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.postalCode)
+                    ? "Enter Shipping Address"
+                    : "Checkout"
+                }
               </button>
 
               <Link
@@ -568,7 +716,8 @@ export default function CartPage() {
             </div>
           </div>
         )}
-      </div>
-    </section>
+        </div>
+      </section>
+    </>
   );
 }

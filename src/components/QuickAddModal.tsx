@@ -24,6 +24,10 @@ export default function QuickAddModal({
   const addItem = useCartStore((state) => state.addItem);
   const [addToCartMessage, setAddToCartMessage] = useState("");
 
+  // Get sizes from product variant config
+  const sizes = product.variantConfig?.sizes || [];
+  const hasSizes = sizes && sizes.length > 0;
+
   // Separate scents into favorites, seasonal, and limited
   const favoritesScents = useMemo(() => globalScents.filter(s => !s.seasonal && !s.limited), [globalScents]);
   const seasonalScents = useMemo(() => globalScents.filter(s => s.seasonal), [globalScents]);
@@ -76,6 +80,7 @@ export default function QuickAddModal({
       }
 
       return {
+        size: inStockVariant.size || sizes[0]?.id || "",
         wickType: inStockVariant.wickType,
         scent: inStockVariant.scent,
         scentGroup
@@ -92,6 +97,7 @@ export default function QuickAddModal({
     }
 
     return {
+      size: sizes[0]?.id || "",
       wickType: wickTypes[0]?.id || "",
       scent: favoritesScents[0]?.id || seasonalScents[0]?.id || limitedScents[0]?.id || globalScents[0]?.id || "",
       scentGroup: fallbackScentGroup
@@ -99,6 +105,7 @@ export default function QuickAddModal({
   };
 
   const defaultVariant = getDefaultVariant();
+  const [selectedSize, setSelectedSize] = useState(defaultVariant.size);
   const [selectedWickType, setSelectedWickType] = useState(defaultVariant.wickType);
   const [scentGroup, setScentGroup] = useState<"favorites" | "seasonal" | "limited">(defaultVariant.scentGroup);
   const [selectedScent, setSelectedScent] = useState(defaultVariant.scent);
@@ -128,17 +135,31 @@ export default function QuickAddModal({
 
   const selectedVariant = useMemo(() => {
     return variants.find(
-      v => v.wickType === selectedWickType && v.scent === selectedScent
+      v => v.wickType === selectedWickType && v.scent === selectedScent && (!hasSizes || v.size === selectedSize)
     );
-  }, [variants, selectedWickType, selectedScent]);
+  }, [variants, selectedWickType, selectedScent, selectedSize, hasSizes]);
 
   const stock = selectedVariant?.stock ?? 0;
   const canBuy = !!product.stripePriceId && stock > 0;
 
-  // Helper to check if a scent has stock for the selected wick type
+  // Helper to check if a size has stock for any wick type and scent combination
+  const isSizeAvailable = (sizeId: string) => {
+    return variants.some(
+      v => v.size === sizeId && v.stock > 0
+    );
+  };
+
+  // Helper to check if a wick type has stock for the selected size (if applicable) and any scent
+  const isWickTypeAvailable = (wickTypeId: string) => {
+    return variants.some(
+      v => v.wickType === wickTypeId && v.stock > 0 && (!hasSizes || v.size === selectedSize)
+    );
+  };
+
+  // Helper to check if a scent has stock for the selected wick type and size
   const isScentAvailable = (scentId: string) => {
     return variants.some(
-      v => v.wickType === selectedWickType && v.scent === scentId && v.stock > 0
+      v => v.wickType === selectedWickType && v.scent === scentId && v.stock > 0 && (!hasSizes || v.size === selectedSize)
     );
   };
 
@@ -158,6 +179,7 @@ export default function QuickAddModal({
     [limitedScents, selectedWickType, variants]
   );
 
+  const selectedSizeName = sizes.find(s => s.id === selectedSize)?.name || "";
   const selectedWickName = wickTypes.find(w => w.id === selectedWickType)?.name || "";
   const selectedScentName = globalScents.find(s => s.id === selectedScent)?.name || "";
 
@@ -168,14 +190,13 @@ export default function QuickAddModal({
       productSlug: product.slug,
       productName: product.name,
       productImage: product.image,
-      price: product.price,
-      stripePriceId: product.stripePriceId!,
+      price: selectedVariant.priceCents / 100,
+      stripePriceId: selectedVariant.stripePriceId || product.stripePriceId!,
       maxStock: stock,
       variantId: selectedVariant.id,
-      wickType: selectedVariant.wickType,
-      scent: selectedVariant.scent,
-      wickTypeName: selectedWickName,
-      scentName: selectedScentName,
+      size: selectedSizeName,
+      wickType: selectedWickName,
+      scent: selectedScentName,
     });
 
     if (success) {
@@ -222,33 +243,105 @@ export default function QuickAddModal({
             {product.name}
           </p>
 
+          {/* Size Selector (if product has sizes) */}
+          {hasSizes && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Size</label>
+              <div className="grid grid-cols-2 gap-2">
+                {sizes.map(size => {
+                  const isSelected = size.id === selectedSize;
+                  const isAvailable = isSizeAvailable(size.id);
+                  return (
+                    <button
+                      key={size.id}
+                      type="button"
+                      onClick={() => {
+                        if (!isAvailable) return;
+                        setSelectedSize(size.id);
+                        // Auto-select first available wick type and scent for this size
+                        const firstAvailableVariant = variants.find(
+                          v => v.size === size.id && v.stock > 0
+                        );
+                        if (firstAvailableVariant) {
+                          setSelectedWickType(firstAvailableVariant.wickType);
+                          setSelectedScent(firstAvailableVariant.scent);
+                          // Update scent group based on selected scent
+                          if (favoritesScents.some(s => s.id === firstAvailableVariant.scent)) {
+                            setScentGroup("favorites");
+                          } else if (seasonalScents.some(s => s.id === firstAvailableVariant.scent)) {
+                            setScentGroup("seasonal");
+                          } else {
+                            setScentGroup("limited");
+                          }
+                        }
+                      }}
+                      disabled={!isAvailable}
+                      className={`
+                        px-3 py-2 rounded-lg border text-sm font-medium transition relative
+                        ${!isAvailable
+                          ? "border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                          : isSelected
+                          ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
+                          : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                        }
+                      `}
+                    >
+                      {size.name}
+                      {!isAvailable && (
+                        <>
+                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                          </div>
+                          <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
+                        </>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Wick Type Selector */}
           <div className="mb-4">
             <label className="block text-sm font-medium mb-2">Wick Type</label>
             <div className="grid grid-cols-2 gap-2">
               {wickTypes.map(wickType => {
                 const isSelected = wickType.id === selectedWickType;
+                const isAvailable = isWickTypeAvailable(wickType.id);
                 return (
                   <button
                     key={wickType.id}
                     type="button"
                     onClick={() => {
+                      if (!isAvailable) return;
                       setSelectedWickType(wickType.id);
-                      // Auto-select first available scent for this wick type
+                      // Auto-select first available scent for this wick type and size
                       const firstAvailableScent = variants.find(
-                        v => v.wickType === wickType.id && v.stock > 0 && currentScents.some(s => s.id === v.scent)
+                        v => v.wickType === wickType.id && v.stock > 0 && currentScents.some(s => s.id === v.scent) && (!hasSizes || v.size === selectedSize)
                       )?.scent || currentScents[0]?.id || "";
                       setSelectedScent(firstAvailableScent);
                     }}
+                    disabled={!isAvailable}
                     className={`
-                      px-3 py-2 rounded-lg border text-sm font-medium transition
-                      ${isSelected
+                      px-3 py-2 rounded-lg border text-sm font-medium transition relative
+                      ${!isAvailable
+                        ? "border-[var(--color-line)] opacity-50 cursor-not-allowed"
+                        : isSelected
                         ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
                         : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
                       }
                     `}
                   >
                     {wickType.name}
+                    {!isAvailable && (
+                      <>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                        </div>
+                        <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
+                      </>
+                    )}
                   </button>
                 );
               })}
@@ -275,7 +368,7 @@ export default function QuickAddModal({
                   }}
                   disabled={!hasInStockFavoritesScents}
                   className={`
-                    flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
+                    flex-1 px-3 py-2 text-sm font-medium rounded-lg transition relative flex flex-col items-center justify-center
                     ${!hasInStockFavoritesScents
                       ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                       : scentGroup === "favorites"
@@ -284,7 +377,15 @@ export default function QuickAddModal({
                     }
                   `}
                 >
-                  Favorites
+                  <span>Favorites</span>
+                  {!hasInStockFavoritesScents && (
+                    <>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                      </div>
+                      <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                    </>
+                  )}
                 </button>
                 {hasSeasonalScents && (
                   <button
@@ -302,7 +403,7 @@ export default function QuickAddModal({
                     }}
                     disabled={!hasInStockSeasonalScents}
                     className={`
-                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
+                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition relative flex flex-col items-center justify-center
                       ${!hasInStockSeasonalScents
                         ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                         : scentGroup === "seasonal"
@@ -311,7 +412,15 @@ export default function QuickAddModal({
                       }
                     `}
                   >
-                    Seasonal
+                    <span>Seasonal</span>
+                    {!hasInStockSeasonalScents && (
+                      <>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                        </div>
+                        <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                      </>
+                    )}
                   </button>
                 )}
                 {hasLimitedScents && (
@@ -330,7 +439,7 @@ export default function QuickAddModal({
                     }}
                     disabled={!hasInStockLimitedScents}
                     className={`
-                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition
+                      flex-1 px-3 py-2 text-sm font-medium rounded-lg transition relative flex flex-col items-center justify-center
                       ${!hasInStockLimitedScents
                         ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                         : scentGroup === "limited"
@@ -339,7 +448,15 @@ export default function QuickAddModal({
                       }
                     `}
                   >
-                    Limited
+                    <span>Limited</span>
+                    {!hasInStockLimitedScents && (
+                      <>
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                          <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                        </div>
+                        <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                      </>
+                    )}
                   </button>
                 )}
               </div>

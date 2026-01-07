@@ -48,6 +48,8 @@ export async function listProducts(): Promise<Product[]> {
     materialCost: p.materialCost ? p.materialCost / 100 : undefined,
     visibleOnWebsite: p.visibleOnWebsite ?? true,
     variantConfig: p.variantConfig as VariantConfig | undefined,
+    weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
+    dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   }));
 }
 
@@ -75,6 +77,8 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     materialCost: p.materialCost ? p.materialCost / 100 : undefined,
     visibleOnWebsite: p.visibleOnWebsite ?? true,
     variantConfig: p.variantConfig as VariantConfig | undefined,
+    weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
+    dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   };
 }
 
@@ -104,6 +108,8 @@ export async function upsertProduct(p: Product): Promise<Product> {
       materialCost: materialCostCents,
       visibleOnWebsite: p.visibleOnWebsite ?? true,
       variantConfig: p.variantConfig as VariantConfig | undefined,
+      weight: p.weight || null,
+      dimensions: p.dimensions || null,
     })
     .onConflictDoUpdate({
       target: products.slug,
@@ -124,6 +130,8 @@ export async function upsertProduct(p: Product): Promise<Product> {
         materialCost: materialCostCents,
         visibleOnWebsite: p.visibleOnWebsite ?? true,
         variantConfig: p.variantConfig as VariantConfig | undefined,
+        weight: p.weight || null,
+        dimensions: p.dimensions || null,
       },
     });
 

@@ -227,36 +227,25 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     if (!canBuy || !selectedVariant) return;
     setIsBuying(true);
 
-    try {
-      const res = await fetch("/api/checkout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lineItems: [{
-            price: selectedVariant.stripePriceId || product.stripePriceId!,
-            quantity: 1,
-            metadata: {
-              productName: product.name,
-              productImage: product.image,
-              size: selectedSizeName,
-              wickType: selectedWickName,
-              scent: selectedScentName,
-              variantId: selectedVariant.id,
-            },
-          }],
-        }),
-      });
+    // Add item to cart
+    const success = addItem({
+      productSlug: product.slug,
+      productName: product.name,
+      productImage: product.image,
+      price: selectedVariant.priceCents / 100,
+      stripePriceId: selectedVariant.stripePriceId || product.stripePriceId!,
+      maxStock: selectedVariant.stock,
+      variantId: selectedVariant.id,
+      size: selectedSizeName,
+      wickType: selectedWickName,
+      scent: selectedScentName,
+    });
 
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        await showAlert("Failed to create checkout session", "Error");
-        setIsBuying(false);
-      }
-    } catch (error) {
-      console.error("Buy now error:", error);
-      await showAlert("An error occurred", "Error");
+    if (success) {
+      // Redirect to cart page
+      window.location.href = "/cart";
+    } else {
+      await showAlert("Cannot add more - stock limit reached", "Error");
       setIsBuying(false);
     }
   };
@@ -315,6 +304,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-[var(--color-line)]">
+                {hasSizes && <th className="text-left py-2 font-medium">Size</th>}
                 <th className="text-left py-2 font-medium">Wick Type</th>
                 <th className="text-left py-2 font-medium">Scent</th>
                 <th className="text-right py-2 font-medium">Stock</th>
@@ -327,10 +317,12 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                   return scents.some(s => s.id === variant.scent);
                 })
                 .map((variant) => {
+                  const sizeName = hasSizes && sizes ? sizes.find(s => s.id === variant.size)?.name || variant.size : "";
                   const wickName = wickTypes.find(w => w.id === variant.wickType)?.name || variant.wickType;
                   const scentName = scents.find(s => s.id === variant.scent)?.name || variant.scent;
                   return (
                     <tr key={variant.id} className="border-b border-[var(--color-line)] last:border-0">
+                      {hasSizes && <td className="py-2">{sizeName}</td>}
                       <td className="py-2">{wickName}</td>
                       <td className="py-2">{scentName}</td>
                       <td className="py-2 text-right">
@@ -363,6 +355,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                   key={size.id}
                   type="button"
                   onClick={() => {
+                    if (!available) return;
                     setSelectedSize(size.id);
                     // Auto-select first wick type for this size (prefer in-stock)
                     const firstAvailableWick = variants.find(
@@ -375,18 +368,27 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                     )?.scent || variants.find(v => v.size === size.id && v.wickType === firstAvailableWick && currentScents.some(s => s.id === v.scent))?.scent || currentScents[0]?.id || "";
                     setSelectedScent(firstAvailableScent);
                   }}
+                  disabled={!available}
                   className={`
-                    px-4 py-3 rounded-lg border-2 text-sm font-medium transition cursor-pointer
-                    ${isSelected
-                      ? "!border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                    px-4 py-3 rounded-lg border-2 text-sm font-medium transition relative
+                    ${!available
+                      ? "opacity-50 cursor-not-allowed border-[var(--color-line)]"
+                      : isSelected
+                      ? "!border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] cursor-pointer"
+                      : "border-[var(--color-line)] hover:border-[var(--color-accent)] cursor-pointer"
                     }
-                    ${!available ? "opacity-60" : ""}
                   `}
                 >
                   <div className="font-semibold">{size.name}</div>
                   <div className="text-xs mt-0.5">${(size.priceCents / 100).toFixed(2)}</div>
-                  {!available && <span className="block text-xs mt-1">(Out of stock)</span>}
+                  {!available && (
+                    <>
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                      </div>
+                      <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
+                    </>
+                  )}
                 </button>
               );
             })}
@@ -406,6 +408,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 key={wickType.id}
                 type="button"
                 onClick={() => {
+                  if (!available) return;
                   setSelectedWickType(wickType.id);
                   // Auto-select first scent for this wick type (prefer in-stock, but allow out-of-stock)
                   // Only consider scents that are in the current scent group
@@ -414,17 +417,26 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                   )?.scent || variants.find(v => v.wickType === wickType.id && currentScents.some(s => s.id === v.scent))?.scent || currentScents[0]?.id || "";
                   setSelectedScent(firstAvailableScent);
                 }}
+                disabled={!available}
                 className={`
-                  px-4 py-2 rounded-lg border text-sm font-medium transition cursor-pointer
-                  ${isSelected
-                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
-                    : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                  px-4 py-2 rounded-lg border text-sm font-medium transition relative
+                  ${!available
+                    ? "opacity-50 cursor-not-allowed border-[var(--color-line)]"
+                    : isSelected
+                    ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)] cursor-pointer"
+                    : "border-[var(--color-line)] hover:border-[var(--color-accent)] cursor-pointer"
                   }
-                  ${!available ? "opacity-60" : ""}
                 `}
               >
                 {wickType.name}
-                {!available && <span className="block text-xs mt-1">(Out of stock)</span>}
+                {!available && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                    </div>
+                    <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
+                  </>
+                )}
               </button>
             );
           })}
@@ -451,7 +463,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
               }}
               disabled={!hasInStockFavoritesScents}
               className={`
-                flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
+                flex-1 inline-flex flex-col items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition relative
                 ${!hasInStockFavoritesScents
                   ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                   : scentGroup === "favorites"
@@ -460,7 +472,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 }
               `}
             >
-              Favorites
+              <span>Favorites</span>
+              {!hasInStockFavoritesScents && (
+                <>
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                  </div>
+                  <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                </>
+              )}
             </button>
             {hasSeasonalScents && (
               <button
@@ -478,7 +498,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 }}
                 disabled={!hasInStockSeasonalScents}
                 className={`
-                  flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
+                  flex-1 inline-flex flex-col items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition relative
                   ${!hasInStockSeasonalScents
                     ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                     : scentGroup === "seasonal"
@@ -487,7 +507,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                   }
                 `}
               >
-                Seasonal
+                <span>Seasonal</span>
+                {!hasInStockSeasonalScents && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                    </div>
+                    <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                  </>
+                )}
               </button>
             )}
             {hasLimitedScents && (
@@ -506,7 +534,7 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                 }}
                 disabled={!hasInStockLimitedScents}
                 className={`
-                  flex-1 inline-flex items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition
+                  flex-1 inline-flex flex-col items-center justify-center rounded-xl px-4 py-3 text-sm font-medium transition relative
                   ${!hasInStockLimitedScents
                     ? "border-2 border-[var(--color-line)] opacity-50 cursor-not-allowed"
                     : scentGroup === "limited"
@@ -515,7 +543,15 @@ export default function ProductVariantForm({ product, variants, globalScents, va
                   }
                 `}
               >
-                Limited
+                <span>Limited</span>
+                {!hasInStockLimitedScents && (
+                  <>
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                      <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
+                    </div>
+                    <span className="text-xs mt-1 text-rose-600">Out of stock</span>
+                  </>
+                )}
               </button>
             )}
           </div>
