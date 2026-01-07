@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
             const createPayload = {
               name: product.name,
               price: price,
-              description: product.description,
+              description: product.seoDescription,
               sku: product.sku,
               images: product.images,
               variantConfig: product.variantConfig,

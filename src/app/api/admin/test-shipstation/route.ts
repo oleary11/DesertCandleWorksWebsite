@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       orderItems.push({
         sku: product.sku,
         name: itemName,
-        imageUrl: product.imageUrl,
+        imageUrl: product.image,
         quantity: quantity,
         unitPrice: unitPrice,
         weight: {
