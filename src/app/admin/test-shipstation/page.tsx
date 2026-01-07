@@ -258,7 +258,7 @@ export default function TestShipStationPage() {
             <h1 className="text-3xl font-bold">Test ShipStation Order Creation</h1>
           </div>
           <p className="text-[var(--color-muted)]">
-            Create a test order in ShipStation to verify API integration. Orders will be marked with "TEST ORDER" in internal notes.
+            Create a test order in ShipStation to verify API integration. Orders will be marked with &quot;TEST ORDER&quot; in internal notes.
           </p>
         </div>
 
