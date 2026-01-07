@@ -1173,16 +1173,61 @@ export default function AdminProductsPage() {
                 }))
               );
 
+              // Check if any products need variant mappings created
+              const productsNeedingMappings = productsWithCatalogId.filter((p) => !p.squareVariantMapping);
+
               if (squareProducts.length === 0) {
-                await showAlert(
-                  `No products are connected to Square.\n\nProducts with catalog ID: ${productsWithCatalogId.length}\nProducts with variant mapping: ${productsWithMapping.length}`,
-                  "Info"
-                );
+                if (productsNeedingMappings.length > 0) {
+                  const autoMap = await showConfirm(
+                    `${productsNeedingMappings.length} products have Square Catalog IDs but no variant mappings.\n\nWould you like to auto-generate variant mappings now?`,
+                    "Auto-Generate Mappings"
+                  );
+
+                  if (autoMap) {
+                    setSaving(true);
+                    try {
+                      const mapRes = await fetch("/api/admin/auto-map-square-variants", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ dryRun: false }),
+                      });
+
+                      if (!mapRes.ok) {
+                        throw new Error("Failed to auto-generate mappings");
+                      }
+
+                      const mapData = await mapRes.json();
+                      await showAlert(
+                        `${mapData.message}\n\nPlease try syncing again.`,
+                        "Mappings Created"
+                      );
+
+                      // Refresh products to show new mappings
+                      setMerged(await listAllProducts());
+                    } catch (err) {
+                      await showAlert(
+                        err instanceof Error ? err.message : "Failed to auto-generate mappings",
+                        "Error"
+                      );
+                    } finally {
+                      setSaving(false);
+                    }
+                  }
+                } else {
+                  await showAlert(
+                    `No products are connected to Square.\n\nProducts with catalog ID: ${productsWithCatalogId.length}\nProducts with variant mapping: ${productsWithMapping.length}`,
+                    "Info"
+                  );
+                }
                 return;
               }
 
               const confirmed = await showConfirm(
-                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.`,
+                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.${
+                  productsNeedingMappings.length > 0
+                    ? `\n\nNote: ${productsNeedingMappings.length} products with Catalog IDs are missing variant mappings and won't be synced. Run auto-mapping first.`
+                    : ""
+                }`,
                 "Sync All to Square"
               );
 

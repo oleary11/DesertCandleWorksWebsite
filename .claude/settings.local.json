@@ -20,7 +20,8 @@
       "WebFetch(domain:partner.tiktokshop.com)",
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc:*)",
-      "Bash(echo:*)"
+      "Bash(echo:*)",
+      "Bash(cd:*)"
     ],
     "deny": [],
     "ask": []

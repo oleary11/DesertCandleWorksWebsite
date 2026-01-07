@@ -19,7 +19,8 @@ import {
   Receipt,
   Video,
   Undo2,
-  Send
+  Send,
+  Truck
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -310,6 +311,19 @@ export default function AdminHomePage() {
                 <div>
                   <h3 className="font-medium">TikTok Shop</h3>
                   <p className="text-xs text-[var(--color-muted)]">Sync products to TikTok Shop</p>
+                </div>
+              </div>
+            </Link>
+
+            {/* ShipStation Test */}
+            <Link href="/admin/test-shipstation" className="card p-4 bg-white hover:shadow-md transition-shadow">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
+                  <Truck className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-medium">Test ShipStation</h3>
+                  <p className="text-xs text-[var(--color-muted)]">Create test shipping orders</p>
                 </div>
               </div>
             </Link>

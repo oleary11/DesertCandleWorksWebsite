@@ -3,6 +3,7 @@ import { isAdminAuthed } from "@/lib/adminSession";
 import { getAllOrders } from "@/lib/userStore";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { listRefunds } from "@/lib/refundStore";
+import { getAllScents } from "@/lib/scents";
 
 export const runtime = "nodejs";
 
@@ -351,15 +352,46 @@ export async function GET(req: NextRequest) {
       (a, b) => b.revenue - a.revenue
     );
 
-    // Variant parsing: "wickType-scentId"
+    // Variant parsing: "[sizeId-]wickTypeId-scentId"
+    // Wick type IDs can contain hyphens (e.g., "standard-wick", "wood-wick")
+    // Scent IDs are typically timestamps (e.g., "1765741870779")
     function parseVariantInfo(variantId?: string): { wick: string; scent: string } | null {
       if (!variantId) return null;
-      const parts = variantId.split("-");
-      if (parts.length < 2) return null;
 
-      const wickType = parts[0];
-      const scentId = parts.slice(1).join("-");
-      return { wick: wickType, scent: scentId };
+      // Known wick type patterns (with hyphens)
+      const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
+
+      // Try to match known wick types
+      for (const wickType of knownWickTypes) {
+        if (variantId.includes(wickType)) {
+          // Extract scent ID after the wick type
+          const wickIndex = variantId.indexOf(wickType);
+          const afterWick = variantId.substring(wickIndex + wickType.length);
+
+          // Remove leading hyphen if present
+          const scentId = afterWick.startsWith('-') ? afterWick.substring(1) : afterWick;
+
+          if (scentId) {
+            return { wick: wickType, scent: scentId };
+          }
+        }
+      }
+
+      // Fallback: assume first part before first digit is wick type
+      // This handles cases like "wood-1234" or "standard-1234"
+      const match = variantId.match(/^([a-z-]+?)-?(\d+.*)$/);
+      if (match) {
+        return { wick: match[1], scent: match[2] };
+      }
+
+      return null;
+    }
+
+    // Load all scents to map IDs to names
+    const allScents = await getAllScents();
+    const scentIdToName = new Map<string, string>();
+    for (const scent of allScents) {
+      scentIdToName.set(scent.id, scent.name);
     }
 
     const scentSalesMap = new Map<string, { name: string; units: number; revenue: number }>();
@@ -375,17 +407,20 @@ export async function GET(req: NextRequest) {
 
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
-        const scentName = variantInfo.scent
-          .split("-")
-          .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
-          .join(" ");
+        // Look up scent name from global scents, fallback to formatted ID
+        const scentName = scentIdToName.get(variantInfo.scent) ||
+          variantInfo.scent
+            .split("-")
+            .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+            .join(" ");
 
-        const existingScent = scentSalesMap.get(variantInfo.scent);
+        // Group by scent NAME (not ID) so all variants of same scent are aggregated
+        const existingScent = scentSalesMap.get(scentName);
         if (existingScent) {
           existingScent.units += item.quantity;
           existingScent.revenue += itemRevenue;
         } else {
-          scentSalesMap.set(variantInfo.scent, {
+          scentSalesMap.set(scentName, {
             name: scentName,
             units: item.quantity,
             revenue: itemRevenue,

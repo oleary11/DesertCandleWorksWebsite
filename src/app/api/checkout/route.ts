@@ -493,8 +493,8 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate total weight
-      let totalWeightOz = 0;
+      // Calculate total weight (candles only)
+      let totalCandleWeightOz = 0;
       for (const item of extendedLineItems) {
         const productInfo = priceToProduct.get(item.price);
         if (productInfo) {
@@ -502,9 +502,15 @@ export async function POST(req: NextRequest) {
           const quantity = item.quantity || 1;
           const sizeName = item.metadata?.sizeName;
           const weightPerItem = getProductWeight(product, sizeName);
-          totalWeightOz += weightPerItem * quantity;
+          totalCandleWeightOz += weightPerItem * quantity;
         }
       }
+
+      // Add packaging weight once per shipment (not per item!)
+      const { PACKAGING_WEIGHT_OZ } = await import("@/lib/shipstation");
+      const totalWeightOz = totalCandleWeightOz + PACKAGING_WEIGHT_OZ;
+
+      console.log(`[Checkout] Total weight: ${totalCandleWeightOz} oz candles + ${PACKAGING_WEIGHT_OZ} oz packaging = ${totalWeightOz} oz`);
 
       // Get business postal code from environment
       const fromPostalCode = process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";

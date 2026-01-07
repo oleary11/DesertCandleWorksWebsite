@@ -26,6 +26,11 @@ export type ShipStationOrder = {
   internalNotes?: string;
   gift?: boolean;
   giftMessage?: string;
+  requestedShippingService?: string; // Customer's requested shipping service (e.g., "USPS Ground Advantage")
+  carrierCode?: string;
+  serviceCode?: string;
+  packageCode?: string;
+  confirmation?: string;
 };
 
 export type ShipStationAddress = {
@@ -231,6 +236,12 @@ async function shipstationRequest<T>(
 ): Promise<T> {
   const url = `${SHIPSTATION_API_BASE}${endpoint}`;
 
+  // Log request details for debugging
+  console.log(`[ShipStation] V1 API Request: ${options.method || 'GET'} ${url}`);
+  if (options.body) {
+    console.log(`[ShipStation] Request body:`, options.body);
+  }
+
   const response = await fetch(url, {
     ...options,
     headers: {
@@ -243,7 +254,20 @@ async function shipstationRequest<T>(
   if (!response.ok) {
     const errorText = await response.text();
     console.error(`[ShipStation] V1 API Error ${response.status}:`, errorText);
-    throw new Error(`ShipStation API error ${response.status}: ${errorText}`);
+    console.error(`[ShipStation] Response headers:`, Object.fromEntries(response.headers.entries()));
+
+    // Try to parse error as JSON if possible
+    let errorDetails = errorText;
+    try {
+      const errorJson = JSON.parse(errorText);
+      errorDetails = JSON.stringify(errorJson, null, 2);
+      console.error(`[ShipStation] Error details:`, errorJson);
+    } catch {
+      // Not JSON, use raw text
+      console.error(`[ShipStation] Error text length:`, errorText.length);
+    }
+
+    throw new Error(`ShipStation API error ${response.status}: ${errorDetails}`);
   }
 
   return response.json() as Promise<T>;
@@ -295,6 +319,11 @@ export async function createShipStationOrder(
   order: ShipStationOrder
 ): Promise<{ orderId: number; orderNumber: string; orderKey: string }> {
   console.log(`[ShipStation] Creating order ${order.orderNumber}...`);
+  console.log(`[ShipStation] Order object keys:`, Object.keys(order));
+  console.log(`[ShipStation] Order has ${order.items.length} items`);
+  if (order.requestedShippingService) {
+    console.log(`[ShipStation] Requested shipping service: ${order.requestedShippingService}`);
+  }
 
   const response = await shipstationRequest<{ orderId: number; orderNumber: string; orderKey: string }>(
     "/orders/createorder",
@@ -620,39 +649,35 @@ export async function getShippingRates(
 /**
  * Packaging weight constant (ounces)
  * Includes: box, packing peanuts, hexawrap (3 layers), tape
- * This is added to all product weights for shipping calculation
+ * This is added ONCE per shipment, not per item
  */
-const PACKAGING_WEIGHT_OZ = 16;
+export const PACKAGING_WEIGHT_OZ = 16;
 
 /**
  * Helper function to calculate product weight for shipping
- * Returns total weight in ounces (candle + packaging)
+ * Returns weight in ounces (candle only - jar + wax)
+ * NOTE: Does NOT include packaging - add PACKAGING_WEIGHT_OZ separately to total
  */
 export function getProductWeight(
   product?: { weight?: { value: number; units: "ounces" | "pounds" } },
   sizeName?: string
 ): number {
-  let candleWeight = 0;
-
   // If product has explicit weight, use it (this is candle only - jar + wax)
   if (product?.weight) {
-    candleWeight = product.weight.units === "pounds"
+    return product.weight.units === "pounds"
       ? product.weight.value * 16
       : product.weight.value;
-  } else {
-    // Default candle weights by size (jar + wax only, in ounces)
-    const defaultWeights: Record<string, number> = {
-      "8 oz": 8,    // 8 oz candle (jar + wax)
-      "12 oz": 14,  // 12 oz candle (jar + wax)
-      "16 oz": 20,  // 16 oz candle (jar + wax)
-    };
-
-    // Default to 40 oz if no size match (protects seller by using higher weight)
-    candleWeight = (sizeName && defaultWeights[sizeName]) ? defaultWeights[sizeName] : 40;
   }
 
-  // Add packaging weight (box, packing peanuts, hexawrap, etc.)
-  return candleWeight + PACKAGING_WEIGHT_OZ;
+  // Default candle weights by size (jar + wax only, in ounces)
+  const defaultWeights: Record<string, number> = {
+    "8 oz": 8,    // 8 oz candle (jar + wax)
+    "12 oz": 14,  // 12 oz candle (jar + wax)
+    "16 oz": 20,  // 16 oz candle (jar + wax)
+  };
+
+  // Default to 40 oz if no size match (protects seller by using higher weight)
+  return (sizeName && defaultWeights[sizeName]) ? defaultWeights[sizeName] : 40;
 }
 
 /**

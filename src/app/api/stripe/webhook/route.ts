@@ -352,6 +352,15 @@ export async function POST(req: NextRequest) {
             (shippingAddress?.city?.toLowerCase().includes('scottsdale') ||
              shippingAddress?.line1?.toLowerCase().includes('pickup'));
 
+          // Extract shipping service name from Stripe shipping details
+          // This is what the customer selected at checkout
+          let requestedShippingService: string | undefined;
+          if (session.shipping_cost?.shipping_rate &&
+              typeof session.shipping_cost.shipping_rate === 'object' &&
+              'display_name' in session.shipping_cost.shipping_rate) {
+            requestedShippingService = session.shipping_cost.shipping_rate.display_name as string | undefined;
+          }
+
           if (isLocalPickup || isLikelyPickup) {
             console.log(`[ShipStation] Skipping ShipStation order creation for local pickup: ${orderId}`);
           } else if (shippingAddress) {
@@ -366,9 +375,62 @@ export async function POST(req: NextRequest) {
                 const product = await getResolvedProduct(item.productSlug);
                 const weight = getProductWeight(product || undefined, item.sizeName);
 
+                // Build item name with variant details for easy fulfillment
+                let itemName = item.productName;
+
+                // Build variant details array (size, wick type, scent)
+                const variantDetails: string[] = [];
+
+                // Add size if available
+                if (item.sizeName) {
+                  variantDetails.push(item.sizeName);
+                }
+
+                // If this is a variant product, parse variantId to get wick type and scent
+                if (item.variantId && product?.variantConfig) {
+                  // Import scents to look up names
+                  const { getAllScents } = await import("@/lib/scents");
+                  const allScents = await getAllScents();
+
+                  // Parse variantId: [sizeId-]wickTypeId-scentId
+                  // Known wick type IDs: "standard-wick", "wood-wick", "wood", "standard"
+                  const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
+
+                  let wickTypeName: string | undefined;
+                  let scentName: string | undefined;
+
+                  // Try to match known wick types
+                  for (const wickTypeId of knownWickTypes) {
+                    if (item.variantId.includes(wickTypeId)) {
+                      // Find wick type name from product config
+                      const wickType = product.variantConfig.wickTypes?.find(w => w.id === wickTypeId);
+                      wickTypeName = wickType?.name;
+
+                      // Extract scent ID after the wick type
+                      const wickIndex = item.variantId.indexOf(wickTypeId);
+                      const afterWick = item.variantId.substring(wickIndex + wickTypeId.length);
+                      const scentId = afterWick.startsWith('-') ? afterWick.substring(1) : afterWick;
+
+                      // Look up scent name
+                      const scent = allScents.find(s => s.id === scentId);
+                      scentName = scent?.name;
+
+                      break;
+                    }
+                  }
+
+                  if (wickTypeName) variantDetails.push(wickTypeName);
+                  if (scentName) variantDetails.push(scentName);
+                }
+
+                // Add variant details to item name
+                if (variantDetails.length > 0) {
+                  itemName = `${item.productName} (${variantDetails.join(' - ')})`;
+                }
+
                 return {
                   sku: product?.sku || item.productSlug,
-                  name: item.productName,
+                  name: itemName,
                   quantity: item.quantity,
                   unitPrice: item.priceCents / 100,
                   weight: {
@@ -392,9 +454,10 @@ export async function POST(req: NextRequest) {
               amountPaid: totalCents / 100,
               taxAmount: taxCents / 100,
               shippingAmount: shippingCents / 100,
+              requestedShippingService: requestedShippingService,
             });
 
-            console.log(`[ShipStation] Order ${orderId} created in ShipStation`);
+            console.log(`[ShipStation] Order ${orderId} created in ShipStation${requestedShippingService ? ` with requested service: ${requestedShippingService}` : ''}`);
           } else {
             console.warn(`[ShipStation] Skipping ShipStation order creation - no shipping address available: ${orderId}`);
           }
