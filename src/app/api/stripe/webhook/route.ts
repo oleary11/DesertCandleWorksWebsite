@@ -364,7 +364,7 @@ export async function POST(req: NextRequest) {
               orderItems.map(async (item) => {
                 // Get product details for weight
                 const product = await getResolvedProduct(item.productSlug);
-                const weight = getProductWeight(product, item.sizeName);
+                const weight = getProductWeight(product || undefined, item.sizeName);
 
                 return {
                   sku: product?.sku || item.productSlug,
