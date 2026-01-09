@@ -722,16 +722,19 @@ export async function POST(req: NextRequest) {
     // ONLY send one of `discounts` or `allow_promotion_codes`
     let sessionParams: Stripe.Checkout.SessionCreateParams;
     if (discounts && discounts.length > 0) {
-      // Using points: apply coupon, do NOT allow promotion codes
+      // Using points or promo: apply coupon, do NOT allow promotion codes
+      // This prevents Honey from being able to apply additional codes at Stripe checkout
       sessionParams = {
         ...baseParams,
         discounts,
       };
     } else {
-      // Not using points: allow promotion codes
+      // Not using points or promo: DO NOT allow promotion codes
+      // Anti-Honey protection: Hide Stripe's promotion code field entirely
+      // Users must enter codes on our site where we have rate limiting & behavioral detection
       sessionParams = {
         ...baseParams,
-        allow_promotion_codes: true,
+        allow_promotion_codes: false, // Changed from true to false
       };
     }
 

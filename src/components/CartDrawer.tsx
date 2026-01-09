@@ -7,6 +7,7 @@ import { X, Trash2, Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import FreeShippingBanner from "./FreeShippingBanner";
 import { useModal } from "@/hooks/useModal";
+import PromoCodeField from "./PromoCodeField";
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -18,6 +19,8 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [appliedPromoId, setAppliedPromoId] = useState<string | null>(null);
+  const [discountAmountCents, setDiscountAmountCents] = useState(0);
 
   // Prevent body scroll when drawer is open
   useEffect(() => {
@@ -79,7 +82,10 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       const res = await fetch("/api/checkout", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lineItems }),
+        body: JSON.stringify({
+          lineItems,
+          promotionId: appliedPromoId, // Pass validated promo ID
+        }),
       });
 
       const data = await res.json();
@@ -87,7 +93,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       if (data.url) {
         window.location.href = data.url;
       } else {
-        await showAlert("Failed to create checkout session", "Error");
+        await showAlert(data.error || "Failed to create checkout session", "Error");
         setIsCheckingOut(false);
       }
     } catch (error) {
@@ -95,6 +101,16 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       await showAlert("An error occurred during checkout", "Error");
       setIsCheckingOut(false);
     }
+  };
+
+  const handlePromoApplied = (promotionId: string, discountAmount: number) => {
+    setAppliedPromoId(promotionId);
+    setDiscountAmountCents(discountAmount);
+  };
+
+  const handlePromoRemoved = () => {
+    setAppliedPromoId(null);
+    setDiscountAmountCents(0);
   };
 
   if (!isOpen) return null;
@@ -239,11 +255,38 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
 
             {/* Footer */}
             <div className="border-t border-[var(--color-line)] p-4 space-y-3">
+              {/* Promo Code Field */}
+              <div className="pb-3 border-b border-[var(--color-line)]">
+                <PromoCodeField
+                  onPromoApplied={handlePromoApplied}
+                  onPromoRemoved={handlePromoRemoved}
+                  subtotalCents={Math.round(getTotalPrice() * 100)}
+                />
+              </div>
+
               {/* Subtotal */}
               <div className="flex justify-between items-baseline">
                 <span className="text-sm text-[var(--color-muted)]">Subtotal</span>
                 <span className="text-lg font-semibold">${getTotalPrice().toFixed(2)}</span>
               </div>
+
+              {/* Discount (if applied) */}
+              {discountAmountCents > 0 && (
+                <div className="flex justify-between items-baseline text-green-600">
+                  <span className="text-sm">Discount</span>
+                  <span className="text-sm font-medium">-${(discountAmountCents / 100).toFixed(2)}</span>
+                </div>
+              )}
+
+              {/* Estimated Total */}
+              {discountAmountCents > 0 && (
+                <div className="flex justify-between items-baseline pt-2 border-t border-[var(--color-line)]">
+                  <span className="text-sm font-medium">Estimated Total</span>
+                  <span className="text-lg font-semibold">
+                    ${((getTotalPrice() * 100 - discountAmountCents) / 100).toFixed(2)}
+                  </span>
+                </div>
+              )}
 
               <p className="text-xs text-[var(--color-muted)]">
                 Shipping and taxes calculated at checkout
