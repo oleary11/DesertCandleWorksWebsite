@@ -45,12 +45,29 @@ export default function UnifiedAnalyticsPage() {
   );
   const [loading, setLoading] = useState(true);
 
-  // Federal “set-aside”/estimated payment rate (you can tweak via dropdown)
+  // Federal "set-aside"/estimated payment rate (you can tweak via dropdown)
   const [fedRate, setFedRate] = useState(0.25);
+
+  // Tax period selection
+  const currentYear = new Date().getFullYear();
+  const getCurrentQuarter = () => {
+    const month = new Date().getMonth();
+    const quarter = Math.floor(month / 3) + 1;
+    return `Q${quarter}` as "Q1" | "Q2" | "Q3" | "Q4";
+  };
+  const [taxYear, setTaxYear] = useState(currentYear);
+  const [taxPeriod, setTaxPeriod] = useState<"Q1" | "Q2" | "Q3" | "Q4" | "YEAR">(getCurrentQuarter());
+  const [taxPeriodSalesData, setTaxPeriodSalesData] = useState<SalesAnalytics | null>(null);
+  const [taxPeriodPurchaseData, setTaxPeriodPurchaseData] = useState<PurchaseAnalytics | null>(null);
+  const [loadingTaxPeriod, setLoadingTaxPeriod] = useState(false);
 
   useEffect(() => {
     loadAnalytics();
   }, []);
+
+  useEffect(() => {
+    loadTaxPeriodAnalytics();
+  }, [taxYear, taxPeriod]);
 
   async function loadAnalytics() {
     try {
@@ -70,6 +87,51 @@ export default function UnifiedAnalyticsPage() {
       console.error("Failed to load analytics:", err);
     } finally {
       setLoading(false);
+    }
+  }
+
+  function getTaxPeriodDates(year: number, period: "Q1" | "Q2" | "Q3" | "Q4" | "YEAR") {
+    if (period === "YEAR") {
+      return {
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      };
+    }
+
+    const quarterMap = {
+      Q1: { start: "01-01", end: "03-31" },
+      Q2: { start: "04-01", end: "06-30" },
+      Q3: { start: "07-01", end: "09-30" },
+      Q4: { start: "10-01", end: "12-31" },
+    };
+
+    const { start, end } = quarterMap[period];
+    return {
+      startDate: `${year}-${start}`,
+      endDate: `${year}-${end}`,
+    };
+  }
+
+  async function loadTaxPeriodAnalytics() {
+    try {
+      setLoadingTaxPeriod(true);
+      const { startDate, endDate } = getTaxPeriodDates(taxYear, taxPeriod);
+
+      const [salesRes, purchasesRes] = await Promise.all([
+        fetch(`/api/admin/analytics?startDate=${startDate}&endDate=${endDate}`),
+        fetch(`/api/admin/purchases/analytics?startDate=${startDate}&endDate=${endDate}`),
+      ]);
+
+      if (salesRes.ok && purchasesRes.ok) {
+        const sales = await salesRes.json();
+        const purchases = await purchasesRes.json();
+        setTaxPeriodSalesData(sales);
+        setTaxPeriodPurchaseData(purchases);
+      }
+    } catch (err) {
+      console.error("Failed to load tax period analytics:", err);
+    } finally {
+      setLoadingTaxPeriod(false);
     }
   }
 
@@ -167,23 +229,64 @@ export default function UnifiedAnalyticsPage() {
   const today = new Date();
   const currentQuarter = getQuarter(today);
 
+  // Calculate tax amounts based on selected period
+  const taxSales = taxPeriodSalesData || salesData;
+  const taxPurchases = taxPeriodPurchaseData || purchaseData;
+
   // AZ TPT owed: since you ONLY collect AZ tax right now, this is fine.
-  const azTptToRemitCents = salesData.totalTaxCollected || 0;
+  const azTptToRemitCents = taxSales.totalTaxCollected || 0;
 
   // Federal estimate: sales tax collected is NOT income.
   // Use product + shipping revenue (exclude tax), then subtract Stripe fees and costs.
-  const shippingRevenue = salesData.totalShippingRevenue || 0;
-  const businessRevenueExcludingTax = (productRevenue || 0) + shippingRevenue;
+  const taxProductRevenue = taxSales.totalProductRevenue || 0;
+  const taxShippingRevenue = taxSales.totalShippingRevenue || 0;
+  const taxStripeFees = taxSales.stripeFees || 0;
+  const taxTotalCosts = taxPurchases.totalSpent || 0;
+  const businessRevenueExcludingTax = taxProductRevenue + taxShippingRevenue;
   const federalNetProfitCents =
-    businessRevenueExcludingTax - stripeFees - totalCosts;
+    businessRevenueExcludingTax - taxStripeFees - taxTotalCosts;
 
-  const suggestedFederalPaymentCents = Math.max(
-    0,
-    Math.round(federalNetProfitCents * fedRate)
-  );
+  // Only show federal payment if net profit > 0 for the quarter
+  const suggestedFederalPaymentCents = federalNetProfitCents > 0
+    ? Math.round(federalNetProfitCents * fedRate)
+    : 0;
 
-  const nextIrsDue = getNextIrsEstimatedDueDate(today);
-  const nextAzTptDue = getNextAzTptQuarterlyDueDate(today);
+  // Calculate due dates based on selected period
+  const getSelectedPeriodDueDates = () => {
+    if (taxPeriod === "YEAR") {
+      // For full year, use current quarter's due dates
+      return {
+        irsDue: getNextIrsEstimatedDueDate(today),
+        azTptDue: getNextAzTptQuarterlyDueDate(today),
+      };
+    }
+
+    // For specific quarters, calculate the due date for that quarter
+    const quarterNum = parseInt(taxPeriod[1]) as 1 | 2 | 3 | 4;
+
+    // IRS estimated tax due dates
+    const irsDueMap = {
+      1: new Date(taxYear, 3, 15),  // Apr 15
+      2: new Date(taxYear, 5, 15),  // Jun 15
+      3: new Date(taxYear, 8, 15),  // Sep 15
+      4: new Date(taxYear + 1, 0, 15), // Jan 15 (next year)
+    } as const;
+
+    // AZ TPT quarterly due dates
+    const azTptDueMap = {
+      1: new Date(taxYear, 3, 20),  // Apr 20
+      2: new Date(taxYear, 6, 20),  // Jul 20
+      3: new Date(taxYear, 9, 20),  // Oct 20
+      4: new Date(taxYear + 1, 0, 20), // Jan 20 (next year)
+    } as const;
+
+    return {
+      irsDue: irsDueMap[quarterNum],
+      azTptDue: azTptDueMap[quarterNum],
+    };
+  };
+
+  const { irsDue: nextIrsDue, azTptDue: nextAzTptDue } = getSelectedPeriodDueDates();
 
   return (
     <div className="min-h-screen p-6 bg-neutral-50">
@@ -329,26 +432,62 @@ export default function UnifiedAnalyticsPage() {
             <div>
               <h2 className="text-xl font-bold">What to Pay (Taxes)</h2>
               <p className="text-sm text-[var(--color-muted)]">
-                Based on today ({formatDate(today)}) • Quarter Q{currentQuarter}
+                {taxPeriod === "YEAR" ? `Full Year ${taxYear}` : `${taxYear} ${taxPeriod}`}
               </p>
             </div>
 
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-[var(--color-muted)]">
-                Federal set-aside
-              </span>
-              <select
-                value={fedRate}
-                onChange={(e) => setFedRate(Number(e.target.value))}
-                className="border border-[var(--color-line)] rounded-md px-2 py-1 text-sm bg-white"
-              >
-                <option value={0.2}>20%</option>
-                <option value={0.25}>25%</option>
-                <option value={0.3}>30%</option>
-                <option value={0.33}>33%</option>
-              </select>
+            <div className="flex items-center gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--color-muted)]">Year</span>
+                <select
+                  value={taxYear}
+                  onChange={(e) => setTaxYear(Number(e.target.value))}
+                  className="border border-[var(--color-line)] rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  <option value={2025}>2025</option>
+                  <option value={2026}>2026</option>
+                  <option value={2027}>2027</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--color-muted)]">Period</span>
+                <select
+                  value={taxPeriod}
+                  onChange={(e) => setTaxPeriod(e.target.value as "Q1" | "Q2" | "Q3" | "Q4" | "YEAR")}
+                  className="border border-[var(--color-line)] rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                  <option value="Q3">Q3</option>
+                  <option value="Q4">Q4</option>
+                  <option value="YEAR">Full Year</option>
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-[var(--color-muted)]">
+                  Federal set-aside
+                </span>
+                <select
+                  value={fedRate}
+                  onChange={(e) => setFedRate(Number(e.target.value))}
+                  className="border border-[var(--color-line)] rounded-md px-2 py-1 text-sm bg-white"
+                >
+                  <option value={0.2}>20%</option>
+                  <option value={0.25}>25%</option>
+                  <option value={0.3}>30%</option>
+                  <option value={0.33}>33%</option>
+                </select>
+              </div>
             </div>
           </div>
+
+          {loadingTaxPeriod && (
+            <div className="text-center py-4 text-sm text-[var(--color-muted)]">
+              Loading tax period data...
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {/* AZ TPT */}
@@ -403,12 +542,17 @@ export default function UnifiedAnalyticsPage() {
 
               <div className="mt-3 text-xs text-[var(--color-muted)] space-y-1">
                 <p>
-                  Profit basis (product + shipping − Stripe − costs):{" "}
-                  <b>${((federalNetProfitCents || 0) / 100).toFixed(2)}</b>
+                  Net profit (product + shipping − Stripe − costs):{" "}
+                  <b className={federalNetProfitCents > 0 ? "text-green-600" : "text-red-600"}>
+                    ${((federalNetProfitCents || 0) / 100).toFixed(2)}
+                  </b>
                 </p>
                 <p>
-                  Payment suggestion = <b>{Math.round(fedRate * 100)}%</b> of
-                  positive profit (0 if loss)
+                  {federalNetProfitCents > 0 ? (
+                    <>Payment = <b>{Math.round(fedRate * 100)}%</b> of net profit</>
+                  ) : (
+                    <>No payment required (net profit ≤ $0)</>
+                  )}
                 </p>
               </div>
             </div>

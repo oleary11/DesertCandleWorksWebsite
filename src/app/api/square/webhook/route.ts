@@ -92,6 +92,29 @@ export async function POST(req: NextRequest) {
 
   console.log(`[Square Webhook] Received event: ${event.type} (${event.event_id})`);
 
+  // CRITICAL: Idempotency check - prevent duplicate order creation
+  // Square webhooks can be sent multiple times for the same event (retries, network issues, etc.)
+  // We use Redis to track processed event IDs to ensure each event is only processed once
+  const { kv } = await import("@vercel/kv");
+  const eventKey = `square:event:${event.event_id}`;
+  const eventProcessed = await kv.get(eventKey);
+
+  if (eventProcessed) {
+    console.log(`[Square Webhook] Event ${event.event_id} already processed - skipping duplicate`);
+    return NextResponse.json({
+      received: true,
+      skipped: "already_processed",
+      message: "This event was already processed"
+    }, { status: 200 });
+  }
+
+  // Mark event as being processed (set with 7-day TTL)
+  // We set it BEFORE processing to prevent race conditions if multiple webhooks arrive simultaneously
+  await kv.setex(eventKey, 7 * 24 * 60 * 60, {
+    processedAt: new Date().toISOString(),
+    eventType: event.type
+  });
+
   // Handle payment completed event
   if (event.type === "payment.updated") {
     const payment = event.data?.object?.payment;

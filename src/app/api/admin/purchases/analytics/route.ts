@@ -12,7 +12,21 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const purchases = await getAllPurchases();
+    const { searchParams } = new URL(req.url);
+    const startDate = searchParams.get("startDate");
+    const endDate = searchParams.get("endDate");
+
+    let purchases = await getAllPurchases();
+
+    // Filter by date range if provided
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      purchases = purchases.filter((purchase) => {
+        const purchaseDate = new Date(purchase.purchaseDate);
+        return purchaseDate >= start && purchaseDate <= end;
+      });
+    }
 
     // Calculate spending by category
     const spendingByCategory: Record<string, number> = {};
