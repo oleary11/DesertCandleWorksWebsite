@@ -288,12 +288,7 @@ export default function QuickAddModal({
                     >
                       {size.name}
                       {!isAvailable && (
-                        <>
-                          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                            <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
-                          </div>
-                          <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
-                        </>
+                        <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
                       )}
                     </button>
                   );
@@ -335,12 +330,7 @@ export default function QuickAddModal({
                   >
                     {wickType.name}
                     {!isAvailable && (
-                      <>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-3/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
-                        </div>
-                        <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
-                      </>
+                      <span className="block text-xs mt-1 text-rose-600">Out of stock</span>
                     )}
                   </button>
                 );
@@ -379,12 +369,7 @@ export default function QuickAddModal({
                 >
                   <span>Favorites</span>
                   {!hasInStockFavoritesScents && (
-                    <>
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
-                      </div>
-                      <span className="text-xs mt-1 text-rose-600">Out of stock</span>
-                    </>
+                    <span className="text-xs mt-1 text-rose-600">Out of stock</span>
                   )}
                 </button>
                 {hasSeasonalScents && (
@@ -414,12 +399,7 @@ export default function QuickAddModal({
                   >
                     <span>Seasonal</span>
                     {!hasInStockSeasonalScents && (
-                      <>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
-                        </div>
-                        <span className="text-xs mt-1 text-rose-600">Out of stock</span>
-                      </>
+                      <span className="text-xs mt-1 text-rose-600">Out of stock</span>
                     )}
                   </button>
                 )}
@@ -450,12 +430,7 @@ export default function QuickAddModal({
                   >
                     <span>Limited</span>
                     {!hasInStockLimitedScents && (
-                      <>
-                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                          <div className="w-2/5 h-0.5 bg-rose-500 transform rotate-[-25deg]"></div>
-                        </div>
-                        <span className="text-xs mt-1 text-rose-600">Out of stock</span>
-                      </>
+                      <span className="text-xs mt-1 text-rose-600">Out of stock</span>
                     )}
                   </button>
                 )}

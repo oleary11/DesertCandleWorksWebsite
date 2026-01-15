@@ -9,6 +9,7 @@ type PriceTestResult = {
   productName: string;
   productSlug: string;
   stripePriceId: string;
+  websitePriceCents: number;
   isValid: boolean;
   error?: string;
   priceDetails?: {
@@ -46,11 +47,15 @@ export async function GET(req: NextRequest) {
     const results: PriceTestResult[] = [];
 
     for (const product of products) {
+      // Calculate website price in cents
+      const websitePriceCents = Math.round(product.price * 100);
+
       if (!product.stripePriceId) {
         results.push({
           productName: product.name,
           productSlug: product.slug,
           stripePriceId: "MISSING",
+          websitePriceCents,
           isValid: false,
           error: "No Stripe Price ID configured",
         });
@@ -63,6 +68,7 @@ export async function GET(req: NextRequest) {
           productName: product.name,
           productSlug: product.slug,
           stripePriceId: product.stripePriceId,
+          websitePriceCents,
           isValid: true,
           priceDetails: {
             currency: price.currency,
@@ -77,6 +83,7 @@ export async function GET(req: NextRequest) {
           productName: product.name,
           productSlug: product.slug,
           stripePriceId: product.stripePriceId,
+          websitePriceCents,
           isValid: false,
           error: errorMessage,
         });

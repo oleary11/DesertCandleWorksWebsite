@@ -7,6 +7,7 @@ type PriceTestResult = {
   productName: string;
   productSlug: string;
   stripePriceId: string;
+  websitePriceCents: number;
   isValid: boolean;
   error?: string;
   priceDetails?: {
@@ -141,56 +142,79 @@ export default function StripePriceDiagnosticsPage() {
               <tr className="border-b border-[var(--color-line)] bg-neutral-50">
                 <th className="text-left p-4 font-semibold text-sm">Product</th>
                 <th className="text-left p-4 font-semibold text-sm">Price ID</th>
+                <th className="text-left p-4 font-semibold text-sm">Website Price</th>
+                <th className="text-left p-4 font-semibold text-sm">Stripe Price</th>
                 <th className="text-left p-4 font-semibold text-sm">Status</th>
-                <th className="text-left p-4 font-semibold text-sm">Details</th>
               </tr>
             </thead>
             <tbody>
-              {data.results.map((result, index) => (
-                <tr
-                  key={`${result.productSlug}-${index}`}
-                  className="border-b border-[var(--color-line)] hover:bg-neutral-50"
-                >
-                  <td className="p-4">
-                    <div>
-                      <p className="font-medium">{result.productName}</p>
-                      <p className="text-xs text-[var(--color-muted)]">{result.productSlug}</p>
-                    </div>
-                  </td>
-                  <td className="p-4">
-                    <code className="text-xs bg-neutral-100 px-2 py-1 rounded">
-                      {result.stripePriceId}
-                    </code>
-                  </td>
-                  <td className="p-4">
-                    {result.isValid ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-100 px-2 py-1 rounded">
-                        ✓ Valid
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-100 px-2 py-1 rounded">
-                        ✗ Invalid
-                      </span>
-                    )}
-                  </td>
-                  <td className="p-4">
-                    {result.isValid && result.priceDetails ? (
-                      <div className="text-sm">
-                        <p className="text-[var(--color-muted)]">
-                          {result.priceDetails.currency.toUpperCase()} ${(result.priceDetails.unitAmount / 100).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-[var(--color-muted)]">
-                          {result.priceDetails.active ? "Active" : "Inactive"}
-                        </p>
+              {data.results.map((result, index) => {
+                const pricesMatch = result.isValid && result.priceDetails
+                  ? result.websitePriceCents === result.priceDetails.unitAmount
+                  : false;
+
+                return (
+                  <tr
+                    key={`${result.productSlug}-${index}`}
+                    className="border-b border-[var(--color-line)] hover:bg-neutral-50"
+                  >
+                    <td className="p-4">
+                      <div>
+                        <p className="font-medium">{result.productName}</p>
+                        <p className="text-xs text-[var(--color-muted)]">{result.productSlug}</p>
                       </div>
-                    ) : result.error ? (
-                      <p className="text-xs text-rose-600">{result.error}</p>
-                    ) : (
-                      <p className="text-xs text-[var(--color-muted)]">-</p>
-                    )}
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="p-4">
+                      <code className="text-xs bg-neutral-100 px-2 py-1 rounded">
+                        {result.stripePriceId}
+                      </code>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-sm font-medium">
+                        ${(result.websitePriceCents / 100).toFixed(2)}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      {result.isValid && result.priceDetails ? (
+                        <span className={`text-sm font-medium ${pricesMatch ? "" : "text-rose-600"}`}>
+                          ${(result.priceDetails.unitAmount / 100).toFixed(2)}
+                          {!pricesMatch && (
+                            <span className="ml-2 text-xs bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded">
+                              MISMATCH
+                            </span>
+                          )}
+                        </span>
+                      ) : result.error ? (
+                        <p className="text-xs text-rose-600">{result.error}</p>
+                      ) : (
+                        <p className="text-xs text-[var(--color-muted)]">-</p>
+                      )}
+                    </td>
+                    <td className="p-4">
+                      {result.isValid ? (
+                        <div>
+                          <span className={`inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded ${
+                            pricesMatch
+                              ? "text-green-700 bg-green-100"
+                              : "text-amber-700 bg-amber-100"
+                          }`}>
+                            {pricesMatch ? "✓ Valid" : "⚠ Price Mismatch"}
+                          </span>
+                          {result.priceDetails && (
+                            <p className="text-xs text-[var(--color-muted)] mt-1">
+                              {result.priceDetails.active ? "Active" : "Inactive"}
+                            </p>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-700 bg-rose-100 px-2 py-1 rounded">
+                          ✗ Invalid
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
