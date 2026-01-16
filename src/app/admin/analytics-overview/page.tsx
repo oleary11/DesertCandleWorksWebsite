@@ -147,15 +147,18 @@ export default function UnifiedAnalyticsPage() {
     }
   }
 
-  async function loadAnalytics() {
+  async function loadAnalytics(overrideStartDate?: string, overrideEndDate?: string) {
     try {
       setLoading(true);
 
       let salesUrl = "/api/admin/analytics";
       let purchasesUrl = "/api/admin/purchases/analytics";
 
-      if (startDate && endDate) {
-        const params = `?startDate=${startDate}&endDate=${endDate}`;
+      const effectiveStartDate = overrideStartDate ?? startDate;
+      const effectiveEndDate = overrideEndDate ?? endDate;
+
+      if (effectiveStartDate && effectiveEndDate) {
+        const params = `?startDate=${effectiveStartDate}&endDate=${effectiveEndDate}`;
         salesUrl += params;
         purchasesUrl += params;
       }
@@ -492,7 +495,7 @@ export default function UnifiedAnalyticsPage() {
                   if (customStartDate && customEndDate) {
                     setStartDate(customStartDate);
                     setEndDate(customEndDate);
-                    loadAnalytics();
+                    loadAnalytics(customStartDate, customEndDate);
                   }
                 }}
                 disabled={!customStartDate || !customEndDate}

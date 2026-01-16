@@ -220,17 +220,20 @@ export default function AdminAnalyticsPage() {
     }
   }
 
-  async function loadAnalytics() {
+  async function loadAnalytics(overrideStartDate?: string, overrideEndDate?: string) {
     try {
       setLoading(true);
       let url = "/api/admin/analytics";
       const params = new URLSearchParams();
 
-      console.log("[Analytics] Loading with dates:", { startDate, endDate, showComparison, datePreset });
+      const effectiveStartDate = overrideStartDate ?? startDate;
+      const effectiveEndDate = overrideEndDate ?? endDate;
 
-      if (startDate && endDate) {
-        params.append("startDate", startDate);
-        params.append("endDate", endDate);
+      console.log("[Analytics] Loading with dates:", { effectiveStartDate, effectiveEndDate, showComparison, datePreset });
+
+      if (effectiveStartDate && effectiveEndDate) {
+        params.append("startDate", effectiveStartDate);
+        params.append("endDate", effectiveEndDate);
 
         if (showComparison) {
           const compRange = getComparisonRange(datePreset);
@@ -399,7 +402,7 @@ export default function AdminAnalyticsPage() {
                   if (customStartDate && customEndDate) {
                     setStartDate(customStartDate);
                     setEndDate(customEndDate);
-                    loadAnalytics();
+                    loadAnalytics(customStartDate, customEndDate);
                   }
                 }}
                 disabled={!customStartDate || !customEndDate}
