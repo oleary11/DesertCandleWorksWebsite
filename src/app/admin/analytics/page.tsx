@@ -92,10 +92,15 @@ export default function AdminAnalyticsPage() {
   const [datePreset, setDatePreset] = useState<DatePreset>("allTime");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
   const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
-    loadAnalytics();
+    // Only auto-load for non-custom presets
+    if (datePreset !== "custom") {
+      loadAnalytics();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [startDate, endDate, showComparison]);
 
@@ -369,25 +374,38 @@ export default function AdminAnalyticsPage() {
 
           {/* Custom Date Pickers */}
           {datePreset === "custom" && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div className="flex flex-wrap items-end gap-4 mb-4">
               <div>
                 <label className="block text-sm font-medium mb-1">Start Date</label>
                 <input
                   type="date"
-                  className="input w-full"
-                  value={startDate}
-                  onChange={(e) => setStartDate(e.target.value)}
+                  className="input"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">End Date</label>
                 <input
                   type="date"
-                  className="input w-full"
-                  value={endDate}
-                  onChange={(e) => setEndDate(e.target.value)}
+                  className="input"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
                 />
               </div>
+              <button
+                className="btn bg-[var(--color-accent)] text-white px-6"
+                onClick={() => {
+                  if (customStartDate && customEndDate) {
+                    setStartDate(customStartDate);
+                    setEndDate(customEndDate);
+                    loadAnalytics();
+                  }
+                }}
+                disabled={!customStartDate || !customEndDate}
+              >
+                Go
+              </button>
             </div>
           )}
 

@@ -9,6 +9,7 @@ import {
   TrendingDown,
   Receipt,
   PieChart,
+  Calendar,
 } from "lucide-react";
 
 type SalesAnalytics = {
@@ -38,12 +39,21 @@ type MonthlyData = {
   profit: number;
 };
 
+type DatePreset = "today" | "week" | "month" | "lastMonth" | "ytd" | "allTime" | "custom";
+
 export default function UnifiedAnalyticsPage() {
   const [salesData, setSalesData] = useState<SalesAnalytics | null>(null);
   const [purchaseData, setPurchaseData] = useState<PurchaseAnalytics | null>(
     null
   );
   const [loading, setLoading] = useState(true);
+
+  // Date filtering state
+  const [datePreset, setDatePreset] = useState<DatePreset>("allTime");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
 
   // Federal "set-aside"/estimated payment rate (you can tweak via dropdown)
   const [fedRate, setFedRate] = useState(0.25);
@@ -66,15 +76,93 @@ export default function UnifiedAnalyticsPage() {
   }, []);
 
   useEffect(() => {
+    // Auto-load when date range changes (for non-custom presets)
+    if (datePreset !== "custom" && (startDate || endDate || datePreset === "allTime")) {
+      loadAnalytics();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
+
+  useEffect(() => {
     loadTaxPeriodAnalytics();
   }, [taxYear, taxPeriod]);
+
+  // Helper function for date calculations
+  function getDateRange(preset: DatePreset): { start: string; end: string } | null {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+    switch (preset) {
+      case "today":
+        return {
+          start: today.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      case "week": {
+        const weekStart = new Date(today);
+        weekStart.setDate(today.getDate() - today.getDay()); // Sunday
+        return {
+          start: weekStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "month": {
+        const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+        return {
+          start: monthStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "lastMonth": {
+        const lastMonthStart = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+        const lastMonthEnd = new Date(today.getFullYear(), today.getMonth(), 0);
+        return {
+          start: lastMonthStart.toISOString().split("T")[0],
+          end: lastMonthEnd.toISOString().split("T")[0],
+        };
+      }
+      case "ytd": {
+        const yearStart = new Date(today.getFullYear(), 0, 1);
+        return {
+          start: yearStart.toISOString().split("T")[0],
+          end: today.toISOString().split("T")[0],
+        };
+      }
+      case "allTime":
+        return null;
+      case "custom":
+        return null;
+    }
+  }
+
+  function handlePresetChange(preset: DatePreset) {
+    setDatePreset(preset);
+    const range = getDateRange(preset);
+    if (range) {
+      setStartDate(range.start);
+      setEndDate(range.end);
+    } else if (preset === "allTime") {
+      setStartDate("");
+      setEndDate("");
+    }
+  }
 
   async function loadAnalytics() {
     try {
       setLoading(true);
+
+      let salesUrl = "/api/admin/analytics";
+      let purchasesUrl = "/api/admin/purchases/analytics";
+
+      if (startDate && endDate) {
+        const params = `?startDate=${startDate}&endDate=${endDate}`;
+        salesUrl += params;
+        purchasesUrl += params;
+      }
+
       const [salesRes, purchasesRes] = await Promise.all([
-        fetch("/api/admin/analytics"),
-        fetch("/api/admin/purchases/analytics"),
+        fetch(salesUrl),
+        fetch(purchasesUrl),
       ]);
 
       if (salesRes.ok && purchasesRes.ok) {
@@ -322,6 +410,97 @@ export default function UnifiedAnalyticsPage() {
               </Link>
             </div>
           </div>
+        </div>
+
+        {/* Date Range Controls */}
+        <div className="card p-6 bg-white mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-5 h-5 text-[var(--color-muted)]" />
+            <h2 className="text-lg font-semibold">Date Range</h2>
+          </div>
+
+          {/* Preset Buttons */}
+          <div className="flex flex-wrap gap-2 mb-4">
+            <button
+              className={`btn ${datePreset === "today" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("today")}
+            >
+              Today
+            </button>
+            <button
+              className={`btn ${datePreset === "week" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("week")}
+            >
+              This Week
+            </button>
+            <button
+              className={`btn ${datePreset === "month" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("month")}
+            >
+              This Month
+            </button>
+            <button
+              className={`btn ${datePreset === "lastMonth" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("lastMonth")}
+            >
+              Last Month
+            </button>
+            <button
+              className={`btn ${datePreset === "ytd" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("ytd")}
+            >
+              Year to Date
+            </button>
+            <button
+              className={`btn ${datePreset === "allTime" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => handlePresetChange("allTime")}
+            >
+              All Time
+            </button>
+            <button
+              className={`btn ${datePreset === "custom" ? "bg-[var(--color-accent)] text-white" : ""}`}
+              onClick={() => setDatePreset("custom")}
+            >
+              Custom Range
+            </button>
+          </div>
+
+          {/* Custom Date Pickers */}
+          {datePreset === "custom" && (
+            <div className="flex flex-wrap items-end gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Start Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={customStartDate}
+                  onChange={(e) => setCustomStartDate(e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">End Date</label>
+                <input
+                  type="date"
+                  className="input"
+                  value={customEndDate}
+                  onChange={(e) => setCustomEndDate(e.target.value)}
+                />
+              </div>
+              <button
+                className="btn bg-[var(--color-accent)] text-white px-6"
+                onClick={() => {
+                  if (customStartDate && customEndDate) {
+                    setStartDate(customStartDate);
+                    setEndDate(customEndDate);
+                    loadAnalytics();
+                  }
+                }}
+                disabled={!customStartDate || !customEndDate}
+              >
+                Go
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Top-Level Summary */}
