@@ -2355,17 +2355,29 @@ export default function CalculatorPage() {
                         const updatedVariantConfig =
                           product.variantConfig || { wickTypes: [], variantData: {} };
 
-                        const existingWickIds = new Set(
-                          updatedVariantConfig.wickTypes.map((w) => w.id)
+                        // Check by display NAME, not ID - different wicks can have same display name
+                        const existingWickNames = new Map(
+                          updatedVariantConfig.wickTypes.map((w) => [w.name.toLowerCase(), w])
                         );
+
+                        // Map new wick IDs to existing wick IDs if display name matches
+                        const wickIdMapping = new Map<string, string>();
                         uniqueWickTypes.forEach((wick) => {
-                          if (!existingWickIds.has(wick.id)) {
+                          const existingWick = existingWickNames.get(wick.name.toLowerCase());
+                          if (existingWick) {
+                            // Use the existing wick's ID for variant data
+                            wickIdMapping.set(wick.id, existingWick.id);
+                          } else {
+                            // New wick type, add it
                             updatedVariantConfig.wickTypes.push({ id: wick.id, name: wick.name });
+                            wickIdMapping.set(wick.id, wick.id);
                           }
                         });
 
                         uniqueWickTypes.forEach((wickType) => {
-                          const variantId = `${wickType.id}-${selectedScentId}`;
+                          // Use mapped ID (existing wick ID if name matched, otherwise original)
+                          const effectiveWickId = wickIdMapping.get(wickType.id) || wickType.id;
+                          const variantId = `${effectiveWickId}-${selectedScentId}`;
                           if (updatedVariantConfig.variantData[variantId]) {
                             updatedVariantConfig.variantData[variantId].stock += wickType.count;
                           } else {
@@ -2546,19 +2558,30 @@ export default function CalculatorPage() {
                   const updatedVariantConfig =
                     product.variantConfig || { wickTypes: [], variantData: {} };
 
-                  // Add wick types if they don't exist
-                  const existingWickIds = new Set(
-                    updatedVariantConfig.wickTypes.map((w) => w.id)
+                  // Check by display NAME, not ID - different wicks can have same display name
+                  const existingWickNames = new Map(
+                    updatedVariantConfig.wickTypes.map((w) => [w.name.toLowerCase(), w])
                   );
+
+                  // Map new wick IDs to existing wick IDs if display name matches
+                  const wickIdMapping = new Map<string, string>();
                   uniqueWickTypes.forEach((wick) => {
-                    if (!existingWickIds.has(wick.id)) {
+                    const existingWick = existingWickNames.get(wick.name.toLowerCase());
+                    if (existingWick) {
+                      // Use the existing wick's ID for variant data
+                      wickIdMapping.set(wick.id, existingWick.id);
+                    } else {
+                      // New wick type, add it
                       updatedVariantConfig.wickTypes.push({ id: wick.id, name: wick.name });
+                      wickIdMapping.set(wick.id, wick.id);
                     }
                   });
 
                   // Add or update variant data WITH SIZE
                   uniqueWickTypes.forEach((wickType) => {
-                    const variantId = `${selectedSizeId}-${wickType.id}-${selectedScentId}`;
+                    // Use mapped ID (existing wick ID if name matched, otherwise original)
+                    const effectiveWickId = wickIdMapping.get(wickType.id) || wickType.id;
+                    const variantId = `${selectedSizeId}-${effectiveWickId}-${selectedScentId}`;
                     if (updatedVariantConfig.variantData[variantId]) {
                       updatedVariantConfig.variantData[variantId].stock += wickType.count;
                     } else {
