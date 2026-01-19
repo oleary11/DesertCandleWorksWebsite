@@ -719,6 +719,8 @@ export default function AdminProductsPage() {
       "Has Variants",
       "Wick Types",
       "Variant Stock Details",
+      "Weight (oz)",
+      "Photo URLs",
     ];
 
     const rows = filtered.map((p) => {
@@ -734,6 +736,12 @@ export default function AdminProductsPage() {
           .map((v) => `${v.wickName}/${v.scentName}: ${v.stock}`)
           .join("; ");
       }
+
+      // Get weight in ounces
+      const weightOz = p.weight ? (p.weight.units === "pounds" ? p.weight.value * 16 : p.weight.value).toString() : "";
+
+      // Get photo URLs (semicolon-separated for multiple)
+      const photoUrls = p.images && p.images.length > 0 ? p.images.join("; ") : (p.image || "");
 
       return [
         p.name,
@@ -753,6 +761,8 @@ export default function AdminProductsPage() {
         p.variantConfig ? "Yes" : "No",
         wickTypes,
         variantStockDetails,
+        weightOz,
+        photoUrls,
       ];
     });
 
