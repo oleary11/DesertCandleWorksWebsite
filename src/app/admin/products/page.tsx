@@ -6,6 +6,7 @@ import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
 import QRCode from "qrcode";
+import * as XLSX from "xlsx";
 
 /* ---------- Types ---------- */
 type AlcoholType = { id: string; name: string; sortOrder?: number };
@@ -781,6 +782,218 @@ export default function AdminProductsPage() {
     document.body.removeChild(link);
   }
 
+  /* ---------- TikTok Shop XLSX Export ---------- */
+
+  async function exportToTikTok() {
+    // Fetch the template file
+    const templateResponse = await fetch("/tiktok-template.xlsx");
+    if (!templateResponse.ok) {
+      alert("Failed to load TikTok template. Make sure tiktok-template.xlsx is in the public folder.");
+      return;
+    }
+    const templateBuffer = await templateResponse.arrayBuffer();
+    const workbook = XLSX.read(templateBuffer, { type: "array" });
+    const sheet = workbook.Sheets["Template"];
+
+    if (!sheet) {
+      alert("Template sheet not found in workbook");
+      return;
+    }
+
+    // Validate headers in row 1 are intact
+    const expectedHeaders: Record<string, string> = {
+      A1: "category",
+      B1: "brand",
+      C1: "product_name",
+      D1: "product_description",
+      E1: "main_image",
+      P1: "property_name_1",
+      Q1: "property_value_1",
+      AA1: "property_name_2",
+      AB1: "property_value_2",
+      AC1: "parcel_weight",
+      AH1: "price",
+      AJ1: "quantity",
+      AK1: "seller_sku",
+    };
+
+    for (const [cell, expected] of Object.entries(expectedHeaders)) {
+      const actual = sheet[cell]?.v;
+      if (actual !== expected) {
+        alert(`Template validation failed: ${cell} should be "${expected}" but found "${actual}"`);
+        return;
+      }
+    }
+
+    // Helper: sanitize string for SKU
+    const sanitize = (str: string): string => {
+      return str
+        .toLowerCase()
+        .replace(/[\s/]+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+    };
+
+    // Generate rows - start at row 7 (index 6)
+    let currentRow = 6; // 0-indexed, so row 7
+
+    for (const product of filtered) {
+      // Get wicks from variantConfig or default
+      const wicks: string[] =
+        product.variantConfig?.wickTypes && product.variantConfig.wickTypes.length > 0
+          ? product.variantConfig.wickTypes.map((w) => w.name)
+          : ["Standard Wick"];
+
+      // Get scents from variantData keys - extract unique scent IDs and look up names
+      const scents: string[] = [];
+      if (product.variantConfig?.variantData) {
+        const scentIds = new Set<string>();
+        for (const key of Object.keys(product.variantConfig.variantData)) {
+          // Key format is "wickId-scentId" or "sizeId-wickId-scentId"
+          const parts = key.split("-");
+          const scentId = parts[parts.length - 1]; // Last part is always scent
+          if (scentId) scentIds.add(scentId);
+        }
+        // Look up scent names from globalScents
+        for (const scentId of scentIds) {
+          const scent = globalScents.find((s) => s.id === scentId);
+          if (scent) scents.push(scent.name);
+        }
+      }
+
+      // If no scents, use empty string array (still generates rows for each wick)
+      const effectiveScents = scents.length > 0 ? scents : [""];
+
+      // Photo URLs
+      const photoUrls = product.images && product.images.length > 0 ? product.images : product.image ? [product.image] : [];
+
+      // Weight in pounds (convert from oz or default to 2.29)
+      const weightLb = product.weight
+        ? product.weight.units === "pounds"
+          ? product.weight.value
+          : Math.round((product.weight.value / 16) * 100) / 100
+        : 2.29;
+
+      // SKU base
+      const skuBase = product.sku || sanitize(product.name);
+
+      // Calculate total combinations for quantity distribution
+      const comboCount = wicks.length * effectiveScents.length;
+
+      // Build variant stock lookup if available
+      const variantStock: Record<string, number> = {};
+      if (product.variantConfig?.variantData) {
+        // Map variantData keys to "wickName|scentName" format
+        for (const [key, data] of Object.entries(product.variantConfig.variantData)) {
+          const parts = key.split("-");
+          const scentId = parts[parts.length - 1];
+          const wickId = parts.length === 2 ? parts[0] : parts[1]; // Handle both "wick-scent" and "size-wick-scent"
+
+          const wickType = product.variantConfig.wickTypes.find((w) => w.id === wickId);
+          const scent = globalScents.find((s) => s.id === scentId);
+
+          if (wickType && scent) {
+            variantStock[`${wickType.name}|${scent.name}`] = data.stock;
+          } else if (wickType && !scentId) {
+            variantStock[`${wickType.name}|`] = data.stock;
+          }
+        }
+      }
+
+      // Calculate quantity distribution if no variant stock
+      const totalStock = getTotalStock(product);
+      const baseQty = Math.floor(totalStock / comboCount);
+      const remainder = totalStock - baseQty * comboCount;
+      let comboIndex = 0;
+
+      // Generate one row per wick × scent combination
+      for (const wick of wicks) {
+        for (const scent of effectiveScents) {
+          // Determine quantity
+          let qty: number;
+          const stockKey = `${wick}|${scent}`;
+          if (variantStock[stockKey] !== undefined) {
+            qty = variantStock[stockKey];
+          } else {
+            // Distribute evenly, first <remainder> rows get +1
+            qty = baseQty + (comboIndex < remainder ? 1 : 0);
+          }
+          comboIndex++;
+
+          // Generate SKU suffix
+          const suffix = scent ? `${sanitize(wick)}-${sanitize(scent)}` : sanitize(wick);
+          const sellerSku = `${skuBase}-${suffix}`;
+
+          // Write to cells (0-indexed columns)
+          // A (0): category
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 0 })] = { t: "s", v: "Home Decor/Candles" };
+          // B (1): brand
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 1 })] = { t: "s", v: "Desert Candle Works" };
+          // C (2): product_name
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 2 })] = { t: "s", v: product.name };
+          // D (3): product_description
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 3 })] = { t: "s", v: product.seoDescription || product.name };
+          // E (4): main_image
+          if (photoUrls[0]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 4 })] = { t: "s", v: photoUrls[0] };
+          // F (5): image_2
+          if (photoUrls[1]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 5 })] = { t: "s", v: photoUrls[1] };
+          // G (6): image_3
+          if (photoUrls[2]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 6 })] = { t: "s", v: photoUrls[2] };
+
+          // P (15): property_name_1 - Wick Type
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 15 })] = { t: "s", v: "Wick Type" };
+          // Q (16): property_value_1 - wick value
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 16 })] = { t: "s", v: wick };
+
+          // AA (26): property_name_2 - Scent
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 26 })] = { t: "s", v: "Scent" };
+          // AB (27): property_value_2 - scent value (can be empty)
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 27 })] = { t: "s", v: scent };
+
+          // AC (28): parcel_weight (lb)
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 28 })] = { t: "n", v: weightLb };
+          // AD (29): parcel_length
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 29 })] = { t: "n", v: 10 };
+          // AE (30): parcel_width
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 30 })] = { t: "n", v: 7 };
+          // AF (31): parcel_height
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 31 })] = { t: "n", v: 5 };
+
+          // AH (33): price
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 33 })] = { t: "n", v: product.price };
+          // AJ (35): quantity
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 35 })] = { t: "n", v: qty };
+          // AK (36): seller_sku
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 36 })] = { t: "s", v: sellerSku };
+
+          // AY (50): product_property/101395 - Prop 65 "No"
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 50 })] = { t: "s", v: "No" };
+          // BA (52): product_property/101400 - Prop 65 "No"
+          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 52 })] = { t: "s", v: "No" };
+
+          currentRow++;
+        }
+      }
+    }
+
+    // Update sheet range to include new rows
+    const maxCol = 55; // BD column
+    sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: currentRow - 1, c: maxCol } });
+
+    // Generate and download the file
+    const outputBuffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+    const blob = new Blob([outputBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `tiktok-shop-export-${new Date().toISOString().split("T")[0]}.xlsx`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
   /* ---------- Drafting & Publishing ---------- */
 
   // Stage (no network): create/replace a draft for slug
@@ -1138,6 +1351,13 @@ export default function AdminProductsPage() {
             disabled={filtered.length === 0}
           >
             Export to CSV ({filtered.length})
+          </button>
+          <button
+            className="btn bg-pink-600 text-white hover:bg-pink-700 w-full sm:w-auto"
+            onClick={exportToTikTok}
+            disabled={filtered.length === 0}
+          >
+            TikTok Shop Export ({filtered.length})
           </button>
           <Link
             href="/admin/stripe-product-sync"
