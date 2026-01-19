@@ -15,13 +15,19 @@ async function reconcileDuplicates() {
   console.log('='.repeat(80));
   console.log('SQUARE DUPLICATE ORDER RECONCILIATION');
   console.log('='.repeat(80));
-  console.log('\nSearching for duplicate orders from 1/10/2026...\n');
 
-  // Get all orders from 1/10/2026
-  const today = new Date('2026-01-10');
-  const allOrders = await db.select().from(orders).where(gte(orders.createdAt, today)).orderBy(desc(orders.createdAt));
+  // Get date from command line arg or use today
+  const dateArg = process.argv[2];
+  const checkDate = dateArg ? new Date(dateArg) : new Date();
+  // Set to start of day
+  checkDate.setHours(0, 0, 0, 0);
 
-  console.log(`Total orders from 1/10/2026: ${allOrders.length}\n`);
+  const dateStr = checkDate.toISOString().split('T')[0];
+  console.log(`\nSearching for duplicate orders since ${dateStr}...\n`);
+
+  const allOrders = await db.select().from(orders).where(gte(orders.createdAt, checkDate)).orderBy(desc(orders.createdAt));
+
+  console.log(`Total orders since ${dateStr}: ${allOrders.length}\n`);
 
   // Group by Square payment ID
   const squarePaymentGroups: Record<string, any[]> = {};
@@ -84,17 +90,17 @@ async function reconcileDuplicates() {
   console.log('  3. Stock restoration NOT needed (all items were already at 0)');
   console.log('\nProceed with reconciliation? (yes/no): ');
 
-  // For automated execution, set AUTO_CONFIRM=true
-  const autoConfirm = process.env.AUTO_CONFIRM === 'true';
+  // For automated execution, pass --confirm flag
+  const autoConfirm = process.argv.includes('--confirm');
 
   if (!autoConfirm) {
-    console.log('\n❌ Skipping reconciliation (set AUTO_CONFIRM=true to execute)');
+    console.log('\n❌ Skipping reconciliation (pass --confirm flag to execute)');
     console.log('\nTo execute this reconciliation, run:');
-    console.log('  AUTO_CONFIRM=true npx tsx reconcile-square-duplicates.ts\n');
+    console.log('  npx tsx reconcile-square-duplicates.ts 2026-01-17 --confirm\n');
     return;
   }
 
-  console.log('\n✅ AUTO_CONFIRM=true, proceeding with reconciliation...\n');
+  console.log('\n✅ --confirm flag passed, proceeding with reconciliation...\n');
 
   // Execute reconciliation
   console.log('Step 1: Deleting duplicate order items...');

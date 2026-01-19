@@ -125,9 +125,11 @@ export async function POST(req: NextRequest) {
     const taxCents = session.total_details?.amount_tax || 0;
 
     // Extract shipping address from Stripe session
-    // TypeScript doesn't include shipping in the type, but it exists at runtime when shipping is collected
-    interface SessionWithShipping {
-      shipping?: {
+    // Stripe uses "shipping_details" field when shipping is collected via shipping_address_collection
+    // We also check session metadata where we store pre-validated addresses
+    // TypeScript types don't include shipping_details, so we use a type assertion
+    interface SessionWithShippingDetails {
+      shipping_details?: {
         name?: string;
         address?: {
           line1?: string;
@@ -139,16 +141,48 @@ export async function POST(req: NextRequest) {
         };
       };
     }
-    const sessionWithShipping = session as Stripe.Checkout.Session & SessionWithShipping;
-    const shippingAddress = sessionWithShipping.shipping?.address ? {
-      name: sessionWithShipping.shipping.name || undefined,
-      line1: sessionWithShipping.shipping.address.line1 || undefined,
-      line2: sessionWithShipping.shipping.address.line2 || undefined,
-      city: sessionWithShipping.shipping.address.city || undefined,
-      state: sessionWithShipping.shipping.address.state || undefined,
-      postalCode: sessionWithShipping.shipping.address.postal_code || undefined,
-      country: sessionWithShipping.shipping.address.country || undefined,
-    } : undefined;
+    const sessionWithShipping = session as Stripe.Checkout.Session & SessionWithShippingDetails;
+
+    let shippingAddress: {
+      name?: string;
+      line1?: string;
+      line2?: string;
+      city?: string;
+      state?: string;
+      postalCode?: string;
+      country?: string;
+    } | undefined;
+
+    // First, try to get from Stripe's shipping_details (used when Stripe collects the address)
+    if (sessionWithShipping.shipping_details?.address) {
+      shippingAddress = {
+        name: sessionWithShipping.shipping_details.name || undefined,
+        line1: sessionWithShipping.shipping_details.address.line1 || undefined,
+        line2: sessionWithShipping.shipping_details.address.line2 || undefined,
+        city: sessionWithShipping.shipping_details.address.city || undefined,
+        state: sessionWithShipping.shipping_details.address.state || undefined,
+        postalCode: sessionWithShipping.shipping_details.address.postal_code || undefined,
+        country: sessionWithShipping.shipping_details.address.country || undefined,
+      };
+      console.log(`[Webhook] Shipping address from Stripe shipping_details: ${shippingAddress.city}, ${shippingAddress.state}`);
+    }
+    // Fallback: Check session metadata (used when we pre-validate the address)
+    else if (session.metadata?.shipping_line1) {
+      shippingAddress = {
+        name: session.metadata.shipping_name || undefined,
+        line1: session.metadata.shipping_line1,
+        line2: session.metadata.shipping_line2 || undefined,
+        city: session.metadata.shipping_city || undefined,
+        state: session.metadata.shipping_state || undefined,
+        postalCode: session.metadata.shipping_zip || undefined,
+        country: session.metadata.shipping_country || undefined,
+      };
+      console.log(`[Webhook] Shipping address from session metadata: ${shippingAddress.city}, ${shippingAddress.state}`);
+    }
+    // Log warning if no shipping address found
+    else {
+      console.warn(`[Webhook] No shipping address found in session ${session.id}`);
+    }
 
     // Extract phone number
     const phone = session.customer_details?.phone || undefined;

@@ -3,11 +3,16 @@ import { orders, orderItems } from './src/lib/db/schema';
 import { desc, gte, sql } from 'drizzle-orm';
 
 async function checkDuplicates() {
-  // Get all orders from 1/10/2026
-  const today = new Date('2026-01-10');
-  const results = await db.select().from(orders).where(gte(orders.createdAt, today)).orderBy(desc(orders.createdAt));
+  // Get date from command line arg or use today
+  const dateArg = process.argv[2];
+  const checkDate = dateArg ? new Date(dateArg) : new Date();
+  // Set to start of day
+  checkDate.setHours(0, 0, 0, 0);
 
-  console.log(`\nTotal orders from 1/10/2026: ${results.length}\n`);
+  const dateStr = checkDate.toISOString().split('T')[0];
+  const results = await db.select().from(orders).where(gte(orders.createdAt, checkDate)).orderBy(desc(orders.createdAt));
+
+  console.log(`\nTotal orders since ${dateStr}: ${results.length}\n`);
 
   // Group by Square payment ID to find duplicates
   const squarePaymentGroups: Record<string, any[]> = {};

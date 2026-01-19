@@ -94,12 +94,19 @@ export async function POST(req: NextRequest) {
 
   // CRITICAL: Idempotency check - prevent duplicate order creation
   // Square webhooks can be sent multiple times for the same event (retries, network issues, etc.)
-  // We use Redis to track processed event IDs to ensure each event is only processed once
+  // We use Redis with atomic SETNX to ensure each event is only processed once
   const { kv } = await import("@vercel/kv");
   const eventKey = `square:event:${event.event_id}`;
-  const eventProcessed = await kv.get(eventKey);
 
-  if (eventProcessed) {
+  // Use SETNX (set if not exists) - this is ATOMIC and prevents race conditions
+  // When multiple webhooks arrive simultaneously, only one will succeed in setting the key
+  // Returns 1 if key was set (first request), 0 if key already existed (duplicate)
+  const lockAcquired = await kv.setnx(eventKey, JSON.stringify({
+    processedAt: new Date().toISOString(),
+    eventType: event.type
+  }));
+
+  if (!lockAcquired) {
     console.log(`[Square Webhook] Event ${event.event_id} already processed - skipping duplicate`);
     return NextResponse.json({
       received: true,
@@ -108,12 +115,9 @@ export async function POST(req: NextRequest) {
     }, { status: 200 });
   }
 
-  // Mark event as being processed (set with 7-day TTL)
-  // We set it BEFORE processing to prevent race conditions if multiple webhooks arrive simultaneously
-  await kv.setex(eventKey, 7 * 24 * 60 * 60, {
-    processedAt: new Date().toISOString(),
-    eventType: event.type
-  });
+  // Set expiration on the key (7-day TTL) after successful lock acquisition
+  // This ensures old event IDs are cleaned up after a week
+  await kv.expire(eventKey, 7 * 24 * 60 * 60);
 
   // Handle payment completed event
   if (event.type === "payment.updated") {

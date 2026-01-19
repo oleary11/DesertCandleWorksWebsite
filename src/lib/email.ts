@@ -259,7 +259,7 @@ export async function sendOrderInvoiceEmail(orderId: string, customEmail?: strin
 
             <p style="margin: 20px 0;">
               <strong>Order #${orderId}</strong><br>
-              <span style="color: #666; font-size: 14px;">${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              <span style="color: #666; font-size: 14px;">${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' })}</span>
             </p>
 
             <table>
@@ -350,7 +350,7 @@ Desert Candle Works - Order Confirmation
 Thank you for your order!
 
 Order #${orderId}
-Date: ${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
+Date: ${new Date(order.createdAt).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', timeZone: 'America/Phoenix' })}
 
 ORDER ITEMS:
 ${itemsText}

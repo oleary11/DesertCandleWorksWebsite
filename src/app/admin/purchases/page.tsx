@@ -43,6 +43,7 @@ const CATEGORIES = [
   "scents",
   "labels",
   "packaging",
+  "shipping",
   "equipment",
   "other",
 ];
