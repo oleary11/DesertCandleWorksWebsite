@@ -85,7 +85,7 @@ export default async function GoogleReviews({ maxReviews = 3 }: GoogleReviewsPro
           <h2 className="text-lg font-semibold">Customer Reviews</h2>
         </div>
         <a
-          href="https://g.page/r/CbBJ_sYgfLgAEBM/review"
+          href="https://g.page/r/CQcLSwY5Vml0EBM/review"
           target="_blank"
           rel="noopener noreferrer"
           className="text-sm text-[var(--color-accent)] hover:underline flex items-center gap-1"
