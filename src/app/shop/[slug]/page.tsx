@@ -11,6 +11,7 @@ import RecentlyViewed from "@/components/RecentlyViewed";
 import ProductPageTracker from "@/components/ProductPageTracker";
 import ShareButtons from "@/components/ShareButtons";
 import ProductImageGallery from "./ProductImageGallery";
+import GoogleReviews from "@/components/GoogleReviews";
 
 // Cache product pages for 1 minute in production
 export const revalidate = 60;
@@ -99,9 +100,13 @@ export default async function ProductPage({ params }: Props) {
 
   const productImages = getAllImages(p);
 
+  // Calculate price valid date (1 year from now)
+  const priceValidUntil = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Product",
+    "@id": `${base}/shop/${p.slug}#product`,
     name: p.name,
     image: productImages.length > 0 ? productImages : [],
     description: p.seoDescription,
@@ -113,6 +118,8 @@ export default async function ProductPage({ params }: Props) {
       price: p.price,
       availability,
       url: `${base}/shop/${p.slug}`,
+      priceValidUntil,
+      itemCondition: "https://schema.org/NewCondition",
       seller: {
         "@type": "Organization",
         name: "Desert Candle Works",
@@ -121,6 +128,28 @@ export default async function ProductPage({ params }: Props) {
           addressLocality: "Scottsdale",
           addressRegion: "AZ",
           addressCountry: "US",
+        },
+      },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "US",
+        },
+        deliveryTime: {
+          "@type": "ShippingDeliveryTime",
+          handlingTime: {
+            "@type": "QuantitativeValue",
+            minValue: 1,
+            maxValue: 3,
+            unitCode: "d",
+          },
+          transitTime: {
+            "@type": "QuantitativeValue",
+            minValue: 3,
+            maxValue: 7,
+            unitCode: "d",
+          },
         },
       },
     },
@@ -136,6 +165,23 @@ export default async function ProductPage({ params }: Props) {
     },
     material: "Coconut apricot wax",
     category: "Home & Garden > Candles",
+    additionalProperty: [
+      {
+        "@type": "PropertyValue",
+        name: "Wax Type",
+        value: "100% Natural Coconut Apricot Wax",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Container",
+        value: "Upcycled Liquor Bottle",
+      },
+      {
+        "@type": "PropertyValue",
+        name: "Made In",
+        value: "Scottsdale, Arizona",
+      },
+    ],
   };
 
   return (
@@ -174,6 +220,11 @@ export default async function ProductPage({ params }: Props) {
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       </article>
+
+      {/* Google Reviews */}
+      <div className="mx-auto max-w-6xl px-6">
+        <GoogleReviews maxReviews={3} />
+      </div>
 
       {/* Product page tracker - tracks view in localStorage */}
       <ProductPageTracker product={p} />

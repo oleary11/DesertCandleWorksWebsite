@@ -23,12 +23,10 @@ function buildCookie(maxAge: number) {
   return {
     name: COOKIE_NAME,
     httpOnly: true,
-    secure: isProd,          // ✅ http dev (LAN/localhost) works; https prod stays secure
-    sameSite: "lax" as const, // ✅ avoid dev/login edge cases
+    secure: isProd,             // HTTPS in production, allow HTTP in development
+    sameSite: "strict" as const, // Strong CSRF protection for admin sessions
     path: "/",
     maxAge,
-    // ✅ do NOT set domain for LAN/IP dev
-    // domain: isProd ? ".desertcandleworks.com" : undefined,
   };
 }
 

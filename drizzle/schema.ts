@@ -1,5 +1,6 @@
 import { pgTable, foreignKey, varchar, uuid, boolean, integer, text, timestamp, uniqueIndex, bigserial, jsonb, unique, date, pgEnum } from "drizzle-orm/pg-core"
-import { sql } from "drizzle-orm"
+// sql import is needed for drizzle kit schema generation
+import "drizzle-orm"
 
 export const discountType = pgEnum("discount_type", ['percentage', 'fixed_amount'])
 export const orderStatus = pgEnum("order_status", ['pending', 'completed', 'cancelled'])

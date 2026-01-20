@@ -1,6 +1,5 @@
 // app/shop/page.tsx
 import { listResolvedProducts } from "@/lib/resolvedProducts";
-import { getTotalStockForProduct } from "@/lib/productsStore";
 import { getAllScents } from "@/lib/scents";
 import { getAlcoholTypes } from "@/lib/alcoholTypesStore";
 import type { Metadata } from "next";
@@ -118,8 +117,51 @@ export default async function ShopPage() {
     return { ...p, _computedStock: computedStock };
   });
 
+  const base = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+
+  // CollectionPage schema for better Google Shopping integration
+  const collectionSchema = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "@id": `${base}/shop#collection`,
+    name: "All-Natural Candles | Desert Candle Works Shop",
+    description: "Shop our collection of 100% natural coconut apricot wax candles in upcycled liquor bottles. Clean burning, smokeless, eco-friendly candles made in Scottsdale, Arizona.",
+    url: `${base}/shop`,
+    isPartOf: {
+      "@id": `${base}#website`,
+    },
+    about: {
+      "@type": "Thing",
+      name: "Natural Candles",
+    },
+    mainEntity: {
+      "@type": "ItemList",
+      numberOfItems: productsWithStock.length,
+      itemListElement: productsWithStock.slice(0, 10).map((product, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        item: {
+          "@type": "Product",
+          name: product.name,
+          url: `${base}/shop/${product.slug}`,
+          image: product.image || `${base}/images/placeholder.png`,
+          offers: {
+            "@type": "Offer",
+            priceCurrency: "USD",
+            price: product.price,
+            availability: product._computedStock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+          },
+        },
+      })),
+    },
+  };
+
   return (
     <section className="min-h-dvh">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionSchema) }}
+      />
       <ShopClient
         products={productsWithStock}
         globalScents={globalScents}

@@ -21,7 +21,8 @@ import {
   Undo2,
   Send,
   Truck,
-  Settings
+  Settings,
+  Star
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -138,6 +139,21 @@ export default function AdminHomePage() {
                 <h2 className="text-lg font-semibold mb-1">Scents</h2>
                 <p className="text-sm text-[var(--color-muted)]">
                   Manage global scent library and availability
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Google Reviews */}
+          <Link href="/admin/reviews" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-amber-100 flex items-center justify-center flex-shrink-0">
+                <Star className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Google Reviews</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Import and manage customer reviews
                 </p>
               </div>
             </div>

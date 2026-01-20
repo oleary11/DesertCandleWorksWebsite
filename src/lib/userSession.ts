@@ -7,6 +7,7 @@ import { eq, lt } from "drizzle-orm";
 
 const SESSION_COOKIE_NAME = "user_session";
 const SESSION_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
+const isProd = process.env.NODE_ENV === "production";
 
 export type UserSession = {
   userId: string;
@@ -33,8 +34,8 @@ export async function createUserSession(userId: string, email: string): Promise<
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: true, // Always use HTTPS
-    sameSite: "strict", // Upgrade from "lax" for better CSRF protection
+    secure: isProd, // HTTPS in production, allow HTTP in development
+    sameSite: "strict", // Strong CSRF protection
     maxAge: SESSION_TTL_SECONDS,
     path: "/",
   });

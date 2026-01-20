@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { X, ShoppingCart } from "lucide-react";
 import type { Product, ProductVariant } from "@/lib/productsStore";
 import type { GlobalScent } from "@/lib/scents";
@@ -157,26 +157,26 @@ export default function QuickAddModal({
   };
 
   // Helper to check if a scent has stock for the selected wick type and size
-  const isScentAvailable = (scentId: string) => {
+  const isScentAvailable = useCallback((scentId: string) => {
     return variants.some(
       v => v.wickType === selectedWickType && v.scent === scentId && v.stock > 0 && (!hasSizes || v.size === selectedSize)
     );
-  };
+  }, [variants, selectedWickType, hasSizes, selectedSize]);
 
   // Check if there are any in-stock scents in each category (for disabling buttons)
   const hasInStockFavoritesScents = useMemo(() =>
     favoritesScents.some(s => isScentAvailable(s.id)),
-    [favoritesScents, selectedWickType, variants]
+    [favoritesScents, isScentAvailable]
   );
 
   const hasInStockSeasonalScents = useMemo(() =>
     seasonalScents.some(s => isScentAvailable(s.id)),
-    [seasonalScents, selectedWickType, variants]
+    [seasonalScents, isScentAvailable]
   );
 
   const hasInStockLimitedScents = useMemo(() =>
     limitedScents.some(s => isScentAvailable(s.id)),
-    [limitedScents, selectedWickType, variants]
+    [limitedScents, isScentAvailable]
   );
 
   const selectedSizeName = sizes.find(s => s.id === selectedSize)?.name || "";

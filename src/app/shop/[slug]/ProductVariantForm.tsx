@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useCallback } from "react";
 import type { Product, ProductVariant, VariantConfig } from "@/lib/productsStore";
 import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
@@ -166,26 +166,26 @@ export default function ProductVariantForm({ product, variants, globalScents, va
   };
 
   // Helper to check if a scent has stock for the selected size + wick type
-  const isScentAvailable = (scentId: string) => {
+  const isScentAvailable = useCallback((scentId: string) => {
     return variants.some(
       v => (!hasSizes || v.size === selectedSize) && v.wickType === selectedWickType && v.scent === scentId && v.stock > 0
     );
-  };
+  }, [variants, hasSizes, selectedSize, selectedWickType]);
 
   // Check if there are any in-stock scents in each category (for disabling buttons)
   const hasInStockFavoritesScents = useMemo(() =>
     favoritesScents.some(s => isScentAvailable(s.id)),
-    [favoritesScents, selectedWickType, variants]
+    [favoritesScents, isScentAvailable]
   );
 
   const hasInStockSeasonalScents = useMemo(() =>
     seasonalScents.some(s => isScentAvailable(s.id)),
-    [seasonalScents, selectedWickType, variants]
+    [seasonalScents, isScentAvailable]
   );
 
   const hasInStockLimitedScents = useMemo(() =>
     limitedScents.some(s => isScentAvailable(s.id)),
-    [limitedScents, selectedWickType, variants]
+    [limitedScents, isScentAvailable]
   );
 
   // Get display names for selected options

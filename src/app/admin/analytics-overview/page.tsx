@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -71,21 +71,99 @@ export default function UnifiedAnalyticsPage() {
   const [taxPeriodPurchaseData, setTaxPeriodPurchaseData] = useState<PurchaseAnalytics | null>(null);
   const [loadingTaxPeriod, setLoadingTaxPeriod] = useState(false);
 
+  function getTaxPeriodDates(year: number, period: "Q1" | "Q2" | "Q3" | "Q4" | "YEAR") {
+    if (period === "YEAR") {
+      return {
+        startDate: `${year}-01-01`,
+        endDate: `${year}-12-31`,
+      };
+    }
+
+    const quarterMap = {
+      Q1: { start: "01-01", end: "03-31" },
+      Q2: { start: "04-01", end: "06-30" },
+      Q3: { start: "07-01", end: "09-30" },
+      Q4: { start: "10-01", end: "12-31" },
+    };
+
+    const { start, end } = quarterMap[period];
+    return {
+      startDate: `${year}-${start}`,
+      endDate: `${year}-${end}`,
+    };
+  }
+
+  const loadAnalytics = useCallback(async (overrideStartDate?: string, overrideEndDate?: string) => {
+    try {
+      setLoading(true);
+
+      let salesUrl = "/api/admin/analytics";
+      let purchasesUrl = "/api/admin/purchases/analytics";
+
+      const effectiveStartDate = overrideStartDate ?? startDate;
+      const effectiveEndDate = overrideEndDate ?? endDate;
+
+      if (effectiveStartDate && effectiveEndDate) {
+        const params = `?startDate=${effectiveStartDate}&endDate=${effectiveEndDate}`;
+        salesUrl += params;
+        purchasesUrl += params;
+      }
+
+      const [salesRes, purchasesRes] = await Promise.all([
+        fetch(salesUrl),
+        fetch(purchasesUrl),
+      ]);
+
+      if (salesRes.ok && purchasesRes.ok) {
+        const sales = await salesRes.json();
+        const purchases = await purchasesRes.json();
+        setSalesData(sales);
+        setPurchaseData(purchases);
+      }
+    } catch (err) {
+      console.error("Failed to load analytics:", err);
+    } finally {
+      setLoading(false);
+    }
+  }, [startDate, endDate]);
+
+  const loadTaxPeriodAnalytics = useCallback(async () => {
+    try {
+      setLoadingTaxPeriod(true);
+      const { startDate: taxStartDate, endDate: taxEndDate } = getTaxPeriodDates(taxYear, taxPeriod);
+
+      const [salesRes, purchasesRes] = await Promise.all([
+        fetch(`/api/admin/analytics?startDate=${taxStartDate}&endDate=${taxEndDate}`),
+        fetch(`/api/admin/purchases/analytics?startDate=${taxStartDate}&endDate=${taxEndDate}`),
+      ]);
+
+      if (salesRes.ok && purchasesRes.ok) {
+        const sales = await salesRes.json();
+        const purchases = await purchasesRes.json();
+        setTaxPeriodSalesData(sales);
+        setTaxPeriodPurchaseData(purchases);
+      }
+    } catch (err) {
+      console.error("Failed to load tax period analytics:", err);
+    } finally {
+      setLoadingTaxPeriod(false);
+    }
+  }, [taxYear, taxPeriod]);
+
   useEffect(() => {
     loadAnalytics();
-  }, []);
+  }, [loadAnalytics]);
 
   useEffect(() => {
     // Auto-load when date range changes (for non-custom presets)
     if (datePreset !== "custom" && (startDate || endDate || datePreset === "allTime")) {
       loadAnalytics();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [startDate, endDate]);
+  }, [startDate, endDate, datePreset, loadAnalytics]);
 
   useEffect(() => {
     loadTaxPeriodAnalytics();
-  }, [taxYear, taxPeriod]);
+  }, [loadTaxPeriodAnalytics]);
 
   // Helper function for date calculations
   function getDateRange(preset: DatePreset): { start: string; end: string } | null {
@@ -144,85 +222,6 @@ export default function UnifiedAnalyticsPage() {
     } else if (preset === "allTime") {
       setStartDate("");
       setEndDate("");
-    }
-  }
-
-  async function loadAnalytics(overrideStartDate?: string, overrideEndDate?: string) {
-    try {
-      setLoading(true);
-
-      let salesUrl = "/api/admin/analytics";
-      let purchasesUrl = "/api/admin/purchases/analytics";
-
-      const effectiveStartDate = overrideStartDate ?? startDate;
-      const effectiveEndDate = overrideEndDate ?? endDate;
-
-      if (effectiveStartDate && effectiveEndDate) {
-        const params = `?startDate=${effectiveStartDate}&endDate=${effectiveEndDate}`;
-        salesUrl += params;
-        purchasesUrl += params;
-      }
-
-      const [salesRes, purchasesRes] = await Promise.all([
-        fetch(salesUrl),
-        fetch(purchasesUrl),
-      ]);
-
-      if (salesRes.ok && purchasesRes.ok) {
-        const sales = await salesRes.json();
-        const purchases = await purchasesRes.json();
-        setSalesData(sales);
-        setPurchaseData(purchases);
-      }
-    } catch (err) {
-      console.error("Failed to load analytics:", err);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  function getTaxPeriodDates(year: number, period: "Q1" | "Q2" | "Q3" | "Q4" | "YEAR") {
-    if (period === "YEAR") {
-      return {
-        startDate: `${year}-01-01`,
-        endDate: `${year}-12-31`,
-      };
-    }
-
-    const quarterMap = {
-      Q1: { start: "01-01", end: "03-31" },
-      Q2: { start: "04-01", end: "06-30" },
-      Q3: { start: "07-01", end: "09-30" },
-      Q4: { start: "10-01", end: "12-31" },
-    };
-
-    const { start, end } = quarterMap[period];
-    return {
-      startDate: `${year}-${start}`,
-      endDate: `${year}-${end}`,
-    };
-  }
-
-  async function loadTaxPeriodAnalytics() {
-    try {
-      setLoadingTaxPeriod(true);
-      const { startDate, endDate } = getTaxPeriodDates(taxYear, taxPeriod);
-
-      const [salesRes, purchasesRes] = await Promise.all([
-        fetch(`/api/admin/analytics?startDate=${startDate}&endDate=${endDate}`),
-        fetch(`/api/admin/purchases/analytics?startDate=${startDate}&endDate=${endDate}`),
-      ]);
-
-      if (salesRes.ok && purchasesRes.ok) {
-        const sales = await salesRes.json();
-        const purchases = await purchasesRes.json();
-        setTaxPeriodSalesData(sales);
-        setTaxPeriodPurchaseData(purchases);
-      }
-    } catch (err) {
-      console.error("Failed to load tax period analytics:", err);
-    } finally {
-      setLoadingTaxPeriod(false);
     }
   }
 

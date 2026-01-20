@@ -35,35 +35,34 @@ function InvoiceContent() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    loadInvoice();
-  }, [token]);
-
-  async function loadInvoice() {
-    if (!token) {
-      setError("Invalid or missing invoice link");
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/invoice/view?token=${token}`);
-
-      if (!res.ok) {
-        if (res.status === 404) {
-          setError("Invoice not found or link has expired");
-          return;
-        }
-        throw new Error("Failed to load invoice");
+    async function loadInvoice() {
+      if (!token) {
+        setError("Invalid or missing invoice link");
+        setLoading(false);
+        return;
       }
 
-      const data = await res.json();
-      setOrder(data.order);
-    } catch (err) {
-      setError("Failed to load invoice");
-    } finally {
-      setLoading(false);
+      try {
+        const res = await fetch(`/api/invoice/view?token=${token}`);
+
+        if (!res.ok) {
+          if (res.status === 404) {
+            setError("Invoice not found or link has expired");
+            return;
+          }
+          throw new Error("Failed to load invoice");
+        }
+
+        const data = await res.json();
+        setOrder(data.order);
+      } catch {
+        setError("Failed to load invoice");
+      } finally {
+        setLoading(false);
+      }
     }
-  }
+    loadInvoice();
+  }, [token]);
 
   const handlePrint = () => {
     window.print();

@@ -1,7 +1,7 @@
 // Alcohol types management using Postgres
 import { db } from "./db/client";
 import { alcoholTypes } from "./db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export const ALCOHOL_TYPES_TAG = "alcohol-types";
 

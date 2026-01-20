@@ -407,7 +407,6 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
   }
 
   const recipientEmail = order.email;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
 
   // USPS tracking URL
   const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`;

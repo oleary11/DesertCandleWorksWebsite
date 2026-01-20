@@ -4,7 +4,7 @@ import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Minus, Plus, Tag, X } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModal } from "@/hooks/useModal";
@@ -48,12 +48,7 @@ export default function CartPage() {
   const FREE_SHIPPING_THRESHOLD = 100;
   const hasFreeShipping = getTotalPrice() >= FREE_SHIPPING_THRESHOLD;
 
-  // Check for automatic promotions on cart change
-  useEffect(() => {
-    checkAutomaticPromotions();
-  }, [items]);
-
-  async function checkAutomaticPromotions() {
+  const checkAutomaticPromotions = useCallback(async () => {
     // Don't check if manual promo already applied
     if (appliedPromotion) return;
     if (items.length === 0) return;
@@ -81,7 +76,12 @@ export default function CartPage() {
     } catch (err) {
       console.error("Failed to check automatic promotions:", err);
     }
-  }
+  }, [appliedPromotion, items]);
+
+  // Check for automatic promotions on cart change
+  useEffect(() => {
+    checkAutomaticPromotions();
+  }, [checkAutomaticPromotions]);
 
   async function applyPromoCode() {
     if (!promoCode.trim()) return;
@@ -113,7 +113,7 @@ export default function CartPage() {
       setAppliedPromotion(data.promotion);
       setAutomaticPromotion(null); // Clear automatic when manual applied
       setPromoCode("");
-    } catch (err) {
+    } catch {
       setPromoError("Failed to apply promotion");
     } finally {
       setApplyingPromo(false);

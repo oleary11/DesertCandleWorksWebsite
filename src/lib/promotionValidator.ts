@@ -83,7 +83,7 @@ export async function validatePromotion(
 
   // User targeting validation
   if (context.userId) {
-    const user = await getUserById(context.userId);
+    await getUserById(context.userId); // Validate user exists
     const userOrders = await getUserOrders(context.userId);
 
     // First-time customers only

@@ -2,7 +2,7 @@ import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { db } from "./lib/db/client";
 import { adminSessions } from "./lib/db/schema";
-import { eq, gt } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 
 export const config = {
   matcher: ["/admin/:path*", "/api/admin/:path*"],

@@ -13,11 +13,13 @@ export const runtime = "nodejs";
  */
 export async function GET(req: NextRequest) {
   try {
-    // Verify cron secret to prevent unauthorized access
+    // SECURITY: Verify cron secret to prevent unauthorized access
+    // This check is mandatory - if no secret is configured, reject all requests
     const authHeader = req.headers.get('authorization');
     const cronSecret = process.env.CRON_SECRET;
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+      console.warn("[Cron] Unauthorized cleanup-sessions attempt");
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 

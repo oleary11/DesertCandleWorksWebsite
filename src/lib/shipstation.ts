@@ -750,8 +750,6 @@ export async function validateAddress(address: {
     }
 
     // ZIP code to state mapping validation
-    // First digit of ZIP code determines the general region
-    const zipFirstDigit = parseInt(address.postalCode.charAt(0));
     const zipPrefix = address.postalCode.substring(0, 3);
     const stateUpper = address.state.toUpperCase();
 

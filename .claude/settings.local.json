@@ -21,7 +21,8 @@
       "Bash(npx tsc --noEmit)",
       "Bash(npx tsc:*)",
       "Bash(echo:*)",
-      "Bash(cd:*)"
+      "Bash(cd:*)",
+      "Bash(findstr:*)"
     ],
     "deny": [],
     "ask": []
