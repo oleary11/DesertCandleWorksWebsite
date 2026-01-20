@@ -2,6 +2,7 @@
   "name": "desert-candle-works",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.28.1",
   "scripts": {
     "dev": "next dev --turbopack",
     "build": "next build",
@@ -25,7 +26,7 @@
     "dotenv": "^17.2.3",
     "drizzle-orm": "^0.45.1",
     "lucide-react": "^0.545.0",
-    "next": "^15.5.7",
+    "next": "^15.5.9",
     "otplib": "^12.0.1",
     "qrcode": "^1.5.4",
     "react": "19.1.0",
