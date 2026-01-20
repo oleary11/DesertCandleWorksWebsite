@@ -2,6 +2,20 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Pre-Deploy Checklist (IMPORTANT)
+
+ESLint and TypeScript checks are **disabled during Vercel builds** for faster deploys. This means errors won't be caught at build time.
+
+**After completing any code changes, always ask the user:**
+> "Would you like me to run lint and type checks before you deploy?"
+
+If yes, run:
+```bash
+npm run lint && npx tsc --noEmit
+```
+
+This ensures no lint errors or type errors slip into production.
+
 ## Project Overview
 
 Desert Candle Works website - a Next.js 15 e-commerce site for hand-poured candles in upcycled bottles. The site features a storefront, admin panel for inventory management, and Stripe integration for payments.

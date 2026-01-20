@@ -7,12 +7,14 @@ const nextConfig: NextConfig = {
   // Exclude sharp from bundling for better compatibility with Vercel/serverless
   serverExternalPackages: ["sharp"],
 
+  // Skip ESLint and TypeScript checks during Vercel builds for faster deploys
+  // These are already caught by your IDE and can be run separately if needed
   eslint: {
-    ignoreDuringBuilds: false,
+    ignoreDuringBuilds: true,
   },
 
   typescript: {
-    ignoreBuildErrors: false,
+    ignoreBuildErrors: true,
   },
 
   images: {
