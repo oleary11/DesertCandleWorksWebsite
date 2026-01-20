@@ -784,46 +784,26 @@ export default function AdminProductsPage() {
 
   /* ---------- TikTok Shop XLSX Export ---------- */
 
-  async function exportToTikTok() {
-    // Fetch the template file
-    const templateResponse = await fetch("/tiktok-template.xlsx");
-    if (!templateResponse.ok) {
-      alert("Failed to load TikTok template. Make sure tiktok-template.xlsx is in the public folder.");
-      return;
-    }
-    const templateBuffer = await templateResponse.arrayBuffer();
-    const workbook = XLSX.read(templateBuffer, { type: "array" });
-    const sheet = workbook.Sheets["Template"];
-
-    if (!sheet) {
-      alert("Template sheet not found in workbook");
-      return;
-    }
-
-    // Validate headers in row 1 are intact
-    const expectedHeaders: Record<string, string> = {
-      A1: "category",
-      B1: "brand",
-      C1: "product_name",
-      D1: "product_description",
-      E1: "main_image",
-      P1: "property_name_1",
-      Q1: "property_value_1",
-      AA1: "property_name_2",
-      AB1: "property_value_2",
-      AC1: "parcel_weight",
-      AH1: "price",
-      AJ1: "quantity",
-      AK1: "seller_sku",
-    };
-
-    for (const [cell, expected] of Object.entries(expectedHeaders)) {
-      const actual = sheet[cell]?.v;
-      if (actual !== expected) {
-        alert(`Template validation failed: ${cell} should be "${expected}" but found "${actual}"`);
-        return;
-      }
-    }
+  function exportToTikTok() {
+    // Define headers (row 1) - matching TikTok template column names
+    const headers = [
+      "category", "brand", "product_name", "product_description", "main_image",
+      "image_2", "image_3", "image_4", "image_5", "image_6", "image_7", "image_8", "image_9",
+      "gtin_type", "gtin_code",
+      "property_name_1", "property_value_1",
+      "property_1_image", "property_1_image_2", "property_1_image_3", "property_1_image_4",
+      "property_1_image_5", "property_1_image_6", "property_1_image_7", "property_1_image_8", "property_1_image_9",
+      "property_name_2", "property_value_2",
+      "parcel_weight", "parcel_length", "parcel_width", "parcel_height",
+      "delivery", "price", "list_price", "quantity", "seller_sku",
+      "size_chart", "special_product_listing_type",
+      "product_property/100198", "product_property/100392", "product_property/100398",
+      "product_property/100443", "product_property/100548", "product_property/100628",
+      "product_property/100701", "product_property/100779", "product_property/100875",
+      "product_property/100903", "product_property/101619",
+      "product_property/101395", "product_property/101398", "product_property/101400", "product_property/101397",
+      "qualification/8647636475739801353", "aimed_product_status"
+    ];
 
     // Helper: sanitize string for SKU
     const sanitize = (str: string): string => {
@@ -835,8 +815,8 @@ export default function AdminProductsPage() {
         .replace(/^-|-$/g, "");
     };
 
-    // Generate rows - start at row 7 (index 6)
-    let currentRow = 6; // 0-indexed, so row 7
+    // Build data rows
+    const rows: (string | number)[][] = [];
 
     for (const product of filtered) {
       // Get wicks from variantConfig or default
@@ -925,64 +905,50 @@ export default function AdminProductsPage() {
           const suffix = scent ? `${sanitize(wick)}-${sanitize(scent)}` : sanitize(wick);
           const sellerSku = `${skuBase}-${suffix}`;
 
-          // Write to cells (0-indexed columns)
-          // A (0): category
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 0 })] = { t: "s", v: "Home Decor/Candles" };
-          // B (1): brand
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 1 })] = { t: "s", v: "Desert Candle Works" };
-          // C (2): product_name
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 2 })] = { t: "s", v: product.name };
-          // D (3): product_description
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 3 })] = { t: "s", v: product.seoDescription || product.name };
-          // E (4): main_image
-          if (photoUrls[0]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 4 })] = { t: "s", v: photoUrls[0] };
-          // F (5): image_2
-          if (photoUrls[1]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 5 })] = { t: "s", v: photoUrls[1] };
-          // G (6): image_3
-          if (photoUrls[2]) sheet[XLSX.utils.encode_cell({ r: currentRow, c: 6 })] = { t: "s", v: photoUrls[2] };
+          // Build row array matching header positions
+          const row: (string | number)[] = new Array(headers.length).fill("");
 
-          // P (15): property_name_1 - Wick Type
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 15 })] = { t: "s", v: "Wick Type" };
-          // Q (16): property_value_1 - wick value
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 16 })] = { t: "s", v: wick };
+          row[0] = "Home Decor/Candles";           // category
+          row[1] = "Desert Candle Works";          // brand
+          row[2] = product.name;                   // product_name
+          row[3] = product.seoDescription || product.name; // product_description
+          row[4] = photoUrls[0] || "";             // main_image
+          row[5] = photoUrls[1] || "";             // image_2
+          row[6] = photoUrls[2] || "";             // image_3
+          // 7-12: image_4 through image_9 (empty)
+          // 13-14: gtin_type, gtin_code (empty)
+          row[15] = "Wick Type";                   // property_name_1
+          row[16] = wick;                          // property_value_1
+          // 17-25: property_1_image through property_1_image_9 (empty)
+          row[26] = "Scent";                       // property_name_2
+          row[27] = scent;                         // property_value_2
+          row[28] = weightLb;                      // parcel_weight
+          row[29] = 10;                            // parcel_length
+          row[30] = 7;                             // parcel_width
+          row[31] = 5;                             // parcel_height
+          // 32: delivery (empty)
+          row[33] = product.price;                 // price
+          // 34: list_price (empty)
+          row[35] = qty;                           // quantity
+          row[36] = sellerSku;                     // seller_sku
+          // 37-49: various fields (empty)
+          row[50] = "No";                          // product_property/101395 (Prop 65)
+          // 51: product_property/101398 (empty)
+          row[52] = "No";                          // product_property/101400 (Prop 65)
+          // 53-55: remaining fields (empty)
 
-          // AA (26): property_name_2 - Scent
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 26 })] = { t: "s", v: "Scent" };
-          // AB (27): property_value_2 - scent value (can be empty)
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 27 })] = { t: "s", v: scent };
-
-          // AC (28): parcel_weight (lb)
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 28 })] = { t: "n", v: weightLb };
-          // AD (29): parcel_length
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 29 })] = { t: "n", v: 10 };
-          // AE (30): parcel_width
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 30 })] = { t: "n", v: 7 };
-          // AF (31): parcel_height
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 31 })] = { t: "n", v: 5 };
-
-          // AH (33): price
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 33 })] = { t: "n", v: product.price };
-          // AJ (35): quantity
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 35 })] = { t: "n", v: qty };
-          // AK (36): seller_sku
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 36 })] = { t: "s", v: sellerSku };
-
-          // AY (50): product_property/101395 - Prop 65 "No"
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 50 })] = { t: "s", v: "No" };
-          // BA (52): product_property/101400 - Prop 65 "No"
-          sheet[XLSX.utils.encode_cell({ r: currentRow, c: 52 })] = { t: "s", v: "No" };
-
-          currentRow++;
+          rows.push(row);
         }
       }
     }
 
-    // Update sheet range to include new rows
-    const maxCol = 55; // BD column
-    sheet["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: currentRow - 1, c: maxCol } });
+    // Create workbook and worksheet
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Template");
 
     // Generate and download the file
-    const outputBuffer = XLSX.write(workbook, { type: "array", bookType: "xlsx" });
+    const outputBuffer = XLSX.write(wb, { type: "array", bookType: "xlsx" });
     const blob = new Blob([outputBuffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
     const link = document.createElement("a");
     const url = URL.createObjectURL(blob);

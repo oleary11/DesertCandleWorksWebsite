@@ -60,6 +60,7 @@ type CalculatorSettings = {
   waxCostPerOz: number;
   waterToWaxRatio: number;
   defaultFragranceLoad: number;
+  defaultProductDescription?: string;
 };
 
 type GlobalScent = {
@@ -687,13 +688,23 @@ export default function CalculatorPage() {
 
     setInitialStock(1);
     setAddToBatchAfterCreate(true); // Reset to default (checked)
+
+    // Generate initial description from template
+    const template = settings.defaultProductDescription || "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax";
+    const waxOz = selectedContainerId && containers.find(c => c.id === selectedContainerId)
+      ? String(Math.round(containers.find(c => c.id === selectedContainerId)!.capacityWaterOz * settings.waterToWaxRatio))
+      : "[Select container]";
+    const initialDescription = template
+      .replace(/\{\{BOTTLE_NAME\}\}/g, containerName)
+      .replace(/\{\{WAX_OZ\}\}/g, waxOz);
+
     setNewProduct({
       name: productName,
       slug: slugify(productName),
       sku: nextSku,
       price: 0,
       images: [],
-      seoDescription: `Hand-poured candle in an upcycled ${containerName} bottle.`,
+      seoDescription: initialDescription,
       stock: 0,
       alcoholType: "Other",
       materialCost: results.totalMaterialCost,
@@ -2074,12 +2085,16 @@ export default function CalculatorPage() {
                       if (!newProduct.name) return;
                       const container = containers.find((c) => c.id === newProduct.containerId);
                       const bottleName = newProduct.name.replace(/\s+Candle$/i, "").trim();
-                      let waxOzText = "[Select container to calculate]";
+                      let waxOz = "[Select container to calculate]";
                       if (container) {
                         const waxOzCalc = container.capacityWaterOz * settings.waterToWaxRatio;
-                        waxOzText = `${Math.round(waxOzCalc)} oz wax`;
+                        waxOz = String(Math.round(waxOzCalc));
                       }
-                      const generatedDesc = `Hand-poured candle in an upcycled ${bottleName} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - ${waxOzText}`;
+                      // Use template from settings or default
+                      const template = settings.defaultProductDescription || "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax";
+                      const generatedDesc = template
+                        .replace(/\{\{BOTTLE_NAME\}\}/g, bottleName)
+                        .replace(/\{\{WAX_OZ\}\}/g, waxOz);
                       setNewProduct({ ...newProduct, seoDescription: generatedDesc });
                     }}
                   >

@@ -8,6 +8,7 @@ export interface CalculatorSettings {
   waxCostPerOz: number; // cost per ounce of wax
   waterToWaxRatio: number; // ratio of wax weight to water volume (typically ~0.9)
   defaultFragranceLoad: number; // default fragrance load percentage (e.g., 0.08 for 8%)
+  defaultProductDescription?: string; // template for auto-generated product descriptions
 }
 
 export interface WickType {
@@ -33,6 +34,7 @@ export async function getCalculatorSettings(): Promise<CalculatorSettings> {
       waxCostPerOz: 157.64 / 720, // $157.64 for 45 lb (720 oz)
       waterToWaxRatio: 0.9,
       defaultFragranceLoad: 0.08, // 8%
+      defaultProductDescription: "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax",
     };
   } catch (error) {
     console.error("Failed to get calculator settings:", error);
@@ -40,6 +42,7 @@ export async function getCalculatorSettings(): Promise<CalculatorSettings> {
       waxCostPerOz: 157.64 / 720,
       waterToWaxRatio: 0.9,
       defaultFragranceLoad: 0.08,
+      defaultProductDescription: "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax",
     };
   }
 }

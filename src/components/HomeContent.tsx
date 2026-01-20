@@ -320,6 +320,13 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                     <span className="text-[var(--color-muted)]">Crisp eucalyptus and soft lavender create a clean, spa-fresh scent.</span>
                   </p>
                 </div>
+                <div className="flex items-start gap-2">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
+                  <p className="text-sm">
+                    <span className="font-semibold text-[var(--color-ink)]">Sea Salt & Linen:</span>{" "}
+                    <span className="text-[var(--color-muted)]">Fresh linen with warm Caribbean teakwood creating a clean and calming coastal scent.</span>
+                  </p>
+                </div>
               </div>
 
               {/* Link */}

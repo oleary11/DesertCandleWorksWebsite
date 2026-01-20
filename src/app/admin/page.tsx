@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useState, useEffect } from "react";
 import {
   Package,
   DollarSign,
@@ -20,10 +21,71 @@ import {
   Video,
   Undo2,
   Send,
-  Truck
+  Truck,
+  Settings,
+  Save
 } from "lucide-react";
 
+const DEFAULT_DESCRIPTION_TEMPLATE = "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax";
+
 export default function AdminHomePage() {
+  const [descriptionTemplate, setDescriptionTemplate] = useState(DEFAULT_DESCRIPTION_TEMPLATE);
+  const [originalTemplate, setOriginalTemplate] = useState(DEFAULT_DESCRIPTION_TEMPLATE);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateMessage, setTemplateMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+
+  // Load the current template on mount
+  useEffect(() => {
+    async function loadTemplate() {
+      try {
+        const res = await fetch("/api/admin/calculator-settings");
+        if (res.ok) {
+          const data = await res.json();
+          const template = data.defaultProductDescription || DEFAULT_DESCRIPTION_TEMPLATE;
+          setDescriptionTemplate(template);
+          setOriginalTemplate(template);
+        }
+      } catch (err) {
+        console.error("Failed to load description template:", err);
+      }
+    }
+    loadTemplate();
+  }, []);
+
+  async function saveDescriptionTemplate() {
+    setSavingTemplate(true);
+    setTemplateMessage(null);
+    try {
+      // First get current settings
+      const getRes = await fetch("/api/admin/calculator-settings");
+      const currentSettings = getRes.ok ? await getRes.json() : {};
+
+      // Update with new template
+      const res = await fetch("/api/admin/calculator-settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...currentSettings,
+          defaultProductDescription: descriptionTemplate,
+        }),
+      });
+
+      if (res.ok) {
+        setOriginalTemplate(descriptionTemplate);
+        setTemplateMessage({ type: "success", text: "Description template saved!" });
+      } else {
+        setTemplateMessage({ type: "error", text: "Failed to save template" });
+      }
+    } catch (err) {
+      console.error("Failed to save description template:", err);
+      setTemplateMessage({ type: "error", text: "Failed to save template" });
+    } finally {
+      setSavingTemplate(false);
+      setTimeout(() => setTemplateMessage(null), 3000);
+    }
+  }
+
+  const hasTemplateChanges = descriptionTemplate !== originalTemplate;
   return (
     <div className="min-h-screen p-6 bg-neutral-50">
       <div className="max-w-6xl mx-auto">
@@ -327,6 +389,57 @@ export default function AdminHomePage() {
                 </div>
               </div>
             </Link>
+          </div>
+        </div>
+
+        {/* Settings Section */}
+        <div className="mb-8">
+          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <Settings className="w-5 h-5" />
+            Settings
+          </h2>
+
+          {/* Default Product Description Template */}
+          <div className="card p-6 bg-white">
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="font-medium text-lg">Default Product Description</h3>
+                <p className="text-sm text-[var(--color-muted)] mt-1">
+                  Template used when auto-generating product descriptions. Use placeholders:
+                </p>
+                <ul className="text-xs text-[var(--color-muted)] mt-2 space-y-1">
+                  <li><code className="bg-neutral-100 px-1 rounded">{"{{BOTTLE_NAME}}"}</code> - Product name without &quot;Candle&quot;</li>
+                  <li><code className="bg-neutral-100 px-1 rounded">{"{{WAX_OZ}}"}</code> - Calculated wax ounces from container</li>
+                </ul>
+              </div>
+              {templateMessage && (
+                <span className={`text-sm px-3 py-1 rounded ${templateMessage.type === "success" ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
+                  {templateMessage.text}
+                </span>
+              )}
+            </div>
+            <textarea
+              className="w-full p-3 border border-[var(--color-line)] rounded-lg font-mono text-sm resize-y min-h-[120px]"
+              value={descriptionTemplate}
+              onChange={(e) => setDescriptionTemplate(e.target.value)}
+              placeholder="Enter description template..."
+            />
+            <div className="flex items-center justify-between mt-4">
+              <button
+                className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
+                onClick={() => setDescriptionTemplate(DEFAULT_DESCRIPTION_TEMPLATE)}
+              >
+                Reset to default
+              </button>
+              <button
+                className="btn bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-2 disabled:opacity-50"
+                onClick={saveDescriptionTemplate}
+                disabled={!hasTemplateChanges || savingTemplate}
+              >
+                <Save className="w-4 h-4" />
+                {savingTemplate ? "Saving..." : "Save Template"}
+              </button>
+            </div>
           </div>
         </div>
 
