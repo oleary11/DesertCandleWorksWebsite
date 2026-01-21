@@ -373,131 +373,13 @@ export async function POST(req: NextRequest) {
           // Don't throw - order is already created
         }
 
-        // Create order in ShipStation for fulfillment (skip for local pickup)
-        try {
-          // Check if this is a local pickup order by inspecting shipping details
-          const isLocalPickup = session.shipping_cost?.shipping_rate &&
-            typeof session.shipping_cost.shipping_rate === 'object' &&
-            'metadata' in session.shipping_cost.shipping_rate &&
-            session.shipping_cost.shipping_rate.metadata?.shipping_type === 'local_pickup';
-
-          // Also check if shipping amount is $0 and address contains "Scottsdale" (fallback check)
-          const isLikelyPickup = shippingCents === 0 &&
-            (shippingAddress?.city?.toLowerCase().includes('scottsdale') ||
-             shippingAddress?.line1?.toLowerCase().includes('pickup'));
-
-          // Extract shipping service name from Stripe shipping details
-          // This is what the customer selected at checkout
-          let requestedShippingService: string | undefined;
-          if (session.shipping_cost?.shipping_rate &&
-              typeof session.shipping_cost.shipping_rate === 'object' &&
-              'display_name' in session.shipping_cost.shipping_rate) {
-            requestedShippingService = session.shipping_cost.shipping_rate.display_name as string | undefined;
-          }
-
-          if (isLocalPickup || isLikelyPickup) {
-            console.log(`[ShipStation] Skipping ShipStation order creation for local pickup: ${orderId}`);
-          } else if (shippingAddress) {
-            // This is a shipped order - create in ShipStation
-            const { createShipStationOrder, formatAddressForShipStation, getProductWeight } = await import("@/lib/shipstation");
-            const { getResolvedProduct } = await import("@/lib/liveProducts");
-
-            // Build ShipStation order items with weights
-            const shipStationItems = await Promise.all(
-              orderItems.map(async (item) => {
-                // Get product details for weight
-                const product = await getResolvedProduct(item.productSlug);
-                const weight = getProductWeight(product || undefined, item.sizeName);
-
-                // Build item name with variant details for easy fulfillment
-                let itemName = item.productName;
-
-                // Build variant details array (size, wick type, scent)
-                const variantDetails: string[] = [];
-
-                // Add size if available
-                if (item.sizeName) {
-                  variantDetails.push(item.sizeName);
-                }
-
-                // If this is a variant product, parse variantId to get wick type and scent
-                if (item.variantId && product?.variantConfig) {
-                  // Import scents to look up names
-                  const { getAllScents } = await import("@/lib/scents");
-                  const allScents = await getAllScents();
-
-                  // Parse variantId: [sizeId-]wickTypeId-scentId
-                  // Known wick type IDs: "standard-wick", "wood-wick", "wood", "standard"
-                  const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
-
-                  let wickTypeName: string | undefined;
-                  let scentName: string | undefined;
-
-                  // Try to match known wick types
-                  for (const wickTypeId of knownWickTypes) {
-                    if (item.variantId.includes(wickTypeId)) {
-                      // Find wick type name from product config
-                      const wickType = product.variantConfig.wickTypes?.find(w => w.id === wickTypeId);
-                      wickTypeName = wickType?.name;
-
-                      // Extract scent ID after the wick type
-                      const wickIndex = item.variantId.indexOf(wickTypeId);
-                      const afterWick = item.variantId.substring(wickIndex + wickTypeId.length);
-                      const scentId = afterWick.startsWith('-') ? afterWick.substring(1) : afterWick;
-
-                      // Look up scent name
-                      const scent = allScents.find(s => s.id === scentId);
-                      scentName = scent?.name;
-
-                      break;
-                    }
-                  }
-
-                  if (wickTypeName) variantDetails.push(wickTypeName);
-                  if (scentName) variantDetails.push(scentName);
-                }
-
-                // Add variant details to item name
-                if (variantDetails.length > 0) {
-                  itemName = `${item.productName} (${variantDetails.join(' - ')})`;
-                }
-
-                return {
-                  sku: product?.sku || item.productSlug,
-                  name: itemName,
-                  quantity: item.quantity,
-                  unitPrice: item.priceCents / 100,
-                  weight: {
-                    value: weight,
-                    units: "ounces" as const,
-                  },
-                };
-              })
-            );
-
-            // Create ShipStation order
-            await createShipStationOrder({
-              orderNumber: orderId,
-              orderKey: orderId,
-              orderDate: new Date().toISOString(),
-              orderStatus: "awaiting_shipment",
-              customerEmail,
-              billTo: formatAddressForShipStation(shippingAddress),
-              shipTo: formatAddressForShipStation(shippingAddress),
-              items: shipStationItems,
-              amountPaid: totalCents / 100,
-              taxAmount: taxCents / 100,
-              shippingAmount: shippingCents / 100,
-              requestedShippingService: requestedShippingService,
-            });
-
-            console.log(`[ShipStation] Order ${orderId} created in ShipStation${requestedShippingService ? ` with requested service: ${requestedShippingService}` : ''}`);
-          } else {
-            console.warn(`[ShipStation] Skipping ShipStation order creation - no shipping address available: ${orderId}`);
-          }
-        } catch (shipStationErr) {
-          console.error(`[ShipStation] Failed to create order ${orderId}:`, shipStationErr);
-          // Don't throw - order is already created in our system
+        // NOTE: ShipStation orders are now pulled via Custom Store integration
+        // instead of being pushed via API. This enables automatic customer
+        // email notifications (shipped, out for delivery, delivered).
+        // ShipStation will fetch orders from /api/shipstation/custom-store
+        // See SHIPSTATION_SETUP.md for configuration details.
+        if (shippingAddress) {
+          console.log(`[ShipStation] Order ${orderId} will be pulled by ShipStation Custom Store`);
         }
       } catch (err) {
         console.error(`Failed to process order for ${customerEmail}:`, err);

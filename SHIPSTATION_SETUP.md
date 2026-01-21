@@ -6,15 +6,23 @@ This guide will help you set up ShipStation integration with your Desert Candle 
 
 The ShipStation integration automates your shipping workflow:
 
-1. **Order Placement**: When a customer completes checkout via Stripe, the order is automatically created in ShipStation with "Awaiting Shipment" status
-2. **Label Creation**: You log into ShipStation, review orders, and create shipping labels (ShipStation auto-selects the cheapest carrier rate)
-3. **Tracking Updates**: When you create a label, ShipStation automatically sends the tracking number back to your website
-4. **Customer Notifications**: ShipStation sends shipping confirmation and delivery emails to customers (you can disable this and use your own emails instead)
+1. **Order Placement**: When a customer completes checkout, the order is saved to your database
+2. **Order Sync**: ShipStation pulls orders from your Custom Store endpoint automatically
+3. **Label Creation**: You log into ShipStation, review orders, and create shipping labels
+4. **Tracking Updates**: When you create a label, ShipStation sends tracking info back to your website
+5. **Customer Notifications**: ShipStation automatically sends branded emails:
+   - Shipping confirmation with tracking link
+   - Out for delivery notification
+   - Delivered confirmation
+
+## Why Custom Store Integration?
+
+The Custom Store integration (vs. just using the API) unlocks **automatic customer email notifications**. Without it, orders go to "Manual Orders" which don't support ShipStation's notification features.
 
 ## Prerequisites
 
 - [x] ShipStation account (sign up at https://www.shipstation.com if you don't have one)
-- [x] API credentials from ShipStation dashboard
+- [x] API credentials from ShipStation dashboard (for shipping rates)
 - [x] Carrier accounts connected in ShipStation (USPS, UPS, FedEx, etc.)
 - [x] Product weights measured and entered
 
@@ -31,12 +39,18 @@ The ShipStation integration automates your shipping workflow:
 Add your ShipStation credentials to `.env.local`:
 
 ```bash
-# ShipStation API Credentials
+# ShipStation API Credentials (for shipping rate calculations)
 SHIPSTATION_API_KEY=your_api_key_here
 SHIPSTATION_API_SECRET=your_api_secret_here
+
+# Custom Store Credentials (choose your own - used for ShipStation to authenticate with your site)
+SHIPSTATION_CUSTOM_STORE_USERNAME=desertcandleworks
+SHIPSTATION_CUSTOM_STORE_PASSWORD=your_secure_password_here
 ```
 
-**Important**: Never commit these to git. They're already in `.gitignore`.
+**Important**:
+- Never commit these to git. They're already in `.gitignore`.
+- The Custom Store credentials are ones YOU create - ShipStation will use them to authenticate when pulling orders.
 
 ## Step 3: Run Database Migration
 
@@ -107,79 +121,80 @@ Deploy the updated code to production:
 ```bash
 # Commit changes
 git add .
-git commit -m "Add ShipStation integration"
+git commit -m "Add ShipStation Custom Store integration"
 git push
 
 # Deploy (if using Vercel)
 vercel --prod
 ```
 
-Or if you have auto-deployment set up, just push to your main branch.
+**IMPORTANT**: Make sure to add the environment variables to Vercel:
+- `SHIPSTATION_CUSTOM_STORE_USERNAME`
+- `SHIPSTATION_CUSTOM_STORE_PASSWORD`
 
-## Step 6: Subscribe to ShipStation Webhook
+## Step 6: Create Custom Store in ShipStation (REQUIRED)
 
-After deployment, run the webhook setup script:
+This is the key step that enables automatic customer notifications.
 
-```bash
-npx tsx src/scripts/setup-shipstation-webhook.ts
-```
+### 6.1 Add a New Store
 
-This will:
-- Register your webhook URL (`https://yoursite.com/api/shipstation/webhook`) with ShipStation
-- Enable automatic tracking number updates when labels are created
-
-**Expected Output:**
-```
-🚢 ShipStation Webhook Setup
-
-Webhook URL: https://www.desertcandleworks.com/api/shipstation/webhook
-
-📋 Checking existing webhooks...
-No existing webhooks found.
-
-📡 Subscribing to SHIP_NOTIFY webhook...
-
-✅ SUCCESS! Webhook subscribed:
-   Event: SHIP_NOTIFY
-   URL: https://www.desertcandleworks.com/api/shipstation/webhook
-   Webhook ID: 12345
-
-🎉 ShipStation webhook setup complete!
-```
-
-## Step 7: Configure ShipStation Email Settings (Optional)
-
-Decide whether you want ShipStation to send shipping emails or handle them yourself.
-
-### Option A: Let ShipStation Send Emails (Recommended)
-
-ShipStation automatically sends:
-- Shipping confirmation with tracking
-- Out for delivery notifications
-- Delivery confirmations
-
-**To enable:**
 1. Log into ShipStation
-2. Go to **Settings** → **Shipping Settings** → **Email**
-3. Customize email templates with your branding
-4. Enable automatic emails for shipped orders
+2. Go to **Settings** (gear icon) → **Selling Channels** → **Store Setup**
+3. Click **Connect a Store or Marketplace**
+4. Scroll down and select **Custom Store**
 
-**Benefits:**
-- No additional code needed
-- Automatic carrier tracking updates
-- Professional branded tracking page
-- Handles delivery notifications automatically
+### 6.2 Configure the Custom Store
 
-### Option B: Handle Emails Yourself
+Fill in the following fields:
 
-Keep your current email system for shipping notifications.
+| Field | Value |
+|-------|-------|
+| **Store Name** | `Desert Candle Works Website` |
+| **Username** | The value you set for `SHIPSTATION_CUSTOM_STORE_USERNAME` |
+| **Password** | The value you set for `SHIPSTATION_CUSTOM_STORE_PASSWORD` |
+| **URL to Custom XML Page** | `https://www.desertcandleworks.com/api/shipstation/custom-store` |
 
-**Note**: You'll need to:
-- Build tracking status checking
-- Poll ShipStation or carrier APIs for updates
-- Handle delivery confirmation logic
+### 6.3 Test the Connection
 
-Most users prefer Option A to leverage ShipStation's tracking infrastructure.
+1. Click **Test Connection**
+2. ShipStation should show "Connection Successful"
+3. If it fails, check:
+   - Your environment variables are deployed to Vercel
+   - The URL is correct (with https://)
+   - Username/password match exactly
+
+### 6.4 Save and Refresh
+
+1. Click **Save**
+2. Click **Refresh Stores** or wait for automatic refresh
+3. Your orders should start appearing under the new store
+
+## Step 7: Configure Customer Notifications
+
+Now that you have a Custom Store (not Manual Orders), you can enable automatic notifications.
+
+### 7.1 Enable Shipment Notifications
+
+1. In ShipStation, go to **Settings** → **Notifications** → **Customer Notifications**
+2. Enable notifications for:
+   - **Shipment Confirmation** - Sent when you create a label
+   - **Out for Delivery** - Sent when carrier scans "out for delivery"
+   - **Delivery Confirmation** - Sent when package is delivered
+
+### 7.2 Customize Email Templates
+
+1. Go to **Settings** → **Notifications** → **Email Templates**
+2. Customize the templates with your branding:
+   - Add your logo
+   - Match your brand colors
+   - Customize the message
+
+### 7.3 Set Up Branded Tracking Page
+
+1. Go to **Settings** → **Branding** → **Tracking Page**
+2. Upload your logo
+3. Set your brand colors
+4. Customers will see this page when they click tracking links
 
 ## Step 8: Test the Integration
 
@@ -188,12 +203,12 @@ Most users prefer Option A to leverage ShipStation's tracking infrastructure.
 1. **Place a Test Order**
    - Use Stripe test mode
    - Complete checkout with shipping address
-   - Check your logs for: `[ShipStation] Order ST##### created in ShipStation`
+   - Order is saved to your database
 
-2. **Verify in ShipStation**
-   - Log into ShipStation dashboard
-   - Check **Orders** → **Awaiting Shipment**
-   - Your test order should appear there
+2. **Trigger ShipStation Refresh**
+   - In ShipStation, go to your Custom Store
+   - Click **Refresh** to pull new orders
+   - Your test order should appear under "Awaiting Shipment"
 
 3. **Create Test Label**
    - Select the test order in ShipStation
@@ -201,26 +216,26 @@ Most users prefer Option A to leverage ShipStation's tracking infrastructure.
    - ShipStation will show carrier options with rates
    - Create the label
 
-4. **Verify Tracking Update**
-   - Check your webhook logs: `[ShipStation Webhook] Updated order ST##### with tracking`
+4. **Verify Customer Notification**
+   - Check the test email address for shipping confirmation
+   - The email should include:
+     - Tracking number
+     - Link to branded tracking page
+     - Estimated delivery date
+
+5. **Verify Database Update**
    - Check your database - order should have tracking number
-   - Customer should receive tracking email (if enabled in ShipStation)
+   ```sql
+   SELECT id, tracking_number, carrier_code, shipping_status
+   FROM orders WHERE id = 'ST#####';
+   ```
 
-### Verify Database Updates
-
-```sql
--- Check that order has tracking info
-SELECT id, tracking_number, carrier_code, service_code, shipping_status
-FROM orders
-WHERE id = 'ST#####';
-```
-
-Should show:
-```
-id      | tracking_number        | carrier_code | service_code        | shipping_status
---------|------------------------|--------------|---------------------|----------------
-ST00123 | 9405511899223197428490 | stamps_com   | usps_priority_mail  | shipped
-```
+   Should show:
+   ```
+   id      | tracking_number        | carrier_code | shipping_status
+   --------|------------------------|--------------|----------------
+   ST00123 | 9405511899223197428490 | stamps_com   | shipped
+   ```
 
 ## Daily Workflow
 
@@ -240,30 +255,32 @@ Once set up, your daily shipping workflow is:
 ### Orders Not Appearing in ShipStation
 
 **Check:**
-- Environment variables are set correctly
-- Webhook logs show ShipStation order creation
-- ShipStation API credentials are valid
-- No API errors in your logs
+- Custom Store credentials match your environment variables exactly
+- The Custom Store URL is correct: `https://www.desertcandleworks.com/api/shipstation/custom-store`
+- Orders have shipping addresses (local pickup orders won't appear)
+- Orders are marked as "completed" in your database
 
-**Debug:**
+**Test the endpoint manually:**
 ```bash
-# Check recent orders in ShipStation
-curl -X GET "https://ssapi.shipstation.com/orders?orderStatus=awaiting_shipment" \
-  -H "Authorization: Basic $(echo -n 'API_KEY:API_SECRET' | base64)"
+# Test your Custom Store endpoint
+curl -u "your_username:your_password" \
+  "https://www.desertcandleworks.com/api/shipstation/custom-store?action=export&start_date=01/01/2026%2000:00"
 ```
 
-### Tracking Numbers Not Updating
+### Customer Not Receiving Notifications
 
 **Check:**
-- Webhook is subscribed (run setup script again)
-- Webhook URL is accessible publicly
-- Webhook logs show events being received
-- Database has carrier_code and service_code columns
+- Orders are coming from your Custom Store (not "Manual Orders" or "Api Shipments")
+- Customer notifications are enabled in ShipStation Settings → Notifications
+- The customer email is correct on the order
+- Check ShipStation's notification logs for errors
 
-**Verify webhook:**
-```bash
-npx tsx src/scripts/setup-shipstation-webhook.ts
-```
+### Tracking Numbers Not Updating in Database
+
+**Check:**
+- The Custom Store is configured correctly (ShipStation POSTs to your endpoint)
+- Check Vercel logs for errors on `/api/shipstation/custom-store`
+- Verify the order number matches between ShipStation and your database
 
 ### Weight Issues / Incorrect Shipping Costs
 
@@ -307,7 +324,7 @@ Once you're comfortable with the basic workflow, consider:
 
 - ShipStation Dashboard: https://ship.shipstation.com
 - ShipStation API Docs: https://www.shipstation.com/docs/api/
-- Your Webhook URL: `https://www.desertcandleworks.com/api/shipstation/webhook`
+- Custom Store Endpoint: `https://www.desertcandleworks.com/api/shipstation/custom-store`
 
 ### Common SQL Queries
 
