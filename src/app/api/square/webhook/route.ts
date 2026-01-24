@@ -134,6 +134,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ received: true, skipped: "not_completed" }, { status: 200 });
     }
 
+    // CRITICAL: Additional payment-level idempotency check
+    // Square can send multiple different event_ids for the same payment_id
+    // We need to ensure we only create ONE order per payment, regardless of how many events arrive
+    const paymentKey = `square:payment:${payment.id}`;
+
+    const paymentLockAcquired = await kv.setnx(paymentKey, JSON.stringify({
+      processedAt: new Date().toISOString(),
+      eventId: event.event_id,
+      status: payment.status
+    }));
+
+    if (!paymentLockAcquired) {
+      console.log(`[Square Webhook] Payment ${payment.id} already processed - skipping duplicate event ${event.event_id}`);
+      return NextResponse.json({
+        received: true,
+        skipped: "payment_already_processed",
+        message: `Payment ${payment.id} was already processed in a previous event`
+      }, { status: 200 });
+    }
+
+    // Set expiration on the payment key (30-day TTL for audit trail)
+    await kv.expire(paymentKey, 30 * 24 * 60 * 60);
+
     console.log(`[Square Webhook] Processing completed payment: ${payment.id}`);
 
     try {

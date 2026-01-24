@@ -1418,12 +1418,45 @@ export default function AdminProductsPage() {
                 return;
               }
 
+              // Auto-map any products that need it first
+              if (productsNeedingMappings.length > 0) {
+                const autoMap = await showConfirm(
+                  `${productsNeedingMappings.length} products need variant mappings before syncing.\n\nAuto-generate mappings now?`,
+                  "Auto-Map First"
+                );
+
+                if (autoMap) {
+                  setSaving(true);
+                  try {
+                    const mapRes = await fetch("/api/admin/auto-map-square-variants", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ dryRun: false }),
+                    });
+
+                    const mapData = await mapRes.json();
+
+                    if (!mapRes.ok) {
+                      throw new Error(mapData.error || "Failed to auto-generate mappings");
+                    }
+
+                    await showAlert(`${mapData.message}`, "Mappings Created");
+                    await load(); // Reload products
+                  } catch (err) {
+                    await showAlert(
+                      err instanceof Error ? err.message : "Failed to auto-generate mappings",
+                      "Error"
+                    );
+                    setSaving(false);
+                    return;
+                  } finally {
+                    setSaving(false);
+                  }
+                }
+              }
+
               const confirmed = await showConfirm(
-                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.${
-                  productsNeedingMappings.length > 0
-                    ? `\n\nNote: ${productsNeedingMappings.length} products with Catalog IDs are missing variant mappings and won't be synced. Run auto-mapping first.`
-                    : ""
-                }`,
+                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.`,
                 "Sync All to Square"
               );
 
@@ -2239,9 +2272,32 @@ export default function AdminProductsPage() {
                             type="button"
                             className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
                             onClick={async () => {
-                              // Sync stock to Square
+                              // Sync stock to Square (auto-map first if needed)
                               try {
                                 setSaving(true);
+
+                                // Check if variant mapping exists, if not auto-map first
+                                if (!editing.squareVariantMapping || Object.keys(editing.squareVariantMapping).length === 0) {
+                                  // eslint-disable-next-line no-console
+                                  console.log("[Sync Square Stock] No variant mapping found, running auto-map first");
+
+                                  const mapRes = await fetch("/api/admin/auto-map-square-variants", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ productSlug: editing.slug, dryRun: false }),
+                                  });
+
+                                  const mapData = (await mapRes.json()) as { error?: string; results?: Array<{ success?: boolean; error?: string }> };
+
+                                  if (!mapRes.ok || !mapData.results?.[0]?.success) {
+                                    throw new Error(mapData.error || mapData.results?.[0]?.error || "Failed to auto-map variants before syncing");
+                                  }
+
+                                  // eslint-disable-next-line no-console
+                                  console.log("[Sync Square Stock] Auto-mapping successful, proceeding with sync");
+                                  await loadProducts(); // Reload to get updated mapping
+                                }
+
                                 const res = await fetch("/api/admin/sync-square-stock", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
