@@ -81,6 +81,36 @@ The codebase uses a **two-tier product data system**:
 - `GET /api/admin/products` - List all products (uses `listResolvedProducts()`)
 - `GET /api/admin/inventory` - Stock levels only
 - `POST /api/admin/upload` - Image upload to Vercel Blob
+- `POST /api/admin/auto-map-square-variants` - Auto-generate Square variant mappings
+  - `forceRemap: true` - Recreate Square product with all current website variants (use when adding new scents/wicks)
+- `POST /api/admin/sync-square-stock` - Sync inventory levels to Square POS
+
+### Square POS Integration
+
+**Setup**:
+- Products can be created on Square via "Create Square Product" button in admin
+- Square products are created with all current variants (wick types × scents)
+- Variant mappings are stored in `squareVariantMapping` field
+
+**Syncing Variants**:
+- **"Sync Stock to Square"** - Syncs inventory levels only (creates mapping if missing)
+- **"Remap Variants"** - Recreates Square product with all current website variants
+  - Use this when you add new scents or wick types to an existing product
+  - Deletes old Square product and creates new one with updated variations
+  - Prompts to sync stock after remapping
+
+**Webhook Handler** (`src/app/api/square/webhook/route.ts`):
+- Listens for `payment.updated` events from Square POS
+- Double idempotency check: event ID + payment ID (prevents duplicate orders)
+- Automatically decrements stock when sales are made in-store
+- Creates order records with "square" payment method
+- Maps Square variation IDs to website variants via `squareVariantMapping`
+
+**Environment Variables**:
+- `SQUARE_ACCESS_TOKEN` - Square API access token
+- `SQUARE_LOCATION_ID` - Square location ID for inventory management
+- `SQUARE_ENVIRONMENT` - "production" or "sandbox"
+- `SQUARE_WEBHOOK_SIGNATURE_KEY` - Webhook signature verification key
 
 ### Stripe Integration
 

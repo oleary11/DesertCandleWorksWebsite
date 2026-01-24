@@ -2331,6 +2331,92 @@ export default function AdminProductsPage() {
                             Sync Stock to Square
                           </button>
                         )}
+                        {editing.squareCatalogId && (
+                          <button
+                            type="button"
+                            className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                            onClick={async () => {
+                              const confirmed = await showConfirm(
+                                `This will recreate "${editing.name}" on Square with all current website variants.\n\nUse this when you've added new scents or wick types that aren't on Square yet.\n\nContinue?`,
+                                "Remap Variants"
+                              );
+
+                              if (!confirmed) return;
+
+                              try {
+                                setSaving(true);
+
+                                // Force remap variants
+                                const mapRes = await fetch("/api/admin/auto-map-square-variants", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({
+                                    productSlug: editing.slug,
+                                    dryRun: false,
+                                    forceRemap: true,
+                                  }),
+                                });
+
+                                const mapData = (await mapRes.json()) as {
+                                  error?: string;
+                                  results?: Array<{ success?: boolean; error?: string; recreated?: boolean }>;
+                                };
+
+                                if (!mapRes.ok || !mapData.results?.[0]?.success) {
+                                  throw new Error(mapData.error || mapData.results?.[0]?.error || "Failed to remap variants");
+                                }
+
+                                await loadProducts(); // Reload to get updated mapping
+
+                                // Ask if they want to sync stock now
+                                const syncNow = await showConfirm(
+                                  "Variants remapped successfully!\n\nWould you like to sync stock levels to Square now?",
+                                  "Sync Stock?"
+                                );
+
+                                if (syncNow) {
+                                  const res = await fetch("/api/admin/sync-square-stock", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ productSlug: editing.slug }),
+                                  });
+
+                                  const data = (await res.json()) as { error?: string; message?: string };
+
+                                  if (!res.ok) {
+                                    throw new Error(data.error || "Failed to sync stock");
+                                  }
+
+                                  await showAlert(
+                                    `Variants remapped and stock synced successfully!\n\n${data.message}`,
+                                    "Success"
+                                  );
+                                } else {
+                                  await showAlert("Variants remapped successfully!", "Success");
+                                }
+                              } catch (err) {
+                                // eslint-disable-next-line no-console
+                                console.error("[Remap Variants] Error:", err);
+                                await showAlert(
+                                  err instanceof Error ? err.message : "Failed to remap variants",
+                                  "Error"
+                                );
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                              />
+                            </svg>
+                            Remap Variants
+                          </button>
+                        )}
                         {!editing.squareCatalogId && (
                           <button
                             type="button"

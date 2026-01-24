@@ -8,6 +8,7 @@ export const runtime = "nodejs";
 type RequestBody = {
   productSlug?: string; // Optional: map specific product, or all if omitted
   dryRun?: boolean; // If true, only return what would be mapped without saving
+  forceRemap?: boolean; // If true, recreate Square product even if it already has mappings
 };
 
 /**
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { productSlug, dryRun = false } = body;
+    const { productSlug, dryRun = false, forceRemap = false } = body;
 
     // Get products to map
     const allProducts = await listResolvedProducts();
@@ -75,18 +76,23 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Check if product already has variant mapping
-        if (product.squareVariantMapping && Object.keys(product.squareVariantMapping).length > 0) {
+        // Check if product already has variant mapping (unless forceRemap is true)
+        if (!forceRemap && product.squareVariantMapping && Object.keys(product.squareVariantMapping).length > 0) {
           console.log(`[Auto-Map] ${product.slug}: Skipping - already has variant mapping (${Object.keys(product.squareVariantMapping).length} mappings)`);
           results.push({
             productSlug: product.slug,
             productName: product.name,
             success: false,
             skipped: true,
-            reason: "Already has variant mapping",
+            reason: "Already has variant mapping (use forceRemap to recreate)",
           });
           skippedCount++;
           continue;
+        }
+
+        // If forceRemap and product has mappings, we'll recreate it
+        if (forceRemap && product.squareVariantMapping && Object.keys(product.squareVariantMapping).length > 0) {
+          console.log(`[Auto-Map] ${product.slug}: Force remap enabled - will recreate Square product with current website variants`);
         }
 
         // Fetch Square catalog item with variations
@@ -103,9 +109,17 @@ export async function POST(req: NextRequest) {
         // Extract variations (if any)
         const variations = response.relatedObjects?.filter(obj => obj.type === "ITEM_VARIATION") || [];
 
-        if (variations.length === 0) {
-          // Simple product without variations - need to recreate with proper variants
-          console.log(`[Auto-Map] ${product.slug}: No variations in Square - recreating with variants`);
+        // Recreate Square product if:
+        // 1. No variations exist in Square (simple product)
+        // 2. forceRemap is true (user wants to update with new website variants)
+        const shouldRecreate = variations.length === 0 || forceRemap;
+
+        if (shouldRecreate) {
+          // Recreate product with current website variants
+          const reason = variations.length === 0
+            ? "No variations in Square"
+            : "Force remap enabled - updating with current website variants";
+          console.log(`[Auto-Map] ${product.slug}: ${reason} - recreating`);
 
           // Check if product has variant config on website
           if (!product.variantConfig || !product.variantConfig.wickTypes || product.variantConfig.wickTypes.length === 0) {
