@@ -2295,7 +2295,7 @@ export default function AdminProductsPage() {
 
                                   // eslint-disable-next-line no-console
                                   console.log("[Sync Square Stock] Auto-mapping successful, proceeding with sync");
-                                  await loadProducts(); // Reload to get updated mapping
+                                  await load(); // Reload to get updated mapping
                                 }
 
                                 const res = await fetch("/api/admin/sync-square-stock", {
@@ -2366,7 +2366,7 @@ export default function AdminProductsPage() {
                                   throw new Error(mapData.error || mapData.results?.[0]?.error || "Failed to remap variants");
                                 }
 
-                                await loadProducts(); // Reload to get updated mapping
+                                await load(); // Reload to get updated mapping
 
                                 // Ask if they want to sync stock now
                                 const syncNow = await showConfirm(

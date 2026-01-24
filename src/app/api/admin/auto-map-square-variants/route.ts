@@ -288,7 +288,7 @@ export async function POST(req: NextRequest) {
           const { getAllScents } = await import("@/lib/scents");
           const allScents = await getAllScents();
 
-          for (const [websiteVariantId, variantData] of Object.entries(product.variantConfig.variantData)) {
+          for (const [websiteVariantId] of Object.entries(product.variantConfig.variantData)) {
             // Parse website variant ID to get components
             const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
             let sizeName: string | undefined;

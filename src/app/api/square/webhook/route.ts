@@ -3,7 +3,6 @@ import crypto from "crypto";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
 import { createOrder, completeOrder, generateOrderId } from "@/lib/userStore";
 import { logAdminAction } from "@/lib/adminLogs";
-import { getSquareProductMapping } from "@/lib/squareMapping";
 
 export const runtime = "nodejs";
 
