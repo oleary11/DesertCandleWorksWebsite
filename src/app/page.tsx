@@ -2,7 +2,7 @@ import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { getTotalStockForProduct } from "@/lib/productsStore";
 import HomeContent from "@/components/HomeContent";
 
-export const revalidate = 3600;
+export const revalidate = 30; // Match shop page for consistent stock display
 
 export default async function Home() {
   const all = await listResolvedProducts();

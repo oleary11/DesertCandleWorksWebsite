@@ -255,12 +255,23 @@ export async function getTotalStockForProduct(p: Product): Promise<number> {
     const wickIds = new Set(wickTypes.map(w => w.id));
 
     for (const [variantId, data] of Object.entries(variantData)) {
-      // Extract scent ID from variant ID (format: "wickId-scentId")
-      // We need to find which wick ID is used and remove it
-      let scentId = variantId;
+      // Extract scent ID from variant ID
+      // Format: [sizeId-]wickTypeId-scentId
+      let remainingId = variantId;
+
+      // Remove size prefix if present (format: size-{timestamp}-)
+      if (remainingId.startsWith('size-')) {
+        const sizeEndIndex = remainingId.indexOf('-', 5); // Find second hyphen
+        if (sizeEndIndex !== -1) {
+          remainingId = remainingId.substring(sizeEndIndex + 1);
+        }
+      }
+
+      // Remove wick type prefix
+      let scentId = remainingId;
       for (const wickId of wickIds) {
-        if (variantId.startsWith(wickId + '-')) {
-          scentId = variantId.substring(wickId.length + 1);
+        if (remainingId.startsWith(wickId + '-')) {
+          scentId = remainingId.substring(wickId.length + 1);
           break;
         }
       }

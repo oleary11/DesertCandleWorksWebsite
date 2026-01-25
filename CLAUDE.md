@@ -132,14 +132,19 @@ The codebase uses a **two-tier product data system**:
 
 ### Routing Structure
 
-- `/` - Homepage
-- `/shop` - Product catalog (grid view with filters)
+- `/` - Homepage (revalidate: 30s)
+- `/shop` - Product catalog (grid view with filters, revalidate: 30s)
 - `/shop/[slug]` - Individual product detail pages
 - `/about` - About page
 - `/contact` - Contact form
 - `/policies` - Policies page
 - `/admin` - Admin dashboard (protected)
 - `/admin/login` - Admin login page
+
+**Page Revalidation**:
+- Homepage and shop page use 30-second revalidation for consistent stock display
+- Stock updates in admin appear on both pages within 30 seconds
+- Both pages compute variant stock correctly using `_computedStock`
 
 ### Image Handling
 
