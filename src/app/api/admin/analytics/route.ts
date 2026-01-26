@@ -130,6 +130,28 @@ export async function GET(req: NextRequest) {
       return Math.round(amountCents * 0.029) + 30; // 2.9% + 30 cents
     }
 
+    // Helper function to calculate Square fees
+    // Square charges 2.6% + $0.15 per successful transaction (in-person)
+    function calculateSquareFee(amountCents: number): number {
+      return Math.round(amountCents * 0.026) + 15; // 2.6% + 15 cents
+    }
+
+    // Helper function to detect Square orders
+    function isSquareOrder(orderId: string): boolean {
+      return orderId.startsWith("sq_") || /^[A-Z0-9]{22}$/.test(orderId);
+    }
+
+    // Helper function to calculate the appropriate fee based on order source
+    function calculatePaymentFee(orderId: string, amountCents: number): number {
+      if (isManualSale(orderId)) {
+        return 0; // No fees for manual sales
+      }
+      if (isSquareOrder(orderId)) {
+        return calculateSquareFee(amountCents);
+      }
+      return calculateStripeFee(amountCents); // Default to Stripe
+    }
+
     // Calculate comparison period data if requested
     let comparisonData: {
       revenue: number;
@@ -163,9 +185,7 @@ export async function GET(req: NextRequest) {
         const netOrderRevenue = order.totalCents - refundedAmount;
 
         compRevenue += netOrderRevenue;
-        if (!isManualSale(order.id)) {
-          compStripeFees += calculateStripeFee(order.totalCents);
-        }
+        compStripeFees += calculatePaymentFee(order.id, order.totalCents);
       }
 
       const compNetRevenue = compRevenue - compStripeFees;
@@ -222,10 +242,11 @@ export async function GET(req: NextRequest) {
       const taxAmount = order.taxCents ?? 0;
       totalTaxCollected += taxAmount * refundRatio;
 
-      // Only apply Stripe fees to Stripe orders (not manual sales)
-      // Note: Stripe fees are not refunded, so we still count them
+      // Apply appropriate payment processing fees based on order source
+      // Note: Payment fees are not refunded, so we still count them on original amount
+      const paymentFee = calculatePaymentFee(order.id, order.totalCents);
+      totalStripeFees += paymentFee;
       if (!isManualSale(order.id)) {
-        totalStripeFees += calculateStripeFee(order.totalCents);
         stripeRevenue += netOrderRevenue;
       }
     }
@@ -262,9 +283,9 @@ export async function GET(req: NextRequest) {
     const missingProductSlugs = new Set<string>();
 
     for (const order of completedOrders) {
-      const isStripeOrder = !isManualSale(order.id);
+      const isPaymentProcessorOrder = !isManualSale(order.id); // Has payment processor fees
       const orderItemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
-      const orderStripeFee = isStripeOrder ? calculateStripeFee(order.totalCents) : 0;
+      const orderPaymentFee = calculatePaymentFee(order.id, order.totalCents);
 
       const refundedAmount = refundMap.get(order.id) ?? 0;
       const refundRatio = order.totalCents > 0 ? 1 - refundedAmount / order.totalCents : 1;
@@ -291,7 +312,7 @@ export async function GET(req: NextRequest) {
         // Share of order costs based on quantity
         const itemShare = orderItemCount > 0 ? item.quantity / orderItemCount : 0;
 
-        const itemStripeFee = Math.round(orderStripeFee * itemShare);
+        const itemPaymentFee = Math.round(orderPaymentFee * itemShare);
         const itemShippingCost = Math.round(orderShippingCost * itemShare * refundRatio);
         const itemTaxAmount = Math.round(orderTaxAmount * itemShare * refundRatio);
 
@@ -300,18 +321,18 @@ export async function GET(req: NextRequest) {
         if (existing) {
           existing.units += item.quantity;
           existing.revenue += itemRevenue;
-          existing.stripeFees += itemStripeFee;
+          existing.stripeFees += itemPaymentFee;
           existing.shippingCost += itemShippingCost;
           existing.taxAmount += itemTaxAmount;
-          if (isStripeOrder) existing.stripeRevenue += itemRevenue;
+          if (isPaymentProcessorOrder) existing.stripeRevenue += itemRevenue;
         } else {
           productSalesMap.set(item.productSlug, {
             slug: item.productSlug,
             name: item.productName,
             units: item.quantity,
             revenue: itemRevenue,
-            stripeRevenue: isStripeOrder ? itemRevenue : 0,
-            stripeFees: itemStripeFee,
+            stripeRevenue: isPaymentProcessorOrder ? itemRevenue : 0,
+            stripeFees: itemPaymentFee,
             shippingCost: itemShippingCost,
             taxAmount: itemTaxAmount,
             alcoholType: product?.alcoholType,
@@ -457,8 +478,8 @@ export async function GET(req: NextRequest) {
 
       let source = "Stripe"; // Default to Stripe for online orders
 
-      // Detect Square orders (Square order IDs typically start with a specific pattern)
-      if (order.id.startsWith("sq_") || order.id.match(/^[A-Z0-9]{22}$/)) {
+      // Detect Square orders
+      if (isSquareOrder(order.id)) {
         source = "Square";
       }
       // Detect manual sales

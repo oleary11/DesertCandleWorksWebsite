@@ -26,12 +26,16 @@ type GlobalScent = {
 
 type SaleItem = {
   id: string;
+  isCustom: boolean; // true for custom products not in the database
   productSlug: string;
   productName: string;
   quantity: number;
   priceCents: number;
   variantId?: string;
   sizeName?: string;
+  wickType?: string; // wick type ID for scent tracking
+  scentId?: string; // scent ID for analytics
+  scentName?: string; // scent name for display
 };
 
 /* ---------- Searchable ComboBox (filters as you type, mobile-friendly) ---------- */
@@ -296,10 +300,11 @@ export default function ManualSalePage() {
     await loadData();
   }
 
-  function addItem() {
+  function addItem(isCustom: boolean = false) {
     const newItem: SaleItem = {
       id: crypto.randomUUID(),
-      productSlug: "",
+      isCustom,
+      productSlug: isCustom ? "custom" : "",
       productName: "",
       quantity: 1,
       priceCents: 0,
@@ -330,6 +335,46 @@ export default function ManualSalePage() {
         productName: product.name,
         priceCents: Math.round(product.price * 100),
         variantId: undefined, // Reset variant when product changes
+        wickType: undefined, // Reset wick type
+        scentId: undefined, // Reset scent
+        scentName: undefined,
+      });
+    }
+  }
+
+  function handleScentChange(itemId: string, scentId: string, wickType?: string) {
+    const scent = scents.find((s) => s.id === scentId);
+    const item = items.find((i) => i.id === itemId);
+
+    if (scent && item) {
+      // Build variant ID if we have a wick type
+      const effectiveWickType = wickType || item.wickType || "standard-wick";
+      const variantId = `${effectiveWickType}-${scentId}`;
+
+      updateItem(itemId, {
+        scentId,
+        scentName: scent.name,
+        wickType: effectiveWickType,
+        variantId: item.isCustom ? undefined : variantId, // Only set variantId for non-custom products
+      });
+    } else if (!scentId) {
+      // Clear scent selection
+      updateItem(itemId, {
+        scentId: undefined,
+        scentName: undefined,
+        variantId: undefined,
+      });
+    }
+  }
+
+  function handleWickTypeChange(itemId: string, wickType: string) {
+    const item = items.find((i) => i.id === itemId);
+    if (item) {
+      // Update variant ID if we have a scent selected
+      const variantId = item.scentId ? `${wickType}-${item.scentId}` : undefined;
+      updateItem(itemId, {
+        wickType,
+        variantId: item.isCustom ? undefined : variantId,
       });
     }
   }
@@ -374,11 +419,18 @@ export default function ManualSalePage() {
       return;
     }
 
-    // Validate all items have products selected
+    // Validate all items have products selected or custom product name
     for (const item of items) {
-      if (!item.productSlug) {
-        setError("Please select a product for all items");
-        return;
+      if (item.isCustom) {
+        if (!item.productName || item.productName.trim() === "") {
+          setError("Please enter a product name for all custom items");
+          return;
+        }
+      } else {
+        if (!item.productSlug) {
+          setError("Please select a product for all items");
+          return;
+        }
       }
       if (item.quantity < 1) {
         setError("Quantity must be at least 1 for all items");
@@ -394,12 +446,16 @@ export default function ManualSalePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: items.map((item) => ({
-            productSlug: item.productSlug,
+            isCustom: item.isCustom,
+            productSlug: item.isCustom ? "custom" : item.productSlug,
             productName: item.productName,
             quantity: item.quantity,
             priceCents: item.priceCents,
             variantId: item.variantId,
             sizeName: item.sizeName,
+            wickType: item.wickType,
+            scentId: item.scentId,
+            scentName: item.scentName,
           })),
           customerEmail: customerEmail || undefined,
           paymentMethod,
@@ -479,14 +535,24 @@ export default function ManualSalePage() {
           <div className="card p-6 bg-white">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Sale Items</h2>
-              <button
-                type="button"
-                onClick={addItem}
-                className="btn bg-[var(--color-ink)] text-white hover:bg-opacity-90"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Add Item
-              </button>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => addItem(false)}
+                  className="btn bg-[var(--color-ink)] text-white hover:bg-opacity-90"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Product
+                </button>
+                <button
+                  type="button"
+                  onClick={() => addItem(true)}
+                  className="btn bg-amber-600 text-white hover:bg-amber-700"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Add Custom
+                </button>
+              </div>
             </div>
 
             {items.length === 0 ? (
@@ -500,62 +566,57 @@ export default function ManualSalePage() {
                   const hasVariants = selectedProduct?.variantConfig?.wickTypes &&
                     selectedProduct.variantConfig.wickTypes.length > 0;
 
+                  // Get wick types - use product's wick types if available, otherwise default options
+                  const wickTypes = selectedProduct?.variantConfig?.wickTypes || [
+                    { id: "standard-wick", name: "Standard Wick" },
+                    { id: "wood-wick", name: "Wood Wick" },
+                  ];
+
                   return (
-                    <div key={item.id} className="flex gap-4 items-start border-b border-[var(--color-line)] pb-4">
-                      <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
-                        {/* Product Select */}
-                        <div className="md:col-span-2">
-                          <ComboBox
-                            id={`product-${item.id}`}
-                            label="Product"
-                            placeholder="Search products..."
-                            value={item.productSlug}
-                            items={productItems}
-                            onChange={(val) => handleProductChange(item.id, val)}
-                            emptyMessage="No products match your search."
-                          />
-                        </div>
+                    <div key={item.id} className="border border-[var(--color-line)] rounded-lg p-4 mb-4">
+                      {/* Item Type Badge */}
+                      <div className="flex items-center justify-between mb-3">
+                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
+                          item.isCustom
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-blue-100 text-blue-700"
+                        }`}>
+                          {item.isCustom ? "Custom Product" : "Catalog Product"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeItem(item.id)}
+                          className="btn bg-rose-600 text-white hover:bg-rose-700 py-1 px-2"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
 
-                        {/* Variant Select (if applicable) */}
-                        {hasVariants && (
-                          <div>
-                            <label className="block text-sm font-medium mb-1">Variant (Wick/Scent)</label>
-                            <select
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                        {/* Product Selection or Custom Name */}
+                        {item.isCustom ? (
+                          <div className="md:col-span-2">
+                            <label className="block text-sm font-medium mb-1">Product Name *</label>
+                            <input
+                              type="text"
                               className="input w-full"
-                              value={item.variantId || ""}
-                              onChange={(e) => updateItem(item.id, { variantId: e.target.value || undefined })}
-                            >
-                              <option value="">Base product (Stock: {selectedProduct?.stock || 0})</option>
-                              {/* Show all individual wick-scent combinations */}
-                              {Object.entries(selectedProduct?.variantConfig?.variantData || {})
-                                .sort(([variantIdA], [variantIdB]) => {
-                                  // Sort by wick type first, then by scent
-                                  return variantIdA.localeCompare(variantIdB);
-                                })
-                                .map(([variantId, variantData]) => {
-                                  // Parse variant ID format: "wick-id-scent-id"
-                                  // Find the wick type
-                                  const wickType = selectedProduct?.variantConfig?.wickTypes.find(wt =>
-                                    variantId.startsWith(`${wt.id}-`)
-                                  );
-
-                                  // Extract scent ID (last segment after last hyphen of wick ID)
-                                  const scentId = variantId.substring((wickType?.id.length || 0) + 1);
-
-                                  // Find the scent name
-                                  const scent = scents.find(s => s.id === scentId);
-
-                                  const wickName = wickType?.name || "Unknown Wick";
-                                  const scentName = scent?.name || scentId;
-                                  const stock = variantData.stock || 0;
-
-                                  return (
-                                    <option key={variantId} value={variantId}>
-                                      {wickName} - {scentName} (Stock: {stock})
-                                    </option>
-                                  );
-                                })}
-                            </select>
+                              placeholder="Enter custom product name..."
+                              value={item.productName}
+                              onChange={(e) => updateItem(item.id, { productName: e.target.value })}
+                              required
+                            />
+                          </div>
+                        ) : (
+                          <div className="md:col-span-2">
+                            <ComboBox
+                              id={`product-${item.id}`}
+                              label="Product"
+                              placeholder="Search products..."
+                              value={item.productSlug}
+                              items={productItems}
+                              onChange={(val) => handleProductChange(item.id, val)}
+                              emptyMessage="No products match your search."
+                            />
                           </div>
                         )}
 
@@ -593,14 +654,57 @@ export default function ManualSalePage() {
                         </div>
                       </div>
 
-                      {/* Remove Button */}
-                      <button
-                        type="button"
-                        onClick={() => removeItem(item.id)}
-                        className="btn bg-rose-600 text-white hover:bg-rose-700 mt-6"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                      {/* Scent and Wick Selection - shown for all items */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--color-line)]">
+                        {/* Wick Type */}
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Wick Type <span className="text-[var(--color-muted)]">(optional)</span>
+                          </label>
+                          <select
+                            className="input w-full"
+                            value={item.wickType || ""}
+                            onChange={(e) => handleWickTypeChange(item.id, e.target.value)}
+                          >
+                            <option value="">Select wick type...</option>
+                            {wickTypes.map((wt) => (
+                              <option key={wt.id} value={wt.id}>
+                                {wt.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        {/* Scent */}
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Scent <span className="text-[var(--color-muted)]">(optional)</span>
+                          </label>
+                          <select
+                            className="input w-full"
+                            value={item.scentId || ""}
+                            onChange={(e) => handleScentChange(item.id, e.target.value, item.wickType)}
+                          >
+                            <option value="">Select scent...</option>
+                            {scents
+                              .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+                              .map((scent) => (
+                                <option key={scent.id} value={scent.id}>
+                                  {scent.name} {scent.limited ? "(Limited)" : ""}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+                      </div>
+
+                      {/* Stock info for non-custom products with variants */}
+                      {!item.isCustom && hasVariants && item.variantId && (
+                        <div className="mt-3 text-sm text-[var(--color-muted)]">
+                          Variant Stock: {
+                            selectedProduct?.variantConfig?.variantData?.[item.variantId]?.stock ?? 0
+                          }
+                        </div>
+                      )}
                     </div>
                   );
                 })}

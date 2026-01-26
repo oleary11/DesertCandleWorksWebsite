@@ -7,12 +7,16 @@ import { logAdminAction } from "@/lib/adminLogs";
 export const runtime = "nodejs";
 
 type ManualSaleItem = {
+  isCustom?: boolean;
   productSlug: string;
   productName: string;
   quantity: number;
   priceCents: number;
   variantId?: string;
   sizeName?: string;
+  wickType?: string;
+  scentId?: string;
+  scentName?: string;
 };
 
 type ManualSaleRequest = {
@@ -69,20 +73,56 @@ export async function POST(req: NextRequest) {
 
     // Validate each item
     for (const item of body.items) {
-      if (!item.productSlug || !item.productName || !item.quantity || item.quantity < 1) {
+      const isCustomProduct = item.isCustom || item.productSlug === "custom";
+
+      // Custom products need a product name, regular products need a valid slug
+      if (isCustomProduct) {
+        if (!item.productName || item.productName.trim() === "") {
+          await logAdminAction({
+            action: "manual-sale.create",
+            adminEmail: "admin",
+            ip,
+            userAgent,
+            success: false,
+            details: { reason: "custom_product_missing_name", item },
+          });
+          return NextResponse.json(
+            { error: "Custom products must have a product name" },
+            { status: 400 }
+          );
+        }
+      } else {
+        if (!item.productSlug || !item.productName) {
+          await logAdminAction({
+            action: "manual-sale.create",
+            adminEmail: "admin",
+            ip,
+            userAgent,
+            success: false,
+            details: { reason: "invalid_item", item },
+          });
+          return NextResponse.json(
+            { error: "Each item must have productSlug and productName" },
+            { status: 400 }
+          );
+        }
+      }
+
+      if (!item.quantity || item.quantity < 1) {
         await logAdminAction({
           action: "manual-sale.create",
           adminEmail: "admin",
           ip,
           userAgent,
           success: false,
-          details: { reason: "invalid_item", item },
+          details: { reason: "invalid_quantity", item },
         });
         return NextResponse.json(
-          { error: "Each item must have productSlug, productName, and quantity >= 1" },
+          { error: "Each item must have quantity >= 1" },
           { status: 400 }
         );
       }
+
       if (typeof item.priceCents !== "number" || item.priceCents < 0) {
         await logAdminAction({
           action: "manual-sale.create",
@@ -111,6 +151,14 @@ export async function POST(req: NextRequest) {
     // Process stock decrements (only if requested)
     if (body.decrementStock) {
       for (const item of body.items) {
+        const isCustomProduct = item.isCustom || item.productSlug === "custom";
+
+        // Skip stock decrement for custom products (they don't exist in inventory)
+        if (isCustomProduct) {
+          console.log(`[Manual Sale] Skipping stock decrement for custom product: ${item.productName}`);
+          continue;
+        }
+
         try {
           if (item.variantId) {
             // Decrement variant stock
@@ -133,13 +181,27 @@ export async function POST(req: NextRequest) {
       console.log(`[Manual Sale] Skipping stock decrement (custom order or made-to-order)`);
     }
 
-    // Create order record
-    const orderItems = body.items.map(item => ({
-      productSlug: item.productSlug,
-      productName: item.productName,
-      quantity: item.quantity,
-      priceCents: item.priceCents,
-    }));
+    // Create order record with variant info for analytics
+    const orderItems = body.items.map(item => {
+      const isCustomProduct = item.isCustom || item.productSlug === "custom";
+
+      // Build variantId for analytics: "wickType-scentId" format
+      let variantId = item.variantId;
+      if (!variantId && item.scentId && item.wickType) {
+        variantId = `${item.wickType}-${item.scentId}`;
+      } else if (!variantId && item.scentId) {
+        // Default to standard-wick if only scent is provided
+        variantId = `standard-wick-${item.scentId}`;
+      }
+
+      return {
+        productSlug: isCustomProduct ? "custom" : item.productSlug,
+        productName: item.productName,
+        quantity: item.quantity,
+        priceCents: item.priceCents,
+        variantId,
+      };
+    });
 
     // Create order (without userId for manual sales)
     await createOrder(
@@ -175,11 +237,15 @@ export async function POST(req: NextRequest) {
         paymentMethod: body.paymentMethod,
         itemCount: body.items.length,
         items: body.items.map(i => ({
+          isCustom: i.isCustom || i.productSlug === "custom",
           productSlug: i.productSlug,
           productName: i.productName,
           quantity: i.quantity,
           priceCents: i.priceCents,
           variantId: i.variantId,
+          wickType: i.wickType,
+          scentId: i.scentId,
+          scentName: i.scentName,
         })),
         decrementStock: body.decrementStock,
         notes: body.notes,
