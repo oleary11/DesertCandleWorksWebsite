@@ -264,6 +264,7 @@ export default function ManualSalePage() {
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
   const [notes, setNotes] = useState("");
   const [decrementStock, setDecrementStock] = useState(true);
+  const [discountCents, setDiscountCents] = useState(0); // Order-level discount
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
@@ -457,6 +458,7 @@ export default function ManualSalePage() {
             scentId: item.scentId,
             scentName: item.scentName,
           })),
+          discountCents: effectiveDiscountCents, // Order-level discount to distribute
           customerEmail: customerEmail || undefined,
           paymentMethod,
           notes: notes || undefined,
@@ -477,6 +479,7 @@ export default function ManualSalePage() {
       setPaymentMethod("cash");
       setNotes("");
       setDecrementStock(true);
+      setDiscountCents(0); // Reset discount
       // Reload products to get updated stock
       loadProducts();
     } catch (err) {
@@ -487,7 +490,9 @@ export default function ManualSalePage() {
     }
   }
 
-  const totalCents = items.reduce((sum, item) => sum + item.priceCents, 0);
+  const subtotalCents = items.reduce((sum, item) => sum + item.priceCents, 0);
+  const effectiveDiscountCents = Math.min(discountCents, subtotalCents); // Can't discount more than subtotal
+  const totalCents = subtotalCents - effectiveDiscountCents;
 
   if (loading) {
     return (
@@ -711,15 +716,62 @@ export default function ManualSalePage() {
               </div>
             )}
 
-            {/* Total */}
+            {/* Order Summary with Discount */}
             {items.length > 0 && (
               <div className="mt-6 pt-4 border-t border-[var(--color-line)]">
-                <div className="flex items-center justify-between">
+                {/* Subtotal */}
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-sm text-[var(--color-muted)]">Subtotal:</span>
+                  <span className="text-sm">
+                    ${(subtotalCents / 100).toFixed(2)}
+                  </span>
+                </div>
+
+                {/* Discount Input */}
+                <div className="flex items-center justify-between mb-3 gap-4">
+                  <label htmlFor="discount" className="text-sm font-medium">
+                    Discount:
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[var(--color-muted)]">-$</span>
+                    <input
+                      id="discount"
+                      type="number"
+                      className="input w-24 text-right"
+                      step="0.01"
+                      min="0"
+                      max={(subtotalCents / 100).toFixed(2)}
+                      value={discountCents > 0 ? (discountCents / 100).toFixed(2) : ""}
+                      placeholder="0.00"
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value || "0");
+                        setDiscountCents(Math.round(value * 100));
+                      }}
+                    />
+                  </div>
+                </div>
+
+                {/* Show discount warning if exceeds subtotal */}
+                {discountCents > subtotalCents && (
+                  <div className="text-xs text-amber-600 mb-2">
+                    Discount capped at subtotal (${(subtotalCents / 100).toFixed(2)})
+                  </div>
+                )}
+
+                {/* Total */}
+                <div className="flex items-center justify-between pt-3 border-t border-[var(--color-line)]">
                   <span className="text-lg font-bold">Total:</span>
                   <span className="text-2xl font-bold text-green-600">
                     ${(totalCents / 100).toFixed(2)}
                   </span>
                 </div>
+
+                {/* Show savings if discount applied */}
+                {effectiveDiscountCents > 0 && (
+                  <div className="text-xs text-green-600 text-right mt-1">
+                    Customer saves ${(effectiveDiscountCents / 100).toFixed(2)}
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -21,6 +21,7 @@ type ManualSaleItem = {
 
 type ManualSaleRequest = {
   items: ManualSaleItem[];
+  discountCents?: number; // Order-level discount to distribute across items
   customerEmail?: string;
   paymentMethod: "cash" | "card" | "other";
   notes?: string;
@@ -142,8 +143,10 @@ export async function POST(req: NextRequest) {
     // Generate a sequential order ID for manual sales (format: MS00001, MS00002, etc.)
     const orderId = await generateOrderId('manual');
 
-    // Calculate total
-    const totalCents = body.items.reduce((sum, item) => sum + item.priceCents, 0);
+    // Calculate subtotal and apply discount
+    const subtotalCents = body.items.reduce((sum, item) => sum + item.priceCents, 0);
+    const discountCents = Math.min(body.discountCents || 0, subtotalCents); // Can't discount more than subtotal
+    const totalCents = subtotalCents - discountCents;
 
     // Use provided email or default to admin/manual
     const customerEmail = body.customerEmail || "manual-sale@admin.local";
@@ -182,7 +185,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Create order record with variant info for analytics
-    const orderItems = body.items.map(item => {
+    // Distribute discount proportionally across items based on their price
+    let remainingDiscount = discountCents;
+    const orderItems = body.items.map((item, index) => {
       const isCustomProduct = item.isCustom || item.productSlug === "custom";
 
       // Build variantId for analytics: "wickType-scentId" format
@@ -194,11 +199,26 @@ export async function POST(req: NextRequest) {
         variantId = `standard-wick-${item.scentId}`;
       }
 
+      // Calculate this item's share of the discount proportionally
+      let itemDiscount = 0;
+      if (discountCents > 0 && subtotalCents > 0) {
+        if (index === body.items.length - 1) {
+          // Last item gets remaining discount to avoid rounding issues
+          itemDiscount = remainingDiscount;
+        } else {
+          // Proportional discount based on item's share of subtotal
+          itemDiscount = Math.round((item.priceCents / subtotalCents) * discountCents);
+          remainingDiscount -= itemDiscount;
+        }
+      }
+
+      const discountedPriceCents = item.priceCents - itemDiscount;
+
       return {
         productSlug: isCustomProduct ? "custom" : item.productSlug,
         productName: item.productName,
         quantity: item.quantity,
-        priceCents: item.priceCents,
+        priceCents: discountedPriceCents, // Store discounted price for analytics
         variantId,
       };
     });
@@ -220,7 +240,7 @@ export async function POST(req: NextRequest) {
     // Immediately complete the order
     await completeOrder(orderId);
 
-    console.log(`[Manual Sale] Created and completed order ${orderId} - ${body.paymentMethod.toUpperCase()} - $${(totalCents / 100).toFixed(2)}`);
+    console.log(`[Manual Sale] Created and completed order ${orderId} - ${body.paymentMethod.toUpperCase()} - $${(totalCents / 100).toFixed(2)}${discountCents > 0 ? ` (discount: $${(discountCents / 100).toFixed(2)})` : ''}`);
     if (body.notes) {
       console.log(`[Manual Sale] Notes: ${body.notes}`);
     }
@@ -233,16 +253,19 @@ export async function POST(req: NextRequest) {
       success: true,
       details: {
         orderId,
+        subtotalCents,
+        discountCents,
         totalCents,
         paymentMethod: body.paymentMethod,
         itemCount: body.items.length,
-        items: body.items.map(i => ({
+        items: body.items.map((i, idx) => ({
           isCustom: i.isCustom || i.productSlug === "custom",
           productSlug: i.productSlug,
           productName: i.productName,
           quantity: i.quantity,
-          priceCents: i.priceCents,
-          variantId: i.variantId,
+          originalPriceCents: i.priceCents,
+          discountedPriceCents: orderItems[idx].priceCents, // The actual price stored
+          variantId: orderItems[idx].variantId, // The computed variantId
           wickType: i.wickType,
           scentId: i.scentId,
           scentName: i.scentName,
@@ -255,8 +278,10 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       orderId,
+      subtotalCents,
+      discountCents,
       totalCents,
-      message: `Manual sale recorded successfully via ${body.paymentMethod}`,
+      message: `Manual sale recorded successfully via ${body.paymentMethod}${discountCents > 0 ? ` with $${(discountCents / 100).toFixed(2)} discount` : ''}`,
     });
   } catch (error) {
     console.error("[Manual Sale] Error:", error);

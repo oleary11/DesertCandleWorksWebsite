@@ -448,7 +448,8 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        const wickName = variantInfo.wick === "wood" ? "Wood Wick" : "Standard Wick";
+        // Map wick type IDs to display names
+        const wickName = variantInfo.wick.includes("wood") ? "Wood Wick" : "Standard Wick";
         const existingWick = wickTypeSalesMap.get(variantInfo.wick);
         if (existingWick) {
           existingWick.units += item.quantity;
