@@ -273,6 +273,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {" · "}
               <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
               {" · "}
+              <a className="underline hover:text-[var(--color-ink)] transition" href="https://desertcandleworks.faire.com" target="_blank" rel="noopener noreferrer">Wholesale</a>
+              {" · "}
               <span>Scottsdale, AZ</span>
             </div>
           </footer>
