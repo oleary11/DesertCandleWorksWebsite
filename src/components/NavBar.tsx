@@ -72,6 +72,14 @@ export default function NavBar() {
 
           <Link className="hover:opacity-80 transition" href="/about">About</Link>
           <Link className="hover:opacity-80 transition" href="/contact">Contact</Link>
+          <a
+            href="https://desertcandleworks.faire.com"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="hover:opacity-80 transition"
+          >
+            Wholesale
+          </a>
           <div className="flex items-center gap-3 ml-2 pl-4 border-l border-[var(--color-line)]">
             {/* Account Dropdown */}
             {mounted && (
@@ -222,6 +230,15 @@ export default function NavBar() {
             </Link>
             <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
+            <a
+              href="https://desertcandleworks.faire.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="hover:opacity-80 transition"
+            >
+              Wholesale
+            </a>
             {mounted && (
               user ? (
                 <Link
