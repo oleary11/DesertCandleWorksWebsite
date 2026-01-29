@@ -301,7 +301,7 @@ export default function ManualSalePage() {
 
       setProducts(productsData.items || []);
       setScents(scentsData.scents || []);
-      setAlcoholTypes(alcoholTypesData.alcoholTypes || []);
+      setAlcoholTypes(alcoholTypesData.types || []);
     } catch (err) {
       setError("Failed to load data");
       console.error(err);
