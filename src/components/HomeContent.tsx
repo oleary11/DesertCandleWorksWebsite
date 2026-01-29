@@ -288,13 +288,6 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 <div className="flex items-start gap-2">
                   <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
                   <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Wood and Bloom:</span>{" "}
-                    <span className="text-[var(--color-muted)]">A calming blend of soft lavender and warm sandalwood for a relaxing aroma.</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
                     <span className="font-semibold text-[var(--color-ink)]">Cabin Spa:</span>{" "}
                     <span className="text-[var(--color-muted)]">Small notes of sandalwood, gentle lavender, and warm amber create a spa retreat in candle form.</span>
                   </p>
