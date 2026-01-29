@@ -32,6 +32,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
+  const [selectedScents, setSelectedScents] = useState<Set<string>>(new Set()); // scent IDs or "limited" for limited scents
 
   // Price range from products
   const priceRange = useMemo(() => {
@@ -44,6 +45,29 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
 
   const [priceMin, setPriceMin] = useState(priceRange.min);
   const [priceMax, setPriceMax] = useState(priceRange.max);
+
+  // Separate main signature scents from limited/seasonal scents
+  // Limited = only for specific products, Seasonal = available everywhere but grouped as limited
+  const { mainScents, limitedScentIds } = useMemo(() => {
+    const main = globalScents
+      .filter(s => !s.limited && !s.seasonal)
+      .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999));
+    const limitedIds = new Set(globalScents.filter(s => s.limited || s.seasonal).map(s => s.id));
+    return { mainScents: main, limitedScentIds: limitedIds };
+  }, [globalScents]);
+
+  // Toggle scent filter
+  function toggleScent(scentId: string) {
+    setSelectedScents(prev => {
+      const next = new Set(prev);
+      if (next.has(scentId)) {
+        next.delete(scentId);
+      } else {
+        next.add(scentId);
+      }
+      return next;
+    });
+  }
 
   // Checkout status & banner
   useEffect(() => {
@@ -104,6 +128,50 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     // Price range
     filtered = filtered.filter((p) => p.price >= priceMin && p.price <= priceMax);
 
+    // Scent filter
+    if (selectedScents.size > 0) {
+      filtered = filtered.filter((p) => {
+        // Products without variant config don't have scents, skip scent filtering for them
+        if (!p.variantConfig?.variantData) return true;
+
+        const { variantData, wickTypes } = p.variantConfig;
+        const wickIds = new Set(wickTypes.map(w => w.id));
+
+        // Check if any variant matches selected scents
+        for (const variantId of Object.keys(variantData)) {
+          // Extract scent ID from variant ID
+          let remainingId = variantId;
+
+          // Remove size prefix if present
+          if (remainingId.startsWith('size-')) {
+            const sizeEndIndex = remainingId.indexOf('-', 5);
+            if (sizeEndIndex !== -1) {
+              remainingId = remainingId.substring(sizeEndIndex + 1);
+            }
+          }
+
+          // Remove wick type prefix
+          let scentId = remainingId;
+          for (const wickId of wickIds) {
+            if (remainingId.startsWith(wickId + '-')) {
+              scentId = remainingId.substring(wickId.length + 1);
+              break;
+            }
+          }
+
+          // Check if this scent matches any selected filter
+          if (selectedScents.has(scentId)) {
+            return true; // Direct match to a main scent
+          }
+          // Check if "limited" is selected and this scent is a limited scent
+          if (selectedScents.has("limited") && limitedScentIds.has(scentId)) {
+            return true;
+          }
+        }
+        return false; // No matching scents found
+      });
+    }
+
     // Stock filter
     if (filterBy === "in-stock") {
       filtered = filtered.filter((p) => p._computedStock > 0);
@@ -142,6 +210,8 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     searchQuery,
     priceMin,
     priceMax,
+    selectedScents,
+    limitedScentIds,
   ]);
 
   // Build ordering index for Alcohol Types
@@ -366,7 +436,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         </div>
 
         {/* Stock Filters - Mobile */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 mb-6">
           <button
             onClick={() => setFilterBy("all")}
             className={`px-4 py-2 text-sm rounded-full border transition ${
@@ -407,6 +477,48 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
           >
             Out of Stock
           </button>
+        </div>
+
+        {/* Scent Filters - Mobile */}
+        <div className="p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold">Scent</h3>
+            {selectedScents.size > 0 && (
+              <button
+                onClick={() => setSelectedScents(new Set())}
+                className="text-xs text-[var(--color-accent)] hover:underline"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {mainScents.map((scent) => (
+              <button
+                key={scent.id}
+                onClick={() => toggleScent(scent.id)}
+                className={`px-3 py-1.5 text-sm rounded-full border transition ${
+                  selectedScents.has(scent.id)
+                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                    : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                }`}
+              >
+                {scent.name}
+              </button>
+            ))}
+            {limitedScentIds.size > 0 && (
+              <button
+                onClick={() => toggleScent("limited")}
+                className={`px-3 py-1.5 text-sm rounded-full border transition italic ${
+                  selectedScents.has("limited")
+                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                    : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                }`}
+              >
+                Limited Scents
+              </button>
+            )}
+          </div>
         </div>
         </div>
       )}
@@ -499,6 +611,49 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                   </div>
                 </div>
 
+                {/* Scent Filter */}
+                <div>
+                  <h3 className="text-sm font-semibold mb-3">Scent</h3>
+                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                    {mainScents.map((scent) => (
+                      <label
+                        key={scent.id}
+                        className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedScents.has(scent.id)}
+                          onChange={() => toggleScent(scent.id)}
+                          className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
+                        />
+                        <span>{scent.name}</span>
+                      </label>
+                    ))}
+                    {/* Limited Scents option */}
+                    {limitedScentIds.size > 0 && (
+                      <label
+                        className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition border-t border-[var(--color-line)] pt-2 mt-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedScents.has("limited")}
+                          onChange={() => toggleScent("limited")}
+                          className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
+                        />
+                        <span className="italic">Limited Scents</span>
+                      </label>
+                    )}
+                  </div>
+                  {selectedScents.size > 0 && (
+                    <button
+                      onClick={() => setSelectedScents(new Set())}
+                      className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
+                    >
+                      Clear scent filters
+                    </button>
+                  )}
+                </div>
+
                 {/* Sort */}
                 <div>
                   <h3 className="text-sm font-semibold mb-3">Sort</h3>
@@ -555,6 +710,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                       setSearchQuery("");
                       setPriceMin(priceRange.min);
                       setPriceMax(priceRange.max);
+                      setSelectedScents(new Set());
                     }}
                     className="mt-4 text-sm text-[var(--color-accent)] hover:underline"
                   >

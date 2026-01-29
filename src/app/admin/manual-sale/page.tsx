@@ -10,6 +10,7 @@ type Product = {
   price: number;
   stock: number;
   sku: string;
+  alcoholType?: string;
   variantConfig?: {
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
@@ -24,18 +25,25 @@ type GlobalScent = {
   sortOrder?: number;
 };
 
+type AlcoholType = {
+  id: string;
+  name: string;
+  sortOrder?: number;
+};
+
 type SaleItem = {
   id: string;
   isCustom: boolean; // true for custom products not in the database
   productSlug: string;
   productName: string;
   quantity: number;
-  priceCents: number;
+  unitPriceCents: number; // Price per unit (not total)
   variantId?: string;
   sizeName?: string;
   wickType?: string; // wick type ID for scent tracking
   scentId?: string; // scent ID for analytics
   scentName?: string; // scent name for display
+  alcoholType?: string; // alcohol type for analytics
 };
 
 /* ---------- Searchable ComboBox (filters as you type, mobile-friendly) ---------- */
@@ -259,6 +267,7 @@ function ComboBox<TValue extends string>(props: {
 export default function ManualSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [scents, setScents] = useState<GlobalScent[]>([]);
+  const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
@@ -276,19 +285,23 @@ export default function ManualSalePage() {
 
   async function loadData() {
     try {
-      const [productsRes, scentsRes] = await Promise.all([
+      const [productsRes, scentsRes, alcoholTypesRes] = await Promise.all([
         fetch("/api/admin/products"),
         fetch("/api/admin/scents"),
+        fetch("/api/admin/alcohol-types"),
       ]);
 
       if (!productsRes.ok) throw new Error("Failed to load products");
       if (!scentsRes.ok) throw new Error("Failed to load scents");
+      if (!alcoholTypesRes.ok) throw new Error("Failed to load alcohol types");
 
       const productsData = await productsRes.json();
       const scentsData = await scentsRes.json();
+      const alcoholTypesData = await alcoholTypesRes.json();
 
       setProducts(productsData.items || []);
       setScents(scentsData.scents || []);
+      setAlcoholTypes(alcoholTypesData.alcoholTypes || []);
     } catch (err) {
       setError("Failed to load data");
       console.error(err);
@@ -308,7 +321,7 @@ export default function ManualSalePage() {
       productSlug: isCustom ? "custom" : "",
       productName: "",
       quantity: 1,
-      priceCents: 0,
+      unitPriceCents: 0,
     };
     setItems([...items, newItem]);
   }
@@ -334,11 +347,12 @@ export default function ManualSalePage() {
       updateItem(itemId, {
         productSlug: product.slug,
         productName: product.name,
-        priceCents: Math.round(product.price * 100),
+        unitPriceCents: Math.round(product.price * 100),
         variantId: undefined, // Reset variant when product changes
         wickType: undefined, // Reset wick type
         scentId: undefined, // Reset scent
         scentName: undefined,
+        alcoholType: product.alcoholType, // Auto-fill alcohol type from product
       });
     }
   }
@@ -451,12 +465,14 @@ export default function ManualSalePage() {
             productSlug: item.isCustom ? "custom" : item.productSlug,
             productName: item.productName,
             quantity: item.quantity,
-            priceCents: item.priceCents,
+            priceCents: item.unitPriceCents * item.quantity, // Send total price for this line item
+            unitPriceCents: item.unitPriceCents, // Also send per-unit price
             variantId: item.variantId,
             sizeName: item.sizeName,
             wickType: item.wickType,
             scentId: item.scentId,
             scentName: item.scentName,
+            alcoholType: item.alcoholType,
           })),
           discountCents: effectiveDiscountCents, // Order-level discount to distribute
           customerEmail: customerEmail || undefined,
@@ -490,7 +506,7 @@ export default function ManualSalePage() {
     }
   }
 
-  const subtotalCents = items.reduce((sum, item) => sum + item.priceCents, 0);
+  const subtotalCents = items.reduce((sum, item) => sum + (item.unitPriceCents * item.quantity), 0);
   const effectiveDiscountCents = Math.min(discountCents, subtotalCents); // Can't discount more than subtotal
   const totalCents = subtotalCents - effectiveDiscountCents;
 
@@ -648,19 +664,45 @@ export default function ManualSalePage() {
                             className="input w-full"
                             step="0.01"
                             min="0"
-                            value={(item.priceCents / 100).toFixed(2)}
+                            value={(item.unitPriceCents / 100).toFixed(2)}
                             onChange={(e) =>
                               updateItem(item.id, {
-                                priceCents: Math.round(parseFloat(e.target.value || "0") * 100),
+                                unitPriceCents: Math.round(parseFloat(e.target.value || "0") * 100),
                               })
                             }
                             required
                           />
+                          {item.quantity > 1 && (
+                            <div className="text-xs text-[var(--color-muted)] mt-1">
+                              Line total: ${((item.unitPriceCents * item.quantity) / 100).toFixed(2)}
+                            </div>
+                          )}
                         </div>
                       </div>
 
-                      {/* Scent and Wick Selection - shown for all items */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4 pt-4 border-t border-[var(--color-line)]">
+                      {/* Variant Selection - shown for all items */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[var(--color-line)]">
+                        {/* Alcohol Type */}
+                        <div>
+                          <label className="block text-sm font-medium mb-1">
+                            Alcohol Type {item.isCustom && <span className="text-[var(--color-muted)]">(for analytics)</span>}
+                          </label>
+                          <select
+                            className="input w-full"
+                            value={item.alcoholType || ""}
+                            onChange={(e) => updateItem(item.id, { alcoholType: e.target.value || undefined })}
+                          >
+                            <option value="">Select alcohol type...</option>
+                            {alcoholTypes
+                              .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+                              .map((at) => (
+                                <option key={at.id} value={at.name}>
+                                  {at.name}
+                                </option>
+                              ))}
+                          </select>
+                        </div>
+
                         {/* Wick Type */}
                         <div>
                           <label className="block text-sm font-medium mb-1">

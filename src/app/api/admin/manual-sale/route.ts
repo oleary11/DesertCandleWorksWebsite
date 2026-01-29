@@ -223,12 +223,29 @@ export async function POST(req: NextRequest) {
       };
     });
 
+    // Consolidate items with the same (productSlug, variantId, priceCents) to avoid unique constraint violations
+    // The database has a unique index on (order_id, product_slug, variant_id, price_cents, quantity)
+    // So we need to aggregate identical items into single rows with combined quantities
+    const consolidatedItemsMap = new Map<string, typeof orderItems[0]>();
+    for (const item of orderItems) {
+      const key = `${item.productSlug}|${item.variantId || ''}|${item.priceCents}`;
+      const existing = consolidatedItemsMap.get(key);
+      if (existing) {
+        existing.quantity += item.quantity;
+      } else {
+        consolidatedItemsMap.set(key, { ...item });
+      }
+    }
+    const consolidatedOrderItems = Array.from(consolidatedItemsMap.values());
+
+    console.log(`[Manual Sale] Consolidated ${orderItems.length} items into ${consolidatedOrderItems.length} unique items`);
+
     // Create order (without userId for manual sales)
     await createOrder(
       customerEmail,
       orderId,
       totalCents,
-      orderItems,
+      consolidatedOrderItems,
       undefined, // userId - no user for manual sales
       undefined, // productSubtotalCents
       undefined, // shippingCents
