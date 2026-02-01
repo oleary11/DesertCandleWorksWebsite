@@ -26,6 +26,7 @@ export default function TestOrderPage() {
   const [email, setEmail] = useState("");
   const [products, setProducts] = useState<Product[]>([]);
   const [items, setItems] = useState<OrderItem[]>([]);
+  const [itemPriceStrs, setItemPriceStrs] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<{ success?: boolean; message?: string; error?: string } | null>(null);
   const [isGuest, setIsGuest] = useState(false);
@@ -283,11 +284,39 @@ export default function TestOrderPage() {
                       <label className="block">
                         <div className="text-xs font-medium mb-1">Unit Price ($)</div>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           className="input w-full text-sm"
-                          value={(item.priceCents / 100).toFixed(2)}
-                          onChange={(e) => updateItem(index, "priceCents", Math.round(parseFloat(e.target.value) * 100))}
-                          step="0.01"
+                          value={itemPriceStrs[index] ?? (item.priceCents === 0 ? "" : (item.priceCents / 100).toString())}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                              setItemPriceStrs({ ...itemPriceStrs, [index]: val });
+                            }
+                          }}
+                          onBlur={() => {
+                            const val = itemPriceStrs[index];
+                            if (val !== undefined) {
+                              const num = parseFloat(val);
+                              if (!isNaN(num)) {
+                                updateItem(index, "priceCents", Math.round(parseFloat(num.toFixed(2)) * 100));
+                                setItemPriceStrs({ ...itemPriceStrs, [index]: num.toFixed(2) });
+                              } else if (val === "") {
+                                updateItem(index, "priceCents", 0);
+                                const copy = { ...itemPriceStrs };
+                                delete copy[index];
+                                setItemPriceStrs(copy);
+                              }
+                            }
+                          }}
+                          onFocus={() => {
+                            if (itemPriceStrs[index] === undefined) {
+                              setItemPriceStrs({
+                                ...itemPriceStrs,
+                                [index]: item.priceCents === 0 ? "" : (item.priceCents / 100).toString()
+                              });
+                            }
+                          }}
                           required
                         />
                       </label>

@@ -445,14 +445,24 @@ export default function RefundsPage() {
                       <DollarSign className="w-4 h-4 text-[var(--color-muted)]" />
                     </span>
                     <input
-                      type="number"
-                      step="0.01"
-                      min="0.01"
-                      max={order ? (order.totalCents / 100).toFixed(2) : undefined}
+                      type="text"
+                      inputMode="decimal"
                       className="input !pl-9"
                       placeholder="0.00"
                       value={refundAmount}
-                      onChange={(e) => setRefundAmount(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                          setRefundAmount(val);
+                        }
+                      }}
+                      onBlur={(e) => {
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val) && order) {
+                          const max = order.totalCents / 100;
+                          setRefundAmount(Math.min(val, max).toFixed(2));
+                        }
+                      }}
                       required
                       disabled={!order}
                     />

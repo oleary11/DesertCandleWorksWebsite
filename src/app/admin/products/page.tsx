@@ -458,6 +458,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
+  const [priceInputStr, setPriceInputStr] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -2001,15 +2002,35 @@ export default function AdminProductsPage() {
                     {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
                   </label>
 
-                  {/* Price */}
                   <label className="block">
                     <div className="text-xs mb-1">Price</div>
                     <input
                       className="input"
-                      type="number"
-                      step="0.01"
-                      value={editing.price}
-                      onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) })}
+                      type="text"
+                      inputMode="decimal"
+                      value={priceInputStr}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow empty, numbers, and decimal point
+                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                          setPriceInputStr(val);
+                        }
+                      }}
+                      onBlur={() => {
+                        // Parse and update price on blur
+                        const num = parseFloat(priceInputStr);
+                        if (!isNaN(num)) {
+                          setEditing({ ...editing, price: parseFloat(num.toFixed(2)) });
+                          setPriceInputStr(num.toFixed(2));
+                        } else if (priceInputStr === "") {
+                          setEditing({ ...editing, price: 0 });
+                          setPriceInputStr("");
+                        }
+                      }}
+                      onFocus={() => {
+                        // Initialize input string from current price
+                        setPriceInputStr(editing.price === 0 ? "" : editing.price.toString());
+                      }}
                     />
                   </label>
 
