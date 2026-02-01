@@ -458,7 +458,6 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
-  const [priceInput, setPriceInput] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1517,7 +1516,6 @@ export default function AdminProductsPage() {
               const p = emptyProduct();
               p.sku = nextSku; // default auto-increment
               setEditing(p);
-              setPriceInput("0.00");
               setSlugTouched(false);
               setSlugError(null);
               setError(null);
@@ -1794,7 +1792,6 @@ export default function AdminProductsPage() {
                                 className="btn text-sm px-4 py-2"
                                 onClick={() => {
                                   setEditing(p);
-                                  setPriceInput(p.price.toFixed(2));
                                   setSlugTouched(true);
                                   setSlugError(null);
                                   setError(null);
@@ -1870,7 +1867,6 @@ export default function AdminProductsPage() {
                         className="btn text-xs px-3 py-2 flex-1"
                         onClick={() => {
                           setEditing(p);
-                          setPriceInput(p.price.toFixed(2));
                           setSlugTouched(true);
                           setSlugError(null);
                           setError(null);
@@ -2009,25 +2005,10 @@ export default function AdminProductsPage() {
                     <div className="text-xs mb-1">Price</div>
                     <input
                       className="input"
-                      type="text"
-                      inputMode="decimal"
-                      value={priceInput}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        // Allow empty, numbers, and one decimal point
-                        if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                          setPriceInput(val);
-                          const num = parseFloat(val);
-                          setEditing({ ...editing, price: isNaN(num) ? 0 : num });
-                        }
-                      }}
-                      onBlur={() => {
-                        // Format to 2 decimals on blur
-                        if (priceInput) {
-                          const formatted = parseFloat(priceInput).toFixed(2);
-                          setPriceInput(formatted);
-                        }
-                      }}
+                      type="number"
+                      step="any"
+                      value={editing.price || ""}
+                      onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) || 0 })}
                     />
                   </label>
 

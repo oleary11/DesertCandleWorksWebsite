@@ -924,16 +924,14 @@ export default function AdminPurchasesPage() {
                           <div>
                             <label className="block text-xs font-medium mb-1">Unit Cost ($)</label>
                             <input
-                              type="text"
-                              inputMode="decimal"
+                              type="number"
+                              step="any"
                               className="input w-full text-sm"
                               value={item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toFixed(2)}
                               onChange={(e) => {
                                 const val = e.target.value;
-                                if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                                  const num = parseFloat(val);
-                                  updateItem(index, "unitCostCents", isNaN(num) ? 0 : Math.round(num * 100));
-                                }
+                                const parsed = parseFloat(val);
+                                updateItem(index, "unitCostCents", isNaN(parsed) ? 0 : Math.round(parsed * 100));
                               }}
                               placeholder="0.00"
                             />
@@ -1019,16 +1017,14 @@ export default function AdminPurchasesPage() {
                     <div>
                       <label className="block text-sm font-medium mb-1">Shipping Cost ($)</label>
                       <input
-                        type="text"
-                        inputMode="decimal"
+                        type="number"
+                        step="any"
                         className="input w-full"
                         value={shippingCents === 0 ? "" : (shippingCents / 100).toFixed(2)}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                            const num = parseFloat(val);
-                            setShippingCents(isNaN(num) ? 0 : Math.round(num * 100));
-                          }
+                          const parsed = parseFloat(val);
+                          setShippingCents(isNaN(parsed) ? 0 : Math.round(parsed * 100));
                         }}
                         placeholder="0.00"
                       />
@@ -1040,16 +1036,14 @@ export default function AdminPurchasesPage() {
                     <div>
                       <label className="block text-sm font-medium mb-1">Tax ($)</label>
                       <input
-                        type="text"
-                        inputMode="decimal"
+                        type="number"
+                        step="any"
                         className="input w-full"
                         value={taxCents === 0 ? "" : (taxCents / 100).toFixed(2)}
                         onChange={(e) => {
                           const val = e.target.value;
-                          if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                            const num = parseFloat(val);
-                            setTaxCents(isNaN(num) ? 0 : Math.round(num * 100));
-                          }
+                          const parsed = parseFloat(val);
+                          setTaxCents(isNaN(parsed) ? 0 : Math.round(parsed * 100));
                         }}
                         placeholder="0.00"
                       />

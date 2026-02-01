@@ -453,17 +453,12 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     $
                   </span>
                   <input
-                    type="text"
-                    inputMode="decimal"
+                    type="number"
                     className="input w-full pl-8"
                     value={formData.discountAmountCents}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                        handleChange("discountAmountCents", val);
-                      }
-                    }}
+                    onChange={(e) => handleChange("discountAmountCents", e.target.value)}
                     placeholder="5.00"
+                    step="any"
                     required
                   />
                 </div>
@@ -664,17 +659,12 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     $
                   </span>
                   <input
-                    type="text"
-                    inputMode="decimal"
+                    type="number"
                     className="input w-full pl-8"
                     value={formData.minOrderAmountCents}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
-                        handleChange("minOrderAmountCents", val);
-                      }
-                    }}
+                    onChange={(e) => handleChange("minOrderAmountCents", e.target.value)}
                     placeholder="50.00"
+                    step="any"
                   />
                 </div>
               </div>
