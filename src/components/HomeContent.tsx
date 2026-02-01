@@ -118,7 +118,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             <span className="relative">
               Why Desert Candle Works?
               <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-              <span className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[var(--color-accent)] opacity-0 animate-[fadeIn_1s_ease-out_0.3s_forwards]"></span>
+              <span className="absolute -bottom-2 left-0 right-0 h-0.5 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
             </span>
           </h2>
         </div>
