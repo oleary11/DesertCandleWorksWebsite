@@ -77,8 +77,11 @@ export default function AdminPurchasesPage() {
   const [vendorName, setVendorName] = useState("");
   const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split("T")[0]);
   const [items, setItems] = useState<PurchaseItem[]>([]);
+  const [itemInputStrs, setItemInputStrs] = useState<Record<number, string>>({});
   const [shippingCents, setShippingCents] = useState(0);
+  const [shippingInputStr, setShippingInputStr] = useState("");
   const [taxCents, setTaxCents] = useState(0);
+  const [taxInputStr, setTaxInputStr] = useState("");
   const [receiptImageUrl, setReceiptImageUrl] = useState("");
   const [notes, setNotes] = useState("");
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -927,18 +930,34 @@ export default function AdminPurchasesPage() {
                               type="text"
                               inputMode="decimal"
                               className="input w-full text-sm"
-                              value={item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString()}
+                              value={itemInputStrs[index] ?? (item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString())}
                               onChange={(e) => {
                                 const val = e.target.value;
                                 if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                                  const num = val === "" ? 0 : parseFloat(val);
-                                  updateItem(index, "unitCostCents", isNaN(num) ? 0 : Math.round(num * 100));
+                                  setItemInputStrs({ ...itemInputStrs, [index]: val });
                                 }
                               }}
-                              onBlur={(e) => {
-                                const val = parseFloat(e.target.value);
-                                if (!isNaN(val)) {
-                                  updateItem(index, "unitCostCents", Math.round(parseFloat(val.toFixed(2)) * 100));
+                              onBlur={() => {
+                                const val = itemInputStrs[index];
+                                if (val !== undefined) {
+                                  const num = parseFloat(val);
+                                  if (!isNaN(num)) {
+                                    updateItem(index, "unitCostCents", Math.round(parseFloat(num.toFixed(2)) * 100));
+                                    setItemInputStrs({ ...itemInputStrs, [index]: num.toFixed(2) });
+                                  } else if (val === "") {
+                                    updateItem(index, "unitCostCents", 0);
+                                    const copy = { ...itemInputStrs };
+                                    delete copy[index];
+                                    setItemInputStrs(copy);
+                                  }
+                                }
+                              }}
+                              onFocus={() => {
+                                if (itemInputStrs[index] === undefined) {
+                                  setItemInputStrs({
+                                    ...itemInputStrs,
+                                    [index]: item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString()
+                                  });
                                 }
                               }}
                               placeholder="0.00"
@@ -1028,19 +1047,25 @@ export default function AdminPurchasesPage() {
                         type="text"
                         inputMode="decimal"
                         className="input w-full"
-                        value={shippingCents === 0 ? "" : (shippingCents / 100).toString()}
+                        value={shippingInputStr}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            const num = val === "" ? 0 : parseFloat(val);
-                            setShippingCents(isNaN(num) ? 0 : Math.round(num * 100));
+                            setShippingInputStr(val);
                           }
                         }}
-                        onBlur={(e) => {
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val)) {
-                            setShippingCents(Math.round(parseFloat(val.toFixed(2)) * 100));
+                        onBlur={() => {
+                          const num = parseFloat(shippingInputStr);
+                          if (!isNaN(num)) {
+                            setShippingCents(Math.round(parseFloat(num.toFixed(2)) * 100));
+                            setShippingInputStr(num.toFixed(2));
+                          } else if (shippingInputStr === "") {
+                            setShippingCents(0);
+                            setShippingInputStr("");
                           }
+                        }}
+                        onFocus={() => {
+                          setShippingInputStr(shippingCents === 0 ? "" : (shippingCents / 100).toString());
                         }}
                         placeholder="0.00"
                       />
@@ -1055,19 +1080,25 @@ export default function AdminPurchasesPage() {
                         type="text"
                         inputMode="decimal"
                         className="input w-full"
-                        value={taxCents === 0 ? "" : (taxCents / 100).toString()}
+                        value={taxInputStr}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            const num = val === "" ? 0 : parseFloat(val);
-                            setTaxCents(isNaN(num) ? 0 : Math.round(num * 100));
+                            setTaxInputStr(val);
                           }
                         }}
-                        onBlur={(e) => {
-                          const val = parseFloat(e.target.value);
-                          if (!isNaN(val)) {
-                            setTaxCents(Math.round(parseFloat(val.toFixed(2)) * 100));
+                        onBlur={() => {
+                          const num = parseFloat(taxInputStr);
+                          if (!isNaN(num)) {
+                            setTaxCents(Math.round(parseFloat(num.toFixed(2)) * 100));
+                            setTaxInputStr(num.toFixed(2));
+                          } else if (taxInputStr === "") {
+                            setTaxCents(0);
+                            setTaxInputStr("");
                           }
+                        }}
+                        onFocus={() => {
+                          setTaxInputStr(taxCents === 0 ? "" : (taxCents / 100).toString());
                         }}
                         placeholder="0.00"
                       />
