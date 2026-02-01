@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useModal } from "@/hooks/useModal";
 
 type CatalogTestResult = {
   productName: string;
@@ -56,6 +57,7 @@ type MappingDiagnosticResponse = {
 };
 
 export default function SquareCatalogDiagnosticsPage() {
+  const { showConfirm } = useModal();
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<DiagnosticResponse | null>(null);
   const [mappingData, setMappingData] = useState<MappingDiagnosticResponse | null>(null);
@@ -131,7 +133,11 @@ export default function SquareCatalogDiagnosticsPage() {
   }
 
   async function handleClearAll() {
-    if (!confirm("This will CLEAR all Square catalog IDs from the database. You should bulk delete products from Square first. Continue?")) {
+    const confirmed = await showConfirm(
+      "This will CLEAR all Square catalog IDs from the database. You should bulk delete products from Square first. Continue?",
+      "Clear All Square IDs"
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -161,7 +167,11 @@ export default function SquareCatalogDiagnosticsPage() {
   }
 
   async function handleCreateAll() {
-    if (!confirm("This will create NEW Square catalog items for ALL products that don't have catalog IDs. Continue?")) {
+    const confirmed = await showConfirm(
+      "This will create NEW Square catalog items for ALL products that don't have catalog IDs. Continue?",
+      "Create All Square Products"
+    );
+    if (!confirmed) {
       return;
     }
 
