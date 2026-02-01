@@ -112,10 +112,10 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
       <section className="mx-auto max-w-6xl px-6 py-16">
         <div className="text-center mb-12">
           <h2
-            className={`${megastina.className} script-title script-hero mb-8 relative inline-block text-3xl sm:text-4xl md:text-5xl`}
-            style={{ color: "var(--color-ink)" }}
+            className={`${megastina.className} script-title script-hero mb-8 relative text-2xl sm:text-3xl md:text-4xl lg:text-5xl`}
+            style={{ color: "var(--color-ink)", display: "inline-block", maxWidth: "min(90vw, 100%)" }}
           >
-            <span className="relative inline-block">
+            <span className="relative whitespace-nowrap">
               Why Desert Candle Works?
               <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
               <span className="absolute -bottom-2 left-0 w-full h-0.5 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
