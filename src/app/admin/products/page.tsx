@@ -2005,10 +2005,24 @@ export default function AdminProductsPage() {
                     <div className="text-xs mb-1">Price</div>
                     <input
                       className="input"
-                      type="number"
-                      step="any"
-                      value={editing.price || ""}
-                      onChange={(e) => setEditing({ ...editing, price: Number(e.target.value) || 0 })}
+                      type="text"
+                      inputMode="decimal"
+                      value={editing.price === 0 ? "" : editing.price.toString()}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Allow empty, numbers, and decimal point
+                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                          const num = val === "" ? 0 : parseFloat(val);
+                          setEditing({ ...editing, price: isNaN(num) ? 0 : num });
+                        }
+                      }}
+                      onBlur={(e) => {
+                        // Format to 2 decimals on blur
+                        const val = parseFloat(e.target.value);
+                        if (!isNaN(val)) {
+                          setEditing({ ...editing, price: parseFloat(val.toFixed(2)) });
+                        }
+                      }}
                     />
                   </label>
 

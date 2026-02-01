@@ -283,11 +283,23 @@ export default function TestOrderPage() {
                       <label className="block">
                         <div className="text-xs font-medium mb-1">Unit Price ($)</div>
                         <input
-                          type="number"
+                          type="text"
+                          inputMode="decimal"
                           className="input w-full text-sm"
-                          step="any"
-                          value={(item.priceCents / 100).toFixed(2)}
-                          onChange={(e) => updateItem(index, "priceCents", Math.round(parseFloat(e.target.value) * 100))}
+                          value={item.priceCents === 0 ? "" : (item.priceCents / 100).toString()}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                              const num = val === "" ? 0 : parseFloat(val);
+                              updateItem(index, "priceCents", isNaN(num) ? 0 : Math.round(num * 100));
+                            }
+                          }}
+                          onBlur={(e) => {
+                            const val = parseFloat(e.target.value);
+                            if (!isNaN(val)) {
+                              updateItem(index, "priceCents", Math.round(parseFloat(val.toFixed(2)) * 100));
+                            }
+                          }}
                           required
                         />
                       </label>
