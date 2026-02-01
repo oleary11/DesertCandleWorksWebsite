@@ -1103,6 +1103,7 @@ export default function CalculatorPage() {
                     onChange={(e) =>
                       setCustomWaterOz(e.target.value === "" ? 0 : Number(e.target.value))
                     }
+                    onFocus={(e) => e.target.select()}
                     step="0.1"
                     placeholder="0"
                     inputMode="decimal"
@@ -1407,6 +1408,7 @@ export default function CalculatorPage() {
                       capacityWaterOz: e.target.value === "" ? 0 : Number(e.target.value),
                     })
                   }
+                  onFocus={(e) => e.target.select()}
                   step="0.1"
                 />
                 <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -1441,6 +1443,7 @@ export default function CalculatorPage() {
                       costPerUnit: e.target.value === "" ? 0 : Number(e.target.value),
                     })
                   }
+                  onFocus={(e) => e.target.select()}
                   step="0.01"
                 />
                 <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -1534,6 +1537,7 @@ export default function CalculatorPage() {
                       costPerWick: e.target.value === "" ? 0 : Number(e.target.value),
                     })
                   }
+                  onFocus={(e) => e.target.select()}
                   step="0.01"
                 />
                 <p className="text-xs text-[var(--color-muted)] mt-1">
@@ -1603,6 +1607,7 @@ export default function CalculatorPage() {
                                 costPerWick: e.target.value === "" ? 0 : Number(e.target.value),
                               })
                             }
+                            onFocus={(e) => e.target.select()}
                           />
                         </label>
                         <label className="block">
@@ -1690,6 +1695,7 @@ export default function CalculatorPage() {
                     waxCostPerOz: e.target.value === "" ? 0 : Number(e.target.value),
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 step="0.001"
                 placeholder="0.219"
                 inputMode="decimal"
@@ -1712,6 +1718,7 @@ export default function CalculatorPage() {
                     waterToWaxRatio: e.target.value === "" ? 0 : Number(e.target.value),
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 step="0.01"
                 placeholder="0.9"
                 inputMode="decimal"
@@ -1733,6 +1740,7 @@ export default function CalculatorPage() {
                     defaultFragranceLoad: e.target.value === "" ? 0 : Number(e.target.value) / 100,
                   })
                 }
+                onFocus={(e) => e.target.select()}
                 step="1"
                 min="0"
                 max="100"
@@ -1843,6 +1851,7 @@ export default function CalculatorPage() {
                         price: e.target.value === "" ? 0 : Number(e.target.value),
                       })
                     }
+                    onFocus={(e) => e.target.select()}
                     placeholder="24.99"
                     required
                     inputMode="decimal"
@@ -2185,6 +2194,7 @@ export default function CalculatorPage() {
                       });
                     }
                   }}
+                  onFocus={(e) => e.target.select()}
                   placeholder="1"
                   inputMode="numeric"
                 />
