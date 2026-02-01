@@ -927,16 +927,12 @@ export default function AdminPurchasesPage() {
                               type="text"
                               inputMode="decimal"
                               className="input w-full text-sm"
-                              value={item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString()}
+                              value={item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toFixed(2)}
                               onChange={(e) => {
-                                const value = e.target.value;
-                                if (value === "" || value === ".") {
-                                  updateItem(index, "unitCostCents", 0);
-                                } else {
-                                  const parsed = parseFloat(value);
-                                  if (!isNaN(parsed)) {
-                                    updateItem(index, "unitCostCents", Math.round(parsed * 100));
-                                  }
+                                const val = e.target.value;
+                                if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
+                                  const num = parseFloat(val);
+                                  updateItem(index, "unitCostCents", isNaN(num) ? 0 : Math.round(num * 100));
                                 }
                               }}
                               placeholder="0.00"
@@ -1026,16 +1022,12 @@ export default function AdminPurchasesPage() {
                         type="text"
                         inputMode="decimal"
                         className="input w-full"
-                        value={shippingCents === 0 ? "" : (shippingCents / 100).toString()}
+                        value={shippingCents === 0 ? "" : (shippingCents / 100).toFixed(2)}
                         onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === "" || value === ".") {
-                            setShippingCents(0);
-                          } else {
-                            const parsed = parseFloat(value);
-                            if (!isNaN(parsed)) {
-                              setShippingCents(Math.round(parsed * 100));
-                            }
+                          const val = e.target.value;
+                          if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
+                            const num = parseFloat(val);
+                            setShippingCents(isNaN(num) ? 0 : Math.round(num * 100));
                           }
                         }}
                         placeholder="0.00"
@@ -1051,16 +1043,12 @@ export default function AdminPurchasesPage() {
                         type="text"
                         inputMode="decimal"
                         className="input w-full"
-                        value={taxCents === 0 ? "" : (taxCents / 100).toString()}
+                        value={taxCents === 0 ? "" : (taxCents / 100).toFixed(2)}
                         onChange={(e) => {
-                          const value = e.target.value;
-                          if (value === "" || value === ".") {
-                            setTaxCents(0);
-                          } else {
-                            const parsed = parseFloat(value);
-                            if (!isNaN(parsed)) {
-                              setTaxCents(Math.round(parsed * 100));
-                            }
+                          const val = e.target.value;
+                          if (val === "" || /^[0-9]*\.?[0-9]{0,2}$/.test(val)) {
+                            const num = parseFloat(val);
+                            setTaxCents(isNaN(num) ? 0 : Math.round(num * 100));
                           }
                         }}
                         placeholder="0.00"
