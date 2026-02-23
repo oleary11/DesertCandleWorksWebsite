@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
       try {
         console.log(`[Sync Square Details] Processing ${product.slug} (${product.squareCatalogId})`);
 
-        // Fetch the current Square catalog item to get its version (required for updates)
+        // Fetch the current Square catalog item WITH related objects (variations required for upsert)
         const fetchRes = await client.catalog.object.get({
           objectId: product.squareCatalogId!,
-          includeRelatedObjects: false,
+          includeRelatedObjects: true,
         });
 
         if (!fetchRes.object || fetchRes.object.type !== "ITEM") {
@@ -77,7 +77,16 @@ export async function POST(req: NextRequest) {
         const existingItem = fetchRes.object;
         const currentVersion = existingItem.version;
 
-        // Update name and description via batchUpsert (preserves existing variations)
+        // Square requires at least one variation when upserting an ITEM.
+        // Pull existing variations from relatedObjects and pass them back unchanged.
+        const existingVariations = (fetchRes.relatedObjects ?? [])
+          .filter((o) => o.type === "ITEM_VARIATION");
+
+        if (existingVariations.length === 0) {
+          throw new Error("No variations found on Square item — cannot update without variations");
+        }
+
+        // Update name and description, preserving all existing variations
         const idempotencyKey = `sync-details-${product.slug}-${Date.now()}`;
         await client.catalog.batchUpsert({
           idempotencyKey,
@@ -89,14 +98,13 @@ export async function POST(req: NextRequest) {
               itemData: {
                 name: product.name,
                 description: product.seoDescription || undefined,
-                // Preserve existing variations by not including them here
-                // Square merges itemData fields; omitting variations keeps them
+                variations: existingVariations,
               },
             }],
           }],
         });
 
-        console.log(`[Sync Square Details] ${product.slug}: Updated name/description`);
+        console.log(`[Sync Square Details] ${product.slug}: Updated name/description (${existingVariations.length} variations preserved)`);
 
         // Now upload new images. Build the image list from images array or fall back to single image.
         const imageUrls: string[] = product.images?.length
