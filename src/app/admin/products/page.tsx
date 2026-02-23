@@ -1477,11 +1477,12 @@ export default function AdminProductsPage() {
                 }
                 const stockData = (await stockRes.json()) as SyncSquareStockResponse;
 
-                // Step 2: Sync product details (name, description, images)
+                // Step 2: Sync product details (name/description only — skip images to avoid timeout)
+                // Use per-product "Sync Details" button to upload images individually
                 const detailsRes = await fetch("/api/admin/sync-square-details", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({}),
+                  body: JSON.stringify({ skipImages: true }),
                 });
                 let detailsData: {
                   message?: string;

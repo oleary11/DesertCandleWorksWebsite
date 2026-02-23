@@ -7,6 +7,7 @@ export const runtime = "nodejs";
 
 type RequestBody = {
   productSlug?: string; // Optional: sync specific product, or all if omitted
+  skipImages?: boolean; // If true, only sync name/description (faster for bulk)
 };
 
 /**
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { productSlug } = body;
+    const { productSlug, skipImages = false } = body;
 
     const allProducts = await listResolvedProducts();
     const productsToSync = productSlug
@@ -107,80 +108,83 @@ export async function POST(req: NextRequest) {
 
         console.log(`[Sync Square Details] ${product.slug}: Updated name/description (${existingVariations.length} variations preserved)`);
 
-        // Now upload new images. Build the image list from images array or fall back to single image.
-        const imageUrls: string[] = product.images?.length
-          ? product.images
-          : product.image ? [product.image] : [];
-
         let imagesUploaded = 0;
-        for (let i = 0; i < Math.min(imageUrls.length, 5); i++) {
-          const imageUrl = imageUrls[i];
 
-          // Resolve relative paths (e.g. /images/xxx.png) to absolute URLs
-          const resolvedUrl = imageUrl.startsWith("/") ? `${baseWebUrl}${imageUrl}` : imageUrl;
+        if (!skipImages) {
+          // Upload images. Build the image list from images array or fall back to single image.
+          const imageUrls: string[] = product.images?.length
+            ? product.images
+            : product.image ? [product.image] : [];
 
-          if (resolvedUrl.includes("localhost") || resolvedUrl.includes("127.0.0.1")) {
-            console.warn(`[Sync Square Details] Skipping localhost image: ${resolvedUrl}`);
-            continue;
-          }
+          for (let i = 0; i < Math.min(imageUrls.length, 5); i++) {
+            const imageUrl = imageUrls[i];
 
-          try {
-            const imageResponse = await fetch(resolvedUrl);
-            if (!imageResponse.ok) throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+            // Resolve relative paths (e.g. /images/xxx.png) to absolute URLs
+            const resolvedUrl = imageUrl.startsWith("/") ? `${baseWebUrl}${imageUrl}` : imageUrl;
 
-            const imageBuffer = await imageResponse.arrayBuffer();
-            const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
-
-            let imageBlob: Blob;
-            let fileName: string;
-
-            if (contentType === "image/webp") {
-              const converted = await sharp(Buffer.from(imageBuffer))
-                .jpeg({ quality: 85, mozjpeg: true })
-                .toBuffer();
-              imageBlob = new Blob([new Uint8Array(converted)], { type: "image/jpeg" });
-              fileName = `image-${i}.jpg`;
-            } else if (contentType === "image/png" || contentType === "image/x-png") {
-              imageBlob = new Blob([imageBuffer], { type: "image/png" });
-              fileName = `image-${i}.png`;
-            } else {
-              imageBlob = new Blob([imageBuffer], { type: "image/jpeg" });
-              fileName = `image-${i}.jpg`;
+            if (resolvedUrl.includes("localhost") || resolvedUrl.includes("127.0.0.1")) {
+              console.warn(`[Sync Square Details] Skipping localhost image: ${resolvedUrl}`);
+              continue;
             }
 
-            const formData = new FormData();
-            const request = {
-              idempotency_key: `${idempotencyKey}-img-${i}`,
-              object_id: product.squareCatalogId,
-              image: {
-                type: "IMAGE",
-                id: `#temp_image_${i}`,
-                image_data: {
-                  caption: i === 0 ? product.name : `${product.name} - Image ${i + 1}`,
+            try {
+              const imageResponse = await fetch(resolvedUrl);
+              if (!imageResponse.ok) throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
+
+              const imageBuffer = await imageResponse.arrayBuffer();
+              const contentType = imageResponse.headers.get("content-type") || "image/jpeg";
+
+              let imageBlob: Blob;
+              let fileName: string;
+
+              if (contentType === "image/webp") {
+                const converted = await sharp(Buffer.from(imageBuffer))
+                  .jpeg({ quality: 85, mozjpeg: true })
+                  .toBuffer();
+                imageBlob = new Blob([new Uint8Array(converted)], { type: "image/jpeg" });
+                fileName = `image-${i}.jpg`;
+              } else if (contentType === "image/png" || contentType === "image/x-png") {
+                imageBlob = new Blob([imageBuffer], { type: "image/png" });
+                fileName = `image-${i}.png`;
+              } else {
+                imageBlob = new Blob([imageBuffer], { type: "image/jpeg" });
+                fileName = `image-${i}.jpg`;
+              }
+
+              const formData = new FormData();
+              const request = {
+                idempotency_key: `${idempotencyKey}-img-${i}`,
+                object_id: product.squareCatalogId,
+                image: {
+                  type: "IMAGE",
+                  id: `#temp_image_${i}`,
+                  image_data: {
+                    caption: i === 0 ? product.name : `${product.name} - Image ${i + 1}`,
+                  },
                 },
-              },
-            };
-            formData.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
-            formData.append("image_file", imageBlob, fileName);
+              };
+              formData.append("request", new Blob([JSON.stringify(request)], { type: "application/json" }));
+              formData.append("image_file", imageBlob, fileName);
 
-            const uploadRes = await fetch(`${baseUrl}/v2/catalog/images`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Square-Version": "2024-12-18",
-              },
-              body: formData,
-            });
+              const uploadRes = await fetch(`${baseUrl}/v2/catalog/images`, {
+                method: "POST",
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                  "Square-Version": "2024-12-18",
+                },
+                body: formData,
+              });
 
-            const uploadResult = await uploadRes.json() as { image?: { id?: string }; errors?: unknown[] };
-            if (uploadRes.ok && uploadResult.image?.id) {
-              imagesUploaded++;
-              console.log(`[Sync Square Details] ${product.slug}: Uploaded image ${i} -> ${uploadResult.image.id}`);
-            } else {
-              console.error(`[Sync Square Details] ${product.slug}: Image ${i} upload failed:`, uploadResult.errors);
+              const uploadResult = await uploadRes.json() as { image?: { id?: string }; errors?: unknown[] };
+              if (uploadRes.ok && uploadResult.image?.id) {
+                imagesUploaded++;
+                console.log(`[Sync Square Details] ${product.slug}: Uploaded image ${i} -> ${uploadResult.image.id}`);
+              } else {
+                console.error(`[Sync Square Details] ${product.slug}: Image ${i} upload failed:`, uploadResult.errors);
+              }
+            } catch (imgErr) {
+              console.error(`[Sync Square Details] ${product.slug}: Image ${i} error:`, imgErr);
             }
-          } catch (imgErr) {
-            console.error(`[Sync Square Details] ${product.slug}: Image ${i} error:`, imgErr);
           }
         }
 
@@ -189,7 +193,6 @@ export async function POST(req: NextRequest) {
           productName: product.name,
           success: true,
           imagesUploaded,
-          totalImages: imageUrls.length,
         });
         successCount++;
       } catch (err) {
