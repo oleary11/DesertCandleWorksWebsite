@@ -1512,6 +1512,41 @@ export default function AdminProductsPage() {
             {saving ? "Syncing..." : "Sync All to Square"}
           </button>
           <button
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-teal-300 text-teal-700 hover:bg-teal-50 transition-colors disabled:opacity-50"
+            onClick={async () => {
+              if (saving) return;
+              try {
+                setSaving(true);
+                const res = await fetch("/api/admin/sync-square-details", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
+                });
+                const data = (await res.json()) as {
+                  error?: string;
+                  message?: string;
+                  successCount?: number;
+                  errorCount?: number;
+                };
+                if (!res.ok) throw new Error(data.error || "Failed to sync details");
+                await showAlert(
+                  `${data.message}\n\nSuccess: ${data.successCount}, Errors: ${data.errorCount}`,
+                  "Sync Details Complete"
+                );
+              } catch (err) {
+                await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
+              } finally {
+                setSaving(false);
+              }
+            }}
+            disabled={saving}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {saving ? "Syncing..." : "Sync Details to Square"}
+          </button>
+          <button
             className="btn btn-primary w-full sm:w-auto"
             onClick={() => {
               const p = emptyProduct();
