@@ -56,6 +56,9 @@ export async function POST(req: NextRequest) {
       ? "https://connect.squareup.com"
       : "https://connect.squareupsandbox.com";
 
+    // Base URL for resolving relative image paths (e.g. /images/xxx.png → absolute URL)
+    const baseWebUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
+
     const results = [];
     let successCount = 0;
     let errorCount = 0;
@@ -113,13 +116,16 @@ export async function POST(req: NextRequest) {
         for (let i = 0; i < Math.min(imageUrls.length, 5); i++) {
           const imageUrl = imageUrls[i];
 
-          if (imageUrl.includes("localhost") || imageUrl.includes("127.0.0.1")) {
-            console.warn(`[Sync Square Details] Skipping localhost image: ${imageUrl}`);
+          // Resolve relative paths (e.g. /images/xxx.png) to absolute URLs
+          const resolvedUrl = imageUrl.startsWith("/") ? `${baseWebUrl}${imageUrl}` : imageUrl;
+
+          if (resolvedUrl.includes("localhost") || resolvedUrl.includes("127.0.0.1")) {
+            console.warn(`[Sync Square Details] Skipping localhost image: ${resolvedUrl}`);
             continue;
           }
 
           try {
-            const imageResponse = await fetch(imageUrl);
+            const imageResponse = await fetch(resolvedUrl);
             if (!imageResponse.ok) throw new Error(`Failed to fetch image: ${imageResponse.statusText}`);
 
             const imageBuffer = await imageResponse.arrayBuffer();

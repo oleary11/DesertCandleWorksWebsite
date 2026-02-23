@@ -1483,12 +1483,20 @@ export default function AdminProductsPage() {
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({}),
                 });
-                const detailsData = (await detailsRes.json()) as {
+                let detailsData: {
                   message?: string;
                   successCount?: number;
                   errorCount?: number;
                   error?: string;
-                };
+                } = {};
+                if (detailsRes.ok) {
+                  detailsData = (await detailsRes.json()) as typeof detailsData;
+                } else {
+                  const text = await detailsRes.text();
+                  // eslint-disable-next-line no-console
+                  console.error("[Sync All] Details sync non-OK response:", detailsRes.status, text.slice(0, 200));
+                  detailsData = { error: `Details sync failed (${detailsRes.status})` };
+                }
 
                 const stockErrors =
                   stockData.results
