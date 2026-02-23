@@ -8,6 +8,9 @@ export const runtime = "nodejs";
 type RequestBody = {
   productSlug?: string; // Optional: sync specific product, or all if omitted
   skipImages?: boolean; // If true, only sync name/description (faster for bulk)
+  imagesOnly?: boolean; // If true, skip metadata update — only upload images (for batch image sync)
+  offset?: number;      // Batch start index (for paginated image sync)
+  limit?: number;       // Batch size (for paginated image sync)
 };
 
 /**
@@ -37,7 +40,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { productSlug, skipImages = false } = body;
+    const { productSlug, skipImages = false, imagesOnly = false, offset = 0, limit } = body;
 
     const allProducts = await listResolvedProducts();
     const productsToSync = productSlug
@@ -52,6 +55,10 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
+    const total = productsToSync.length;
+    // Apply pagination slice when offset/limit are provided
+    const batch = limit !== undefined ? productsToSync.slice(offset, offset + limit) : productsToSync.slice(offset);
+
     const environment = process.env.SQUARE_ENVIRONMENT === "production" ? "production" : "sandbox";
     const baseUrl = environment === "production"
       ? "https://connect.squareup.com"
@@ -63,55 +70,59 @@ export async function POST(req: NextRequest) {
     const results = [];
     let successCount = 0;
     let errorCount = 0;
+    let totalImagesUploaded = 0;
 
-    for (const product of productsToSync) {
+    for (const product of batch) {
       try {
         console.log(`[Sync Square Details] Processing ${product.slug} (${product.squareCatalogId})`);
 
-        // Fetch the current Square catalog item (variations live in itemData.variations)
-        const fetchRes = await client.catalog.object.get({
-          objectId: product.squareCatalogId!,
-          includeRelatedObjects: false,
-        });
-
-        if (!fetchRes.object || fetchRes.object.type !== "ITEM") {
-          throw new Error("Square catalog item not found or wrong type");
-        }
-
-        const existingItem = fetchRes.object;
-        const currentVersion = existingItem.version;
-
-        // Variations are embedded in itemData.variations, not in relatedObjects
-        const existingVariations = existingItem.itemData?.variations ?? [];
-
-        if (existingVariations.length === 0) {
-          throw new Error("No variations found on Square item — run Remap Variants first");
-        }
-
-        // Update name and description, preserving all existing variations
         const idempotencyKey = `sync-details-${product.slug}-${Date.now()}`;
-        await client.catalog.batchUpsert({
-          idempotencyKey,
-          batches: [{
-            objects: [{
-              type: "ITEM",
-              id: product.squareCatalogId!,
-              version: currentVersion,
-              itemData: {
-                name: product.name,
-                description: product.seoDescription || undefined,
-                variations: existingVariations,
-              },
-            }],
-          }],
-        });
 
-        console.log(`[Sync Square Details] ${product.slug}: Updated name/description (${existingVariations.length} variations preserved)`);
+        if (!imagesOnly) {
+          // Fetch the current Square catalog item (variations live in itemData.variations)
+          const fetchRes = await client.catalog.object.get({
+            objectId: product.squareCatalogId!,
+            includeRelatedObjects: false,
+          });
+
+          if (!fetchRes.object || fetchRes.object.type !== "ITEM") {
+            throw new Error("Square catalog item not found or wrong type");
+          }
+
+          const existingItem = fetchRes.object;
+          const currentVersion = existingItem.version;
+
+          // Variations are embedded in itemData.variations, not in relatedObjects
+          const existingVariations = existingItem.itemData?.variations ?? [];
+
+          if (existingVariations.length === 0) {
+            throw new Error("No variations found on Square item — run Remap Variants first");
+          }
+
+          // Update name and description, preserving all existing variations
+          await client.catalog.batchUpsert({
+            idempotencyKey,
+            batches: [{
+              objects: [{
+                type: "ITEM",
+                id: product.squareCatalogId!,
+                version: currentVersion,
+                itemData: {
+                  name: product.name,
+                  description: product.seoDescription || undefined,
+                  variations: existingVariations,
+                },
+              }],
+            }],
+          });
+
+          console.log(`[Sync Square Details] ${product.slug}: Updated name/description`);
+        }
 
         let imagesUploaded = 0;
 
         if (!skipImages) {
-          // Upload images. Build the image list from images array or fall back to single image.
+          // Build the image list from images array or fall back to single image
           const imageUrls: string[] = product.images?.length
             ? product.images
             : product.image ? [product.image] : [];
@@ -178,6 +189,7 @@ export async function POST(req: NextRequest) {
               const uploadResult = await uploadRes.json() as { image?: { id?: string }; errors?: unknown[] };
               if (uploadRes.ok && uploadResult.image?.id) {
                 imagesUploaded++;
+                totalImagesUploaded++;
                 console.log(`[Sync Square Details] ${product.slug}: Uploaded image ${i} -> ${uploadResult.image.id}`);
               } else {
                 console.error(`[Sync Square Details] ${product.slug}: Image ${i} upload failed:`, uploadResult.errors);
@@ -212,6 +224,9 @@ export async function POST(req: NextRequest) {
       message: `Synced details for ${successCount} products, ${errorCount} errors`,
       successCount,
       errorCount,
+      totalImagesUploaded,
+      total,        // Total products available (before slicing)
+      offset,       // Echo back for client tracking
       results,
     });
   } catch (error) {

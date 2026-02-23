@@ -460,6 +460,7 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [priceInputStr, setPriceInputStr] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [imageSyncProgress, setImageSyncProgress] = useState<{ current: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   // New filter and sort states
@@ -1530,6 +1531,75 @@ export default function AdminProductsPage() {
               />
             </svg>
             {saving ? "Syncing..." : "Sync All to Square"}
+          </button>
+          <button
+            className="btn bg-teal-600 !text-white hover:bg-teal-700 w-full sm:w-auto flex items-center gap-2"
+            disabled={saving}
+            onClick={async () => {
+              const confirmed = await showConfirm(
+                "Sync images for all Square products? This uploads product photos to Square in batches of 5. It may take several minutes.",
+                "Sync Images to Square"
+              );
+              if (!confirmed) return;
+
+              const BATCH_SIZE = 5;
+              setSaving(true);
+              setImageSyncProgress({ current: 0, total: 0 });
+              let totalImages = 0;
+              let totalErrors = 0;
+
+              try {
+                let offset = 0;
+                let total = Infinity;
+
+                while (offset < total) {
+                  const res = await fetch("/api/admin/sync-square-details", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ imagesOnly: true, offset, limit: BATCH_SIZE }),
+                  });
+
+                  if (!res.ok) {
+                    const text = await res.text();
+                    throw new Error(`Batch failed (${res.status}): ${text.slice(0, 100)}`);
+                  }
+
+                  const data = (await res.json()) as {
+                    total: number;
+                    offset: number;
+                    successCount: number;
+                    errorCount: number;
+                    totalImagesUploaded: number;
+                  };
+
+                  total = data.total;
+                  totalImages += data.totalImagesUploaded ?? 0;
+                  totalErrors += data.errorCount ?? 0;
+                  offset += BATCH_SIZE;
+
+                  setImageSyncProgress({ current: Math.min(offset, total), total });
+                }
+
+                await showAlert(
+                  `Image sync complete!\n\n${totalImages} images uploaded across ${total} products${totalErrors ? `\n${totalErrors} errors` : ""}`,
+                  "Images Synced"
+                );
+              } catch (err) {
+                // eslint-disable-next-line no-console
+                console.error("[Sync Images] Error:", err);
+                await showAlert(err instanceof Error ? err.message : "Failed to sync images to Square", "Error");
+              } finally {
+                setSaving(false);
+                setImageSyncProgress(null);
+              }
+            }}
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {imageSyncProgress
+              ? `Syncing images ${imageSyncProgress.current}/${imageSyncProgress.total}...`
+              : "Sync Images to Square"}
           </button>
           <button
             className="btn btn-primary w-full sm:w-auto"
