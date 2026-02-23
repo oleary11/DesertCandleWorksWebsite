@@ -2355,6 +2355,42 @@ export default function AdminProductsPage() {
                         {editing.squareCatalogId && (
                           <button
                             type="button"
+                            className="text-xs text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
+                            onClick={async () => {
+                              try {
+                                setSaving(true);
+                                const res = await fetch("/api/admin/sync-square-details", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ productSlug: editing.slug }),
+                                });
+                                const data = (await res.json()) as {
+                                  error?: string;
+                                  message?: string;
+                                  results?: Array<{ imagesUploaded?: number; totalImages?: number }>;
+                                };
+                                if (!res.ok) throw new Error(data.error || "Failed to sync details");
+                                const r = data.results?.[0];
+                                await showAlert(
+                                  `Product details synced to Square!\n\nImages uploaded: ${r?.imagesUploaded ?? 0} / ${r?.totalImages ?? 0}`,
+                                  "Success"
+                                );
+                              } catch (err) {
+                                await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
+                              } finally {
+                                setSaving(false);
+                              }
+                            }}
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            Sync Details to Square
+                          </button>
+                        )}
+                        {editing.squareCatalogId && (
+                          <button
+                            type="button"
                             className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
                             onClick={async () => {
                               const confirmed = await showConfirm(
@@ -2462,6 +2498,10 @@ export default function AdminProductsPage() {
                                   return scent.enabledProducts?.includes(editing.slug);
                                 });
 
+                                const squareImages = editing.images?.length
+                                  ? editing.images
+                                  : editing.image ? [editing.image] : [];
+
                                 const res = await fetch("/api/admin/create-square-product", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
@@ -2470,7 +2510,7 @@ export default function AdminProductsPage() {
                                     price: editing.price,
                                     description: editing.seoDescription,
                                     sku: editing.sku,
-                                    images: editing.images || [],
+                                    images: squareImages,
                                     variantConfig: editing.variantConfig,
                                     scents: productScents.map((s) => ({ id: s.id, name: s.name })),
                                   }),
@@ -2570,6 +2610,10 @@ export default function AdminProductsPage() {
                                   return scent.enabledProducts?.includes(editing.slug);
                                 });
 
+                                const squareImages = editing.images?.length
+                                  ? editing.images
+                                  : editing.image ? [editing.image] : [];
+
                                 const res = await fetch("/api/admin/create-square-product", {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
@@ -2578,7 +2622,7 @@ export default function AdminProductsPage() {
                                     price: editing.price,
                                     description: editing.seoDescription,
                                     sku: editing.sku,
-                                    images: editing.images || [],
+                                    images: squareImages,
                                     variantConfig: editing.variantConfig,
                                     scents: productScents.map((s) => ({ id: s.id, name: s.name })),
                                   }),

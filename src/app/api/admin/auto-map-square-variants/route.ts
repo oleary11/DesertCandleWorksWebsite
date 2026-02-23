@@ -187,13 +187,18 @@ export async function POST(req: NextRequest) {
               console.warn(`[Auto-Map] ${product.slug}: No price found, using default $${price}`);
             }
 
+            // Build image array, falling back to single image if array not set
+            const squareImages = product.images?.length
+              ? product.images
+              : product.image ? [product.image] : [];
+
             // Call create-square-product endpoint
             const createPayload = {
               name: product.name,
               price: price,
               description: product.seoDescription,
               sku: product.sku,
-              images: product.images,
+              images: squareImages,
               variantConfig: product.variantConfig,
               scents: productScents,
             };
