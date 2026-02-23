@@ -625,7 +625,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Create discount coupon (Stripe only allows 1 discount per session)
-    let discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let discounts: any[] | undefined;
 
     // IMPORTANT: Stripe only allows ONE discount, so combine points + promotions into single coupon
     if (discountAmountCents > 0 && promotionDiscountCents > 0) {
@@ -640,7 +641,7 @@ export async function POST(req: NextRequest) {
         name: `${promotion?.name || "Promotion"} + Points (${pointsToRedeem})`,
       });
 
-      discounts = [{ coupon: coupon.id }];
+      discounts = [{ discount: coupon.id }];
     } else if (discountAmountCents > 0) {
       // Only points redemption
       const coupon = await stripe.coupons.create({
@@ -650,7 +651,7 @@ export async function POST(req: NextRequest) {
         name: `Points Redemption (${pointsToRedeem} points)`,
       });
 
-      discounts = [{ coupon: coupon.id }];
+      discounts = [{ discount: coupon.id }];
     } else if (promotionDiscountCents > 0) {
       // Only promotion discount
       const promotion = appliedPromotionId ? await getPromotionById(appliedPromotionId) : null;
@@ -662,7 +663,7 @@ export async function POST(req: NextRequest) {
         name: promotion?.name || "Promotion Discount",
       });
 
-      discounts = [{ coupon: coupon.id }];
+      discounts = [{ discount: coupon.id }];
     }
 
     // Base params shared by both flows

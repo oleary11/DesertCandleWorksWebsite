@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
       }
 
       const promoCodeParams = {
-        coupon: stripeCouponId,
+        discount: stripeCouponId,
         code: code.toUpperCase(),
         active: active !== false,
         ...(Object.keys(restrictions).length > 0 && { restrictions }),

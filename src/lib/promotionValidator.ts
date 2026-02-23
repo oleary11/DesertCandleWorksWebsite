@@ -150,6 +150,7 @@ export async function validatePromotion(
   } else if (context.isGuest) {
     // Guest checkout restrictions
     if (
+      promotion.userTargeting === "first_time" ||
       promotion.userTargeting === "returning" ||
       promotion.userTargeting === "specific_users" ||
       promotion.userTargeting === "order_count" ||

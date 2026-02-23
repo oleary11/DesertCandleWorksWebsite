@@ -1,9 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
+import { kv } from "@vercel/kv";
 import { getUserSession } from "@/lib/userSession";
 import { getPromotionByCode, listPromotions } from "@/lib/promotionsStore";
 import { validatePromotion, findAutomaticPromotions } from "@/lib/promotionValidator";
 
 export const runtime = "nodejs";
+
+const MAX_CODE_ATTEMPTS_PER_HOUR = 10;
 
 type CartItem = {
   productSlug: string;
@@ -41,6 +44,32 @@ export async function POST(req: NextRequest) {
 
     // If code is provided, validate that specific promotion
     if (code) {
+      // Rate limit code validation attempts by IP to prevent brute-forcing
+      const ip =
+        req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
+        req.headers.get("x-real-ip") ||
+        "unknown";
+      const rateLimitKey = `promo:validate:ip:${ip}`;
+      const attempts = (await kv.get<number>(rateLimitKey)) || 0;
+
+      if (attempts >= MAX_CODE_ATTEMPTS_PER_HOUR) {
+        return NextResponse.json(
+          { valid: false, error: "Too many attempts. Please try again later." },
+          { status: 429 }
+        );
+      }
+
+      await kv.incr(rateLimitKey);
+      await kv.expire(rateLimitKey, 3600); // 1 hour window
+
+      // Enforce maximum code length to prevent abuse
+      if (code.length > 50) {
+        return NextResponse.json(
+          { valid: false, error: "Invalid promotion code" },
+          { status: 400 }
+        );
+      }
+
       const promotion = await getPromotionByCode(code);
 
       if (!promotion) {

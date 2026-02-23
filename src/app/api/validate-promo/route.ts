@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { kv } from "@vercel/kv";
 import { validatePromotion } from "@/lib/promotionValidator";
 import { getPromotionByCode } from "@/lib/promotionsStore";
+import { getUserSession } from "@/lib/userSession";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,13 @@ export async function POST(req: NextRequest) {
     if (!code || typeof code !== "string") {
       return NextResponse.json(
         { valid: false, error: "Promo code is required" },
+        { status: 400 }
+      );
+    }
+
+    if (code.length > 50) {
+      return NextResponse.json(
+        { valid: false, error: "Invalid promo code" },
         { status: 400 }
       );
     }
@@ -116,10 +124,13 @@ export async function POST(req: NextRequest) {
     }
 
     // 6. Validate the promotion using existing validator
+    const userSession = await getUserSession();
+    const userId = userSession?.userId;
+
     const validation = await validatePromotion(promotion.id, {
-      userId: undefined, // Guest checkout for now
-      isGuest: true,
-      cartItems: [], // We don't have cart items here, will validate in checkout
+      userId,
+      isGuest: !userId,
+      cartItems: [], // Full cart validation happens at checkout
       subtotalCents: subtotalCents || 0,
     });
 

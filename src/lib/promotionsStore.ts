@@ -112,7 +112,7 @@ export async function deletePromotion(id: string): Promise<void> {
   await db.delete(promotions).where(eq(promotions.id, id));
 }
 
-// Increment redemption count
+// Increment redemption count and auto-deactivate if max uses is reached
 export async function incrementRedemptions(id: string): Promise<void> {
   await db
     .update(promotions)
@@ -121,6 +121,16 @@ export async function incrementRedemptions(id: string): Promise<void> {
       updatedAt: new Date(),
     })
     .where(eq(promotions.id, id));
+
+  // Check if we just hit the max redemptions limit
+  const updated = await getPromotionById(id);
+  if (updated && updated.maxRedemptions && updated.currentRedemptions >= updated.maxRedemptions) {
+    await db
+      .update(promotions)
+      .set({ active: false, updatedAt: new Date() })
+      .where(eq(promotions.id, id));
+    console.log(`[Promotions] Auto-deactivated promotion ${id} after reaching max redemptions (${updated.maxRedemptions})`);
+  }
 }
 
 // Helper to map database row to Promotion type
