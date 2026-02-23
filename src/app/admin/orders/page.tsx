@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Package, DollarSign, User, Calendar, FileText, Trash2 } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 type Order = {
   id: string;
@@ -93,6 +94,7 @@ function parseVariantInfo(variantId?: string): { wick: string; scent: string } |
 }
 
 export default function AdminOrdersPage() {
+  const { showAlert, showConfirm } = useModal();
   const [orders, setOrders] = useState<Order[]>([]);
   const [refunds, setRefunds] = useState<Refund[]>([]);
   const [refundMap, setRefundMap] = useState<Map<string, number>>(new Map());
@@ -169,10 +171,10 @@ export default function AdminOrdersPage() {
           const data = await res.json();
           window.open(`/invoice/view?token=${data.token}`, "_blank");
         } else {
-          alert("Failed to generate invoice link");
+          await showAlert("Failed to generate invoice link", "Error");
         }
       } catch (err) {
-        alert("Failed to generate invoice link");
+        await showAlert("Failed to generate invoice link", "Error");
         console.error(err);
       }
     } else {
@@ -185,8 +187,9 @@ export default function AdminOrdersPage() {
     e.stopPropagation();
 
     // Confirm deletion
-    const confirmed = window.confirm(
-      `Are you sure you want to delete this order?\n\nOrder ID: ${orderId}\n\nThis action cannot be undone.`
+    const confirmed = await showConfirm(
+      `Are you sure you want to delete this order?\n\nOrder ID: ${orderId}\n\nThis action cannot be undone.`,
+      "Delete Order"
     );
 
     if (!confirmed) return;
@@ -209,7 +212,7 @@ export default function AdminOrdersPage() {
         setExpandedOrderId(null);
       }
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete order");
+      await showAlert(err instanceof Error ? err.message : "Failed to delete order", "Error");
       console.error(err);
     }
   }
@@ -218,7 +221,7 @@ export default function AdminOrdersPage() {
     const trackingNumber = trackingInput[orderId]?.trim();
 
     if (!trackingNumber) {
-      alert("Please enter a tracking number");
+      await showAlert("Please enter a tracking number", "Validation Error");
       return;
     }
 
@@ -249,9 +252,9 @@ export default function AdminOrdersPage() {
       setTrackingInput({ ...trackingInput, [orderId]: "" });
 
       // Show success message
-      alert(data.message + (data.warning ? `\n\nWarning: ${data.warning}` : ""));
+      await showAlert(data.message + (data.warning ? `\n\nWarning: ${data.warning}` : ""), "Success");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to update shipping");
+      await showAlert(err instanceof Error ? err.message : "Failed to update shipping", "Error");
       console.error(err);
     } finally {
       setUpdatingShipping(null);
@@ -259,7 +262,11 @@ export default function AdminOrdersPage() {
   }
 
   async function checkAllDeliveries() {
-    if (!confirm("Check USPS tracking for all shipped orders and auto-send delivery emails?")) {
+    const confirmed = await showConfirm(
+      "Check USPS tracking for all shipped orders and auto-send delivery emails?",
+      "Check Deliveries"
+    );
+    if (!confirmed) {
       return;
     }
 
@@ -289,9 +296,9 @@ export default function AdminOrdersPage() {
           `${d.orderId}: ${d.delivered ? '✅ Delivered' : '📦 ' + d.status}${d.error ? ' (Error: ' + d.error + ')' : ''}`
         ).join('\n')}`;
 
-      alert(summary);
+      await showAlert(summary, "Delivery Check Complete");
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to check deliveries");
+      await showAlert(err instanceof Error ? err.message : "Failed to check deliveries", "Error");
       console.error(err);
     } finally {
       setCheckingDeliveries(false);

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Search, X, Mail, Users, User, Package, Edit, Trash2, Plus, Save } from "lucide-react";
+import { useModal } from "@/hooks/useModal";
 
 type Recipient = {
   email: string;
@@ -34,6 +35,7 @@ type SavedTemplate = {
 type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
 export default function AdminEmailsPage() {
+  const { showAlert, showConfirm } = useModal();
   const [template, setTemplate] = useState<EmailTemplate>("custom");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -131,7 +133,7 @@ export default function AdminEmailsPage() {
 
   const saveTemplate = async () => {
     if (!templateName.trim() || !subject.trim() || !message.trim()) {
-      alert("Please provide a template name, subject, and message");
+      await showAlert("Please provide a template name, subject, and message", "Validation Error");
       return;
     }
 
@@ -161,7 +163,7 @@ export default function AdminEmailsPage() {
 
   const updateTemplate = async (templateId: string) => {
     if (!subject.trim() || !message.trim()) {
-      alert("Please provide subject and message");
+      await showAlert("Please provide subject and message", "Validation Error");
       return;
     }
 
@@ -190,7 +192,8 @@ export default function AdminEmailsPage() {
   };
 
   const deleteTemplate = async (templateId: string) => {
-    if (!confirm("Are you sure you want to delete this template?")) return;
+    const confirmed = await showConfirm("Are you sure you want to delete this template?", "Delete Template");
+    if (!confirmed) return;
 
     try {
       const res = await fetch(`/api/admin/email-templates?id=${templateId}`, {
