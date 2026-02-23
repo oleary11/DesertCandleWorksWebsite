@@ -1328,7 +1328,7 @@ export default function AdminProductsPage() {
           </button>
           <Link
             href="/admin/stripe-product-sync"
-            className="btn bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto flex items-center justify-center gap-2"
+            className="btn btn-cta bg-blue-600 text-white hover:bg-blue-700 w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -1506,8 +1506,8 @@ export default function AdminProductsPage() {
 
                 await showAlert(
                   `Sync complete!\n\nStock: ${stockData.successCount} synced, ${stockData.errorCount} errors\nDetails: ${detailsData.successCount ?? 0} synced, ${detailsData.errorCount ?? 0} errors${
-                    stockErrors ? "\n\nStock errors:\n" + stockErrors : ""
-                  }`,
+                    detailsData.error ? `\n\nDetails error: ${detailsData.error}` : ""
+                  }${stockErrors ? "\n\nStock errors:\n" + stockErrors : ""}`,
                   "Sync Complete"
                 );
               } catch (err) {
@@ -2374,7 +2374,7 @@ export default function AdminProductsPage() {
                         {editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-teal-600 hover:text-teal-700 font-medium flex items-center gap-1"
+                            className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                             onClick={async () => {
                               try {
                                 setSaving(true);
