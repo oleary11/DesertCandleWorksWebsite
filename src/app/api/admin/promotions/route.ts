@@ -88,72 +88,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const stripe = getStripe();
     const promotionId = `promo_${Date.now()}_${Math.random()
       .toString(36)
       .substring(7)}`;
 
-    let stripeCouponId: string | undefined;
-    let stripePromotionCodeId: string | undefined;
-
-    // Create Stripe coupon/promotion code for applicable types
-    if (type === "percentage" || type === "fixed_amount") {
-      // Create Stripe coupon
-      const couponParams: Stripe.CouponCreateParams = {
-        name: name,
-        metadata: { promotionId },
-      };
-
-      if (type === "percentage" && discountPercent) {
-        couponParams.percent_off = discountPercent;
-      } else if (type === "fixed_amount" && discountAmountCents) {
-        couponParams.amount_off = discountAmountCents;
-        couponParams.currency = "usd";
-      }
-
-      if (maxRedemptions) {
-        couponParams.max_redemptions = maxRedemptions;
-      }
-
-      if (expiresAt) {
-        couponParams.redeem_by = Math.floor(
-          new Date(expiresAt).getTime() / 1000
-        );
-      }
-
-      const coupon = await stripe.coupons.create(couponParams);
-      stripeCouponId = coupon.id;
-
-      // Create promotion code
-      const restrictions: Stripe.PromotionCodeCreateParams.Restrictions = {};
-
-      if (minOrderAmountCents) {
-        restrictions.minimum_amount = minOrderAmountCents;
-        restrictions.minimum_amount_currency = "usd";
-      }
-
-      if (userTargeting === "first_time") {
-        restrictions.first_time_transaction = true;
-      }
-
-      const promoCodeParams = {
-        discount: stripeCouponId,
-        code: code.toUpperCase(),
-        active: active !== false,
-        ...(Object.keys(restrictions).length > 0 && { restrictions }),
-      };
-
-      const promoCode = await stripe.promotionCodes.create(
-        promoCodeParams as unknown as Stripe.PromotionCodeCreateParams
-      );
-      stripePromotionCodeId = promoCode.id;
-    }
-
     // Create promotion in our database
     const promotion: Promotion = {
       id: promotionId,
-      stripeCouponId,
-      stripePromotionCodeId,
       code: code.toUpperCase(),
       name,
       description,
