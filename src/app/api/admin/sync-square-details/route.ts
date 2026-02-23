@@ -64,10 +64,10 @@ export async function POST(req: NextRequest) {
       try {
         console.log(`[Sync Square Details] Processing ${product.slug} (${product.squareCatalogId})`);
 
-        // Fetch the current Square catalog item WITH related objects (variations required for upsert)
+        // Fetch the current Square catalog item (variations live in itemData.variations)
         const fetchRes = await client.catalog.object.get({
           objectId: product.squareCatalogId!,
-          includeRelatedObjects: true,
+          includeRelatedObjects: false,
         });
 
         if (!fetchRes.object || fetchRes.object.type !== "ITEM") {
@@ -77,13 +77,11 @@ export async function POST(req: NextRequest) {
         const existingItem = fetchRes.object;
         const currentVersion = existingItem.version;
 
-        // Square requires at least one variation when upserting an ITEM.
-        // Pull existing variations from relatedObjects and pass them back unchanged.
-        const existingVariations = (fetchRes.relatedObjects ?? [])
-          .filter((o) => o.type === "ITEM_VARIATION");
+        // Variations are embedded in itemData.variations, not in relatedObjects
+        const existingVariations = existingItem.itemData?.variations ?? [];
 
         if (existingVariations.length === 0) {
-          throw new Error("No variations found on Square item — cannot update without variations");
+          throw new Error("No variations found on Square item — run Remap Variants first");
         }
 
         // Update name and description, preserving all existing variations

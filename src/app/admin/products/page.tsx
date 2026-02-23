@@ -1457,7 +1457,7 @@ export default function AdminProductsPage() {
               }
 
               const confirmed = await showConfirm(
-                `Sync all ${squareProducts.length} Square products? This will update inventory for all variants.`,
+                `Sync all ${squareProducts.length} Square products? This will update inventory, names, descriptions, and images.`,
                 "Sync All to Square"
               );
 
@@ -1465,35 +1465,46 @@ export default function AdminProductsPage() {
 
               setSaving(true);
               try {
-                const res = await fetch("/api/admin/sync-square-stock", {
+                // Step 1: Sync stock
+                const stockRes = await fetch("/api/admin/sync-square-stock", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({}), // No productSlug = sync all
+                  body: JSON.stringify({}),
                 });
-
-                if (!res.ok) {
-                  const error = (await res.json()) as { error?: string };
-                  throw new Error(error.error || "Failed to sync");
+                if (!stockRes.ok) {
+                  const error = (await stockRes.json()) as { error?: string };
+                  throw new Error(error.error || "Failed to sync stock");
                 }
+                const stockData = (await stockRes.json()) as SyncSquareStockResponse;
 
-                const data = (await res.json()) as SyncSquareStockResponse;
+                // Step 2: Sync product details (name, description, images)
+                const detailsRes = await fetch("/api/admin/sync-square-details", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({}),
+                });
+                const detailsData = (await detailsRes.json()) as {
+                  message?: string;
+                  successCount?: number;
+                  errorCount?: number;
+                  error?: string;
+                };
 
-                // Show detailed results
-                const errorDetails =
-                  data.results
+                const stockErrors =
+                  stockData.results
                     ?.filter((r) => !r.success)
                     .map((r) => `${r.productSlug}: ${r.error ?? "Unknown error"}`)
                     .join("\n") ?? "";
 
                 await showAlert(
-                  `${data.message}\n\nSuccessfully synced: ${data.successCount}\nErrors: ${data.errorCount}${
-                    errorDetails ? "\n\nError details:\n" + errorDetails : ""
+                  `Sync complete!\n\nStock: ${stockData.successCount} synced, ${stockData.errorCount} errors\nDetails: ${detailsData.successCount ?? 0} synced, ${detailsData.errorCount ?? 0} errors${
+                    stockErrors ? "\n\nStock errors:\n" + stockErrors : ""
                   }`,
                   "Sync Complete"
                 );
               } catch (err) {
                 // eslint-disable-next-line no-console
-                console.error("[Sync All Square Stock] Error:", err);
+                console.error("[Sync All Square] Error:", err);
                 await showAlert(err instanceof Error ? err.message : "Failed to sync all products to Square", "Error");
               } finally {
                 setSaving(false);
@@ -1510,41 +1521,6 @@ export default function AdminProductsPage() {
               />
             </svg>
             {saving ? "Syncing..." : "Sync All to Square"}
-          </button>
-          <button
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border border-teal-300 text-teal-700 hover:bg-teal-50 transition-colors disabled:opacity-50"
-            onClick={async () => {
-              if (saving) return;
-              try {
-                setSaving(true);
-                const res = await fetch("/api/admin/sync-square-details", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({}),
-                });
-                const data = (await res.json()) as {
-                  error?: string;
-                  message?: string;
-                  successCount?: number;
-                  errorCount?: number;
-                };
-                if (!res.ok) throw new Error(data.error || "Failed to sync details");
-                await showAlert(
-                  `${data.message}\n\nSuccess: ${data.successCount}, Errors: ${data.errorCount}`,
-                  "Sync Details Complete"
-                );
-              } catch (err) {
-                await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
-              } finally {
-                setSaving(false);
-              }
-            }}
-            disabled={saving}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {saving ? "Syncing..." : "Sync Details to Square"}
           </button>
           <button
             className="btn btn-primary w-full sm:w-auto"
