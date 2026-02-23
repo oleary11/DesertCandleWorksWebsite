@@ -1533,7 +1533,7 @@ export default function AdminProductsPage() {
             {saving ? "Syncing..." : "Sync All to Square"}
           </button>
           <button
-            className="btn bg-teal-600 !text-white hover:bg-teal-700 w-full sm:w-auto flex items-center gap-2"
+            className="btn bg-teal-600 !text-black hover:bg-teal-700 w-full sm:w-auto flex items-center gap-2"
             disabled={saving}
             onClick={async () => {
               const confirmed = await showConfirm(
