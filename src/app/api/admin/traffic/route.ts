@@ -67,8 +67,8 @@ export async function GET(req: NextRequest) {
           : 0,
     }));
 
-    // 3. Top products (paths matching /shop/[slug])
-    const topProducts = topPagesRaw
+    // 3. Top products (paths matching /shop/[slug]) — views only; avg time added below
+    const topProductsBase = topPagesRaw
       .filter(
         (row) =>
           row.path.startsWith("/shop/") && row.path.split("/").length === 3
@@ -159,7 +159,8 @@ export async function GET(req: NextRequest) {
       views: row.views,
     }));
 
-    // 7b. Top US cities — unique visitors
+    // 7b. Top US cities — fetch extra rows, then deduplicate by decoded name in JS
+    //     (some existing DB rows have percent-encoded city names e.g. "Santa%20Clara")
     const topCitiesRaw = await dbHttp
       .select({
         city: pageViews.city,
@@ -176,15 +177,58 @@ export async function GET(req: NextRequest) {
       )
       .groupBy(pageViews.city, pageViews.region)
       .orderBy(sql`count(distinct ${pageViews.sessionId}) desc`)
-      .limit(10);
+      .limit(100); // fetch extra so deduplication doesn't cut off real cities
 
-    const topCities = topCitiesRaw.map((row) => ({
-      city: row.city ? safeDecodeCity(row.city) : "Unknown",
-      region: row.region ?? "",
-      visitors: row.visitors,
-    }));
+    // 7c. Avg time per US city — join page_exit events with pageViews by sessionId
+    const cityTimesRaw = await dbHttp
+      .select({
+        city: pageViews.city,
+        region: pageViews.region,
+        avgSeconds: sql<number>`round(avg((${analyticsEvents.properties}->>'durationSeconds')::float))::int`,
+      })
+      .from(analyticsEvents)
+      .innerJoin(pageViews, sql`${analyticsEvents.sessionId} = ${pageViews.sessionId}`)
+      .where(
+        and(
+          eventsFilter,
+          sql`${analyticsEvents.eventType} = 'page_exit'`,
+          sql`${pageViews.city} is not null`,
+          sql`${pageViews.country} = 'US'`,
+          sql`${analyticsEvents.properties}->>'durationSeconds' is not null`
+        )
+      )
+      .groupBy(pageViews.city, pageViews.region);
 
-    // 8. Avg time on page — from page_exit events (durationSeconds in properties)
+    const cityTimesMap = new Map<string, number>();
+    for (const row of cityTimesRaw) {
+      if (row.city) {
+        const key = `${safeDecodeCity(row.city)}|${row.region ?? ""}`;
+        cityTimesMap.set(key, row.avgSeconds);
+      }
+    }
+
+    // Aggregate by decoded city name to merge e.g. "Santa%20Clara" + "Santa Clara"
+    const cityMap = new Map<string, { city: string; region: string; visitors: number; avgSeconds: number }>();
+    for (const row of topCitiesRaw) {
+      const decoded = row.city ? safeDecodeCity(row.city) : "Unknown";
+      const key = `${decoded}|${row.region ?? ""}`;
+      const existing = cityMap.get(key);
+      if (existing) {
+        existing.visitors += row.visitors;
+      } else {
+        cityMap.set(key, {
+          city: decoded,
+          region: row.region ?? "",
+          visitors: row.visitors,
+          avgSeconds: cityTimesMap.get(key) ?? 0,
+        });
+      }
+    }
+    const topCities = [...cityMap.values()]
+      .sort((a, b) => b.visitors - a.visitors)
+      .slice(0, 10);
+
+    // 8. Avg time on page — overall average from page_exit events (durationSeconds in properties)
     const [durationRow] = await dbHttp
       .select({
         avgSeconds: sql<number>`round(avg((${analyticsEvents.properties}->>'durationSeconds')::float))::int`,
@@ -199,6 +243,57 @@ export async function GET(req: NextRequest) {
       );
 
     const avgPageSeconds = durationRow?.avgSeconds ?? 0;
+
+    // 8b. Avg time per product page — from page_exit events where _path starts with /shop/
+    const productTimesRaw = await dbHttp
+      .select({
+        path: sql<string>`${analyticsEvents.properties}->>'_path'`,
+        avgSeconds: sql<number>`round(avg((${analyticsEvents.properties}->>'durationSeconds')::float))::int`,
+      })
+      .from(analyticsEvents)
+      .where(
+        and(
+          eventsFilter,
+          sql`${analyticsEvents.eventType} = 'page_exit'`,
+          sql`${analyticsEvents.properties}->>'_path' like '/shop/%'`,
+          sql`${analyticsEvents.properties}->>'durationSeconds' is not null`
+        )
+      )
+      .groupBy(sql`${analyticsEvents.properties}->>'_path'`);
+
+    const productTimesMap: Record<string, number> = {};
+    for (const row of productTimesRaw) {
+      if (row.path) productTimesMap[row.path] = row.avgSeconds;
+    }
+
+    // Build topProducts with avgSeconds merged in
+    const topProducts = topProductsBase.map((p) => ({
+      ...p,
+      avgSeconds: productTimesMap[p.path] ?? 0,
+    }));
+
+    // 8c. Avg time per US state — from page_exit events with region
+    const stateTimesRaw = await dbHttp
+      .select({
+        region: analyticsEvents.region,
+        avgSeconds: sql<number>`round(avg((${analyticsEvents.properties}->>'durationSeconds')::float))::int`,
+      })
+      .from(analyticsEvents)
+      .where(
+        and(
+          eventsFilter,
+          sql`${analyticsEvents.eventType} = 'page_exit'`,
+          sql`${analyticsEvents.region} is not null`,
+          sql`${analyticsEvents.country} = 'US'`,
+          sql`${analyticsEvents.properties}->>'durationSeconds' is not null`
+        )
+      )
+      .groupBy(analyticsEvents.region);
+
+    const stateTimes: Record<string, number> = {};
+    for (const row of stateTimesRaw) {
+      if (row.region) stateTimes[row.region] = row.avgSeconds;
+    }
 
     // 9. Cart abandonment
     const [cartStats] = await dbHttp
@@ -229,6 +324,7 @@ export async function GET(req: NextRequest) {
       },
       topPages,
       topProducts,
+      stateTimes,
       byHour,
       byDayOfWeek,
       topCountries,

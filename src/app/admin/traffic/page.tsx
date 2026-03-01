@@ -26,12 +26,13 @@ type TrafficData = {
     avgPageSeconds: number;
   };
   topPages: Array<{ path: string; views: number; percentage: number }>;
-  topProducts: Array<{ path: string; slug: string; views: number }>;
+  topProducts: Array<{ path: string; slug: string; views: number; avgSeconds: number }>;
+  stateTimes: Record<string, number>;
   byHour: Array<{ hour: number; views: number }>;
   byDayOfWeek: Array<{ day: number; label: string; views: number }>;
   topCountries: Array<{ country: string; views: number; percentage: number }>;
   topRegions: Array<{ region: string; country: string; views: number }>;
-  topCities: Array<{ city: string; region: string; visitors: number }>;
+  topCities: Array<{ city: string; region: string; visitors: number; avgSeconds: number }>;
   cartEvents: {
     addToCartSessions: number;
     checkoutStartedSessions: number;
@@ -279,6 +280,11 @@ export default function TrafficAnalyticsPage() {
                       <span className="text-[var(--color-muted)] shrink-0">
                         {product.views.toLocaleString()} views
                       </span>
+                      {product.avgSeconds > 0 && (
+                        <span className="text-teal-600 shrink-0 text-xs tabular-nums">
+                          {formatDuration(product.avgSeconds)}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -373,7 +379,7 @@ export default function TrafficAnalyticsPage() {
                 No US state data yet. Geo data requires Vercel deployment.
               </p>
             ) : (
-              <USStateHeatMap regions={data.topRegions} />
+              <USStateHeatMap regions={data.topRegions} stateTimes={data.stateTimes} />
             )}
           </div>
 
@@ -430,9 +436,9 @@ export default function TrafficAnalyticsPage() {
                   {data.topCities.map((row) => (
                     <div
                       key={`${row.city}-${row.region}`}
-                      className="flex items-center justify-between text-sm"
+                      className="flex items-center gap-2 text-sm"
                     >
-                      <span className="text-[var(--color-ink)]">
+                      <span className="flex-1 text-[var(--color-ink)] truncate">
                         {row.city}
                         {row.region && (
                           <span className="text-[var(--color-muted)] ml-1">
@@ -440,9 +446,14 @@ export default function TrafficAnalyticsPage() {
                           </span>
                         )}
                       </span>
-                      <span className="text-[var(--color-muted)]">
-                        {row.visitors.toLocaleString()}
+                      <span className="text-[var(--color-muted)] shrink-0">
+                        {row.visitors.toLocaleString()} {row.visitors === 1 ? "visitor" : "visitors"}
                       </span>
+                      {row.avgSeconds > 0 && (
+                        <span className="text-teal-600 shrink-0 text-xs tabular-nums">
+                          {formatDuration(row.avgSeconds)}
+                        </span>
+                      )}
                     </div>
                   ))}
                 </div>

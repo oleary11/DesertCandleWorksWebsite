@@ -108,11 +108,17 @@ export async function POST(req: NextRequest) {
         city,
       });
     } else {
-      // Cart/checkout events go into analyticsEvents
+      // Cart/checkout/exit events go into analyticsEvents
+      // For page_exit: merge path into properties so we can do per-page duration queries
+      const storedProperties =
+        eventType === "page_exit" && path
+          ? { ...(properties || {}), _path: path.substring(0, 500) }
+          : properties || null;
+
       await dbHttp.insert(analyticsEvents).values({
         sessionId: sessionId.substring(0, 64),
         eventType: eventType.substring(0, 50),
-        properties: properties || null,
+        properties: storedProperties,
         country,
         region,
       });

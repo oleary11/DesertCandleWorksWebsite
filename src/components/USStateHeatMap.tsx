@@ -55,9 +55,18 @@ type Tooltip = {
 
 type Props = {
   regions: Array<{ region: string; views: number }>;
+  stateTimes?: Record<string, number>; // state abbr → avg seconds on page
 };
 
-export default function USStateHeatMap({ regions }: Props) {
+function fmtSec(s: number): string {
+  if (s <= 0) return "";
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  return r > 0 ? `${m}m ${r}s` : `${m}m`;
+}
+
+export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
 
   const visitorsByState: Record<string, number> = {};
@@ -125,6 +134,11 @@ export default function USStateHeatMap({ regions }: Props) {
             {tooltip.visitors.toLocaleString()}{" "}
             {tooltip.visitors === 1 ? "visitor" : "visitors"}
           </span>
+          {stateTimes[tooltip.abbr] > 0 && (
+            <span className="text-teal-300 ml-1.5">
+              · avg {fmtSec(stateTimes[tooltip.abbr])}
+            </span>
+          )}
         </div>
       )}
 
