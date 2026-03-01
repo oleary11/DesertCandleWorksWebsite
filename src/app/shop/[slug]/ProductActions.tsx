@@ -5,6 +5,7 @@ import type { Product } from "@/lib/productsStore";
 import { ShoppingCart } from "lucide-react";
 import { useState } from "react";
 import { useModal } from "@/hooks/useModal";
+import { trackEvent } from "@/components/AnalyticsTracker";
 
 type Props = {
   product: Product;
@@ -36,6 +37,11 @@ export default function ProductActions({ product, stock }: Props) {
     });
 
     if (success) {
+      trackEvent("cart_add", {
+        productSlug: product.slug,
+        productName: product.name,
+        priceCents: Math.round(product.price * 100),
+      });
       setAddToCartMessage("Added to cart!");
       setTimeout(() => {
         setAddToCartMessage("");

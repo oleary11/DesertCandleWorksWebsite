@@ -365,6 +365,34 @@ export const mobileUploadSessions = pgTable('mobile_upload_sessions', {
 });
 
 // ============================================
+// TRAFFIC ANALYTICS
+// ============================================
+
+export const pageViews = pgTable('page_views', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  sessionId: varchar('session_id', { length: 64 }).notNull(),
+  userId: varchar('user_id', { length: 36 }),
+  path: varchar('path', { length: 500 }).notNull(),
+  referrer: varchar('referrer', { length: 500 }),
+  country: varchar('country', { length: 2 }),
+  region: varchar('region', { length: 64 }), // state/province code
+  city: varchar('city', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const analyticsEvents = pgTable('analytics_events', {
+  id: bigserial('id', { mode: 'number' }).primaryKey(),
+  sessionId: varchar('session_id', { length: 64 }).notNull(),
+  userId: varchar('user_id', { length: 36 }),
+  eventType: varchar('event_type', { length: 50 }).notNull(),
+  // event types: 'cart_add', 'cart_remove', 'checkout_started', 'checkout_completed'
+  properties: jsonb('properties'),
+  country: varchar('country', { length: 2 }),
+  region: varchar('region', { length: 64 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 

@@ -8,6 +8,7 @@ import { useState, useEffect, useCallback } from "react";
 import FreeShippingBanner from "@/components/FreeShippingBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModal } from "@/hooks/useModal";
+import { trackEvent } from "@/components/AnalyticsTracker";
 
 type AppliedPromotion = {
   id: string;
@@ -212,6 +213,7 @@ export default function CartPage() {
       }
 
       if (data.url) {
+        trackEvent("checkout_started", { itemCount: items.length });
         // Redirect to Stripe checkout
         window.location.href = data.url;
       } else {

@@ -6,6 +6,7 @@ import type { GlobalScent } from "@/lib/scents";
 import { useCartStore } from "@/lib/cartStore";
 import { ShoppingCart } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import { trackEvent } from "@/components/AnalyticsTracker";
 
 type Props = {
   product: Product;
@@ -214,6 +215,12 @@ export default function ProductVariantForm({ product, variants, globalScents, va
     });
 
     if (success) {
+      trackEvent("cart_add", {
+        productSlug: product.slug,
+        productName: product.name,
+        variantId: selectedVariant.id,
+        priceCents: currentPrice * 100,
+      });
       setAddToCartMessage("✓ Added to cart!");
       setTimeout(() => setAddToCartMessage(""), 2500);
     } else {

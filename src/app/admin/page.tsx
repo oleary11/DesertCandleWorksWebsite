@@ -22,7 +22,8 @@ import {
   Send,
   Truck,
   Settings,
-  Star
+  Star,
+  BarChart2,
 } from "lucide-react";
 
 export default function AdminHomePage() {
@@ -199,6 +200,21 @@ export default function AdminHomePage() {
                 <h2 className="text-lg font-semibold mb-1">Cost of Goods</h2>
                 <p className="text-sm text-[var(--color-muted)]">
                   Track purchases, receipts, and inventory costs
+                </p>
+              </div>
+            </div>
+          </Link>
+
+          {/* Traffic Analytics */}
+          <Link href="/admin/traffic" className="card p-6 bg-white hover:shadow-lg transition-shadow">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-lg bg-teal-100 flex items-center justify-center flex-shrink-0">
+                <BarChart2 className="w-6 h-6 text-teal-600" />
+              </div>
+              <div>
+                <h2 className="text-lg font-semibold mb-1">Traffic Analytics</h2>
+                <p className="text-sm text-[var(--color-muted)]">
+                  Page views, top products, peak times, and cart abandonment
                 </p>
               </div>
             </div>

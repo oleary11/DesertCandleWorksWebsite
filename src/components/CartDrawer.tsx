@@ -8,6 +8,7 @@ import { useState, useEffect } from "react";
 import FreeShippingBanner from "./FreeShippingBanner";
 import { useModal } from "@/hooks/useModal";
 import PromoCodeField from "./PromoCodeField";
+import { trackEvent } from "@/components/AnalyticsTracker";
 
 type CartDrawerProps = {
   isOpen: boolean;
@@ -91,6 +92,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
       const data = await res.json();
 
       if (data.url) {
+        trackEvent("checkout_started", { itemCount: items.length });
         window.location.href = data.url;
       } else {
         await showAlert(data.error || "Failed to create checkout session", "Error");
