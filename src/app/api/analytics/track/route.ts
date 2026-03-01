@@ -5,8 +5,41 @@ import { pageViews, analyticsEvents } from "@/lib/db/schema";
 
 export const runtime = "nodejs";
 
-const RATE_LIMIT_MAX = 30; // requests per minute per IP
+// Page views: 120/min per IP (generous for real users, still blocks scrapers)
+// Cart/checkout events: no rate limit — they're infrequent and must never be dropped
+const PAGE_VIEW_RATE_LIMIT = 120;
 const RATE_LIMIT_WINDOW = 60; // seconds
+
+// Known bot user-agent substrings — skip recording these
+const BOT_PATTERNS = [
+  "googlebot",
+  "bingbot",
+  "slurp",       // Yahoo
+  "duckduckbot",
+  "baiduspider",
+  "yandexbot",
+  "sogou",
+  "exabot",
+  "facebookexternalhit",
+  "ia_archiver",  // Wayback Machine
+  "semrushbot",
+  "ahrefsbot",
+  "mj12bot",
+  "dotbot",
+  "rogerbot",
+  "petalbot",
+  "gptbot",
+  "claudebot",
+  "anthropic-ai",
+  "ccbot",
+  "spider",
+  "crawler",
+];
+
+function isBot(userAgent: string): boolean {
+  const ua = userAgent.toLowerCase();
+  return BOT_PATTERNS.some((pattern) => ua.includes(pattern));
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -33,19 +66,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true });
     }
 
-    // Rate limiting by IP
+    // Skip known bots
+    const userAgent = req.headers.get("user-agent") || "";
+    if (isBot(userAgent)) {
+      return NextResponse.json({ ok: true });
+    }
+
     const ip =
       req.headers.get("x-forwarded-for")?.split(",")[0].trim() ||
       req.headers.get("x-real-ip") ||
       "unknown";
 
-    const rateLimitKey = `analytics:rate:${ip}`;
-    const attempts = (await kv.get<number>(rateLimitKey)) || 0;
-    if (attempts >= RATE_LIMIT_MAX) {
-      return NextResponse.json({ ok: false }, { status: 429 });
+    // Rate limit page views only — cart/checkout events are never rate-limited
+    if (eventType === "page_view") {
+      const rateLimitKey = `analytics:rate:${ip}`;
+      const attempts = (await kv.get<number>(rateLimitKey)) || 0;
+      if (attempts >= PAGE_VIEW_RATE_LIMIT) {
+        return NextResponse.json({ ok: false }, { status: 429 });
+      }
+      await kv.incr(rateLimitKey);
+      await kv.expire(rateLimitKey, RATE_LIMIT_WINDOW);
     }
-    await kv.incr(rateLimitKey);
-    await kv.expire(rateLimitKey, RATE_LIMIT_WINDOW);
 
     // Extract geo data from Vercel headers (free, no external service needed)
     const country = req.headers.get("x-vercel-ip-country") || null;
