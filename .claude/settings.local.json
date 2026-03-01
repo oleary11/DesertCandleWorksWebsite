@@ -27,7 +27,9 @@
       "Bash(git merge:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "Bash(npm run db:push:*)"
+      "Bash(npm run db:push:*)",
+      "Bash(git commit:*)",
+      "Bash(npm --version:*)"
     ],
     "deny": [],
     "ask": []
