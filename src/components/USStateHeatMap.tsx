@@ -2,10 +2,8 @@
 
 import React, { useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
-
-// Free public CDN — US state boundary data (geographic shapes only, not analytics)
-const GEO_URL =
-  "https://cdn.jsdelivr.net/npm/us-atlas@3/states-10m.json";
+// Bundled TopoJSON — no CDN fetch at runtime, works offline and behind strict CSPs
+import statesData from "us-atlas/states-10m.json";
 
 // FIPS numeric code → state abbreviation
 // Vercel's x-vercel-ip-country-region header returns state abbreviations (e.g. "AZ")
@@ -78,7 +76,7 @@ export default function USStateHeatMap({ regions }: Props) {
         height={500}
         style={{ width: "100%", height: "100%" }}
       >
-        <Geographies geography={GEO_URL}>
+        <Geographies geography={statesData as object}>
           {({ geographies }) =>
             geographies.map((geo) => {
               const abbr = FIPS_TO_ABBR[geo.id] ?? "";

@@ -81,7 +81,8 @@ export default function TrafficAnalyticsPage() {
   const fetchData = useCallback(async (d: DayPreset) => {
     setLoading(true);
     try {
-      const res = await fetch(`/api/admin/traffic?days=${d}`);
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const res = await fetch(`/api/admin/traffic?days=${d}&tz=${encodeURIComponent(tz)}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
       setData(json);

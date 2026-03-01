@@ -5,10 +5,23 @@ import { sql, gte, and } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
+// Decode percent-encoded city names stored by older rows (e.g. "Santa%20Clara" → "Santa Clara")
+function safeDecodeCity(city: string): string {
+  try { return decodeURIComponent(city); } catch { return city; }
+}
+
+// Validate IANA timezone name — only allow safe characters to prevent SQL injection
+function sanitizeTz(tz: string | null): string {
+  if (tz && /^[A-Za-z][A-Za-z0-9/_-]{0,39}$/.test(tz)) return tz;
+  return "UTC";
+}
+
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const days = Math.min(parseInt(searchParams.get("days") || "30"), 365);
+    // Visitor's local timezone — used for hour/day-of-week bucketing
+    const tz = sanitizeTz(searchParams.get("tz"));
 
     const since = new Date();
     since.setDate(since.getDate() - days);
@@ -67,32 +80,32 @@ export async function GET(req: NextRequest) {
         views: row.views,
       }));
 
-    // 4. Visits by hour of day
+    // 4. Visits by hour of day — bucketed in visitor's local timezone
     const byHourRaw = await dbHttp
       .select({
-        hour: sql<number>`extract(hour from ${pageViews.createdAt})::int`,
+        hour: sql<number>`extract(hour from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})::int`,
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
       .where(sinceFilter)
-      .groupBy(sql`extract(hour from ${pageViews.createdAt})`)
-      .orderBy(sql`extract(hour from ${pageViews.createdAt})`);
+      .groupBy(sql`extract(hour from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`)
+      .orderBy(sql`extract(hour from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`);
 
     const byHour = Array.from({ length: 24 }, (_, h) => {
       const found = byHourRaw.find((r) => r.hour === h);
       return { hour: h, views: found?.views ?? 0 };
     });
 
-    // 5. Visits by day of week (0=Sunday … 6=Saturday)
+    // 5. Visits by day of week (0=Sunday … 6=Saturday) — in visitor's local timezone
     const byDayRaw = await dbHttp
       .select({
-        day: sql<number>`extract(dow from ${pageViews.createdAt})::int`,
+        day: sql<number>`extract(dow from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})::int`,
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
       .where(sinceFilter)
-      .groupBy(sql`extract(dow from ${pageViews.createdAt})`)
-      .orderBy(sql`extract(dow from ${pageViews.createdAt})`);
+      .groupBy(sql`extract(dow from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`)
+      .orderBy(sql`extract(dow from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`);
 
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
     const byDayOfWeek = Array.from({ length: 7 }, (_, d) => {
@@ -166,7 +179,7 @@ export async function GET(req: NextRequest) {
       .limit(10);
 
     const topCities = topCitiesRaw.map((row) => ({
-      city: row.city ?? "Unknown",
+      city: row.city ? safeDecodeCity(row.city) : "Unknown",
       region: row.region ?? "",
       visitors: row.visitors,
     }));

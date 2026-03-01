@@ -62,6 +62,9 @@ importers:
       stripe:
         specifier: ^19.1.0
         version: 19.1.0(@types/node@20.19.21)
+      us-atlas:
+        specifier: ^3.0.1
+        version: 3.0.1
       ws:
         specifier: ^8.18.3
         version: 8.18.3
@@ -2960,6 +2963,9 @@ packages:
 
   url-parse@1.5.10:
     resolution: {integrity: sha512-WypcfiRhfeUP9vvF0j6rw0J3hrWrw6iZv3+22h6iRMJ/8z1Tj6XfLP4DsUix5MhMPnXpiHDoKyoZ/bdCkwBCiQ==}
+
+  us-atlas@3.0.1:
+    resolution: {integrity: sha512-wEIZCq0ImPvGblTd8gZMqNNCPkQshugMUG/8nkSWXb02+XqNFREg9atHOKP9w6prLZTpqcLhSvdBW81MkV3/0Q==}
 
   uuid@10.0.0:
     resolution: {integrity: sha512-8XkAphELsDnEGrDxUOHB3RGvXz6TeuYSGEZBOjtTtPm2lwhGBjLgOzLHB63IUWfBpNucQjND6d3AOudO+H3RWQ==}
@@ -5892,6 +5898,8 @@ snapshots:
     dependencies:
       querystringify: 2.2.0
       requires-port: 1.0.0
+
+  us-atlas@3.0.1: {}
 
   uuid@10.0.0: {}
 
