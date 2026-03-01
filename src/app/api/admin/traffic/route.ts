@@ -121,12 +121,12 @@ export async function GET(req: NextRequest) {
           : 0,
     }));
 
-    // 7. Top US regions (states)
+    // 7. US regions (states) — unique visitors, all states for heatmap
     const topRegionsRaw = await dbHttp
       .select({
         region: pageViews.region,
         country: pageViews.country,
-        views: sql<number>`count(*)::int`,
+        views: sql<number>`count(distinct ${pageViews.sessionId})::int`,
       })
       .from(pageViews)
       .where(
@@ -137,13 +137,38 @@ export async function GET(req: NextRequest) {
         )
       )
       .groupBy(pageViews.region, pageViews.country)
-      .orderBy(sql`count(*) desc`)
-      .limit(10);
+      .orderBy(sql`count(distinct ${pageViews.sessionId}) desc`)
+      .limit(51); // all US states + DC
 
     const topRegions = topRegionsRaw.map((row) => ({
       region: row.region ?? "Unknown",
       country: row.country ?? "US",
       views: row.views,
+    }));
+
+    // 7b. Top US cities — unique visitors
+    const topCitiesRaw = await dbHttp
+      .select({
+        city: pageViews.city,
+        region: pageViews.region,
+        visitors: sql<number>`count(distinct ${pageViews.sessionId})::int`,
+      })
+      .from(pageViews)
+      .where(
+        and(
+          sinceFilter,
+          sql`${pageViews.city} is not null`,
+          sql`${pageViews.country} = 'US'`
+        )
+      )
+      .groupBy(pageViews.city, pageViews.region)
+      .orderBy(sql`count(distinct ${pageViews.sessionId}) desc`)
+      .limit(10);
+
+    const topCities = topCitiesRaw.map((row) => ({
+      city: row.city ?? "Unknown",
+      region: row.region ?? "",
+      visitors: row.visitors,
     }));
 
     // 8. Cart abandonment
@@ -178,6 +203,7 @@ export async function GET(req: NextRequest) {
       byDayOfWeek,
       topCountries,
       topRegions,
+      topCities,
       cartEvents: {
         addToCartSessions,
         checkoutStartedSessions,

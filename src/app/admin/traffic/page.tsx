@@ -14,6 +14,7 @@ import {
   FileText,
   Package,
 } from "lucide-react";
+import USStateHeatMap from "@/components/USStateHeatMap";
 
 type DayPreset = 1 | 7 | 30 | 90;
 
@@ -29,6 +30,7 @@ type TrafficData = {
   byDayOfWeek: Array<{ day: number; label: string; views: number }>;
   topCountries: Array<{ country: string; views: number; percentage: number }>;
   topRegions: Array<{ region: string; country: string; views: number }>;
+  topCities: Array<{ city: string; region: string; visitors: number }>;
   cartEvents: {
     addToCartSessions: number;
     checkoutStartedSessions: number;
@@ -347,6 +349,24 @@ export default function TrafficAnalyticsPage() {
           </div>
 
           {/* Geography */}
+          {/* US State Heatmap — full width */}
+          <div className="card p-6">
+            <div className="flex items-center gap-2 mb-4">
+              <MapPin className="w-5 h-5 text-[var(--color-muted)]" />
+              <h2 className="font-semibold">Visitors by US State</h2>
+              <span className="ml-auto text-xs text-[var(--color-muted)]">
+                Unique visitors
+              </span>
+            </div>
+            {data.topRegions.length === 0 ? (
+              <p className="text-sm text-[var(--color-muted)]">
+                No US state data yet. Geo data requires Vercel deployment.
+              </p>
+            ) : (
+              <USStateHeatMap regions={data.topRegions} />
+            )}
+          </div>
+
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Top Countries */}
             <div className="card p-6">
@@ -382,28 +402,36 @@ export default function TrafficAnalyticsPage() {
               )}
             </div>
 
-            {/* Top US States */}
+            {/* Top US Cities */}
             <div className="card p-6">
               <div className="flex items-center gap-2 mb-4">
                 <MapPin className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Top US States</h2>
+                <h2 className="font-semibold">Top US Cities</h2>
+                <span className="ml-auto text-xs text-[var(--color-muted)]">
+                  Unique visitors
+                </span>
               </div>
-              {data.topRegions.length === 0 ? (
+              {data.topCities.length === 0 ? (
                 <p className="text-sm text-[var(--color-muted)]">
-                  No US state data yet. Geo data requires Vercel deployment.
+                  No city data yet. Geo data requires Vercel deployment.
                 </p>
               ) : (
                 <div className="space-y-2">
-                  {data.topRegions.map((row) => (
+                  {data.topCities.map((row) => (
                     <div
-                      key={row.region}
+                      key={`${row.city}-${row.region}`}
                       className="flex items-center justify-between text-sm"
                     >
                       <span className="text-[var(--color-ink)]">
-                        {row.region}
+                        {row.city}
+                        {row.region && (
+                          <span className="text-[var(--color-muted)] ml-1">
+                            {row.region}
+                          </span>
+                        )}
                       </span>
                       <span className="text-[var(--color-muted)]">
-                        {row.views.toLocaleString()} views
+                        {row.visitors.toLocaleString()}
                       </span>
                     </div>
                   ))}
