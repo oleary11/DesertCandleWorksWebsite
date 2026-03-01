@@ -171,7 +171,23 @@ export async function GET(req: NextRequest) {
       visitors: row.visitors,
     }));
 
-    // 8. Cart abandonment
+    // 8. Avg time on page — from page_exit events (durationSeconds in properties)
+    const [durationRow] = await dbHttp
+      .select({
+        avgSeconds: sql<number>`round(avg((${analyticsEvents.properties}->>'durationSeconds')::float))::int`,
+      })
+      .from(analyticsEvents)
+      .where(
+        and(
+          eventsFilter,
+          sql`${analyticsEvents.eventType} = 'page_exit'`,
+          sql`${analyticsEvents.properties}->>'durationSeconds' is not null`
+        )
+      );
+
+    const avgPageSeconds = durationRow?.avgSeconds ?? 0;
+
+    // 9. Cart abandonment
     const [cartStats] = await dbHttp
       .select({
         addToCartSessions: sql<number>`count(distinct case when ${analyticsEvents.eventType} = 'cart_add' then ${analyticsEvents.sessionId} end)::int`,
@@ -196,6 +212,7 @@ export async function GET(req: NextRequest) {
         totalPageViews,
         uniqueSessions,
         avgPagesPerSession,
+        avgPageSeconds,
       },
       topPages,
       topProducts,

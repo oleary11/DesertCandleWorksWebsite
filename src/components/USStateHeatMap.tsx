@@ -70,9 +70,13 @@ export default function USStateHeatMap({ regions }: Props) {
 
   return (
     <div className="relative select-none">
+      {/* Aspect-ratio wrapper prevents SVG height-collapse on mobile Safari/Chrome */}
+      <div style={{ aspectRatio: "800/500", width: "100%" }}>
       <ComposableMap
         projection="geoAlbersUsa"
-        style={{ width: "100%", height: "auto" }}
+        width={800}
+        height={500}
+        style={{ width: "100%", height: "100%" }}
       >
         <Geographies geography={GEO_URL}>
           {({ geographies }) =>
@@ -108,6 +112,7 @@ export default function USStateHeatMap({ regions }: Props) {
           }
         </Geographies>
       </ComposableMap>
+      </div>
 
       {/* Floating tooltip */}
       {tooltip && (

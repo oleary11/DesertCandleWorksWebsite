@@ -89,9 +89,11 @@ export async function POST(req: NextRequest) {
     }
 
     // Extract geo data from Vercel headers (free, no external service needed)
+    // x-vercel-ip-city is percent-encoded (e.g. "Santa%20Clara") — decode it
     const country = req.headers.get("x-vercel-ip-country") || null;
     const region = req.headers.get("x-vercel-ip-country-region") || null;
-    const city = req.headers.get("x-vercel-ip-city") || null;
+    const cityRaw = req.headers.get("x-vercel-ip-city");
+    const city = cityRaw ? decodeURIComponent(cityRaw) : null;
 
     if (eventType === "page_view") {
       const cleanPath = path ? path.substring(0, 500) : "/";

@@ -21,6 +21,7 @@ export function AnalyticsTracker() {
   const pathname = usePathname();
   const lastPath = useRef<string | null>(null);
 
+  // Track page views on route change
   useEffect(() => {
     // Skip admin and API paths
     if (pathname.startsWith("/admin") || pathname.startsWith("/api")) return;
@@ -46,6 +47,46 @@ export function AnalyticsTracker() {
       }),
       keepalive: true,
     }).catch(() => {}); // Fire and forget — never let tracking break UX
+  }, [pathname]);
+
+  // Track time spent on each page (fires page_exit with durationSeconds)
+  // Helps distinguish real users (seconds/minutes) from bots (< 1s)
+  useEffect(() => {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api")) return;
+
+    const sessionId = getOrCreateSessionId();
+    if (!sessionId) return;
+
+    const startTime = Date.now();
+    const currentPath = pathname;
+    let sent = false;
+
+    function sendExit() {
+      if (sent) return;
+      sent = true;
+      const duration = Math.round((Date.now() - startTime) / 1000);
+      if (duration < 1) return; // sub-second exits are noise (bots, fast navigation)
+      navigator.sendBeacon(
+        "/api/analytics/track",
+        new Blob(
+          [JSON.stringify({ sessionId, eventType: "page_exit", path: currentPath, properties: { durationSeconds: duration } })],
+          { type: "application/json" }
+        )
+      );
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") sendExit();
+    };
+
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("beforeunload", sendExit);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("beforeunload", sendExit);
+      sendExit(); // fires on SPA navigation (pathname change)
+    };
   }, [pathname]);
 
   return null;

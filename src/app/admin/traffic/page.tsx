@@ -23,6 +23,7 @@ type TrafficData = {
     totalPageViews: number;
     uniqueSessions: number;
     avgPagesPerSession: number;
+    avgPageSeconds: number;
   };
   topPages: Array<{ path: string; views: number; percentage: number }>;
   topProducts: Array<{ path: string; slug: string; views: number }>;
@@ -56,6 +57,14 @@ const COUNTRY_NAMES: Record<string, string> = {
   SG: "Singapore",
   NZ: "New Zealand",
 };
+
+function formatDuration(seconds: number): string {
+  if (seconds <= 0) return "--";
+  if (seconds < 60) return `${seconds}s`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return s > 0 ? `${m}m ${s}s` : `${m}m`;
+}
 
 function formatHour(hour: number): string {
   if (hour === 0) return "12 AM";
@@ -191,15 +200,15 @@ export default function TrafficAnalyticsPage() {
 
             <div className="card p-5">
               <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-rose-100 flex items-center justify-center">
-                  <ShoppingCart className="w-5 h-5 text-rose-600" />
+                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-amber-600" />
                 </div>
                 <span className="text-sm text-[var(--color-muted)]">
-                  Cart Abandonment
+                  Avg Time on Page
                 </span>
               </div>
               <p className="text-2xl font-bold">
-                {data.cartEvents.abandonmentRate}%
+                {formatDuration(data.summary.avgPageSeconds)}
               </p>
             </div>
           </div>
