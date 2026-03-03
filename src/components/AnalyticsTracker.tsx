@@ -4,16 +4,27 @@ import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 function getOrCreateSessionId(): string {
+  const KEY = "_dcw_sid";
+  // Try localStorage first
   try {
-    let sid = localStorage.getItem("_dcw_sid");
+    let sid = localStorage.getItem(KEY);
     if (!sid) {
       sid = crypto.randomUUID();
-      localStorage.setItem("_dcw_sid", sid);
+      localStorage.setItem(KEY, sid);
     }
     return sid;
   } catch {
-    // localStorage unavailable (SSR, private browsing, etc.)
-    return "";
+    // localStorage blocked (Safari ITP, private browsing, strict settings)
+    // Fall back to a session cookie so we still get tracking data
+    try {
+      const match = document.cookie.match(/(?:^|;\s*)_dcw_sid=([^;]+)/);
+      if (match) return match[1];
+      const sid = crypto.randomUUID();
+      document.cookie = `${KEY}=${sid}; path=/; max-age=31536000; samesite=lax`;
+      return sid;
+    } catch {
+      return "";
+    }
   }
 }
 
@@ -36,7 +47,7 @@ export function AnalyticsTracker() {
     const referrer =
       typeof document !== "undefined" ? document.referrer : "";
 
-    fetch("/api/analytics/track", {
+    fetch("/api/t", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -67,7 +78,7 @@ export function AnalyticsTracker() {
       const duration = Math.round((Date.now() - startTime) / 1000);
       if (duration < 1) return; // sub-second exits are noise (bots, fast navigation)
       navigator.sendBeacon(
-        "/api/analytics/track",
+        "/api/t",
         new Blob(
           [JSON.stringify({ sessionId, eventType: "page_exit", path: currentPath, properties: { durationSeconds: duration } })],
           { type: "application/json" }
@@ -110,7 +121,7 @@ export function trackEvent(
   const sessionId = getOrCreateSessionId();
   if (!sessionId) return;
 
-  fetch("/api/analytics/track", {
+  fetch("/api/t", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sessionId, eventType, properties }),
