@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, Star, Eye, EyeOff, Trash2, Edit2, Plus } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 /* ---------- Types ---------- */
 type GoogleReview = {
@@ -209,7 +210,10 @@ export default function AdminReviewsPage() {
 
       {/* Content */}
       {loading ? (
-        <p>Loading reviews...</p>
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-muted)]">Loading reviews…</p>
+        </div>
       ) : reviews.length === 0 ? (
         <div className="card p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">

@@ -11,6 +11,7 @@ import {
   PieChart,
   Calendar,
 } from "lucide-react";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type SalesAnalytics = {
   totalRevenue: number;
@@ -275,11 +276,10 @@ export default function UnifiedAnalyticsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-6 bg-neutral-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-[var(--color-muted)]">
-            Loading analytics...
-          </div>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading analytics…</p>
         </div>
       </div>
     );

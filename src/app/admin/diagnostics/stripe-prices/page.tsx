@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type PriceTestResult = {
   productName: string;
@@ -58,9 +59,11 @@ export default function StripePriceDiagnosticsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-6">Stripe Price ID Diagnostics</h1>
-        <p className="text-[var(--color-muted)]">Loading diagnostics...</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+        </div>
       </div>
     );
   }

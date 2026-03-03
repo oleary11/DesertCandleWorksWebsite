@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Truck, ArrowLeft, Check, AlertCircle } from "lucide-react";
 import Link from "next/link";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type Product = {
   sku: string;
@@ -231,9 +232,10 @@ export default function TestShipStationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-6 bg-neutral-50">
-        <div className="max-w-4xl mx-auto">
-          <p>Loading products...</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
         </div>
       </div>
     );

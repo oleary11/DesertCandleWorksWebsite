@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { ComposableMap, Geographies, Geography } from "react-simple-maps";
 // Bundled TopoJSON — no CDN fetch at runtime, works offline and behind strict CSPs
 import statesData from "us-atlas/states-10m.json";
@@ -68,6 +68,7 @@ function fmtSec(s: number): string {
 
 export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
   const [tooltip, setTooltip] = useState<Tooltip | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const visitorsByState: Record<string, number> = {};
   for (const r of regions) {
@@ -75,8 +76,15 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
   }
   const maxVisitors = Math.max(...Object.values(visitorsByState), 1);
 
+  function relPos(e: React.MouseEvent): { x: number; y: number } {
+    const rect = containerRef.current?.getBoundingClientRect();
+    return rect
+      ? { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      : { x: e.clientX, y: e.clientY };
+  }
+
   return (
-    <div className="relative select-none">
+    <div ref={containerRef} className="relative select-none">
       {/* Aspect-ratio wrapper prevents SVG height-collapse on mobile Safari/Chrome */}
       <div style={{ aspectRatio: "800/500", width: "100%" }}>
       <ComposableMap
@@ -99,14 +107,16 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
                   fill={fill}
                   stroke="#ffffff"
                   strokeWidth={0.5}
-                  onMouseEnter={(e: React.MouseEvent) =>
-                    setTooltip({ abbr, visitors, x: e.clientX, y: e.clientY })
-                  }
-                  onMouseMove={(e: React.MouseEvent) =>
+                  onMouseEnter={(e: React.MouseEvent) => {
+                    const pos = relPos(e);
+                    setTooltip({ abbr, visitors, x: pos.x, y: pos.y });
+                  }}
+                  onMouseMove={(e: React.MouseEvent) => {
+                    const pos = relPos(e);
                     setTooltip((prev) =>
-                      prev ? { ...prev, x: e.clientX, y: e.clientY } : null
-                    )
-                  }
+                      prev ? { ...prev, x: pos.x, y: pos.y } : null
+                    );
+                  }}
                   onMouseLeave={() => setTooltip(null)}
                   style={{
                     default: { outline: "none" },
@@ -124,7 +134,7 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
       {/* Floating tooltip */}
       {tooltip && (
         <div
-          className="fixed z-50 pointer-events-none bg-gray-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-lg"
+          className="absolute z-50 pointer-events-none bg-gray-900 text-white text-xs px-2.5 py-1.5 rounded-lg shadow-lg"
           style={{ left: tooltip.x + 14, top: tooltip.y - 36 }}
         >
           <span className="font-semibold">

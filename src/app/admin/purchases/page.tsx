@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, Upload, DollarSign, Package, Calendar, FileText, X, Edit2, Check, FileSpreadsheet, Search } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type PurchaseItem = {
   name: string;
@@ -662,8 +663,9 @@ export default function AdminPurchasesPage() {
           <h2 className="text-xl font-bold mb-4">Purchases</h2>
 
           {loading && (
-            <div className="text-center py-8 text-[var(--color-muted)]">
-              Loading purchases...
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <CandleSpinner />
+              <p className="text-sm font-medium text-[var(--color-muted)]">Loading purchases…</p>
             </div>
           )}
 

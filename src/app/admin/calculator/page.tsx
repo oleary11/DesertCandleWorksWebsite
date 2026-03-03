@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowLeft, Search } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 /* ---------- Types ---------- */
 type Product = {
@@ -562,6 +563,8 @@ export default function CalculatorPage() {
 
   /* ---------- Container Management ---------- */
   const [editingContainer, setEditingContainer] = useState<Container | null>(null);
+  const [containerSearch, setContainerSearch] = useState("");
+  const [savingContainer, setSavingContainer] = useState(false);
   const [newContainer, setNewContainer] = useState<Partial<Container>>({
     name: "",
     capacityWaterOz: 0,
@@ -570,23 +573,28 @@ export default function CalculatorPage() {
   });
 
   async function saveContainer(container: Container) {
-    const res = await fetch("/api/admin/containers", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(container),
-    });
-
-    if (res.ok) {
-      await loadData();
-      setEditingContainer(null);
-      setNewContainer({
-        name: "",
-        capacityWaterOz: 0,
-        shape: "Round",
-        costPerUnit: 0,
+    setSavingContainer(true);
+    try {
+      const res = await fetch("/api/admin/containers", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(container),
       });
-    } else {
-      await showAlert("Failed to save container", "Error");
+
+      if (res.ok) {
+        await loadData();
+        setEditingContainer(null);
+        setNewContainer({
+          name: "",
+          capacityWaterOz: 0,
+          shape: "Round",
+          costPerUnit: 0,
+        });
+      } else {
+        await showAlert("Failed to save container", "Error");
+      }
+    } finally {
+      setSavingContainer(false);
     }
   }
 
@@ -604,20 +612,26 @@ export default function CalculatorPage() {
     costPerWick: 0,
     appearAs: "",
   });
+  const [savingWick, setSavingWick] = useState(false);
 
   async function saveWick(wick: WickType) {
-    const res = await fetch("/api/admin/wick-types", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(wick),
-    });
+    setSavingWick(true);
+    try {
+      const res = await fetch("/api/admin/wick-types", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(wick),
+      });
 
-    if (res.ok) {
-      await loadData();
-      setEditingWick(null);
-      setNewWick({ name: "", costPerWick: 0, appearAs: "" });
-    } else {
-      await showAlert("Failed to save wick type", "Error");
+      if (res.ok) {
+        await loadData();
+        setEditingWick(null);
+        setNewWick({ name: "", costPerWick: 0, appearAs: "" });
+      } else {
+        await showAlert("Failed to save wick type", "Error");
+      }
+    } finally {
+      setSavingWick(false);
     }
   }
 
@@ -936,10 +950,30 @@ export default function CalculatorPage() {
     }));
   }, [scents]);
 
-  if (loading) return <div className="p-6">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
+      {/* Saving overlay */}
+      {(savingContainer || savingWick) && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[200px]">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--color-ink)]">
+              {savingWick ? "Saving wick…" : "Saving container…"}
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -1006,6 +1040,18 @@ export default function CalculatorPage() {
                             <div className="text-[var(--color-muted)] truncate">
                               {item.scentName}
                             </div>
+                            {Object.entries(item.wickCounts).some(([, c]) => c > 0) && (
+                              <div className="text-[var(--color-muted)] truncate">
+                                {Object.entries(item.wickCounts)
+                                  .filter(([, count]) => count > 0)
+                                  .map(([wickId, count]) => {
+                                    const wick = wicks.find((w) => w.id === wickId);
+                                    const label = wick?.name || wickId;
+                                    return count === 1 ? label : `${label} ×${count}`;
+                                  })
+                                  .join(", ")}
+                              </div>
+                            )}
                           </div>
                           <button
                             onClick={() => removeBatchItem(idx)}
@@ -1482,27 +1528,122 @@ export default function CalculatorPage() {
           </div>
 
           <div className="card p-6">
-            <h2 className="text-xl font-semibold mb-4">Existing Containers</h2>
+            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+              <h2 className="text-xl font-semibold">Existing Containers</h2>
+              <div className="relative w-56">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+                <input
+                  type="text"
+                  value={containerSearch}
+                  onChange={(e) => setContainerSearch(e.target.value)}
+                  placeholder="Search containers…"
+                  className="input !pl-9 text-sm"
+                />
+              </div>
+            </div>
             <div className="space-y-3">
-              {containers.map((c) => (
-                <div
-                  key={c.id}
-                  className="flex items-center justify-between p-3 border border-[var(--color-line)] rounded"
-                >
-                  <div>
-                    <div className="font-medium">{c.name}</div>
-                    <div className="text-sm text-[var(--color-muted)]">
-                      {c.capacityWaterOz}oz • {c.shape} • ${c.costPerUnit.toFixed(2)}
-                      {c.supplier && ` • ${c.supplier}`}
-                    </div>
+              {containers
+                .filter((c) => c.name.toLowerCase().includes(containerSearch.toLowerCase()))
+                .map((c) => (
+                  <div key={c.id}>
+                    {editingContainer?.id === c.id ? (
+                      <div className="p-3 border border-[var(--color-line)] rounded bg-[var(--color-surface-2)]">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Name</div>
+                            <input
+                              className="input text-sm"
+                              value={editingContainer.name}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, name: e.target.value })}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Capacity (water oz)</div>
+                            <input
+                              className="input text-sm"
+                              type="number"
+                              step="0.1"
+                              value={editingContainer.capacityWaterOz || ""}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, capacityWaterOz: Number(e.target.value) })}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Shape</div>
+                            <input
+                              className="input text-sm"
+                              value={editingContainer.shape}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, shape: e.target.value })}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Cost per Unit ($)</div>
+                            <input
+                              className="input text-sm"
+                              type="number"
+                              step="0.01"
+                              value={editingContainer.costPerUnit || ""}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, costPerUnit: Number(e.target.value) })}
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Supplier</div>
+                            <input
+                              className="input text-sm"
+                              placeholder="Optional"
+                              value={editingContainer.supplier || ""}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, supplier: e.target.value || undefined })}
+                            />
+                          </label>
+                          <label className="block">
+                            <div className="text-xs font-medium mb-1">Notes</div>
+                            <input
+                              className="input text-sm"
+                              placeholder="Optional"
+                              value={editingContainer.notes || ""}
+                              onChange={(e) => setEditingContainer({ ...editingContainer, notes: e.target.value || undefined })}
+                            />
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            className="btn btn-primary text-sm"
+                            onClick={() => void saveContainer(editingContainer)}
+                          >
+                            Save
+                          </button>
+                          <button className="btn text-sm" onClick={() => setEditingContainer(null)}>
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between p-3 border border-[var(--color-line)] rounded">
+                        <div>
+                          <div className="font-medium">{c.name}</div>
+                          <div className="text-sm text-[var(--color-muted)]">
+                            {c.capacityWaterOz}oz • {c.shape} • ${c.costPerUnit.toFixed(2)}
+                            {c.supplier && ` • ${c.supplier}`}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button className="btn text-sm" onClick={() => setEditingContainer(c)}>
+                            Edit
+                          </button>
+                          <button className="btn text-sm !text-red-600 hover:!bg-red-50" onClick={() => void deleteContainer(c.id)}>
+                            Delete
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <button className="btn text-sm" onClick={() => void deleteContainer(c.id)}>
-                    Delete
-                  </button>
-                </div>
-              ))}
+                ))}
               {containers.length === 0 && (
                 <p className="text-[var(--color-muted)]">No containers yet</p>
+              )}
+              {containers.length > 0 && containerSearch && containers.filter((c) => c.name.toLowerCase().includes(containerSearch.toLowerCase())).length === 0 && (
+                <p className="text-[var(--color-muted)]">No containers match &ldquo;{containerSearch}&rdquo;</p>
               )}
             </div>
           </div>

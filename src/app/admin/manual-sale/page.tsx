@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Plus, Trash2, DollarSign, Search } from "lucide-react";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type Product = {
   slug: string;
@@ -512,9 +513,10 @@ export default function ManualSalePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-6">
-        <div className="max-w-4xl mx-auto">
-          <p className="text-[var(--color-muted)]">Loading...</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
         </div>
       </div>
     );

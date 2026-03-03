@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { ArrowLeft, DollarSign, RefreshCw, Package, AlertCircle, CheckCircle, Clock } from "lucide-react";
 import Link from "next/link";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type RefundReason =
   | "customer_request"
@@ -235,11 +236,9 @@ export default function RefundsPage() {
 
         {/* Refunds List */}
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--color-accent)] mx-auto mb-4"></div>
-              <p className="text-[var(--color-muted)]">Loading refunds...</p>
-            </div>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--color-muted)]">Loading refunds…</p>
           </div>
         ) : refunds.length === 0 ? (
           <div className="card p-12 text-center">

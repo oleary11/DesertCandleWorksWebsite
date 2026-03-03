@@ -22,6 +22,8 @@ export async function GET(req: NextRequest) {
     const days = Math.min(parseInt(searchParams.get("days") || "30"), 365);
     // Visitor's local timezone — used for hour/day-of-week bucketing
     const tz = sanitizeTz(searchParams.get("tz"));
+    // humanOnly=1 → restrict to sessions with ≥3s page_exit event (filters bot drive-bys)
+    const humanOnly = searchParams.get("humanOnly") === "1";
 
     const since = new Date();
     since.setDate(since.getDate() - days);
@@ -30,6 +32,23 @@ export async function GET(req: NextRequest) {
     const sinceFilter = gte(pageViews.createdAt, since);
     const eventsFilter = gte(analyticsEvents.createdAt, since);
 
+    // Engaged-session subquery: sessions with at least one page_exit ≥ 3 seconds.
+    // Bots that briefly execute JS still won't spend 3+ seconds on a page.
+    const engagedSessionFilter = humanOnly
+      ? sql`${pageViews.sessionId} IN (
+          SELECT DISTINCT ae.session_id
+          FROM analytics_events ae
+          WHERE ae.event_type = 'page_exit'
+            AND ae.created_at >= ${since}
+            AND (ae.properties->>'durationSeconds')::float >= 3
+        )`
+      : undefined;
+
+    // Combined filter for all page_views queries
+    const pvFilter = humanOnly
+      ? and(sinceFilter, engagedSessionFilter)
+      : sinceFilter;
+
     // 1. Summary stats
     const [summaryRow] = await dbHttp
       .select({
@@ -37,7 +56,7 @@ export async function GET(req: NextRequest) {
         uniqueSessions: sql<number>`count(distinct ${pageViews.sessionId})::int`,
       })
       .from(pageViews)
-      .where(sinceFilter);
+      .where(pvFilter);
 
     const totalPageViews = summaryRow?.totalPageViews ?? 0;
     const uniqueSessions = summaryRow?.uniqueSessions ?? 0;
@@ -53,7 +72,7 @@ export async function GET(req: NextRequest) {
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
-      .where(sinceFilter)
+      .where(pvFilter)
       .groupBy(pageViews.path)
       .orderBy(sql`count(*) desc`)
       .limit(15);
@@ -87,7 +106,7 @@ export async function GET(req: NextRequest) {
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
-      .where(sinceFilter)
+      .where(pvFilter)
       .groupBy(sql`extract(hour from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`)
       .orderBy(sql`extract(hour from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`);
 
@@ -103,7 +122,7 @@ export async function GET(req: NextRequest) {
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
-      .where(sinceFilter)
+      .where(pvFilter)
       .groupBy(sql`extract(dow from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`)
       .orderBy(sql`extract(dow from ${pageViews.createdAt} at time zone ${sql.raw("'" + tz + "'")})`);
 
@@ -120,7 +139,7 @@ export async function GET(req: NextRequest) {
         views: sql<number>`count(*)::int`,
       })
       .from(pageViews)
-      .where(and(sinceFilter, sql`${pageViews.country} is not null`))
+      .where(and(pvFilter, sql`${pageViews.country} is not null`))
       .groupBy(pageViews.country)
       .orderBy(sql`count(*) desc`)
       .limit(10);
@@ -144,7 +163,7 @@ export async function GET(req: NextRequest) {
       .from(pageViews)
       .where(
         and(
-          sinceFilter,
+          pvFilter,
           sql`${pageViews.region} is not null`,
           sql`${pageViews.country} = 'US'`
         )
@@ -170,7 +189,7 @@ export async function GET(req: NextRequest) {
       .from(pageViews)
       .where(
         and(
-          sinceFilter,
+          pvFilter,
           sql`${pageViews.city} is not null`,
           sql`${pageViews.country} = 'US'`
         )

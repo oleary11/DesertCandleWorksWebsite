@@ -162,8 +162,7 @@ p  { line-height: 1.7; }
   background: color-mix(in oklab, var(--color-surface) 80%, white 20%);
 }
 
-/* Icon spacing helper */
-.btn > svg { margin-inline-start: 0.25rem; }
+/* Icon spacing is handled by gap-* classes on individual buttons */
 
 /* =========================================
    BADGES / CHIPS

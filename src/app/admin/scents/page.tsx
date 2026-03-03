@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 /* ---------- Types ---------- */
 type ScentComposition = {
@@ -330,7 +331,10 @@ export default function AdminScentsPage() {
 
           {/* Content */}
       {loading ? (
-        <p>Loading scents...</p>
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-muted)]">Loading scents…</p>
+        </div>
       ) : scents.length === 0 ? (
         <div className="card p-8 text-center">
           <p className="text-[var(--color-muted)] mb-4">No scents yet. Create your first scent to get started.</p>

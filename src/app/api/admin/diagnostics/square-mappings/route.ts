@@ -12,6 +12,7 @@ type MappingDiagnostic = {
   mappingCount: number;
   websiteVariantCount: number;
   status: "ready" | "missing_catalog_id" | "missing_mapping" | "partial_mapping";
+  missingVariantKeys?: string[]; // variantData keys that have no Square mapping
 };
 
 /**
@@ -50,10 +51,20 @@ export async function GET(req: NextRequest) {
       } else if (mappingCount < websiteVariantCount) {
         // Variant product with incomplete mapping
         status = "partial_mapping";
+      } else if (mappingCount > websiteVariantCount) {
+        // More Square mappings than website variants (stale mappings) — still ready
+        status = "ready";
       } else {
         // Variant product with complete mapping
         status = "ready";
       }
+
+      // For partial mappings, find exactly which variant keys are missing
+      const missingVariantKeys = status === "partial_mapping" && product.variantConfig && product.squareVariantMapping
+        ? Object.keys(product.variantConfig.variantData).filter(
+            (key) => !(key in product.squareVariantMapping!)
+          )
+        : undefined;
 
       results.push({
         productName: product.name,
@@ -63,6 +74,7 @@ export async function GET(req: NextRequest) {
         mappingCount,
         websiteVariantCount,
         status,
+        missingVariantKeys,
       });
     }
 

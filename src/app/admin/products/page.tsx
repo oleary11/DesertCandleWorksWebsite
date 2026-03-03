@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Search } from "lucide-react";
+import { ArrowLeft, Search, Pencil, Trash2, X } from "lucide-react";
+import CandleSpinner from "@/components/CandleSpinner";
 import { useModal } from "@/hooks/useModal";
 import QRCode from "qrcode";
 import * as XLSX from "xlsx";
@@ -460,18 +461,23 @@ export default function AdminProductsPage() {
   const [editing, setEditing] = useState<Product | null>(null);
   const [priceInputStr, setPriceInputStr] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [savingLabel, setSavingLabel] = useState<string>("Working…");
   const [imageSyncProgress, setImageSyncProgress] = useState<{ current: number; total: number } | null>(null);
+  const [squareSyncOpen, setSquareSyncOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // New filter and sort states
   const [visibleFilter, setVisibleFilter] = useState<"all" | "visible" | "hidden">("all");
-  const [typeFilter, setTypeFilter] = useState<string[]>([]); // Changed to array for multi-select
+  const [typeFilter, setTypeFilter] = useState<string[]>([]);
+  const [scentFilter, setScentFilter] = useState<string[]>([]); // scent IDs
   const [stockFilter, setStockFilter] = useState<"all" | "in-stock" | "out-of-stock">("all");
   const [bestFilter, setBestFilter] = useState<"all" | "best" | "not-best">("all");
   const [statusFilter, setStatusFilter] = useState<"all" | "published" | "draft">("all");
   const [sortBy, setSortBy] = useState<"name" | "price" | "cost" | "stock" | "best" | "status" | "none">("none");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [typeDropdownOpen, setTypeDropdownOpen] = useState(false);
+  const [scentDropdownOpen, setScentDropdownOpen] = useState(false);
 
   // Staged local drafts keyed by slug (full product objects)
   const [staged, setStaged] = useState<Record<string, Product>>({});
@@ -547,17 +553,20 @@ export default function AdminProductsPage() {
     void load();
   }, []);
 
-  // Close type dropdown when clicking outside
+  // Close filter dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       const target = event.target as HTMLElement;
       if (typeDropdownOpen && !target.closest(".type-filter-dropdown")) {
         setTypeDropdownOpen(false);
       }
+      if (scentDropdownOpen && !target.closest(".scent-filter-dropdown")) {
+        setScentDropdownOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [typeDropdownOpen]);
+  }, [typeDropdownOpen, scentDropdownOpen]);
 
   const isServerItem = useCallback((slug: string) => items.some((x) => x.slug === slug), [items]);
   const hasDraft = useCallback((slug: string) => staged[slug] !== undefined, [staged]);
@@ -596,6 +605,17 @@ export default function AdminProductsPage() {
       result = result.filter((p) => {
         const productType = p.alcoholType || "Other";
         return typeFilter.includes(productType);
+      });
+    }
+
+    // Scent filter (multi-select) — only show products with in-stock variants for the selected scent(s)
+    if (scentFilter.length > 0) {
+      result = result.filter((p) => {
+        if (!p.variantConfig) return false;
+        const { variantData } = p.variantConfig;
+        return scentFilter.some((scentId) =>
+          Object.entries(variantData).some(([key, data]) => key.endsWith(`-${scentId}`) && data.stock > 0)
+        );
       });
     }
 
@@ -651,7 +671,7 @@ export default function AdminProductsPage() {
     }
 
     return result;
-  }, [merged, filter, visibleFilter, typeFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, hasDraft]);
+  }, [merged, filter, visibleFilter, typeFilter, scentFilter, stockFilter, bestFilter, statusFilter, sortBy, sortDirection, hasDraft]);
 
   /* ---------- Sorting Helper ---------- */
 
@@ -996,6 +1016,7 @@ export default function AdminProductsPage() {
     // eslint-disable-next-line no-console
     console.log("[Admin] Publishing product:", slug, draft);
 
+    setSavingLabel("Publishing…");
     setSaving(true);
     setError(null);
 
@@ -1031,6 +1052,7 @@ export default function AdminProductsPage() {
   // Publish all drafts
   async function publishAll() {
     const slugs = Object.keys(staged);
+    setSavingLabel("Publishing all…");
     setSaving(true);
     setError(null);
     for (const slug of slugs) {
@@ -1271,6 +1293,9 @@ export default function AdminProductsPage() {
     };
   }, []);
 
+  // Total stock across all filtered products (uses variant stock when available)
+  const totalStock = useMemo(() => filtered.reduce((sum, p) => sum + getTotalStock(p), 0), [filtered]);
+
   // Next SKU for new product modal
   const nextSku = useMemo(() => {
     const allSkus = [...items.map((i) => i.sku), ...Object.values(staged).map((d) => d.sku)].filter(Boolean);
@@ -1280,66 +1305,89 @@ export default function AdminProductsPage() {
   /* ---------- UI ---------- */
   return (
     <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
-      {/* Top bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
+      {/* Full-screen loading overlay — shown during any long-running operation */}
+      {saving && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
+          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[200px]">
+            {/* Candle animation */}
+            <CandleSpinner />
+
+            <p className="text-sm font-medium text-[var(--color-ink)]">
+              {imageSyncProgress
+                ? `Syncing images… ${imageSyncProgress.current} / ${imageSyncProgress.total}`
+                : savingLabel}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Top bar + Actions */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex items-center gap-3 mr-auto">
           <Link href="/admin" className="btn">
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <h1 className="text-2xl font-semibold">Products</h1>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {Object.keys(staged).length > 0 && (
-            <>
-              <button className="btn" onClick={() => setStaged({})} disabled={saving}>
-                Discard all
-              </button>
-              <button className="btn btn-primary" onClick={publishAll} disabled={saving}>
-                {saving ? "Publishing…" : `Publish all (${Object.keys(staged).length})`}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Filter + New */}
-      {/* Search and Controls */}
-      <div className="mt-4 space-y-4">
-        {/* Search and Primary Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
-          <input
-            className="input flex-1 sm:max-w-md"
-            placeholder="Search by name, slug, or SKU…"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-          />
-          <button
-            className="btn bg-green-600 text-white hover:bg-green-700 w-full sm:w-auto"
-            onClick={exportToCSV}
-            disabled={filtered.length === 0}
-          >
-            Export to CSV ({filtered.length})
-          </button>
-          <button
-            className="btn bg-pink-600 text-white hover:bg-pink-700 w-full sm:w-auto"
-            onClick={exportToTikTok}
-            disabled={filtered.length === 0}
-          >
-            TikTok Shop Export ({filtered.length})
-          </button>
+          <div className="relative">
+            <button
+              className="btn flex items-center gap-1"
+              disabled={filtered.length === 0}
+              onClick={() => setExportOpen((o) => !o)}
+            >
+              Export ({filtered.length})
+              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {exportOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-44">
+                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Export format</p>
+                <button
+                  className="btn !bg-green-50 !text-green-800 hover:!bg-green-100 w-full text-sm flex items-center gap-2"
+                  onClick={() => { setExportOpen(false); exportToCSV(); }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  CSV
+                </button>
+                <button
+                  className="btn !bg-pink-50 !text-pink-800 hover:!bg-pink-100 w-full text-sm flex items-center gap-2"
+                  onClick={() => { setExportOpen(false); exportToTikTok(); }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
+                  TikTok Shop
+                </button>
+              </div>
+            )}
+          </div>
           <Link
             href="/admin/stripe-product-sync"
-            className="btn bg-blue-600 !text-black hover:bg-blue-700 w-full sm:w-auto flex items-center justify-center gap-2"
+            className="btn !text-[var(--color-ink)] w-full sm:w-auto flex items-center justify-center gap-2"
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
             Sync Images to Stripe
           </Link>
-          <button
-            className="btn bg-purple-600 text-white hover:bg-purple-700 w-full sm:w-auto flex items-center gap-2"
-            onClick={async () => {
-              if (saving) return;
+          <div className="relative">
+            <button
+              className="btn flex items-center gap-1"
+              disabled={saving}
+              onClick={() => setSquareSyncOpen((o) => !o)}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {saving ? "Syncing..." : "Square Sync"}
+              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {squareSyncOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-52">
+                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Square Sync</p>
+                <button
+                  className="btn !bg-purple-50 !text-purple-800 hover:!bg-purple-100 w-full text-sm flex items-center gap-2"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSquareSyncOpen(false);
+                    if (saving) return;
 
               // Debug: Log all products with Square info
               // eslint-disable-next-line no-console
@@ -1382,6 +1430,7 @@ export default function AdminProductsPage() {
                   );
 
                   if (autoMap) {
+                    setSavingLabel("Generating variant mappings…");
                     setSaving(true);
                     try {
                       const mapRes = await fetch("/api/admin/auto-map-square-variants", {
@@ -1428,6 +1477,7 @@ export default function AdminProductsPage() {
                 );
 
                 if (autoMap) {
+                  setSavingLabel("Generating variant mappings…");
                   setSaving(true);
                   try {
                     const mapRes = await fetch("/api/admin/auto-map-square-variants", {
@@ -1464,6 +1514,7 @@ export default function AdminProductsPage() {
 
               if (!confirmed) return;
 
+              setSavingLabel("Syncing stock & details to Square…");
               setSaving(true);
               try {
                 // Step 1: Sync stock
@@ -1506,6 +1557,7 @@ export default function AdminProductsPage() {
                     .map((r) => `${r.productSlug}: ${r.error ?? "Unknown error"}`)
                     .join("\n") ?? "";
 
+                setSaving(false);
                 await showAlert(
                   `Sync complete!\n\nStock: ${stockData.successCount} synced, ${stockData.errorCount} errors\nDetails: ${detailsData.successCount ?? 0} synced, ${detailsData.errorCount ?? 0} errors${
                     detailsData.error ? `\n\nDetails error: ${detailsData.error}` : ""
@@ -1515,34 +1567,29 @@ export default function AdminProductsPage() {
               } catch (err) {
                 // eslint-disable-next-line no-console
                 console.error("[Sync All Square] Error:", err);
-                await showAlert(err instanceof Error ? err.message : "Failed to sync all products to Square", "Error");
-              } finally {
                 setSaving(false);
+                await showAlert(err instanceof Error ? err.message : "Failed to sync all products to Square", "Error");
               }
-            }}
-            disabled={saving}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            {saving ? "Syncing..." : "Sync All to Square"}
-          </button>
-          <button
-            className="btn bg-teal-600 !text-black hover:bg-teal-700 w-full sm:w-auto flex items-center gap-2"
-            disabled={saving}
-            onClick={async () => {
-              const confirmed = await showConfirm(
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                  {saving ? "Syncing..." : "Sync Stock + Details"}
+                </button>
+                <button
+                  className="btn !bg-teal-50 !text-teal-800 hover:!bg-teal-100 w-full text-sm flex items-center gap-2"
+                  disabled={saving}
+                  onClick={async () => {
+                    setSquareSyncOpen(false);
+                    const confirmed = await showConfirm(
                 "Sync images for all Square products? This uploads product photos to Square in batches of 5. It may take several minutes.",
                 "Sync Images to Square"
               );
               if (!confirmed) return;
 
               const BATCH_SIZE = 5;
+              setSavingLabel("Syncing images to Square…");
               setSaving(true);
               setImageSyncProgress({ current: 0, total: 0 });
               let totalImages = 0;
@@ -1580,6 +1627,9 @@ export default function AdminProductsPage() {
                   setImageSyncProgress({ current: Math.min(offset, total), total });
                 }
 
+                // Dismiss overlay before showing modal so user can see it
+                setSaving(false);
+                setImageSyncProgress(null);
                 await showAlert(
                   `Image sync complete!\n\n${totalImages} images uploaded across ${total} products${totalErrors ? `\n${totalErrors} errors` : ""}`,
                   "Images Synced"
@@ -1587,22 +1637,24 @@ export default function AdminProductsPage() {
               } catch (err) {
                 // eslint-disable-next-line no-console
                 console.error("[Sync Images] Error:", err);
-                await showAlert(err instanceof Error ? err.message : "Failed to sync images to Square", "Error");
-              } finally {
                 setSaving(false);
                 setImageSyncProgress(null);
+                await showAlert(err instanceof Error ? err.message : "Failed to sync images to Square", "Error");
               }
-            }}
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            {imageSyncProgress
-              ? `Syncing images ${imageSyncProgress.current}/${imageSyncProgress.total}...`
-              : "Sync Images to Square"}
-          </button>
+                  }}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                  </svg>
+                  {imageSyncProgress
+                    ? `Syncing ${imageSyncProgress.current}/${imageSyncProgress.total}...`
+                    : "Sync Images"}
+                </button>
+              </div>
+            )}
+          </div>
           <button
-            className="btn btn-primary w-full sm:w-auto"
+            className="btn !bg-green-100 !text-green-800 hover:!bg-green-200 w-full sm:w-auto"
             onClick={() => {
               const p = emptyProduct();
               p.sku = nextSku; // default auto-increment
@@ -1614,10 +1666,29 @@ export default function AdminProductsPage() {
           >
             + New product
           </button>
-        </div>
+          {Object.keys(staged).length > 0 && (
+            <>
+              <button className="btn" onClick={() => setStaged({})} disabled={saving}>
+                Discard all
+              </button>
+              <button className="btn btn-primary" onClick={publishAll} disabled={saving}>
+                {saving ? "Publishing…" : `Publish all (${Object.keys(staged).length})`}
+              </button>
+            </>
+          )}
+      </div>
+
+      <div className="space-y-4">
+        {/* Search */}
+        <input
+          className="input w-full"
+          placeholder="Search by name, slug, or SKU…"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+        />
 
         {/* Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
           {/* Visible Filter */}
           <div>
             <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Visibility</label>
@@ -1637,7 +1708,7 @@ export default function AdminProductsPage() {
             <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Type</label>
             <button
               type="button"
-              className="input w-full text-sm text-left flex items-center justify-between"
+              className="input w-full text-sm text-left flex items-center justify-between !border-[var(--color-line)]"
               onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
             >
               <span>
@@ -1680,10 +1751,60 @@ export default function AdminProductsPage() {
             )}
           </div>
 
+          {/* Scent Filter - Multi-select */}
+          <div className="relative scent-filter-dropdown">
+            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Scent</label>
+            <button
+              type="button"
+              className="input w-full text-sm text-left flex items-center justify-between !border-[var(--color-line)]"
+              onClick={() => setScentDropdownOpen(!scentDropdownOpen)}
+            >
+              <span>
+                {scentFilter.length === 0 ? "All Scents" : scentFilter.length === 1
+                  ? (globalScents.find((s) => s.id === scentFilter[0])?.name ?? scentFilter[0])
+                  : `${scentFilter.length} selected`}
+              </span>
+              <span className="ml-2">▼</span>
+            </button>
+            {scentDropdownOpen && (
+              <div className="absolute z-10 mt-1 w-full bg-white border border-[var(--color-line)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {globalScents
+                  .slice()
+                  .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
+                  .map((scent) => (
+                    <label key={scent.id} className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={scentFilter.includes(scent.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            setScentFilter([...scentFilter, scent.id]);
+                          } else {
+                            setScentFilter(scentFilter.filter((id) => id !== scent.id));
+                          }
+                        }}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm">{scent.name}</span>
+                      {scent.limited && <span className="text-xs text-amber-600 ml-auto">Limited</span>}
+                    </label>
+                  ))}
+              </div>
+            )}
+          </div>
+
           {/* Stock Filter */}
           <div>
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Stock</label>
-            <select className="input w-full text-sm" value={stockFilter} onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}>
+            <label className={`block text-xs font-medium mb-1 ${scentFilter.length > 0 ? "text-[var(--color-muted)] opacity-40" : "text-[var(--color-muted)]"}`}>
+              Stock{scentFilter.length > 0 && " (in-stock only)"}
+            </label>
+            <select
+              className="input w-full text-sm"
+              value={scentFilter.length > 0 ? "in-stock" : stockFilter}
+              disabled={scentFilter.length > 0}
+              onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
+              style={scentFilter.length > 0 ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
+            >
               <option value="all">All</option>
               <option value="in-stock">In Stock</option>
               <option value="out-of-stock">Out of Stock</option>
@@ -1709,33 +1830,36 @@ export default function AdminProductsPage() {
               <option value="draft">Draft</option>
             </select>
           </div>
-        </div>
 
-        {/* Clear Filters */}
-        <div className="flex justify-end">
-          <button
-            className="btn w-full sm:w-auto text-sm"
-            onClick={() => {
-              setFilter("");
-              setVisibleFilter("all");
-              setTypeFilter([]);
-              setStockFilter("all");
-              setBestFilter("all");
-              setStatusFilter("all");
-              setSortBy("none");
-              setSortDirection("asc");
-            }}
-          >
-            Clear All Filters
-          </button>
+          {/* Clear Filters */}
+          <div className="flex items-end">
+            <button
+              title="Clear all filters"
+              className="btn w-9 h-9 !bg-red-400 !text-white hover:!bg-red-500 flex items-center justify-center !p-0 !min-h-0"
+              onClick={() => {
+                setFilter("");
+                setVisibleFilter("all");
+                setTypeFilter([]);
+                setScentFilter([]);
+                setStockFilter("all");
+                setBestFilter("all");
+                setStatusFilter("all");
+                setSortBy("none");
+                setSortDirection("asc");
+              }}
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="mt-6">
         {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-[var(--color-muted)]">Loading products…</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--color-muted)]">Loading products…</p>
           </div>
         ) : filtered.length === 0 ? (
           <div className="text-center py-12">
@@ -1768,15 +1892,12 @@ export default function AdminProductsPage() {
                         Type
                       </SortableHeader>
                       <SortableHeader column="stock" className="w-28 text-center border-r border-[var(--color-line)]">
-                        Stock
+                        Stock ({totalStock})
                       </SortableHeader>
                       <SortableHeader column="best" className="w-20 text-center border-r border-[var(--color-line)]">
                         Best
                       </SortableHeader>
-                      <SortableHeader column="status" className="w-32 text-center border-r border-[var(--color-line)]">
-                        Status
-                      </SortableHeader>
-                      <SortableHeader column="none" className="text-center">
+                      <SortableHeader column="none" className="w-28 text-center">
                         Actions
                       </SortableHeader>
                     </tr>
@@ -1860,27 +1981,11 @@ export default function AdminProductsPage() {
                               <span className="text-neutral-300">—</span>
                             )}
                           </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            {isDraft ? (
-                              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs font-semibold bg-blue-100 text-blue-800">
-                                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                  />
-                                </svg>
-                                Draft
-                              </span>
-                            ) : (
-                              <span className="text-xs text-[var(--color-muted)]">Published</span>
-                            )}
-                          </td>
-                          <td className="py-5 px-4 text-center">
-                            <div className="flex items-center justify-center gap-2">
+                          <td className="py-5 px-2 text-center">
+                            <div className="flex items-center justify-center gap-1.5">
                               <button
-                                className="btn text-sm px-4 py-2"
+                                title="Edit"
+                                className="btn w-9 h-9 !p-0 !min-h-0 flex items-center justify-center"
                                 onClick={() => {
                                   setEditing(p);
                                   setSlugTouched(true);
@@ -1888,22 +1993,26 @@ export default function AdminProductsPage() {
                                   setError(null);
                                 }}
                               >
-                                Edit
+                                <Pencil className="w-4 h-4" />
                               </button>
 
                               {isDraft && (
                                 <>
-                                  <button className="btn btn-primary text-sm px-4 py-2" disabled={saving} onClick={() => publishOne(p.slug)}>
+                                  <button className="btn btn-primary text-xs !px-2 !py-1 !min-h-0 h-9" disabled={saving} onClick={() => publishOne(p.slug)}>
                                     {saving ? "…" : "Publish"}
                                   </button>
-                                  <button className="btn text-sm px-4 py-2" onClick={() => discardDraft(p.slug)}>
+                                  <button className="btn text-xs !px-2 !py-1 !min-h-0 h-9" onClick={() => discardDraft(p.slug)}>
                                     Discard
                                   </button>
                                 </>
                               )}
 
-                              <button className="btn text-sm px-4 py-2 text-red-600 hover:bg-red-50" onClick={() => void deleteProduct(p.slug)}>
-                                Delete
+                              <button
+                                title="Delete"
+                                className="btn w-9 h-9 !p-0 !min-h-0 flex items-center justify-center !text-red-600 hover:!bg-red-50"
+                                onClick={() => void deleteProduct(p.slug)}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
@@ -2324,6 +2433,7 @@ export default function AdminProductsPage() {
                             }
 
                             try {
+                              setSavingLabel("Creating Stripe product…");
                               setSaving(true);
                               const res = await fetch("/api/admin/create-stripe-product", {
                                 method: "POST",
@@ -2345,6 +2455,7 @@ export default function AdminProductsPage() {
                               // Update the product with the returned price ID
                               setEditing({ ...editing, stripePriceId: data.priceId });
 
+                              setSaving(false);
                               await showAlert(
                                 `Stripe product created successfully!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
                                 "Success"
@@ -2352,9 +2463,8 @@ export default function AdminProductsPage() {
                             } catch (err) {
                               // eslint-disable-next-line no-console
                               console.error("[Create Stripe Product] Error:", err);
-                              await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
-                            } finally {
                               setSaving(false);
+                              await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
                             }
                           }}
                         >
@@ -2385,6 +2495,7 @@ export default function AdminProductsPage() {
                             onClick={async () => {
                               // Sync stock to Square (auto-map first if needed)
                               try {
+                                setSavingLabel("Syncing stock to Square…");
                                 setSaving(true);
 
                                 // Check if variant mapping exists, if not auto-map first
@@ -2421,13 +2532,13 @@ export default function AdminProductsPage() {
                                   throw new Error(data.error || "Failed to sync stock");
                                 }
 
+                                setSaving(false);
                                 await showAlert(`Stock synced to Square successfully!\n\n${data.message}`, "Success");
                               } catch (err) {
                                 // eslint-disable-next-line no-console
                                 console.error("[Sync Square Stock] Error:", err);
-                                await showAlert(err instanceof Error ? err.message : "Failed to sync stock to Square", "Error");
-                              } finally {
                                 setSaving(false);
+                                await showAlert(err instanceof Error ? err.message : "Failed to sync stock to Square", "Error");
                               }
                             }}
                           >
@@ -2448,6 +2559,7 @@ export default function AdminProductsPage() {
                             className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
                             onClick={async () => {
                               try {
+                                setSavingLabel("Syncing details to Square…");
                                 setSaving(true);
                                 const res = await fetch("/api/admin/sync-square-details", {
                                   method: "POST",
@@ -2461,14 +2573,14 @@ export default function AdminProductsPage() {
                                 };
                                 if (!res.ok) throw new Error(data.error || "Failed to sync details");
                                 const r = data.results?.[0];
+                                setSaving(false);
                                 await showAlert(
                                   `Product details synced to Square!\n\nImages uploaded: ${r?.imagesUploaded ?? 0} / ${r?.totalImages ?? 0}`,
                                   "Success"
                                 );
                               } catch (err) {
-                                await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
-                              } finally {
                                 setSaving(false);
+                                await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
                               }
                             }}
                           >
@@ -2491,6 +2603,7 @@ export default function AdminProductsPage() {
                               if (!confirmed) return;
 
                               try {
+                                setSavingLabel("Remapping variants…");
                                 setSaving(true);
 
                                 // Force remap variants
@@ -2515,13 +2628,16 @@ export default function AdminProductsPage() {
 
                                 await load(); // Reload to get updated mapping
 
-                                // Ask if they want to sync stock now
+                                // Dismiss overlay before asking the follow-up question
+                                setSaving(false);
                                 const syncNow = await showConfirm(
                                   "Variants remapped successfully!\n\nWould you like to sync stock levels to Square now?",
                                   "Sync Stock?"
                                 );
 
                                 if (syncNow) {
+                                  setSavingLabel("Syncing stock to Square…");
+                                  setSaving(true);
                                   const res = await fetch("/api/admin/sync-square-stock", {
                                     method: "POST",
                                     headers: { "Content-Type": "application/json" },
@@ -2534,6 +2650,7 @@ export default function AdminProductsPage() {
                                     throw new Error(data.error || "Failed to sync stock");
                                   }
 
+                                  setSaving(false);
                                   await showAlert(
                                     `Variants remapped and stock synced successfully!\n\n${data.message}`,
                                     "Success"
@@ -2544,12 +2661,11 @@ export default function AdminProductsPage() {
                               } catch (err) {
                                 // eslint-disable-next-line no-console
                                 console.error("[Remap Variants] Error:", err);
+                                setSaving(false);
                                 await showAlert(
                                   err instanceof Error ? err.message : "Failed to remap variants",
                                   "Error"
                                 );
-                              } finally {
-                                setSaving(false);
                               }
                             }}
                           >
@@ -2580,6 +2696,7 @@ export default function AdminProductsPage() {
                               }
 
                               try {
+                                setSavingLabel("Creating Square product…");
                                 setSaving(true);
 
                                 // Get scents for this product (filter by limited flag)
@@ -2652,6 +2769,7 @@ export default function AdminProductsPage() {
                                 // Reload products to get updated data
                                 await load();
 
+                                setSaving(false);
                                 await showAlert(
                                   `Square catalog item created and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}`,
                                   "Success"
@@ -2659,9 +2777,8 @@ export default function AdminProductsPage() {
                               } catch (err) {
                                 // eslint-disable-next-line no-console
                                 console.error("[Create Square Product] Error:", err);
-                                await showAlert(err instanceof Error ? err.message : "Failed to create Square product", "Error");
-                              } finally {
                                 setSaving(false);
+                                await showAlert(err instanceof Error ? err.message : "Failed to create Square product", "Error");
                               }
                             }}
                           >
@@ -2692,6 +2809,7 @@ export default function AdminProductsPage() {
                               }
 
                               try {
+                                setSavingLabel("Creating Square product…");
                                 setSaving(true);
 
                                 // Get scents for this product (filter by limited flag)
@@ -2750,6 +2868,7 @@ export default function AdminProductsPage() {
                                   }),
                                 });
 
+                                setSaving(false);
                                 if (!saveRes.ok) {
                                   const saveError = (await saveRes.json()) as { error?: string };
                                   console.error("[Re-create Square Product] Failed to save:", saveError);
@@ -2765,9 +2884,8 @@ export default function AdminProductsPage() {
                                 }
                               } catch (err) {
                                 console.error("[Re-create Square Product] Error:", err);
-                                await showAlert(err instanceof Error ? err.message : "Failed to re-create Square product", "Error");
-                              } finally {
                                 setSaving(false);
+                                await showAlert(err instanceof Error ? err.message : "Failed to re-create Square product", "Error");
                               }
                             }}
                           >
@@ -3038,6 +3156,7 @@ export default function AdminProductsPage() {
                                               }
 
                                               try {
+                                                setSavingLabel("Creating Stripe product…");
                                                 setSaving(true);
                                                 const res = await fetch("/api/admin/create-stripe-product", {
                                                   method: "POST",
@@ -3067,15 +3186,15 @@ export default function AdminProductsPage() {
                                                   },
                                                 });
 
+                                                setSaving(false);
                                                 await showAlert(
                                                   `Stripe product created for ${size.name}!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
                                                   "Success"
                                                 );
                                               } catch (err) {
                                                 console.error("[Create Stripe Product for Size] Error:", err);
-                                                await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
-                                              } finally {
                                                 setSaving(false);
+                                                await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
                                               }
                                             }}
                                           >

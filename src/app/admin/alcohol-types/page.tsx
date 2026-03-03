@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number; archived?: boolean };
 
@@ -183,7 +184,10 @@ export default function AlcoholTypesAdminPage() {
 
       <div className="card p-4 overflow-x-auto">
         {loading ? (
-          <p>Loading…</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--color-muted)]">Loading…</p>
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead>

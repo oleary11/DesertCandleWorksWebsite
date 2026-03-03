@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type CatalogTestResult = {
   productName: string;
@@ -38,6 +39,7 @@ type MappingDiagnostic = {
   mappingCount: number;
   websiteVariantCount: number;
   status: "ready" | "missing_catalog_id" | "missing_mapping" | "partial_mapping";
+  missingVariantKeys?: string[];
 };
 
 type MappingDiagnosticResponse = {
@@ -203,9 +205,11 @@ export default function SquareCatalogDiagnosticsPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <h1 className="text-3xl font-bold mb-6">Square Catalog ID Diagnostics</h1>
-        <p className="text-[var(--color-muted)]">Loading diagnostics...</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+        </div>
       </div>
     );
   }
@@ -378,6 +382,36 @@ export default function SquareCatalogDiagnosticsPage() {
                     ...and {mappingData.byStatus.missingMapping.length - 10} more
                   </p>
                 )}
+              </div>
+            </div>
+          )}
+
+          {mappingData.summary.partialMapping > 0 && (
+            <div className="card p-4 mt-4 bg-amber-50 border-amber-200">
+              <h3 className="font-semibold text-amber-900 mb-1">Products with Partial Variant Mappings</h3>
+              <p className="text-xs text-amber-700 mb-3">
+                These products have fewer Square variant mappings than website variants — likely because variants were added after the product was first mapped to Square. Fix by clicking <strong>Remap Variants</strong> on the product in the admin panel.
+              </p>
+              <div className="space-y-3">
+                {mappingData.byStatus.partialMapping.map((p) => (
+                  <div key={p.productSlug}>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-amber-900 font-medium">{p.productName}</span>
+                      <span className="text-amber-700 tabular-nums">
+                        {p.mappingCount} / {p.websiteVariantCount} variants mapped
+                      </span>
+                    </div>
+                    {p.missingVariantKeys && p.missingVariantKeys.length > 0 && (
+                      <div className="mt-1 ml-2 space-y-0.5">
+                        {p.missingVariantKeys.map((key) => (
+                          <p key={key} className="text-xs text-amber-700 font-mono">
+                            ↳ missing: {key}
+                          </p>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
           )}

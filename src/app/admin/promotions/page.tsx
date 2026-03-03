@@ -6,6 +6,7 @@ import { ArrowLeft, Plus, Edit, Trash2, Calendar, Tag, TrendingUp } from "lucide
 import { Promotion, PromotionType } from "@/lib/promotions";
 import PromotionModal from "@/components/PromotionModal";
 import { useModal } from "@/hooks/useModal";
+import CandleSpinner from "@/components/CandleSpinner";
 
 export default function AdminPromotionsPage() {
   const { showAlert, showConfirm } = useModal();
@@ -107,9 +108,10 @@ export default function AdminPromotionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-[var(--color-muted)]">Loading promotions...</p>
+      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
+        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-ink)]">Loading promotions…</p>
         </div>
       </div>
     );

@@ -9,7 +9,6 @@ import {
   Palette,
   Wine,
   FileText,
-  RefreshCw,
   Stethoscope,
   TestTube,
   LogOut,
@@ -279,19 +278,6 @@ export default function AdminHomePage() {
                 <div>
                   <h3 className="font-medium">Activity Logs</h3>
                   <p className="text-xs text-[var(--color-muted)]">View admin actions & logins</p>
-                </div>
-              </div>
-            </Link>
-
-            {/* Stripe Sync */}
-            <Link href="/admin/stripe-sync" className="card p-4 bg-white hover:shadow-md transition-shadow">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center flex-shrink-0">
-                  <RefreshCw className="w-5 h-5 text-indigo-600" />
-                </div>
-                <div>
-                  <h3 className="font-medium">Stripe Sync</h3>
-                  <p className="text-xs text-[var(--color-muted)]">Backfill missing orders</p>
                 </div>
               </div>
             </Link>

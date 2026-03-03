@@ -12,6 +12,7 @@ type ProductSyncStatus = {
   stripePriceId: string | null;
   hasImage: boolean;
   imageUrl: string | null;
+  stripeImageUrl: string | null;
   needsSync: boolean;
 };
 
@@ -22,6 +23,7 @@ export async function GET() {
 
     for (const product of products) {
       let hasImage = false;
+      let stripeImageUrl: string | null = null;
 
       // Check if product has image in Stripe
       if (product.stripePriceId) {
@@ -32,6 +34,7 @@ export async function GET() {
 
           const stripeProduct = price.product as Stripe.Product;
           hasImage = stripeProduct.images && stripeProduct.images.length > 0;
+          stripeImageUrl = hasImage ? stripeProduct.images[0] : null;
         } catch (err) {
           console.error(`Failed to fetch Stripe price for ${product.slug}:`, err);
         }
@@ -45,6 +48,7 @@ export async function GET() {
         stripePriceId: product.stripePriceId || null,
         hasImage,
         imageUrl: product.image || null,
+        stripeImageUrl,
         needsSync,
       });
     }
@@ -62,7 +66,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { slug, syncAll } = body;
+    const { slug, syncAll, force } = body;
 
     if (syncAll) {
       // Sync all products that need it
@@ -135,21 +139,22 @@ export async function POST(req: NextRequest) {
 
       const stripeProduct = price.product as Stripe.Product;
 
-      // Check if already has image
-      if (stripeProduct.images && stripeProduct.images.length > 0) {
+      // Check if already has image (skip unless force=true)
+      if (!force && stripeProduct.images && stripeProduct.images.length > 0) {
         return NextResponse.json({
           skipped: true,
           productName: product.name,
         });
       }
 
-      // Update with image
+      // Update with image (replaces any existing image when force=true)
       await stripe.products.update(stripeProduct.id, {
         images: [product.image],
       });
 
       return NextResponse.json({
         success: true,
+        forced: !!force,
         productName: product.name,
       });
     } else {

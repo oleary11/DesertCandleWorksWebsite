@@ -15,6 +15,7 @@ import {
   Package,
 } from "lucide-react";
 import USStateHeatMap from "@/components/USStateHeatMap";
+import CandleSpinner from "@/components/CandleSpinner";
 
 type DayPreset = 1 | 7 | 30 | 90;
 
@@ -78,12 +79,14 @@ export default function TrafficAnalyticsPage() {
   const [data, setData] = useState<TrafficData | null>(null);
   const [loading, setLoading] = useState(true);
   const [days, setDays] = useState<DayPreset>(30);
+  const [humanOnly, setHumanOnly] = useState(true);
 
-  const fetchData = useCallback(async (d: DayPreset) => {
+  const fetchData = useCallback(async (d: DayPreset, human: boolean) => {
     setLoading(true);
     try {
       const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      const res = await fetch(`/api/admin/traffic?days=${d}&tz=${encodeURIComponent(tz)}`);
+      const url = `/api/admin/traffic?days=${d}&tz=${encodeURIComponent(tz)}${human ? "&humanOnly=1" : ""}`;
+      const res = await fetch(url);
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
       setData(json);
@@ -95,8 +98,8 @@ export default function TrafficAnalyticsPage() {
   }, []);
 
   useEffect(() => {
-    fetchData(days);
-  }, [days, fetchData]);
+    fetchData(days, humanOnly);
+  }, [days, humanOnly, fetchData]);
 
   const maxHourViews = data
     ? Math.max(...data.byHour.map((h) => h.views), 1)
@@ -128,8 +131,8 @@ export default function TrafficAnalyticsPage() {
           </p>
         </div>
 
-        {/* Date range selector */}
-        <div className="flex gap-2 flex-wrap">
+        {/* Filters */}
+        <div className="flex gap-2 flex-wrap items-center">
           {([1, 7, 30, 90] as DayPreset[]).map((d) => (
             <button
               key={d}
@@ -143,12 +146,28 @@ export default function TrafficAnalyticsPage() {
               {d === 1 ? "Today" : d === 7 ? "7 days" : d === 30 ? "30 days" : "90 days"}
             </button>
           ))}
+          <div className="w-px h-5 bg-[var(--color-line)]" />
+          <button
+            onClick={() => setHumanOnly((prev) => !prev)}
+            title="Engaged only: hides sessions with less than 3 seconds on page (filters bot drive-bys)"
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
+              humanOnly
+                ? "bg-amber-500 text-white"
+                : "bg-white border border-[var(--color-line)] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
+            }`}
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            {humanOnly ? "Humans only" : "All traffic"}
+          </button>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center h-64 text-[var(--color-muted)]">
-          Loading traffic data…
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--color-muted)]">Loading…</p>
         </div>
       ) : !data ? (
         <div className="card p-8 text-center text-[var(--color-muted)]">
