@@ -553,6 +553,16 @@ export default function AdminProductsPage() {
     void load();
   }, []);
 
+  // Sync priceInputStr whenever a different product is opened for editing
+  useEffect(() => {
+    if (editing) {
+      setPriceInputStr(editing.price === 0 ? "" : editing.price.toString());
+    } else {
+      setPriceInputStr("");
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing?.slug]);
+
   // Close filter dropdowns when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
