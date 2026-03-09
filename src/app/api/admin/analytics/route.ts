@@ -428,9 +428,15 @@ export async function GET(req: NextRequest) {
 
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
-        // Look up scent name from global scents, fallback to formatted ID
-        const scentName = scentIdToName.get(variantInfo.scent) ||
-          variantInfo.scent
+        // Look up scent name from global scents. If not found, try stripping a
+        // leading size prefix (e.g. "20mm-") before falling back to formatting.
+        let resolvedScentId = variantInfo.scent;
+        if (!scentIdToName.has(resolvedScentId)) {
+          const withoutSize = resolvedScentId.replace(/^(?:size-)?[0-9]+[a-z]*-/, "");
+          if (scentIdToName.has(withoutSize)) resolvedScentId = withoutSize;
+        }
+        const scentName = scentIdToName.get(resolvedScentId) ||
+          resolvedScentId
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
@@ -448,14 +454,15 @@ export async function GET(req: NextRequest) {
           });
         }
 
-        // Map wick type IDs to display names
+        // Map wick type IDs to display names, using the display name as the map key
+        // so that variants parsed differently (e.g. "standard" vs "standard-wick") collapse
         const wickName = variantInfo.wick.includes("wood") ? "Wood Wick" : "Standard Wick";
-        const existingWick = wickTypeSalesMap.get(variantInfo.wick);
+        const existingWick = wickTypeSalesMap.get(wickName);
         if (existingWick) {
           existingWick.units += item.quantity;
           existingWick.revenue += itemRevenue;
         } else {
-          wickTypeSalesMap.set(variantInfo.wick, {
+          wickTypeSalesMap.set(wickName, {
             name: wickName,
             units: item.quantity,
             revenue: itemRevenue,

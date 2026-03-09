@@ -1029,9 +1029,9 @@ export default function UnifiedAnalyticsPage() {
             {/* Scent Sales */}
             {salesData.scentSales && salesData.scentSales.length > 0 && (
               <div className="card p-6 bg-white">
-                <h2 className="text-xl font-bold mb-4">Top Scents</h2>
+                <h2 className="text-xl font-bold mb-4">Scents</h2>
                 <div className="space-y-3">
-                  {salesData.scentSales.slice(0, 5).map((scent, idx) => (
+                  {salesData.scentSales.map((scent, idx) => (
                     <div key={idx} className="flex items-center justify-between border-b border-[var(--color-line)] pb-3">
                       <div>
                         <p className="font-medium">{scent.name}</p>
