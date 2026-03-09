@@ -13,6 +13,7 @@ type Product = {
   sku: string;
   alcoholType?: string;
   variantConfig?: {
+    sizes?: Array<{ id: string; name: string; priceCents: number }>;
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
   };
@@ -40,6 +41,7 @@ type SaleItem = {
   quantity: number;
   unitPriceCents: number; // Price per unit (not total)
   variantId?: string;
+  selectedSizeId?: string; // size ID for variant tracking
   sizeName?: string;
   wickType?: string; // wick type ID for scent tracking
   scentId?: string; // scent ID for analytics
@@ -349,13 +351,33 @@ export default function ManualSalePage() {
         productSlug: product.slug,
         productName: product.name,
         unitPriceCents: Math.round(product.price * 100),
-        variantId: undefined, // Reset variant when product changes
-        wickType: undefined, // Reset wick type
-        scentId: undefined, // Reset scent
+        variantId: undefined,
+        selectedSizeId: undefined,
+        sizeName: undefined,
+        wickType: undefined,
+        scentId: undefined,
         scentName: undefined,
-        alcoholType: product.alcoholType, // Auto-fill alcohol type from product
+        alcoholType: product.alcoholType,
       });
     }
+  }
+
+  function handleSizeChange(itemId: string, sizeId: string) {
+    const item = items.find((i) => i.id === itemId);
+    const product = products.find((p) => p.slug === item?.productSlug);
+    const size = product?.variantConfig?.sizes?.find((s) => s.id === sizeId);
+    if (!item) return;
+
+    const variantId = sizeId && item.wickType && item.scentId
+      ? `${sizeId}-${item.wickType}-${item.scentId}`
+      : undefined;
+
+    updateItem(itemId, {
+      selectedSizeId: sizeId || undefined,
+      sizeName: size?.name,
+      unitPriceCents: size ? size.priceCents : Math.round((product?.price ?? 0) * 100),
+      variantId: item.isCustom ? undefined : variantId,
+    });
   }
 
   function handleScentChange(itemId: string, scentId: string, wickType?: string) {
@@ -363,18 +385,18 @@ export default function ManualSalePage() {
     const item = items.find((i) => i.id === itemId);
 
     if (scent && item) {
-      // Build variant ID if we have a wick type
       const effectiveWickType = wickType || item.wickType || "standard-wick";
-      const variantId = `${effectiveWickType}-${scentId}`;
+      const variantId = item.selectedSizeId
+        ? `${item.selectedSizeId}-${effectiveWickType}-${scentId}`
+        : `${effectiveWickType}-${scentId}`;
 
       updateItem(itemId, {
         scentId,
         scentName: scent.name,
         wickType: effectiveWickType,
-        variantId: item.isCustom ? undefined : variantId, // Only set variantId for non-custom products
+        variantId: item.isCustom ? undefined : variantId,
       });
     } else if (!scentId) {
-      // Clear scent selection
       updateItem(itemId, {
         scentId: undefined,
         scentName: undefined,
@@ -386,8 +408,11 @@ export default function ManualSalePage() {
   function handleWickTypeChange(itemId: string, wickType: string) {
     const item = items.find((i) => i.id === itemId);
     if (item) {
-      // Update variant ID if we have a scent selected
-      const variantId = item.scentId ? `${wickType}-${item.scentId}` : undefined;
+      const variantId = item.scentId
+        ? item.selectedSizeId
+          ? `${item.selectedSizeId}-${wickType}-${item.scentId}`
+          : `${wickType}-${item.scentId}`
+        : undefined;
       updateItem(itemId, {
         wickType,
         variantId: item.isCustom ? undefined : variantId,
@@ -588,6 +613,7 @@ export default function ManualSalePage() {
                   const selectedProduct = products.find((p) => p.slug === item.productSlug);
                   const hasVariants = selectedProduct?.variantConfig?.wickTypes &&
                     selectedProduct.variantConfig.wickTypes.length > 0;
+                  const hasSizes = (selectedProduct?.variantConfig?.sizes?.length ?? 0) > 0;
 
                   // Get wick types - use product's wick types if available, otherwise default options
                   const wickTypes = selectedProduct?.variantConfig?.wickTypes || [
@@ -681,6 +707,27 @@ export default function ManualSalePage() {
                           )}
                         </div>
                       </div>
+
+                      {/* Size Selection - only shown for products with sizes */}
+                      {!item.isCustom && hasSizes && (
+                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                          <label className="block text-sm font-medium mb-1">
+                            Size <span className="text-rose-500">*</span>
+                          </label>
+                          <select
+                            className="input w-full md:w-64"
+                            value={item.selectedSizeId || ""}
+                            onChange={(e) => handleSizeChange(item.id, e.target.value)}
+                          >
+                            <option value="">Select size...</option>
+                            {selectedProduct?.variantConfig?.sizes?.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name} — ${(s.priceCents / 100).toFixed(2)}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
 
                       {/* Variant Selection - shown for all items */}
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[var(--color-line)]">
