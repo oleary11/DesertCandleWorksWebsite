@@ -379,28 +379,28 @@ export async function GET(req: NextRequest) {
     function parseVariantInfo(variantId?: string): { wick: string; scent: string } | null {
       if (!variantId) return null;
 
-      // Known wick type patterns (with hyphens)
+      // Strip optional size prefix from the front (e.g. "size-20mm-" or "20mm-")
+      let remaining = variantId;
+      const sizeMatch = remaining.match(/^(?:size-)?[0-9]+[a-z]*-/);
+      if (sizeMatch) {
+        remaining = remaining.substring(sizeMatch[0].length);
+      }
+
+      // Known wick type patterns — must appear at the START of the remaining string
+      // to avoid matching "wood" inside a scent name like "wood-bloom"
       const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
 
-      // Try to match known wick types
       for (const wickType of knownWickTypes) {
-        if (variantId.includes(wickType)) {
-          // Extract scent ID after the wick type
-          const wickIndex = variantId.indexOf(wickType);
-          const afterWick = variantId.substring(wickIndex + wickType.length);
-
-          // Remove leading hyphen if present
-          const scentId = afterWick.startsWith('-') ? afterWick.substring(1) : afterWick;
-
+        if (remaining.startsWith(wickType + '-')) {
+          const scentId = remaining.substring(wickType.length + 1);
           if (scentId) {
             return { wick: wickType, scent: scentId };
           }
         }
       }
 
-      // Fallback: assume first part before first digit is wick type
-      // This handles cases like "wood-1234" or "standard-1234"
-      const match = variantId.match(/^([a-z-]+?)-?(\d+.*)$/);
+      // Fallback: first segment of all-letters is wick, rest is scent
+      const match = remaining.match(/^([a-z-]+?)-(\d+.*)$/);
       if (match) {
         return { wick: match[1], scent: match[2] };
       }
@@ -428,15 +428,9 @@ export async function GET(req: NextRequest) {
 
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
-        // Look up scent name from global scents. If not found, try stripping a
-        // leading size prefix (e.g. "20mm-") before falling back to formatting.
-        let resolvedScentId = variantInfo.scent;
-        if (!scentIdToName.has(resolvedScentId)) {
-          const withoutSize = resolvedScentId.replace(/^(?:size-)?[0-9]+[a-z]*-/, "");
-          if (scentIdToName.has(withoutSize)) resolvedScentId = withoutSize;
-        }
-        const scentName = scentIdToName.get(resolvedScentId) ||
-          resolvedScentId
+        // Look up scent name from global scents, fallback to formatting the ID
+        const scentName = scentIdToName.get(variantInfo.scent) ||
+          variantInfo.scent
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
