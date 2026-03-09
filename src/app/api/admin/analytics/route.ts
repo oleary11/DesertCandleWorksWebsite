@@ -428,12 +428,35 @@ export async function GET(req: NextRequest) {
 
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
-        // Look up scent name from global scents, fallback to formatting the ID
-        const scentName = scentIdToName.get(variantInfo.scent) ||
-          variantInfo.scent
+        // Look up scent name from global scents with progressive fallbacks:
+        // 1. Direct lookup (e.g. "1765741870779")
+        // 2. Strip leading size prefix (e.g. "20mm-1765742025507" → "1765742025507")
+        // 3. Extract leading timestamp from compound IDs (e.g. "1766089574573-sea-salt-linen" → "1766089574573")
+        // 4. Fallback to formatting the ID as words
+        let scentName = scentIdToName.get(variantInfo.scent);
+        if (!scentName) {
+          // Try stripping a leading size prefix (e.g. "20mm-" or "18-")
+          const scentSizeMatch = variantInfo.scent.match(/^(?:size-)?[0-9]+[a-z]*-(.+)$/);
+          if (scentSizeMatch) {
+            scentName = scentIdToName.get(scentSizeMatch[1]);
+            if (!scentName) {
+              // Also try the timestamp from the remaining portion
+              const innerNumeric = scentSizeMatch[1].match(/^(\d+)/);
+              if (innerNumeric) scentName = scentIdToName.get(innerNumeric[1]);
+            }
+          }
+        }
+        if (!scentName) {
+          // Try extracting just the leading timestamp from compound IDs
+          const numericMatch = variantInfo.scent.match(/^(\d+)/);
+          if (numericMatch) scentName = scentIdToName.get(numericMatch[1]);
+        }
+        if (!scentName) {
+          scentName = variantInfo.scent
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
+        }
 
         // Group by scent NAME (not ID) so all variants of same scent are aggregated
         const existingScent = scentSalesMap.get(scentName);
