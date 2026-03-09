@@ -82,6 +82,23 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     return { mainScents: main, limitedScentIds: limitedIds };
   }, [globalScents]);
 
+  const hasActiveFilters =
+    sortBy !== "name-asc" ||
+    filterBy !== "in-stock" ||
+    searchQuery !== "" ||
+    priceMin !== priceRange.min ||
+    priceMax !== priceRange.max ||
+    selectedScents.size > 0;
+
+  function resetFilters() {
+    setSortBy("name-asc");
+    setFilterBy("in-stock");
+    setSearchQuery("");
+    setPriceMin(priceRange.min);
+    setPriceMax(priceRange.max);
+    setSelectedScents(new Set());
+  }
+
   // Toggle scent filter
   function toggleScent(scentId: string) {
     setSelectedScents(prev => {
@@ -560,6 +577,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
             )}
           </div>
         </div>
+
+        {/* Reset all filters - Mobile */}
+        {hasActiveFilters && (
+          <button
+            onClick={resetFilters}
+            className="w-full px-4 py-3 text-sm rounded-xl border border-[var(--color-line)] hover:border-[var(--color-ink)] transition text-[var(--color-muted)] hover:text-[var(--color-ink)] bg-white"
+          >
+            Reset Filters
+          </button>
+        )}
         </div>
       )}
 
@@ -709,6 +736,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                     <option value="price-desc">Price (High-Low)</option>
                   </select>
                 </div>
+
+                {/* Reset all filters */}
+                {hasActiveFilters && (
+                  <button
+                    onClick={resetFilters}
+                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] hover:border-[var(--color-ink)] transition text-[var(--color-muted)] hover:text-[var(--color-ink)]"
+                  >
+                    Reset Filters
+                  </button>
+                )}
               </div>
             </aside>
 
