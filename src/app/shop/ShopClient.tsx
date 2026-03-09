@@ -16,6 +16,29 @@ type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number };
 
+const FILTERS_KEY = "shopFilters";
+
+type SavedFilters = {
+  sortBy: SortOption;
+  filterBy: FilterOption;
+  searchQuery: string;
+  selectedScents: string[];
+};
+
+function getRestoredFilters(): SavedFilters | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const fromProduct =
+      sessionStorage.getItem("fromProductPage") ||
+      sessionStorage.getItem("useBackButton");
+    if (!fromProduct) return null;
+    const saved = sessionStorage.getItem(FILTERS_KEY);
+    return saved ? JSON.parse(saved) : null;
+  } catch {
+    return null;
+  }
+}
+
 type ShopClientProps = {
   products: ProductWithStock[];
   globalScents: GlobalScent[];
@@ -26,13 +49,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const searchParams = useSearchParams();
   const clearCart = useCartStore((state) => state.clearCart);
 
-  const [sortBy, setSortBy] = useState<SortOption>("name-asc");
-  const [filterBy, setFilterBy] = useState<FilterOption>("in-stock");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>(() => getRestoredFilters()?.sortBy ?? "name-asc");
+  const [filterBy, setFilterBy] = useState<FilterOption>(() => getRestoredFilters()?.filterBy ?? "in-stock");
+  const [searchQuery, setSearchQuery] = useState<string>(() => getRestoredFilters()?.searchQuery ?? "");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
   const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
-  const [selectedScents, setSelectedScents] = useState<Set<string>>(new Set()); // scent IDs or "limited" for limited scents
+  const [selectedScents, setSelectedScents] = useState<Set<string>>(() => {
+    const saved = getRestoredFilters()?.selectedScents;
+    return saved ? new Set(saved) : new Set();
+  });
 
   // Price range from products
   const priceRange = useMemo(() => {
@@ -111,6 +137,17 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     }
   }, []);
 
+  // Persist filter state to sessionStorage so it can be restored when navigating back
+  useEffect(() => {
+    const state: SavedFilters = {
+      sortBy,
+      filterBy,
+      searchQuery,
+      selectedScents: Array.from(selectedScents),
+    };
+    sessionStorage.setItem(FILTERS_KEY, JSON.stringify(state));
+  }, [sortBy, filterBy, searchQuery, selectedScents]);
+
   // Base filter/sort (before grouping)
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
@@ -131,14 +168,17 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     // Scent filter
     if (selectedScents.size > 0) {
       filtered = filtered.filter((p) => {
-        // Products without variant config don't have scents, skip scent filtering for them
-        if (!p.variantConfig?.variantData) return true;
+        // Products without scent variants never match a scent filter
+        if (!p.variantConfig?.variantData) return false;
 
         const { variantData, wickTypes } = p.variantConfig;
         const wickIds = new Set(wickTypes.map(w => w.id));
 
-        // Check if any variant matches selected scents
+        // Check if any in-stock variant matches selected scents
         for (const variantId of Object.keys(variantData)) {
+          // Only consider variants that have stock
+          if ((variantData[variantId]?.stock ?? 0) === 0) continue;
+
           // Extract scent ID from variant ID
           let remainingId = variantId;
 
@@ -161,14 +201,14 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
 
           // Check if this scent matches any selected filter
           if (selectedScents.has(scentId)) {
-            return true; // Direct match to a main scent
+            return true;
           }
           // Check if "limited" is selected and this scent is a limited scent
           if (selectedScents.has("limited") && limitedScentIds.has(scentId)) {
             return true;
           }
         }
-        return false; // No matching scents found
+        return false; // No in-stock variant matched
       });
     }
 
