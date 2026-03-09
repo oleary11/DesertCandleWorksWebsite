@@ -138,7 +138,7 @@ export async function GET(req: NextRequest) {
 
     // Helper function to detect Square orders
     function isSquareOrder(orderId: string): boolean {
-      return orderId.startsWith("sq_") || /^[A-Z0-9]{22}$/.test(orderId);
+      return orderId.startsWith("SQ") || orderId.startsWith("sq_") || /^[A-Z0-9]{22}$/.test(orderId);
     }
 
     // Helper function to calculate the appropriate fee based on order source
