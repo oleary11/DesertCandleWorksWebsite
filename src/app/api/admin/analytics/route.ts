@@ -429,30 +429,29 @@ export async function GET(req: NextRequest) {
         const itemRevenue = Math.round(item.priceCents * refundRatio);
 
         // Look up scent name from global scents with progressive fallbacks:
-        // 1. Direct lookup (e.g. "1765741870779")
-        // 2. Strip leading size prefix (e.g. "20mm-1765742025507" → "1765742025507")
-        // 3. Extract leading timestamp from compound IDs (e.g. "1766089574573-sea-salt-linen" → "1766089574573")
-        // 4. Fallback to formatting the ID as words
+        // 1. Direct lookup (e.g. "1765741870779" → "Smoked Amber")
+        // 2. Strip size prefix, look up remainder (e.g. "20mm-1765742025507" → "Cabin Spa")
+        // 3. Numeric prefix of de-sized portion (e.g. "20mm-1765742025507-extra" → "Cabin Spa")
+        // 4. Leading timestamp from compound IDs (e.g. "1766089574573-sea-salt-linen" → "Sea Salt & Linen")
+        // 5. Format the de-sized slug (e.g. "20mm-smoked-amber" → "Smoked Amber")
+        // 6. Format the full ID as words
+        const scentSizeCapture = variantInfo.scent.match(/^(?:size-)?[0-9]+[a-z]*-(.+)$/)?.[1];
         let scentName = scentIdToName.get(variantInfo.scent);
-        if (!scentName) {
-          // Try stripping a leading size prefix (e.g. "20mm-" or "18-")
-          const scentSizeMatch = variantInfo.scent.match(/^(?:size-)?[0-9]+[a-z]*-(.+)$/);
-          if (scentSizeMatch) {
-            scentName = scentIdToName.get(scentSizeMatch[1]);
-            if (!scentName) {
-              // Also try the timestamp from the remaining portion
-              const innerNumeric = scentSizeMatch[1].match(/^(\d+)/);
-              if (innerNumeric) scentName = scentIdToName.get(innerNumeric[1]);
-            }
+        if (!scentName && scentSizeCapture) {
+          scentName = scentIdToName.get(scentSizeCapture);
+          if (!scentName) {
+            const innerNumeric = scentSizeCapture.match(/^(\d+)/);
+            if (innerNumeric) scentName = scentIdToName.get(innerNumeric[1]);
           }
         }
         if (!scentName) {
-          // Try extracting just the leading timestamp from compound IDs
           const numericMatch = variantInfo.scent.match(/^(\d+)/);
           if (numericMatch) scentName = scentIdToName.get(numericMatch[1]);
         }
         if (!scentName) {
-          scentName = variantInfo.scent
+          // Use de-sized slug if available so "20mm-smoked-amber" → "Smoked Amber" not "20mm Smoked Amber"
+          const base = scentSizeCapture ?? variantInfo.scent;
+          scentName = base
             .split("-")
             .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
             .join(" ");
