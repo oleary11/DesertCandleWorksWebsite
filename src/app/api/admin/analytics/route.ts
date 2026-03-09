@@ -388,7 +388,7 @@ export async function GET(req: NextRequest) {
 
       // Known wick type patterns — must appear at the START of the remaining string
       // to avoid matching "wood" inside a scent name like "wood-bloom"
-      const knownWickTypes = ['standard-wick', 'wood-wick', 'wood', 'standard'];
+      const knownWickTypes = ['standard-wick', 'wood-wick', 'wavy-wood-wick', 'wood', 'standard', 'cdn16', 'cdn'];
 
       for (const wickType of knownWickTypes) {
         if (remaining.startsWith(wickType + '-')) {
