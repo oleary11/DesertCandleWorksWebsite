@@ -104,6 +104,11 @@ export default function AdminOrdersPage() {
   const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "completed" | "pending">("all");
+  const [datePreset, setDatePreset] = useState<"allTime" | "today" | "week" | "month" | "lastMonth" | "ytd" | "custom">("allTime");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [customDateFrom, setCustomDateFrom] = useState("");
+  const [customDateTo, setCustomDateTo] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [trackingInput, setTrackingInput] = useState<{ [orderId: string]: string }>({});
   const [updatingShipping, setUpdatingShipping] = useState<string | null>(null);
@@ -345,14 +350,44 @@ export default function AdminOrdersPage() {
     return 0;
   }
 
+  function handlePresetChange(preset: typeof datePreset) {
+    setDatePreset(preset);
+    const now = new Date();
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const today = fmt(now);
+
+    if (preset === "allTime") { setDateFrom(""); setDateTo(""); }
+    else if (preset === "today") { setDateFrom(today); setDateTo(today); }
+    else if (preset === "week") {
+      const start = new Date(now); start.setDate(now.getDate() - now.getDay());
+      setDateFrom(fmt(start)); setDateTo(today);
+    } else if (preset === "month") {
+      setDateFrom(`${now.getFullYear()}-${pad(now.getMonth() + 1)}-01`); setDateTo(today);
+    } else if (preset === "lastMonth") {
+      const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const last = new Date(now.getFullYear(), now.getMonth(), 0);
+      setDateFrom(fmt(first)); setDateTo(fmt(last));
+    } else if (preset === "ytd") {
+      setDateFrom(`${now.getFullYear()}-01-01`); setDateTo(today);
+    }
+  }
+
   // Filter and search orders
   const filteredOrders = orders.filter((order) => {
-    // Status filter
-    if (statusFilter !== "all" && order.status !== statusFilter) {
-      return false;
+    if (statusFilter !== "all" && order.status !== statusFilter) return false;
+
+    if (dateFrom) {
+      const orderDate = new Date(order.createdAt);
+      const from = new Date(dateFrom + "T00:00:00");
+      if (orderDate < from) return false;
+    }
+    if (dateTo) {
+      const orderDate = new Date(order.createdAt);
+      const to = new Date(dateTo + "T23:59:59");
+      if (orderDate > to) return false;
     }
 
-    // Search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
       return (
@@ -461,7 +496,7 @@ export default function AdminOrdersPage() {
         </div>
 
         {/* Search and Filter */}
-        <div className="card p-6 bg-white mb-6">
+        <div className="card p-6 bg-white mb-6 space-y-4">
           <div className="flex flex-col md:flex-row gap-4">
             {/* Search */}
             <div className="flex-1">
@@ -475,7 +510,7 @@ export default function AdminOrdersPage() {
             </div>
 
             {/* Status Filter */}
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               <button
                 onClick={() => setStatusFilter("all")}
                 className={`btn ${statusFilter === "all" ? "bg-[var(--color-accent)] text-white" : ""}`}
@@ -495,6 +530,43 @@ export default function AdminOrdersPage() {
                 Pending ({orders.filter((o) => o.status === "pending").length})
               </button>
             </div>
+          </div>
+
+          {/* Date Range */}
+          <div>
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-4 h-4 text-[var(--color-muted)]" />
+              <span className="text-sm font-semibold">Date Range</span>
+            </div>
+            <div className="flex flex-wrap gap-2 mb-3">
+              {(["allTime", "today", "week", "month", "lastMonth", "ytd", "custom"] as const).map((p) => (
+                <button
+                  key={p}
+                  className={`btn ${datePreset === p ? "bg-[var(--color-accent)] text-white" : ""}`}
+                  onClick={() => p === "custom" ? setDatePreset("custom") : handlePresetChange(p)}
+                >
+                  {{ allTime: "All Time", today: "Today", week: "This Week", month: "This Month", lastMonth: "Last Month", ytd: "Year to Date", custom: "Custom Range" }[p]}
+                </button>
+              ))}
+            </div>
+            {datePreset === "custom" && (
+              <div className="flex flex-wrap items-end gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Start Date</label>
+                  <input type="date" className="input" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">End Date</label>
+                  <input type="date" className="input" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} />
+                </div>
+                <button
+                  className="btn bg-[var(--color-accent)] text-white px-6"
+                  onClick={() => { if (customDateFrom && customDateTo) { setDateFrom(customDateFrom); setDateTo(customDateTo); } }}
+                >
+                  Apply
+                </button>
+              </div>
+            )}
           </div>
         </div>
 
