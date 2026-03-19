@@ -43,7 +43,8 @@
       "WebFetch(domain:www.buildwithmatija.com)",
       "WebFetch(domain:www.npmjs.com)",
       "WebFetch(domain:github.com)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:dev.to)"
     ],
     "deny": [],
     "ask": []
