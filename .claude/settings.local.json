@@ -38,7 +38,12 @@
       "WebFetch(domain:support.claude.com)",
       "Bash(npm cache:*)",
       "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''node:'''', d.get\\(''''engines'''',{}\\).get\\(''''node'''',''''not set''''\\)\\); print\\(''''deps count:'''', len\\(d.get\\(''''dependencies'''',{}\\)\\)\\)\")",
-      "Bash(pnpm add:*)"
+      "Bash(pnpm add:*)",
+      "WebFetch(domain:medium.com)",
+      "WebFetch(domain:www.buildwithmatija.com)",
+      "WebFetch(domain:www.npmjs.com)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ],
     "deny": [],
     "ask": []
