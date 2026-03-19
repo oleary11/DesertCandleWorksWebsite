@@ -524,7 +524,10 @@ export async function POST(
     method: req.method,
     headers,
     body: req.body,
-  });
+    // duplex is required when forwarding a streaming body
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    duplex: "half",
+  } as any);
 
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
