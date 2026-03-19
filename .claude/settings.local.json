@@ -29,7 +29,13 @@
       "Bash(git pull:*)",
       "Bash(npm run db:push:*)",
       "Bash(git commit:*)",
-      "Bash(npm --version:*)"
+      "Bash(npm --version:*)",
+      "Skill(claude-api)",
+      "Skill(claude-api:*)",
+      "WebFetch(domain:www.anthropic.com)",
+      "WebFetch(domain:claude.com)",
+      "WebFetch(domain:support.anthropic.com)",
+      "WebFetch(domain:support.claude.com)"
     ],
     "deny": [],
     "ask": []
