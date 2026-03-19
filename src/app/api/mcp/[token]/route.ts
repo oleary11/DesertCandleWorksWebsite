@@ -516,13 +516,23 @@ export async function POST(
   const { token } = await params;
   if (!isAuthorized(token)) return new NextResponse("Unauthorized", { status: 401, headers: CORS_HEADERS });
 
+  // The MCP transport requires Accept: application/json, text/event-stream.
+  // Claude.ai's python-httpx client doesn't send this, so we inject it.
+  const headers = new Headers(req.headers);
+  headers.set("accept", "application/json, text/event-stream");
+  const patchedReq = new Request(req.url, {
+    method: req.method,
+    headers,
+    body: req.body,
+  });
+
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
   });
   const server = buildServer();
   await server.connect(transport);
-  return addCors(await transport.handleRequest(req));
+  return addCors(await transport.handleRequest(patchedReq));
 }
 
 export async function DELETE(
