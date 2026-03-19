@@ -372,17 +372,31 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
+/** Patch the Accept header so mcp-handler doesn't reject Claude.ai's httpx client. */
+async function patchedRequest(req: NextRequest): Promise<Request> {
+  // Read body as text first to avoid the ReadableStream "duplex" error when
+  // reconstructing a Request with a body.
+  const body = req.method !== "GET" && req.method !== "DELETE" ? await req.text() : undefined;
+  const headers = new Headers(req.headers);
+  headers.set("accept", "application/json, text/event-stream");
+  return new Request(req.url, {
+    method: req.method,
+    headers,
+    body: body || undefined,
+  });
+}
+
 export async function GET(req: NextRequest) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401, headers: CORS });
-  return mcpHandler(req);
+  return mcpHandler(await patchedRequest(req));
 }
 
 export async function POST(req: NextRequest) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401, headers: CORS });
-  return mcpHandler(req);
+  return mcpHandler(await patchedRequest(req));
 }
 
 export async function DELETE(req: NextRequest) {
   if (!isAuthorized(req)) return new NextResponse("Unauthorized", { status: 401, headers: CORS });
-  return mcpHandler(req);
+  return mcpHandler(await patchedRequest(req));
 }
