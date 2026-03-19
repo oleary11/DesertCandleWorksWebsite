@@ -35,7 +35,10 @@
       "WebFetch(domain:www.anthropic.com)",
       "WebFetch(domain:claude.com)",
       "WebFetch(domain:support.anthropic.com)",
-      "WebFetch(domain:support.claude.com)"
+      "WebFetch(domain:support.claude.com)",
+      "Bash(npm cache:*)",
+      "Bash(python3 -c \"import json,sys; d=json.load\\(sys.stdin\\); print\\(''''node:'''', d.get\\(''''engines'''',{}\\).get\\(''''node'''',''''not set''''\\)\\); print\\(''''deps count:'''', len\\(d.get\\(''''dependencies'''',{}\\)\\)\\)\")",
+      "Bash(pnpm add:*)"
     ],
     "deny": [],
     "ask": []
