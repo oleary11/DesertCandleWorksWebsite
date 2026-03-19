@@ -489,6 +489,17 @@ export async function GET(
   const { token } = await params;
   if (!isAuthorized(token)) return new NextResponse("Unauthorized", { status: 401, headers: CORS_HEADERS });
 
+  // Only pass to transport if the client wants an SSE stream.
+  // Plain GET requests (health checks, browser visits) get 405 so the
+  // client knows to use POST instead.
+  const accept = req.headers.get("accept") ?? "";
+  if (!accept.includes("text/event-stream")) {
+    return new NextResponse(null, {
+      status: 405,
+      headers: { ...CORS_HEADERS, Allow: "POST, OPTIONS" },
+    });
+  }
+
   const transport = new WebStandardStreamableHTTPServerTransport({
     sessionIdGenerator: undefined,
     enableJsonResponse: true,
