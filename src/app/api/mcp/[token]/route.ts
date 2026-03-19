@@ -855,8 +855,23 @@ async function handleMcp(body: Record<string, unknown>): Promise<unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// CORS headers (required for Claude.ai browser-based MCP requests)
+// ---------------------------------------------------------------------------
+
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization, MCP-Protocol-Version",
+};
+
+// ---------------------------------------------------------------------------
 // Route handlers
 // ---------------------------------------------------------------------------
+
+// Preflight handler — Claude.ai sends this before every POST
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS });
+}
 
 export async function POST(
   req: NextRequest,
@@ -864,7 +879,7 @@ export async function POST(
 ) {
   const { token } = await params;
   if (!isAuthorized(token)) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401, headers: CORS_HEADERS });
   }
 
   let body: Record<string, unknown>;
@@ -873,16 +888,16 @@ export async function POST(
   } catch {
     return NextResponse.json(
       { jsonrpc: "2.0", id: null, error: { code: -32700, message: "Parse error" } },
-      { status: 400 }
+      { status: 400, headers: CORS_HEADERS }
     );
   }
 
   if (String(body.method ?? "") === "notifications/initialized") {
-    return new NextResponse(null, { status: 202 });
+    return new NextResponse(null, { status: 202, headers: CORS_HEADERS });
   }
 
   const result = await handleMcp(body);
-  return NextResponse.json(result);
+  return NextResponse.json(result, { headers: CORS_HEADERS });
 }
 
 export async function GET(
@@ -891,13 +906,16 @@ export async function GET(
 ) {
   const { token } = await params;
   if (!isAuthorized(token)) {
-    return new NextResponse("Unauthorized", { status: 401 });
+    return new NextResponse("Unauthorized", { status: 401, headers: CORS_HEADERS });
   }
 
-  return NextResponse.json({
-    name: "desert-candle-works",
-    description: "Desert Candle Works admin tools for Claude",
-    version: "2.0.0",
-    tools: TOOLS.map((t) => t.name),
-  });
+  return NextResponse.json(
+    {
+      name: "desert-candle-works",
+      description: "Desert Candle Works admin tools for Claude",
+      version: "2.0.0",
+      tools: TOOLS.map((t) => t.name),
+    },
+    { headers: CORS_HEADERS }
+  );
 }
