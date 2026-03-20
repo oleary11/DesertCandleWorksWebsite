@@ -22,6 +22,7 @@ import {
 } from "@/lib/reviewsStore";
 import { getAdminLogs } from "@/lib/adminLogs";
 import { getAllPurchases } from "@/lib/purchasesStore";
+import { listRefunds } from "@/lib/refundStore";
 import { sendShippingConfirmationEmail, sendDeliveryConfirmationEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
@@ -46,6 +47,61 @@ const CORS = {
 
 function json(data: unknown, status = 200) {
   return NextResponse.json(data, { status, headers: CORS });
+}
+
+// ---------------------------------------------------------------------------
+// Analytics helpers (shared by get_analytics and get_combo_analytics)
+// ---------------------------------------------------------------------------
+
+type AnalyticsOrder = {
+  id: string; status: string; totalCents: number; createdAt: string; completedAt?: string;
+  items: Array<{ productSlug: string; productName: string; quantity: number; priceCents: number; variantId?: string }>;
+  shippingCents?: number; taxCents?: number; productSubtotalCents?: number; paymentMethod?: string;
+};
+
+function _isMSale(id: string) { return id.startsWith("MS") || id.toLowerCase().startsWith("manual"); }
+function _isSQOrder(id: string) { return id.startsWith("SQ") || id.startsWith("sq_") || /^[A-Z0-9]{22}$/.test(id); }
+
+function _extractScentId(variantId: string): string | null {
+  let r = variantId;
+  const sz = r.match(/^(?:size-)?[0-9]+[a-z]*-/);
+  if (sz) r = r.substring(sz[0].length);
+  for (const wt of ["standard-wick", "wood-wick", "wavy-wood-wick", "wood", "standard", "cdn16", "cdn"]) {
+    if (r.startsWith(wt + "-")) return r.substring(wt.length + 1) || null;
+  }
+  return r.match(/^[a-z-]+-(.+)$/)?.[1] ?? null;
+}
+
+function _resolveScentName(scentId: string, map: Map<string, string>): string {
+  let n = map.get(scentId); if (n) return n;
+  const sc = scentId.match(/^(?:size-)?[0-9]+[a-z]*-(.+)$/)?.[1];
+  if (sc) { n = map.get(sc); if (n) return n; const inn = sc.match(/^(\d+)/); if (inn) { n = map.get(inn[1]!); if (n) return n; } }
+  const nm = scentId.match(/^(\d+)/); if (nm) { n = map.get(nm[1]!); if (n) return n; }
+  const base = sc ?? scentId;
+  return base.split("-").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
+
+async function _loadAnalytics(dateFrom?: string | null, dateTo?: string | null) {
+  const [ordersRaw, products, refundsRaw, scents] = await Promise.all([
+    getAllOrders(), listResolvedProducts(), listRefunds(), getAllScents(),
+  ]);
+  const refundMap = new Map<string, number>();
+  for (const r of refundsRaw as Array<{ orderId: string; amountCents: number; status: string }>) {
+    if (r.status === "completed") refundMap.set(r.orderId, (refundMap.get(r.orderId) ?? 0) + r.amountCents);
+  }
+  let orders = (ordersRaw as AnalyticsOrder[]).filter(
+    (o) => o.status === "completed" && !o.id.includes("@admin.local") && (refundMap.get(o.id) ?? 0) < o.totalCents
+  );
+  if (dateFrom && dateTo) {
+    const start = new Date(dateFrom + "T00:00:00.000Z"), end = new Date(dateTo + "T23:59:59.999Z");
+    orders = orders.filter((o) => { const d = new Date(o.completedAt || o.createdAt); return d >= start && d <= end; });
+  }
+  return {
+    orders,
+    productMap: new Map(products.map((p) => [p.slug, p])),
+    scentMap: new Map(scents.map((s) => [s.id, s.name])),
+    refundMap,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -163,6 +219,16 @@ const TOOLS = [
     name: "get_activity_logs",
     description: "Get recent admin activity logs — what actions have been taken and when.",
     inputSchema: { type: "object", properties: { limit: { type: "number" } } },
+  },
+  {
+    name: "get_analytics",
+    description: "Full store analytics: revenue (gross, net, tax, shipping, payment fees), units sold, top products, sales by alcohol type (uses actual product data — not guessed from name), scent, wick type, and sales channel. More accurate than get_revenue_summary for business questions.",
+    inputSchema: { type: "object", properties: { dateFrom: { type: "string", description: "Start date YYYY-MM-DD (optional)" }, dateTo: { type: "string", description: "End date YYYY-MM-DD (optional)" } } },
+  },
+  {
+    name: "get_combo_analytics",
+    description: "Rank every alcohol-type × scent combination by units sold and revenue. Use this to find the most or least popular combos.",
+    inputSchema: { type: "object", properties: { dateFrom: { type: "string" }, dateTo: { type: "string" }, limit: { type: "number", description: "Top N combos to return (default: 20)" } } },
   },
 ];
 
@@ -342,6 +408,114 @@ const HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> = {
     const logs = await getAdminLogs(Math.min(Number(limit ?? 30), 100));
     if (!logs.length) return t("No activity logs found.");
     return t(`${logs.length} recent actions:\n\n${logs.map((l) => `${l.success ? "✓" : "✗"} [${new Date(l.timestamp).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}] ${l.action}${l.adminEmail ? ` by ${l.adminEmail}` : ""}`).join("\n")}`);
+  },
+  async get_analytics({ dateFrom, dateTo }) {
+    const { orders, productMap, scentMap, refundMap } = await _loadAnalytics(dateFrom as string | null, dateTo as string | null);
+    if (!orders.length) return t("No completed orders found for the given date range.");
+
+    let totalRevenue = 0, totalShipping = 0, totalTax = 0, totalFees = 0, totalUnits = 0;
+    const alcoholMap = new Map<string, { units: number; revenue: number }>();
+    const scentSales = new Map<string, { units: number; revenue: number }>();
+    const wickSales = new Map<string, { units: number; revenue: number }>();
+    const channelMap = new Map<string, { orders: number; units: number; revenue: number }>();
+
+    for (const order of orders) {
+      const refunded = refundMap.get(order.id) ?? 0;
+      const refundRatio = order.totalCents > 0 ? 1 - refunded / order.totalCents : 1;
+      const net = order.totalCents - refunded;
+      totalRevenue += net;
+      totalShipping += (order.shippingCents ?? 0) * refundRatio;
+      totalTax += (order.taxCents ?? 0) * refundRatio;
+      const fee = _isMSale(order.id) ? 0 : _isSQOrder(order.id) ? Math.round(order.totalCents * 0.026) + 15 : Math.round(order.totalCents * 0.029) + 30;
+      totalFees += fee;
+      const channel = _isMSale(order.id) ? "Manual" : _isSQOrder(order.id) ? "Square" : "Stripe";
+      const ch = channelMap.get(channel) ?? { orders: 0, units: 0, revenue: 0 };
+      const orderUnits = order.items.reduce((s, i) => s + i.quantity, 0);
+      ch.orders++; ch.units += orderUnits; ch.revenue += net; channelMap.set(channel, ch);
+      totalUnits += orderUnits;
+
+      for (const item of order.items) {
+        const product = productMap.get(item.productSlug);
+        const itemRevenue = Math.round(item.priceCents * refundRatio);
+        // Alcohol type
+        const alcoholType = (product as { alcoholType?: string } | undefined)?.alcoholType || "Other";
+        const at = alcoholMap.get(alcoholType) ?? { units: 0, revenue: 0 };
+        at.units += item.quantity; at.revenue += itemRevenue; alcoholMap.set(alcoholType, at);
+        // Scent & wick
+        if (item.variantId) {
+          const scentId = _extractScentId(item.variantId);
+          if (scentId) {
+            const scentName = _resolveScentName(scentId, scentMap);
+            const ss = scentSales.get(scentName) ?? { units: 0, revenue: 0 };
+            ss.units += item.quantity; ss.revenue += itemRevenue; scentSales.set(scentName, ss);
+          }
+          const wickName = item.variantId.includes("wood") ? "Wood Wick" : "Standard Wick";
+          const ws = wickSales.get(wickName) ?? { units: 0, revenue: 0 };
+          ws.units += item.quantity; ws.revenue += itemRevenue; wickSales.set(wickName, ws);
+        }
+      }
+    }
+
+    const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    const label = (dateFrom && dateTo) ? ` (${dateFrom} – ${dateTo})` : " (all time)";
+    const lines = [
+      `Analytics Summary${label}`,
+      `────────────────────────────────`,
+      `Gross revenue:   ${fmt(totalRevenue)}`,
+      `  Tax collected: ${fmt(Math.round(totalTax))}`,
+      `  Shipping:      ${fmt(Math.round(totalShipping))}`,
+      `  Payment fees:  ${fmt(totalFees)}`,
+      `Net revenue:     ${fmt(totalRevenue - totalFees)}`,
+      `Orders:          ${orders.length}`,
+      `Units sold:      ${totalUnits}`,
+      `Avg order value: ${fmt(Math.round(totalRevenue / orders.length))}`,
+      ``,
+      `By Alcohol Type:`,
+      ...[...alcoholMap.entries()].sort((a, b) => b[1].units - a[1].units).map(([k, v]) => `  ${k.padEnd(18)} ${String(v.units).padStart(3)} units   ${fmt(v.revenue)}`),
+      ``,
+      `By Scent (top 10):`,
+      ...[...scentSales.entries()].sort((a, b) => b[1].units - a[1].units).slice(0, 10).map(([k, v]) => `  ${k.padEnd(22)} ${String(v.units).padStart(3)} units   ${fmt(v.revenue)}`),
+      ``,
+      `By Wick Type:`,
+      ...[...wickSales.entries()].sort((a, b) => b[1].units - a[1].units).map(([k, v]) => `  ${k.padEnd(18)} ${String(v.units).padStart(3)} units   ${fmt(v.revenue)}`),
+      ``,
+      `By Sales Channel:`,
+      ...[...channelMap.entries()].sort((a, b) => b[1].revenue - a[1].revenue).map(([k, v]) => `  ${k.padEnd(10)} ${String(v.orders).padStart(3)} orders  ${String(v.units).padStart(3)} units   ${fmt(v.revenue)}`),
+    ];
+    return t(lines.join("\n"));
+  },
+  async get_combo_analytics({ dateFrom, dateTo, limit }) {
+    const max = Math.min(Number(limit ?? 20), 100);
+    const { orders, productMap, scentMap, refundMap } = await _loadAnalytics(dateFrom as string | null, dateTo as string | null);
+    if (!orders.length) return t("No completed orders found for the given date range.");
+
+    const comboMap = new Map<string, { alcoholType: string; scent: string; units: number; revenue: number }>();
+
+    for (const order of orders) {
+      const refunded = refundMap.get(order.id) ?? 0;
+      const refundRatio = order.totalCents > 0 ? 1 - refunded / order.totalCents : 1;
+      for (const item of order.items) {
+        if (!item.variantId) continue;
+        const scentId = _extractScentId(item.variantId);
+        if (!scentId) continue;
+        const product = productMap.get(item.productSlug);
+        const alcoholType = (product as { alcoholType?: string } | undefined)?.alcoholType || "Other";
+        const scentName = _resolveScentName(scentId, scentMap);
+        const key = `${alcoholType}||${scentName}`;
+        const existing = comboMap.get(key) ?? { alcoholType, scent: scentName, units: 0, revenue: 0 };
+        existing.units += item.quantity;
+        existing.revenue += Math.round(item.priceCents * refundRatio);
+        comboMap.set(key, existing);
+      }
+    }
+
+    const sorted = [...comboMap.values()].sort((a, b) => b.units - a.units || b.revenue - a.revenue).slice(0, max);
+    if (!sorted.length) return t("No variant sales data found. Orders may not have variant IDs recorded.");
+
+    const label = (dateFrom && dateTo) ? ` (${dateFrom} – ${dateTo})` : " (all time)";
+    const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+    const lines = sorted.map((c, i) => `#${String(i + 1).padStart(2)}  ${c.alcoholType} × ${c.scent}  —  ${c.units} units  ${fmt(c.revenue)}`);
+    return t(`Top ${sorted.length} Alcohol Type × Scent Combos${label}:\n\n${lines.join("\n")}`);
   },
 };
 
