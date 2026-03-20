@@ -46,9 +46,7 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:dev.to)",
       "Read(//c/Users/joshu/AppData/Local/Claude/**)",
-      "Read(//c/Users/joshu/.config/Claude/**)",
-      "Bash(TOKEN=\"DCWRdEp3ahuxvjdl9JY1BJGFAFTcxt4xY2Qpyqzzvf21sED3Vsn\")",
-      "Bash(__NEW_LINE_3b6ac25ff702137e__ echo:*)"
+      "Read(//c/Users/joshu/.config/Claude/**)"
     ],
     "deny": [],
     "ask": []
