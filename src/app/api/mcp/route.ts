@@ -125,6 +125,11 @@ const TOOLS = [
   { name: "list_customers", description: "List all customer accounts (email, name, ID).", inputSchema: { type: "object", properties: {} } },
   { name: "list_scents", description: "List all available candle scents with their IDs and names.", inputSchema: { type: "object", properties: {} } },
   {
+    name: "get_scent_stock",
+    description: "Get stock levels for a specific scent across all products and variants. Returns per-product and per-variant breakdown plus total units in stock.",
+    inputSchema: { type: "object", properties: { scent: { type: "string", description: "Scent ID (e.g. smoked-amber) or scent name (e.g. Smoked Amber)" } }, required: ["scent"] },
+  },
+  {
     name: "list_promotions",
     description: "List all promo codes and discount promotions, including status and redemption counts.",
     inputSchema: { type: "object", properties: { activeOnly: { type: "boolean" } } },
@@ -273,6 +278,28 @@ const HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> = {
     if (!scents.length) return t("No scents found.");
     const lines = scents.sort((a, b) => (a.sortOrder ?? 99) - (b.sortOrder ?? 99) || a.name.localeCompare(b.name)).map((s) => { const flags = [s.limited ? "limited" : null, s.seasonal ? "seasonal" : null].filter(Boolean).join(", "); return `• ${s.name} (id: ${s.id})${flags ? ` [${flags}]` : ""}`; });
     return t(`${scents.length} scents:\n\n${lines.join("\n")}`);
+  },
+  async get_scent_stock({ scent }) {
+    const scentInput = (scent as string).trim();
+    const allScents = await getAllScents();
+    // Match by ID or name (case-insensitive)
+    const match = allScents.find((s) => s.id === scentInput || s.name.toLowerCase() === scentInput.toLowerCase());
+    const scentId = match?.id ?? scentInput.toLowerCase().replace(/\s+/g, "-");
+    const scentName = match?.name ?? scentInput;
+    const products = await listResolvedProducts();
+    const results: string[] = [];
+    let grandTotal = 0;
+    for (const p of products) {
+      if (!p.variantConfig?.variantData) continue;
+      const matchingVariants = Object.entries(p.variantConfig.variantData).filter(([variantId]) => variantId === scentId || variantId.endsWith(`-${scentId}`));
+      if (!matchingVariants.length) continue;
+      const productTotal = matchingVariants.reduce((s, [, v]) => s + (v.stock ?? 0), 0);
+      grandTotal += productTotal;
+      const variantLines = matchingVariants.map(([variantId, v]) => `    • ${variantId}: ${v.stock ?? 0}`);
+      results.push(`${p.name} (${p.slug}) — ${productTotal} total\n${variantLines.join("\n")}`);
+    }
+    if (!results.length) return t(`No variants found for scent "${scentName}" (id: ${scentId}). Use list_scents to see valid scent IDs.`);
+    return t(`Stock for scent: ${scentName} (id: ${scentId})\nTotal units in stock: ${grandTotal}\n\n${results.join("\n\n")}`);
   },
   async list_promotions({ activeOnly }) {
     let promos = await listPromotions();
