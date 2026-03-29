@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { redis } from "@/lib/redis";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { getProductBySlug, upsertProduct } from "@/lib/productsStore";
 import {
@@ -26,7 +25,6 @@ import { listRefunds } from "@/lib/refundStore";
 import { sendShippingConfirmationEmail, sendDeliveryConfirmationEmail } from "@/lib/email";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 min — needed for long-lived SSE streams
 
 // ---------------------------------------------------------------------------
 // Auth — token passed as ?token=SECRET in the URL
@@ -579,88 +577,18 @@ export async function OPTIONS() {
 }
 
 // ---------------------------------------------------------------------------
-// GET — SSE transport (2024-11-05 protocol, which Claude.ai uses)
-//
-// Flow:
-//   1. Client GETs this endpoint → we open an SSE stream
-//   2. We send `event: endpoint` with the POST URL (includes sessionId)
-//   3. Client POSTs all JSON-RPC messages to that URL
-//   4. POST handler processes each message, pushes result to Redis
-//   5. This GET handler polls Redis and forwards results via SSE
-// ---------------------------------------------------------------------------
-
-export async function GET(req: NextRequest) {
-  if (!isAuthorized(req)) {
-    return new NextResponse("Unauthorized", { status: 401, headers: CORS });
-  }
-
-  const sessionId = crypto.randomUUID();
-  const token = req.nextUrl.searchParams.get("token") ?? "";
-  const host = req.headers.get("host") ?? "desertcandleworks.com";
-  const proto = host.startsWith("localhost") || host.match(/^\d+\.\d+\.\d+\.\d+/) ? "http" : "https";
-  const postUrl = `${proto}://${host}/api/mcp?token=${encodeURIComponent(token)}&sessionId=${encodeURIComponent(sessionId)}`;
-
-  const encoder = new TextEncoder();
-  let closed = false;
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (chunk: string) => {
-        if (!closed) {
-          try { controller.enqueue(encoder.encode(chunk)); } catch { closed = true; }
-        }
-      };
-
-      req.signal.addEventListener("abort", () => { closed = true; });
-
-      // Send endpoint event — client will POST all messages to this URL
-      send(`event: endpoint\ndata: ${postUrl}\n\n`);
-
-      // Poll Redis for responses pushed by the POST handler
-      let lastPing = Date.now();
-      while (!closed) {
-        await new Promise<void>((r) => setTimeout(r, 150));
-        if (closed) break;
-
-        // Keep-alive every 15s
-        if (Date.now() - lastPing >= 15_000) {
-          send(`: ping\n\n`);
-          lastPing = Date.now();
-        }
-
-        // Drain all queued messages for this session
-        try {
-          for (let i = 0; i < 20; i++) {
-            if (closed) break;
-            const msg = await redis.lpop(`mcp:session:${sessionId}`);
-            if (!msg) break;
-            const data = typeof msg === "string" ? msg : JSON.stringify(msg);
-            send(`event: message\ndata: ${data}\n\n`);
-          }
-        } catch {
-          break;
-        }
-      }
-
-      try { controller.close(); } catch { /* already closed */ }
-    },
-    cancel() { closed = true; },
-  });
-
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache, no-transform",
-      "X-Accel-Buffering": "no",
-      ...CORS,
-    },
+export async function GET() {
+  // SSE streaming is incompatible with Vercel serverless functions — connections
+  // would hang until the platform timeout kills them, burning CPU on free tier.
+  // MCP clients must use POST (Streamable HTTP transport).
+  return new NextResponse("SSE transport not supported. Use POST.", {
+    status: 405,
+    headers: { ...CORS, Allow: "POST, OPTIONS" },
   });
 }
 
 // ---------------------------------------------------------------------------
-// POST — handles both transports:
-//   • Old SSE transport (2024-11-05): ?sessionId=... present → push to Redis
-//   • Streamable HTTP (2025-03-26):   no sessionId → return JSON directly
+// POST — Streamable HTTP transport (2025-03-26): returns JSON directly.
 // ---------------------------------------------------------------------------
 
 export async function POST(req: NextRequest) {
@@ -668,36 +596,10 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Unauthorized", { status: 401, headers: CORS });
   }
 
-  const sessionId = req.nextUrl.searchParams.get("sessionId");
-
   let body: unknown;
   try { body = await req.json(); }
   catch { return json({ jsonrpc: "2.0", error: { code: -32700, message: "Parse error" }, id: null }, 400); }
 
-  if (sessionId) {
-    // Old SSE transport: process message and push response to Redis for the GET stream to pick up
-    const processAndQueue = async (item: unknown) => {
-      const result = await dispatch(item);
-      if (result !== null) {
-        try {
-          await redis.rpush(`mcp:session:${sessionId}`, JSON.stringify(result));
-          await redis.expire(`mcp:session:${sessionId}`, 3600);
-        } catch (e) {
-          console.error("[MCP] Redis push failed:", e);
-        }
-      }
-    };
-
-    if (Array.isArray(body)) {
-      await Promise.all(body.map(processAndQueue));
-    } else {
-      await processAndQueue(body);
-    }
-
-    return new NextResponse(null, { status: 202, headers: CORS });
-  }
-
-  // Streamable HTTP transport: return response directly in POST body
   if (Array.isArray(body)) {
     const results = (await Promise.all(body.map(dispatch))).filter((r) => r !== null);
     return json(results);
