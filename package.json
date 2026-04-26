@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "db:migrate": "tsx scripts/run-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "migrate:redis-to-postgres": "tsx scripts/migrate-redis-to-postgres.ts",

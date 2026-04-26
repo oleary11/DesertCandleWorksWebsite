@@ -29,7 +29,7 @@ export const orderStatusEnum = pgEnum('order_status', ['pending', 'completed', '
 export const shippingStatusEnum = pgEnum('shipping_status', ['pending', 'shipped', 'delivered']);
 export const paymentMethodTypeEnum = pgEnum('payment_method_type', ['stripe', 'cash', 'card', 'square', 'other']);
 export const transactionTypeEnum = pgEnum('transaction_type', ['earn', 'redeem', 'admin_adjustment']);
-export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed_amount']);
+export const discountTypeEnum = pgEnum('discount_type', ['percentage', 'fixed_amount', 'bogo']);
 export const refundReasonEnum = pgEnum('refund_reason', [
   'customer_request',
   'damaged_product',
@@ -220,6 +220,8 @@ export const promotions = pgTable('promotions', {
   discountType: discountTypeEnum('discount_type').notNull(),
   discountValue: integer('discount_value').notNull(),
   minPurchaseCents: integer('min_purchase_cents').default(0),
+  minQuantity: integer('min_quantity'),
+  applyToQuantity: integer('apply_to_quantity'),
   maxRedemptions: integer('max_redemptions'),
   currentRedemptions: integer('current_redemptions').notNull().default(0),
   active: boolean('active').notNull().default(true),

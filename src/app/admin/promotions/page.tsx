@@ -78,10 +78,8 @@ export default function AdminPromotionsPage() {
         return "Percentage Off";
       case "fixed_amount":
         return "Fixed Amount Off";
-      case "quantity_discount":
-        return "Quantity Discount";
       case "bogo":
-        return "Buy One Get One";
+        return "Buy X Get Y Free";
       default:
         return type;
     }
@@ -93,9 +91,6 @@ export default function AdminPromotionsPage() {
     }
     if (promo.type === "fixed_amount" && promo.discountAmountCents) {
       return `$${(promo.discountAmountCents / 100).toFixed(2)} off`;
-    }
-    if (promo.type === "quantity_discount" && promo.minQuantity && promo.discountPercent) {
-      return `Buy ${promo.minQuantity}+ get ${promo.discountPercent}% off`;
     }
     if (promo.type === "bogo" && promo.minQuantity && promo.applyToQuantity) {
       return `Buy ${promo.minQuantity} get ${promo.applyToQuantity} free`;

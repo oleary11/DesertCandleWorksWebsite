@@ -8,18 +8,23 @@ export type { Promotion } from "./promotions";
 import type { Promotion } from "./promotions";
 
 // Type mapping helper for database enums
-type DiscountType = "percentage" | "fixed_amount";
+type DiscountType = "percentage" | "fixed_amount" | "bogo";
 
 // Create promotion
 export async function createPromotion(promotion: Promotion): Promise<void> {
-  // Map promotion type to database discount type
-  const discountType: DiscountType =
-    promotion.type === "percentage" ? "percentage" : "fixed_amount";
+  let discountType: DiscountType;
+  let discountValue: number;
 
-  const discountValue =
-    promotion.type === "percentage"
-      ? promotion.discountPercent ?? 0
-      : promotion.discountAmountCents ?? 0;
+  if (promotion.type === "percentage") {
+    discountType = "percentage";
+    discountValue = promotion.discountPercent ?? 0;
+  } else if (promotion.type === "bogo") {
+    discountType = "bogo";
+    discountValue = 0;
+  } else {
+    discountType = "fixed_amount";
+    discountValue = promotion.discountAmountCents ?? 0;
+  }
 
   await db.insert(promotions).values({
     id: promotion.id,
@@ -27,6 +32,8 @@ export async function createPromotion(promotion: Promotion): Promise<void> {
     description: promotion.description || null,
     discountType,
     discountValue,
+    minQuantity: promotion.minQuantity ?? null,
+    applyToQuantity: promotion.applyToQuantity ?? null,
     minPurchaseCents: promotion.minOrderAmountCents ?? 0,
     maxRedemptions: promotion.maxRedemptions || null,
     currentRedemptions: promotion.currentRedemptions,
@@ -81,13 +88,19 @@ export async function updatePromotion(id: string, updates: Partial<Promotion>): 
     updatedAt: new Date().toISOString(),
   };
 
-  const discountType: DiscountType =
-    merged.type === "percentage" ? "percentage" : "fixed_amount";
+  let discountType: DiscountType;
+  let discountValue: number;
 
-  const discountValue =
-    merged.type === "percentage"
-      ? merged.discountPercent ?? 0
-      : merged.discountAmountCents ?? 0;
+  if (merged.type === "percentage") {
+    discountType = "percentage";
+    discountValue = merged.discountPercent ?? 0;
+  } else if (merged.type === "bogo") {
+    discountType = "bogo";
+    discountValue = 0;
+  } else {
+    discountType = "fixed_amount";
+    discountValue = merged.discountAmountCents ?? 0;
+  }
 
   await db
     .update(promotions)
@@ -96,6 +109,8 @@ export async function updatePromotion(id: string, updates: Partial<Promotion>): 
       description: merged.description || null,
       discountType,
       discountValue,
+      minQuantity: merged.minQuantity ?? null,
+      applyToQuantity: merged.applyToQuantity ?? null,
       minPurchaseCents: merged.minOrderAmountCents ?? 0,
       maxRedemptions: merged.maxRedemptions || null,
       currentRedemptions: merged.currentRedemptions,
@@ -135,20 +150,23 @@ export async function incrementRedemptions(id: string): Promise<void> {
 
 // Helper to map database row to Promotion type
 function mapToPromotion(row: typeof promotions.$inferSelect): Promotion {
+  const isBogo = row.discountType === "bogo";
   const isPercentage = row.discountType === "percentage";
 
   return {
     id: row.id,
     code: row.code,
-    name: row.code, // Use code as name since DB doesn't have separate name field
+    name: row.code,
     description: row.description || undefined,
-    trigger: "code_required", // Default since DB doesn't store this
-    type: isPercentage ? "percentage" : "fixed_amount",
+    trigger: "code_required",
+    type: isBogo ? "bogo" : isPercentage ? "percentage" : "fixed_amount",
     discountPercent: isPercentage ? row.discountValue : undefined,
-    discountAmountCents: !isPercentage ? row.discountValue : undefined,
+    discountAmountCents: !isPercentage && !isBogo ? row.discountValue : undefined,
+    minQuantity: row.minQuantity ?? undefined,
+    applyToQuantity: row.applyToQuantity ?? undefined,
     minOrderAmountCents: row.minPurchaseCents || undefined,
     maxRedemptions: row.maxRedemptions || undefined,
-    userTargeting: "all", // Default since DB doesn't store this
+    userTargeting: "all",
     active: row.active,
     currentRedemptions: row.currentRedemptions,
     startsAt: row.startsAt?.toISOString(),

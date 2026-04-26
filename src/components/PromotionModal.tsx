@@ -141,19 +141,10 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
       }
 
       if (
-        formData.type === "quantity_discount" &&
-        (!formData.minQuantity || !formData.discountPercent)
-      ) {
-        setError("Minimum quantity and discount percentage are required");
-        setLoading(false);
-        return;
-      }
-
-      if (
         formData.type === "bogo" &&
         (!formData.minQuantity || !formData.applyToQuantity)
       ) {
-        setError("Minimum quantity and apply to quantity are required for BOGO");
+        setError("Buy quantity and get free quantity are required for BOGO");
         setLoading(false);
         return;
       }
@@ -414,12 +405,11 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
               >
                 <option value="percentage">Percentage Off</option>
                 <option value="fixed_amount">Fixed Amount Off</option>
-                <option value="quantity_discount">Quantity Discount</option>
-                <option value="bogo">Buy One Get One</option>
+                <option value="bogo">Buy X Get Y Free</option>
               </select>
             </div>
 
-            {(formData.type === "percentage" || formData.type === "quantity_discount") && (
+            {formData.type === "percentage" && (
               <div>
                 <label className="block text-sm font-medium mb-1">
                   Discount Percentage <span className="text-rose-600">*</span>
@@ -430,7 +420,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     className="input w-full pr-8"
                     value={formData.discountPercent}
                     onChange={(e) => handleChange("discountPercent", e.target.value)}
-                    placeholder="10"
+                    placeholder="50"
                     min="0"
                     max="100"
                     step="0.01"
@@ -470,45 +460,43 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
               </div>
             )}
 
-            {(formData.type === "quantity_discount" || formData.type === "bogo") && (
+            {formData.type === "bogo" && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">
-                    Minimum Quantity <span className="text-rose-600">*</span>
+                    Buy Quantity <span className="text-rose-600">*</span>
                   </label>
                   <input
                     type="number"
                     className="input w-full"
                     value={formData.minQuantity}
                     onChange={(e) => handleChange("minQuantity", e.target.value)}
-                    placeholder="3"
+                    placeholder="1"
                     min="1"
                     required
                   />
                   <p className="text-xs text-[var(--color-muted)] mt-1">
-                    {formData.type === "quantity_discount" ? "Buy at least this many" : "Buy this many"}
+                    Customer must buy this many
                   </p>
                 </div>
 
-                {formData.type === "bogo" && (
-                  <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Get Free <span className="text-rose-600">*</span>
-                    </label>
-                    <input
-                      type="number"
-                      className="input w-full"
-                      value={formData.applyToQuantity}
-                      onChange={(e) => handleChange("applyToQuantity", e.target.value)}
-                      placeholder="1"
-                      min="1"
-                      required
-                    />
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
-                      Get this many free
-                    </p>
-                  </div>
-                )}
+                <div>
+                  <label className="block text-sm font-medium mb-1">
+                    Get Free <span className="text-rose-600">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    className="input w-full"
+                    value={formData.applyToQuantity}
+                    onChange={(e) => handleChange("applyToQuantity", e.target.value)}
+                    placeholder="1"
+                    min="1"
+                    required
+                  />
+                  <p className="text-xs text-[var(--color-muted)] mt-1">
+                    This many items are free (cheapest first)
+                  </p>
+                </div>
               </div>
             )}
           </div>
