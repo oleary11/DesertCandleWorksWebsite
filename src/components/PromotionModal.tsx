@@ -455,7 +455,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input w-full pl-8"
+                    className="input w-full !pl-8"
                     value={formData.discountAmountCents}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -621,7 +621,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
                     <input
                       type="text"
-                      className="input w-full pl-10"
+                      className="input w-full !pl-10"
                       placeholder="Search users by name or email..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
@@ -692,7 +692,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                   </span>
                   <input
                     type="number"
-                    className="input w-full pl-8"
+                    className="input w-full !pl-8"
                     value={formData.minLifetimeSpendCents}
                     onChange={(e) => handleChange("minLifetimeSpendCents", e.target.value)}
                     placeholder="100.00"
@@ -722,7 +722,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input w-full pl-8"
+                    className="input w-full !pl-8"
                     value={formData.minOrderAmountCents}
                     onChange={(e) => {
                       const val = e.target.value;
