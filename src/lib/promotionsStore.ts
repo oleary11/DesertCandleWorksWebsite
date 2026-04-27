@@ -20,7 +20,7 @@ export async function createPromotion(promotion: Promotion): Promise<void> {
     discountValue = promotion.discountPercent ?? 0;
   } else if (promotion.type === "bogo") {
     discountType = "bogo";
-    discountValue = 0;
+    discountValue = promotion.discountPercent ?? 100; // 100 = free, 50 = 50% off, etc.
   } else {
     discountType = "fixed_amount";
     discountValue = promotion.discountAmountCents ?? 0;
@@ -96,7 +96,7 @@ export async function updatePromotion(id: string, updates: Partial<Promotion>): 
     discountValue = merged.discountPercent ?? 0;
   } else if (merged.type === "bogo") {
     discountType = "bogo";
-    discountValue = 0;
+    discountValue = merged.discountPercent ?? 100;
   } else {
     discountType = "fixed_amount";
     discountValue = merged.discountAmountCents ?? 0;
@@ -160,7 +160,7 @@ function mapToPromotion(row: typeof promotions.$inferSelect): Promotion {
     description: row.description || undefined,
     trigger: "code_required",
     type: isBogo ? "bogo" : isPercentage ? "percentage" : "fixed_amount",
-    discountPercent: isPercentage ? row.discountValue : undefined,
+    discountPercent: (isPercentage || isBogo) ? row.discountValue : undefined,
     discountAmountCents: !isPercentage && !isBogo ? row.discountValue : undefined,
     minQuantity: row.minQuantity ?? undefined,
     applyToQuantity: row.applyToQuantity ?? undefined,

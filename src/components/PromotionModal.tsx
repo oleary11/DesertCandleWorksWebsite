@@ -32,7 +32,9 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
     description: promotion?.description || "",
     trigger: (promotion?.trigger || "code_required") as PromotionTrigger,
     type: (promotion?.type || "percentage") as PromotionType,
-    discountPercent: promotion?.discountPercent?.toString() || "",
+    discountPercent: (promotion?.type === "bogo" ? "" : promotion?.discountPercent?.toString()) || "",
+    bogoDiscountType: (promotion?.type === "bogo" && promotion?.discountPercent && promotion.discountPercent < 100) ? "percent" : "free" as "free" | "percent",
+    bogoDiscountPercent: (promotion?.type === "bogo" && promotion?.discountPercent && promotion.discountPercent < 100) ? promotion.discountPercent.toString() : "",
     discountAmountCents: promotion?.discountAmountCents
       ? (promotion.discountAmountCents / 100).toString()
       : "",
@@ -140,13 +142,17 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
         return;
       }
 
-      if (
-        formData.type === "bogo" &&
-        (!formData.minQuantity || !formData.applyToQuantity)
-      ) {
-        setError("Buy quantity and get free quantity are required for BOGO");
-        setLoading(false);
-        return;
+      if (formData.type === "bogo") {
+        if (!formData.minQuantity || !formData.applyToQuantity) {
+          setError("Buy quantity and get quantity are required for BOGO");
+          setLoading(false);
+          return;
+        }
+        if (formData.bogoDiscountType === "percent" && !formData.bogoDiscountPercent) {
+          setError("Discount percentage is required");
+          setLoading(false);
+          return;
+        }
       }
 
       if (formData.userTargeting === "specific_users" && selectedUsers.length === 0) {
@@ -178,7 +184,11 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
         userTargeting: formData.userTargeting,
       };
 
-      if (formData.discountPercent) {
+      if (formData.type === "bogo") {
+        body.discountPercent = formData.bogoDiscountType === "percent"
+          ? parseFloat(formData.bogoDiscountPercent)
+          : 100; // 100 = free
+      } else if (formData.discountPercent) {
         body.discountPercent = parseFloat(formData.discountPercent);
       }
 
@@ -461,42 +471,100 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
             )}
 
             {formData.type === "bogo" && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Buy Quantity <span className="text-rose-600">*</span>
-                  </label>
-                  <input
-                    type="number"
-                    className="input w-full"
-                    value={formData.minQuantity}
-                    onChange={(e) => handleChange("minQuantity", e.target.value)}
-                    placeholder="1"
-                    min="1"
-                    required
-                  />
-                  <p className="text-xs text-[var(--color-muted)] mt-1">
-                    Customer must buy this many
-                  </p>
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Buy Quantity <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input w-full"
+                      value={formData.minQuantity}
+                      onChange={(e) => handleChange("minQuantity", e.target.value)}
+                      placeholder="1"
+                      min="1"
+                      required
+                    />
+                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                      Customer must buy this many
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Get Quantity <span className="text-rose-600">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      className="input w-full"
+                      value={formData.applyToQuantity}
+                      onChange={(e) => handleChange("applyToQuantity", e.target.value)}
+                      placeholder="1"
+                      min="1"
+                      required
+                    />
+                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                      This many items get the discount
+                    </p>
+                  </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    Get Free <span className="text-rose-600">*</span>
+                  <label className="block text-sm font-medium mb-2">
+                    Discount on those items <span className="text-rose-600">*</span>
                   </label>
-                  <input
-                    type="number"
-                    className="input w-full"
-                    value={formData.applyToQuantity}
-                    onChange={(e) => handleChange("applyToQuantity", e.target.value)}
-                    placeholder="1"
-                    min="1"
-                    required
-                  />
-                  <p className="text-xs text-[var(--color-muted)] mt-1">
-                    This many items are free (cheapest first)
-                  </p>
+                  <div className="flex gap-3">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bogoDiscountType"
+                        value="free"
+                        checked={formData.bogoDiscountType === "free"}
+                        onChange={() => handleChange("bogoDiscountType", "free")}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium">Free (100% off)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="bogoDiscountType"
+                        value="percent"
+                        checked={formData.bogoDiscountType === "percent"}
+                        onChange={() => handleChange("bogoDiscountType", "percent")}
+                        className="w-4 h-4"
+                      />
+                      <span className="text-sm font-medium">Percentage off</span>
+                    </label>
+                  </div>
                 </div>
+
+                {formData.bogoDiscountType === "percent" && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">
+                      Discount Percentage <span className="text-rose-600">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        className="input w-full pr-8"
+                        value={formData.bogoDiscountPercent}
+                        onChange={(e) => handleChange("bogoDiscountPercent", e.target.value)}
+                        placeholder="50"
+                        min="1"
+                        max="99"
+                        required
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                        %
+                      </span>
+                    </div>
+                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                      e.g. 50 = buy 1 get 1 at half price
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>

@@ -234,13 +234,16 @@ function calculateDiscount(
         const sets = Math.floor(totalQuantity / promotion.minQuantity);
         const freeItems = Math.min(sets * promotion.applyToQuantity, totalQuantity);
 
+        // discountPercent on bogo = how much off each discounted item (100 = free, 50 = half off)
+        const discountFraction = (promotion.discountPercent ?? 100) / 100;
+
         // Apply discount to cheapest items
         let remainingFree = freeItems;
         for (const item of sortedItems) {
           if (remainingFree <= 0) break;
 
           const freeFromThisItem = Math.min(item.quantity, remainingFree);
-          discountAmountCents += Math.round(freeFromThisItem * item.pricePerUnit);
+          discountAmountCents += Math.round(freeFromThisItem * item.pricePerUnit * discountFraction);
           remainingFree -= freeFromThisItem;
         }
       }

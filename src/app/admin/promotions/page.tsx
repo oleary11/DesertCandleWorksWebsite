@@ -93,7 +93,9 @@ export default function AdminPromotionsPage() {
       return `$${(promo.discountAmountCents / 100).toFixed(2)} off`;
     }
     if (promo.type === "bogo" && promo.minQuantity && promo.applyToQuantity) {
-      return `Buy ${promo.minQuantity} get ${promo.applyToQuantity} free`;
+      const pct = promo.discountPercent ?? 100;
+      const discountLabel = pct >= 100 ? "free" : `${pct}% off`;
+      return `Buy ${promo.minQuantity} get ${promo.applyToQuantity} ${discountLabel}`;
     }
     return "N/A";
   }
