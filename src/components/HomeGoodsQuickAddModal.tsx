@@ -181,7 +181,7 @@ export default function HomeGoodsQuickAddModal({ productSlug, productName, bottl
                           <div className="aspect-square rounded-lg overflow-hidden bg-neutral-100 mb-2">
                             {b.imageUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={b.imageUrl} alt={b.name} className="w-full h-full object-cover" />
+                              <img src={b.imageUrl} alt={b.name} className="w-full h-full object-contain" />
                             ) : (
                               <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-400 text-center px-1">
                                 No photo

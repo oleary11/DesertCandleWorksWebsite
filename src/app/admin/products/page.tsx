@@ -718,7 +718,7 @@ function HomeGoodsBottleOptionsForm(props: {
                     <div className="w-9 h-9 rounded-md overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
                       {b.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
-                        <img src={b.imageUrl} alt="" className="w-full h-full object-cover" />
+                        <img src={b.imageUrl} alt="" className="w-full h-full object-contain" />
                       ) : (
                         <span className="text-[9px] text-neutral-400">No photo</span>
                       )}

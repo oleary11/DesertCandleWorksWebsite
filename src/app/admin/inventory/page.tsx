@@ -674,7 +674,7 @@ export default function BottleInventoryAdminPage() {
                               <RefreshCw className="w-4 h-4 animate-spin text-[var(--color-muted)]" />
                             ) : t.imageUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={t.imageUrl} alt="" className="w-full h-full object-cover" />
+                              <img src={t.imageUrl} alt="" className="w-full h-full object-contain" />
                             ) : (
                               <Upload className="w-4 h-4 text-[var(--color-muted)]" />
                             )}
@@ -863,7 +863,7 @@ export default function BottleInventoryAdminPage() {
                           <img
                             src={r.thumbnailUrl || r.imageUrl}
                             alt={r.title}
-                            className="w-full h-full object-cover"
+                            className="w-full h-full object-contain"
                             loading="lazy"
                           />
                         )}

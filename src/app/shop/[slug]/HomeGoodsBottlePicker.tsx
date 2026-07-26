@@ -165,7 +165,7 @@ export default function HomeGoodsBottlePicker({ productSlug, productName, bottle
         <div className="w-12 h-12 rounded-lg overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
           {selected?.imageUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={selected.imageUrl} alt="" className="w-full h-full object-cover" />
+            <img src={selected.imageUrl} alt="" className="w-full h-full object-contain" />
           ) : (
             <span className="text-[9px] text-neutral-400">No photo</span>
           )}
@@ -291,7 +291,7 @@ export default function HomeGoodsBottlePicker({ productSlug, productName, bottle
                               <div className="aspect-square rounded-lg overflow-hidden bg-neutral-100 mb-2">
                                 {b.imageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
-                                  <img src={b.imageUrl} alt={b.name} className="w-full h-full object-cover" />
+                                  <img src={b.imageUrl} alt={b.name} className="w-full h-full object-contain" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-[10px] text-neutral-400 text-center px-1">
                                     No photo
