@@ -75,12 +75,18 @@ export async function POST(req: NextRequest) {
       processedImage = processedImage.resize(MAX_WIDTH, null, { fit: "inside", withoutEnlargement: true });
     }
 
-    const optimizedBuffer = await processedImage.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
+    // JPEG has no alpha channel — encoding a transparent source as JPEG would
+    // flatten the transparent areas to solid black. Keep transparency alive
+    // by staying in PNG for anything that actually has an alpha channel.
+    const hasTransparency = !!imageMetadata.hasAlpha;
+    const optimizedBuffer = hasTransparency
+      ? await processedImage.png({ compressionLevel: 9 }).toBuffer()
+      : await processedImage.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 
-    const filename = `bottles/${crypto.randomUUID()}.jpg`;
+    const filename = `bottles/${crypto.randomUUID()}.${hasTransparency ? "png" : "jpg"}`;
     const blob = await put(filename, optimizedBuffer, {
       access: "public",
-      contentType: "image/jpeg",
+      contentType: hasTransparency ? "image/png" : "image/jpeg",
     });
 
     return NextResponse.json({ url: blob.url }, { status: 200 });

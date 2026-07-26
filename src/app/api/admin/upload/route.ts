@@ -99,8 +99,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // OPTIMIZATION: Convert all images to JPG and compress
-    // This saves storage space and improves load times
+    // OPTIMIZATION: Convert to JPG and compress — EXCEPT when the source has
+    // real transparency, since JPEG has no alpha channel and would flatten
+    // transparent areas to solid black. Those stay PNG to keep the transparency.
     let processedImage = sharp(buffer).rotate();
 
     // Resize if image is too large
@@ -112,14 +113,14 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Convert to JPG with compression
-    const optimizedBuffer = await processedImage
-      .jpeg({ quality: JPEG_QUALITY, mozjpeg: true })
-      .toBuffer();
+    const hasTransparency = !!imageMetadata.hasAlpha;
+    const optimizedBuffer = hasTransparency
+      ? await processedImage.png({ compressionLevel: 9 }).toBuffer()
+      : await processedImage.jpeg({ quality: JPEG_QUALITY, mozjpeg: true }).toBuffer();
 
-    const filename = `products/${crypto.randomUUID()}.jpg`;
+    const filename = `products/${crypto.randomUUID()}.${hasTransparency ? "png" : "jpg"}`;
 
-    console.log(`[Upload] Uploading optimized JPG to Vercel Blob: ${filename}`, {
+    console.log(`[Upload] Uploading optimized ${hasTransparency ? "PNG" : "JPG"} to Vercel Blob: ${filename}`, {
       originalSize: buffer.length,
       optimizedSize: optimizedBuffer.length,
       savings: `${(((buffer.length - optimizedBuffer.length) / buffer.length) * 100).toFixed(1)}%`,
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
     // Upload to Vercel Blob as a public file
     const blob = await put(filename, optimizedBuffer, {
       access: "public",
-      contentType: "image/jpeg",
+      contentType: hasTransparency ? "image/png" : "image/jpeg",
     });
 
     console.log("[Upload] Upload successful:", {
