@@ -45,7 +45,11 @@ body {
   overflow-x: hidden;
 }
 
-.full-bleed { width: 100vw; margin-left: 50%; transform: translateX(-50%); }
+/* Full-width bleed. Deliberately NOT 100vw + translateX(-50%) — that's wider
+   than the real page width by the scrollbar's width and reintroduces a
+   horizontal scrollbar. Every usage already lives inside an unconstrained
+   (non max-w) ancestor, so plain 100% achieves the same bleed safely. */
+.full-bleed { width: 100%; }
 
 a:not(.btn-cta) {
   color: color-mix(in oklab, var(--color-accent) 70%, #6b5b53 30%);

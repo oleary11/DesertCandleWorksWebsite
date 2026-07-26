@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import crypto from "crypto";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
+import { decrementBottleStockForSale } from "@/lib/bottleInventoryStore";
 import { createOrder, completeOrder, generateOrderId } from "@/lib/userStore";
 import { logAdminAction } from "@/lib/adminLogs";
 
@@ -243,7 +244,10 @@ export async function POST(req: NextRequest) {
 
             // Decrement stock
             try {
-              if (productInfo.variantId) {
+              if (productInfo.productType === "home_goods" && productInfo.variantId) {
+                console.log(`[Square Webhook] Decrementing bottle stock: ${productInfo.slug} bottle ${productInfo.variantId} x${quantity}`);
+                await decrementBottleStockForSale(productInfo.variantId, quantity, productInfo.requiresUncut);
+              } else if (productInfo.variantId) {
                 console.log(`[Square Webhook] Decrementing variant stock: ${productInfo.slug} variant ${productInfo.variantId} x${quantity}`);
                 await incrVariantStock(productInfo.slug, productInfo.variantId, -quantity);
               } else {

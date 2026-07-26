@@ -1,13 +1,14 @@
 import { db } from "./db/client";
 import { products } from "./db/schema";
 import { eq } from "drizzle-orm";
-import { getProduct as getStaticProduct, type Product, type VariantConfig } from "@/lib/products";
+import { getProduct as getStaticProduct, type Product, type VariantConfig, type HomeGoodsBottleOption } from "@/lib/products";
 
 export type {
   Product,
   ProductVariant,
   WickType,
   VariantConfig,
+  HomeGoodsBottleOption,
 } from "@/lib/products";
 
 function coerceBool(v: unknown): boolean {
@@ -48,6 +49,10 @@ export async function listProducts(): Promise<Product[]> {
     materialCost: p.materialCost ? p.materialCost / 100 : undefined,
     visibleOnWebsite: p.visibleOnWebsite ?? true,
     variantConfig: p.variantConfig as VariantConfig | undefined,
+    productType: (p.productType as "candle" | "home_goods" | null) ?? "candle",
+    bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | null) ?? undefined,
+    requiresUncut: p.requiresUncut ?? false,
+    requiresUnpoured: p.requiresUnpoured ?? true,
     weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
     dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   }));
@@ -77,6 +82,10 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     materialCost: p.materialCost ? p.materialCost / 100 : undefined,
     visibleOnWebsite: p.visibleOnWebsite ?? true,
     variantConfig: p.variantConfig as VariantConfig | undefined,
+    productType: (p.productType as "candle" | "home_goods" | null) ?? "candle",
+    bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | null) ?? undefined,
+    requiresUncut: p.requiresUncut ?? false,
+    requiresUnpoured: p.requiresUnpoured ?? true,
     weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
     dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   };
@@ -107,7 +116,11 @@ export async function upsertProduct(p: Product): Promise<Product> {
       alcoholType: p.alcoholType || null,
       materialCost: materialCostCents,
       visibleOnWebsite: p.visibleOnWebsite ?? true,
-      variantConfig: p.variantConfig as VariantConfig | undefined,
+      variantConfig: (p.variantConfig as VariantConfig | undefined) ?? null,
+      productType: p.productType || "candle",
+      bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | undefined) || null,
+      requiresUncut: p.requiresUncut ?? false,
+      requiresUnpoured: p.requiresUnpoured ?? true,
       weight: p.weight || null,
       dimensions: p.dimensions || null,
     })
@@ -129,7 +142,9 @@ export async function upsertProduct(p: Product): Promise<Product> {
         alcoholType: p.alcoholType || null,
         materialCost: materialCostCents,
         visibleOnWebsite: p.visibleOnWebsite ?? true,
-        variantConfig: p.variantConfig as VariantConfig | undefined,
+        variantConfig: (p.variantConfig as VariantConfig | undefined) ?? null,
+        productType: p.productType || "candle",
+        bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | undefined) || null,
         weight: p.weight || null,
         dimensions: p.dimensions || null,
       },

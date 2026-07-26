@@ -17,6 +17,11 @@ export type CartItem = {
   scent?: string;
   wickTypeName?: string;
   scentName?: string;
+  // Home Goods items: variantId holds the chosen bottleId. productType marks
+  // it so checkout re-resolves price/stock server-side from the product's
+  // bottleOptions instead of trusting stripePriceId (which is just a
+  // placeholder for these — no Stripe Price object is pre-created per bottle).
+  productType?: "candle" | "home_goods";
 };
 
 type CartStore = {

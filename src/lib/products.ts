@@ -31,6 +31,18 @@ export type VariantConfig = {
   variantData: Record<string, { stock: number }>;  // Stock data per variant ID
 };
 
+// A bottle option on a Home Goods listing (e.g. a soap dispenser offered in
+// several bottles). priceCents is OPTIONAL: when omitted, this bottle simply
+// inherits the listing's Product.price ("Default Price") live — only set it
+// when this specific bottle needs to override that default (e.g. a Pappy Van
+// Winkle bottle costs more than a Tito's bottle even on the same listing).
+export type HomeGoodsBottleOption = {
+  bottleId: string;           // references bottle_inventory.id
+  bottleName: string;         // denormalized for display if the catalog entry is later renamed/archived
+  priceCents?: number;        // per-bottle override; omitted = inherit the listing's default price
+  stripePriceId?: string;
+};
+
 export type Product = {
   slug: string;
   name: string;
@@ -46,6 +58,16 @@ export type Product = {
   youngDumb?: boolean;      // Young & Dumb collection (fun, trendy bottles)
   stock: number;            // deprecated for variant products
   variantConfig?: VariantConfig;  // NEW: wick types + sizes + global scents → auto-generates variants
+  productType?: "candle" | "home_goods"; // default "candle" when absent (all existing products)
+  bottleOptions?: HomeGoodsBottleOption[]; // only used when productType === "home_goods"
+  // Listing-level requirement gating which bottle states are eligible (mutually
+  // exclusive in practice — the admin UI toggles one on and the other off).
+  // requiresUncut: only whole/uncut bottles work (e.g. a soap dispenser pump
+  //   needs an intact bottle). requiresUnpoured (default true, the common
+  //   case): uncut OR cut (unpolished/polished) bottles work — anything not
+  //   yet turned into a candle.
+  requiresUncut?: boolean;
+  requiresUnpoured?: boolean;
   alcoholType?: string;
   materialCost?: number;    // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean;  // Controls shop page visibility (default: true)

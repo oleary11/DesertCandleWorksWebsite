@@ -67,10 +67,14 @@ export async function updateSquareMapping(
 /**
  * Get product and variant mapping from Square variation ID
  * This function looks up the product by checking all products' squareVariantMapping.
+ *
+ * For Home Goods products, `variantId` actually holds the bottleId (the
+ * squareVariantMapping key), and `requiresUncut` is included so the webhook
+ * can decrement the right bottle stock stage — see decrementBottleStockForSale.
  */
 export async function getProductFromSquareVariation(
   squareVariationId: string
-): Promise<{ slug: string; variantId?: string } | null> {
+): Promise<{ slug: string; variantId?: string; productType?: "candle" | "home_goods"; requiresUncut?: boolean } | null> {
   const { listResolvedProducts } = await import("./resolvedProducts");
   const products = await listResolvedProducts();
 
@@ -84,6 +88,8 @@ export async function getProductFromSquareVariation(
         return {
           slug: product.slug,
           variantId: websiteVariantId,
+          productType: product.productType,
+          requiresUncut: product.requiresUncut,
         };
       }
     }

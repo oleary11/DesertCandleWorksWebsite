@@ -56,6 +56,31 @@ type VariantConfig = {
   variantData: Record<string, { stock: number }>;
 };
 
+// A single bottle offered on a Home Goods listing. priceCents is OPTIONAL:
+// when omitted, this bottle simply inherits the listing's Product.price
+// ("Default Price") live — only set it when this specific bottle needs to
+// override that default (e.g. a Pappy Van Winkle bottle costs more than a
+// Tito's bottle even on the same listing).
+type HomeGoodsBottleOption = {
+  bottleId: string;
+  bottleName: string;
+  priceCents?: number;
+  stripePriceId?: string;
+};
+
+// Shape read from /api/admin/bottle-inventory for the bottle checklist
+type BottleInventoryItem = {
+  id: string;
+  name: string;
+  qtyUncut: number;
+  qtyCutUnpolished: number;
+  qtyCutPolished: number;
+  defaultPriceCents?: number;
+  imageUrl?: string;
+  usableForHomeGoods: boolean;
+  archived: boolean;
+};
+
 type Product = {
   slug: string;
   name: string;
@@ -71,6 +96,10 @@ type Product = {
   youngDumb?: boolean;
   stock: number;
   variantConfig?: VariantConfig;
+  productType?: "candle" | "home_goods"; // default "candle" when absent
+  bottleOptions?: HomeGoodsBottleOption[]; // only used when productType === "home_goods"
+  requiresUncut?: boolean; // Home Goods only: only whole/uncut bottles work
+  requiresUnpoured?: boolean; // Home Goods only: uncut OR cut bottles work (default true, the common case)
   alcoholType?: string;
   materialCost?: number; // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean; // Controls shop page visibility
@@ -109,6 +138,10 @@ function emptyProduct(): Product {
     stock: 0,
     alcoholType: "Other", // NEW default
     visibleOnWebsite: true, // Default to visible
+    productType: "candle",
+    bottleOptions: [],
+    requiresUncut: false,
+    requiresUnpoured: true,
     variantConfig: {
       wickTypes: [{ id: "standard", name: "Standard Wick" }],
       variantData: {},
@@ -444,6 +477,501 @@ function ComboBox<TValue extends string>(props: {
   );
 }
 
+/* ---------- Home Goods form (bottle-picker product type) ---------- */
+function HomeGoodsBottleOptionsForm(props: {
+  editing: Product;
+  setEditing: React.Dispatch<React.SetStateAction<Product | null>>;
+  bottleInventory: BottleInventoryItem[];
+  handleImagePick: (
+    e: React.ChangeEvent<HTMLInputElement>,
+    editingLocal: Product | null,
+    setEditingLocal: (v: Product) => void
+  ) => void;
+  removeImage: (index: number, editingLocal: Product | null, setEditingLocal: (v: Product) => void) => void;
+  slugTouched: boolean;
+  setSlugTouched: (v: boolean) => void;
+  isServerItem: (slug: string) => boolean;
+  slugify: (name: string) => string;
+  SLUG_REGEX: RegExp;
+  slugError: string | null;
+  setSlugError: (v: string | null) => void;
+}) {
+  const {
+    editing,
+    setEditing,
+    bottleInventory,
+    handleImagePick,
+    removeImage,
+    setSlugTouched,
+    isServerItem,
+    slugify,
+    SLUG_REGEX,
+    slugError,
+    setSlugError,
+  } = props;
+
+  const bottleOptions = editing.bottleOptions || [];
+  const mode: "uncut" | "unpoured" = editing.requiresUncut ? "uncut" : "unpoured";
+  // Only bottles flagged usable-for-Home-Goods in the Inventory catalog ever
+  // show up here — some bottles just don't work for any Home Goods product.
+  const eligibleInventory = bottleInventory.filter((b) => !b.archived && b.usableForHomeGoods);
+
+  function setDefaultPrice(dollars: number) {
+    setEditing({ ...editing, price: dollars });
+  }
+
+  function setRequirement(nextMode: "uncut" | "unpoured") {
+    setEditing({
+      ...editing,
+      requiresUncut: nextMode === "uncut",
+      requiresUnpoured: nextMode === "unpoured",
+    });
+  }
+
+  // Auto-check every eligible bottle once, for a brand-new draft only — never
+  // overwrite an existing product's manually-curated bottle list.
+  const autoPopulatedRef = useRef(false);
+  useEffect(() => {
+    if (autoPopulatedRef.current) return;
+    if (isServerItem(editing.slug)) {
+      autoPopulatedRef.current = true;
+      return;
+    }
+    if (bottleInventory.length === 0) return;
+    autoPopulatedRef.current = true;
+    setEditing((prev) => {
+      if (!prev) return prev;
+      const already = new Set((prev.bottleOptions || []).map((o) => o.bottleId));
+      const additions = eligibleInventory
+        .filter((b) => !already.has(b.id))
+        .map((b): HomeGoodsBottleOption => ({ bottleId: b.id, bottleName: b.name }));
+      return { ...prev, bottleOptions: [...(prev.bottleOptions || []), ...additions] };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bottleInventory.length]);
+
+  return (
+    <div className="space-y-6">
+      {/* Basic Information (shared with candles: one posting, one set of images, no per-bottle photos) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <label className="block">
+          <div className="text-xs font-medium text-neutral-700 mb-2">Product Name</div>
+          <input
+            className="input"
+            value={editing.name}
+            onChange={(e) => {
+              const name = e.target.value;
+              setEditing((prev) => {
+                if (!prev) return prev;
+                const next = { ...prev, name };
+                if (!props.slugTouched && !isServerItem(prev.slug)) {
+                  next.slug = slugify(name);
+                  setSlugError(next.slug && SLUG_REGEX.test(next.slug) ? null : "Use lowercase letters/numbers with single hyphens");
+                }
+                return next;
+              });
+            }}
+            placeholder="e.g. Soap Dispenser"
+          />
+        </label>
+
+        <label className="block">
+          <div className="text-xs font-medium text-neutral-700 mb-2">URL Slug</div>
+          <input
+            className="input"
+            value={editing.slug}
+            disabled={isServerItem(editing.slug)}
+            onChange={(e) => {
+              const v = e.target.value.trim();
+              setSlugTouched(true);
+              setEditing({ ...editing, slug: v });
+              setSlugError(v && SLUG_REGEX.test(v) ? null : "Use lowercase letters/numbers with single hyphens");
+            }}
+            onBlur={(e) => {
+              const cleaned = slugify(e.target.value);
+              setEditing((prev) => (prev ? { ...prev, slug: cleaned } : prev));
+              setSlugError(cleaned && SLUG_REGEX.test(cleaned) ? null : "Use lowercase letters/numbers with single hyphens");
+            }}
+            placeholder="e.g. soap-dispenser"
+          />
+          {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
+        </label>
+
+        <label className="block">
+          <div className="text-xs font-medium text-neutral-700 mb-2">SKU</div>
+          <input className="input" value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} />
+        </label>
+
+        <label className="flex items-center gap-2 self-end pb-2">
+          <input
+            type="checkbox"
+            checked={editing.visibleOnWebsite !== false}
+            onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
+          />
+          <span className="text-sm">Show on Website</span>
+        </label>
+
+        <label className="block md:col-span-2">
+          <div className="text-xs font-medium text-neutral-700 mb-2">Description</div>
+          <textarea
+            className="textarea"
+            rows={4}
+            value={editing.seoDescription}
+            onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
+            placeholder="Describe this Home Goods listing"
+          />
+        </label>
+      </div>
+
+      {/* Images — one shared set for the whole listing, not per bottle */}
+      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+        <h4 className="text-sm font-medium text-neutral-900 mb-3">Images</h4>
+        <input
+          type="file"
+          accept="image/*"
+          multiple
+          className="input"
+          onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
+        />
+        {editing.images && editing.images.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-3">
+            {editing.images.map((url, idx) => (
+              <div key={url + idx} className="relative aspect-square rounded-lg overflow-hidden border border-neutral-200">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  className="absolute top-1 right-1 bg-white/90 rounded-full p-1 hover:bg-white"
+                  onClick={() => removeImage(idx, editing, (v) => setEditing(v))}
+                  title="Remove image"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Bottle Options */}
+      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+        <div className="mb-3">
+          <h4 className="text-sm font-medium text-neutral-900">Bottle Options</h4>
+          <p className="text-xs text-neutral-600 mt-0.5">
+            Every eligible bottle from your Inventory is checked by default. Uncheck any you don&apos;t want to
+            offer on this listing — unchecking removes it.
+          </p>
+        </div>
+
+        <label className="block max-w-[10rem] mb-4">
+          <div className="text-xs font-medium text-neutral-700 mb-2">Default Price ($)</div>
+          <input
+            className="input"
+            type="number"
+            step="0.01"
+            min="0"
+            value={editing.price === 0 ? "" : editing.price}
+            onChange={(e) => setDefaultPrice(e.target.value === "" ? 0 : Number(e.target.value))}
+            placeholder="0.00"
+          />
+        </label>
+
+        <div className="flex flex-wrap gap-4 mb-2">
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={mode === "uncut"} onChange={() => setRequirement("uncut")} />
+            Requires Uncut
+          </label>
+          <label className="flex items-center gap-2 text-sm font-medium">
+            <input type="checkbox" checked={mode === "unpoured"} onChange={() => setRequirement("unpoured")} />
+            Requires Unpoured
+          </label>
+        </div>
+        <p className="text-xs text-neutral-600 mb-3">
+          {mode === "uncut"
+            ? "Only whole, uncut bottles work for this listing (e.g. a soap dispenser needs an intact bottle)."
+            : "Uncut, cut unpolished, or cut polished bottles all work for this listing (the common case)."}
+        </p>
+
+        {eligibleInventory.length > 0 ? (
+          <>
+            <div className="max-h-96 overflow-y-auto border border-neutral-200 rounded-xl divide-y divide-neutral-100 bg-white">
+              {eligibleInventory.map((b) => {
+                const opt = bottleOptions.find((o) => o.bottleId === b.id);
+                const checked = !!opt;
+                const effectiveCents = opt?.priceCents ?? Math.round((editing.price || 0) * 100);
+                const hasStock = b.qtyUncut + b.qtyCutUnpolished + b.qtyCutPolished > 0;
+                return (
+                  <div key={b.id} className="flex items-center gap-3 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      className="shrink-0"
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          const newOption: HomeGoodsBottleOption = { bottleId: b.id, bottleName: b.name };
+                          setEditing({ ...editing, bottleOptions: [...bottleOptions, newOption] });
+                        } else {
+                          setEditing({ ...editing, bottleOptions: bottleOptions.filter((o) => o.bottleId !== b.id) });
+                        }
+                      }}
+                    />
+                    <div className="w-9 h-9 rounded-md overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
+                      {b.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={b.imageUrl} alt="" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[9px] text-neutral-400">No photo</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm truncate">{b.name}</div>
+                      <div className="text-xs text-neutral-500 truncate whitespace-nowrap overflow-hidden">
+                        Uncut: {b.qtyUncut} · Cut Unpolished: {b.qtyCutUnpolished} · Cut Polished: {b.qtyCutPolished}
+                        {!hasStock && <span className="text-amber-600 ml-1">(no stock yet)</span>}
+                      </div>
+                    </div>
+                    {checked && (
+                      <input
+                        className="input text-sm !w-24 shrink-0"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={(effectiveCents / 100).toFixed(2)}
+                        onChange={(e) => {
+                          const next = bottleOptions.map((o) =>
+                            o.bottleId === b.id
+                              ? { ...o, priceCents: Math.round((parseFloat(e.target.value) || 0) * 100) }
+                              : o
+                          );
+                          setEditing({ ...editing, bottleOptions: next });
+                        }}
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-xs text-neutral-500 mt-2">{bottleOptions.length} bottle(s) selected</p>
+          </>
+        ) : (
+          <div className="text-center py-4 text-sm text-neutral-500">
+            No bottles are marked usable for Home Goods yet — check the &quot;Home Goods&quot; column on the
+            Inventory page.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Square catalog sync for Home Goods listings. Mirrors the candle Stripe/Square
+ * section (one variation per bottle choice instead of per size×wick×scent),
+ * but skips the "Stripe Price ID" part entirely — Home Goods checkout uses
+ * dynamic per-bottle pricing and never needs a pre-created Stripe object.
+ */
+function HomeGoodsSquareSection(props: {
+  editing: Product;
+  setEditing: React.Dispatch<React.SetStateAction<Product | null>>;
+  showAlert: (message: string, title?: string) => Promise<void>;
+  showConfirm: (message: string, title?: string) => Promise<boolean>;
+  setSaving: (v: boolean) => void;
+  setSavingLabel: (v: string) => void;
+  load: () => Promise<void>;
+}) {
+  const { editing, setEditing, showAlert, showConfirm, setSaving, setSavingLabel, load } = props;
+
+  async function createSquareProduct() {
+    if (!editing.name.trim()) {
+      await showAlert("Please enter a product name first", "Missing Information");
+      return;
+    }
+    if (!editing.price || editing.price <= 0) {
+      await showAlert("Please enter a valid default price first", "Missing Information");
+      return;
+    }
+    if (!editing.bottleOptions || editing.bottleOptions.length === 0) {
+      await showAlert("Select at least one bottle option first", "Missing Information");
+      return;
+    }
+
+    try {
+      setSavingLabel(editing.squareCatalogId ? "Re-creating Square product…" : "Creating Square product…");
+      setSaving(true);
+
+      const squareImages = editing.images?.length
+        ? editing.images
+        : editing.image ? [editing.image] : [];
+
+      const res = await fetch("/api/admin/create-square-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editing.name,
+          price: editing.price,
+          description: editing.seoDescription,
+          sku: editing.sku,
+          images: squareImages,
+          bottleOptions: editing.bottleOptions,
+        }),
+      });
+
+      const data = (await res.json()) as {
+        catalogItemId?: string;
+        variantMapping?: Record<string, string>;
+        variationCount?: number;
+        imageCount?: number;
+        error?: string;
+        details?: string;
+      };
+
+      if (!res.ok) {
+        throw new Error(data.details || data.error || "Failed to create Square product");
+      }
+
+      const wasRecreate = !!editing.squareCatalogId;
+
+      setEditing({
+        ...editing,
+        squareCatalogId: data.catalogItemId,
+        squareVariantMapping: data.variantMapping || {},
+      });
+
+      const saveRes = await fetch(`/api/admin/products/${editing.slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          squareCatalogId: data.catalogItemId,
+          squareVariantMapping: data.variantMapping || {},
+        }),
+      });
+
+      if (!saveRes.ok) {
+        const saveError = (await saveRes.json()) as { error?: string };
+        setSaving(false);
+        await showAlert(
+          `Square product created but failed to save to database: ${saveError.error || "Unknown error"}`,
+          "Warning"
+        );
+        return;
+      }
+
+      await load();
+      setSaving(false);
+      await showAlert(
+        `Square catalog item ${wasRecreate ? "re-created" : "created"} and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}` +
+          (wasRecreate ? "\n\nThe old Square item (if any) remains in your catalog and should be manually deleted." : ""),
+        "Success"
+      );
+    } catch (err) {
+      setSaving(false);
+      await showAlert(err instanceof Error ? err.message : "Failed to create Square product", "Error");
+    }
+  }
+
+  async function syncStock() {
+    try {
+      setSavingLabel("Syncing stock to Square…");
+      setSaving(true);
+      const res = await fetch("/api/admin/sync-square-stock", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productSlug: editing.slug }),
+      });
+      const data = (await res.json()) as { error?: string; message?: string };
+      if (!res.ok) throw new Error(data.error || "Failed to sync stock");
+      setSaving(false);
+      await showAlert(`Stock synced to Square successfully!\n\n${data.message}`, "Success");
+    } catch (err) {
+      setSaving(false);
+      await showAlert(err instanceof Error ? err.message : "Failed to sync stock to Square", "Error");
+    }
+  }
+
+  async function syncDetails() {
+    try {
+      setSavingLabel("Syncing details to Square…");
+      setSaving(true);
+      const res = await fetch("/api/admin/sync-square-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ productSlug: editing.slug }),
+      });
+      const data = (await res.json()) as {
+        error?: string;
+        results?: Array<{ imagesUploaded?: number; totalImages?: number }>;
+      };
+      if (!res.ok) throw new Error(data.error || "Failed to sync details");
+      const r = data.results?.[0];
+      setSaving(false);
+      await showAlert(
+        `Product details synced to Square!\n\nImages uploaded: ${r?.imagesUploaded ?? 0} / ${r?.totalImages ?? 0}`,
+        "Success"
+      );
+    } catch (err) {
+      setSaving(false);
+      await showAlert(err instanceof Error ? err.message : "Failed to sync details to Square", "Error");
+    }
+  }
+
+  async function recreateWithCurrentBottles() {
+    const confirmed = await showConfirm(
+      `This will re-create "${editing.name}" on Square with the current bottle list (including any bottles added or removed since it was last synced). The old Square item will remain in your catalog. Continue?`,
+      "Re-create Square Item"
+    );
+    if (!confirmed) return;
+    await createSquareProduct();
+  }
+
+  return (
+    <div className="mb-8">
+      <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
+        <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+        </svg>
+        Square (POS)
+      </h3>
+      <label className="block">
+        <div className="flex items-center justify-between mb-1">
+          <span className="text-xs">Square Catalog ID</span>
+          <div className="flex flex-wrap gap-2">
+            {editing.squareCatalogId && (
+              <button type="button" className="text-xs text-purple-600 hover:text-purple-700 font-medium" onClick={syncStock}>
+                Sync Stock to Square
+              </button>
+            )}
+            {editing.squareCatalogId && (
+              <button type="button" className="text-xs text-blue-600 hover:text-blue-700 font-medium" onClick={syncDetails}>
+                Sync Details to Square
+              </button>
+            )}
+            {editing.squareCatalogId && (
+              <button type="button" className="text-xs text-amber-600 hover:text-amber-700 font-medium" onClick={recreateWithCurrentBottles}>
+                Re-create with Current Bottles
+              </button>
+            )}
+            {!editing.squareCatalogId && (
+              <button type="button" className="text-xs text-purple-600 hover:text-purple-700 font-medium" onClick={createSquareProduct}>
+                Create Square Product
+              </button>
+            )}
+          </div>
+        </div>
+        <input
+          className="input"
+          value={editing.squareCatalogId || ""}
+          onChange={(e) => setEditing({ ...editing, squareCatalogId: e.target.value })}
+          placeholder="Click 'Create Square Product' or paste manually"
+        />
+      </label>
+      <p className="mt-1 text-xs text-[var(--color-muted)]">
+        Each bottle option becomes its own Square item variation with its own price. Re-run &quot;Re-create with
+        Current Bottles&quot; after adding or removing a bottle from this listing.
+      </p>
+    </div>
+  );
+}
+
 /* ---------- Component ---------- */
 export default function AdminProductsPage() {
   const { showAlert, showConfirm, showPrompt } = useModal();
@@ -451,6 +979,7 @@ export default function AdminProductsPage() {
   const [globalScents, setGlobalScents] = useState<GlobalScent[]>([]);
   const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]);
   const [containers, setContainers] = useState<Container[]>([]);
+  const [bottleInventory, setBottleInventory] = useState<BottleInventoryItem[]>([]);
   const [settings, setSettings] = useState<CalculatorSettings>({
     waxCostPerOz: 0,
     waterToWaxRatio: 0.9,
@@ -459,6 +988,7 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("");
   const [editing, setEditing] = useState<Product | null>(null);
+  const isHomeGoods = editing?.productType === "home_goods";
   const [priceInputStr, setPriceInputStr] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [savingLabel, setSavingLabel] = useState<string>("Working…");
@@ -500,12 +1030,13 @@ export default function AdminProductsPage() {
   async function load() {
     setLoading(true);
     try {
-      const [productsRes, scentsRes, typesRes, containersRes, settingsRes] = await Promise.all([
+      const [productsRes, scentsRes, typesRes, containersRes, settingsRes, bottleInventoryRes] = await Promise.all([
         fetch("/api/admin/products", { cache: "no-store" }),
         fetch("/api/admin/scents", { cache: "no-store" }),
         fetch("/api/admin/alcohol-types?active=1", { cache: "no-store" }),
         fetch("/api/admin/containers", { cache: "no-store" }),
         fetch("/api/admin/calculator-settings", { cache: "no-store" }),
+        fetch("/api/admin/bottle-inventory", { cache: "no-store" }),
       ]);
 
       if (productsRes.ok) {
@@ -541,6 +1072,11 @@ export default function AdminProductsPage() {
         } else if ("settings" in settingsData && settingsData.settings) {
           setSettings(settingsData.settings);
         }
+      }
+
+      if (bottleInventoryRes.ok) {
+        const bottleData = (await bottleInventoryRes.json()) as { items?: BottleInventoryItem[] };
+        setBottleInventory(bottleData.items || []);
       }
     } catch (err) {
       // eslint-disable-next-line no-console
@@ -2159,6 +2695,85 @@ export default function AdminProductsPage() {
                 </div>
               )}
 
+              {/* Category toggle — only meaningful for a brand-new draft; locked once published */}
+              <div className="mb-6">
+                <div className="text-xs font-medium text-neutral-700 mb-2">Product Category</div>
+                <div className="inline-flex rounded-xl border border-[var(--color-line)] p-1 bg-neutral-50">
+                  <button
+                    type="button"
+                    disabled={isServerItem(editing.slug)}
+                    className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
+                      !isHomeGoods ? "bg-white shadow-sm font-medium" : "text-neutral-500"
+                    } ${isServerItem(editing.slug) ? "cursor-not-allowed opacity-60" : ""}`}
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        productType: "candle",
+                        // Restore a variant config if it was cleared by switching to Home Goods
+                        variantConfig: editing.variantConfig ?? {
+                          wickTypes: [{ id: "standard", name: "Standard Wick" }],
+                          variantData: {},
+                        },
+                      })
+                    }
+                  >
+                    Candle
+                  </button>
+                  <button
+                    type="button"
+                    disabled={isServerItem(editing.slug)}
+                    className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
+                      isHomeGoods ? "bg-white shadow-sm font-medium" : "text-neutral-500"
+                    } ${isServerItem(editing.slug) ? "cursor-not-allowed opacity-60" : ""}`}
+                    onClick={() =>
+                      setEditing({
+                        ...editing,
+                        productType: "home_goods",
+                        // Home Goods has no wick/scent/size variants — clear the candle-only config
+                        // so the storefront doesn't try to render a wick/scent picker for it.
+                        variantConfig: undefined,
+                        bottleOptions: editing.bottleOptions ?? [],
+                        requiresUncut: editing.requiresUncut ?? false,
+                        requiresUnpoured: editing.requiresUnpoured ?? true,
+                      })
+                    }
+                  >
+                    Home Goods
+                  </button>
+                </div>
+                {isServerItem(editing.slug) && (
+                  <p className="text-xs text-[var(--color-muted)] mt-1">Category can&apos;t be changed after a product is published.</p>
+                )}
+              </div>
+
+              {isHomeGoods ? (
+                <>
+                  <HomeGoodsBottleOptionsForm
+                    editing={editing}
+                    setEditing={setEditing}
+                    bottleInventory={bottleInventory}
+                    handleImagePick={handleImagePick}
+                    removeImage={removeImage}
+                    slugTouched={slugTouched}
+                    setSlugTouched={setSlugTouched}
+                    isServerItem={isServerItem}
+                    slugify={slugify}
+                    SLUG_REGEX={SLUG_REGEX}
+                    slugError={slugError}
+                    setSlugError={setSlugError}
+                  />
+                  <HomeGoodsSquareSection
+                    editing={editing}
+                    setEditing={setEditing}
+                    showAlert={showAlert}
+                    showConfirm={showConfirm}
+                    setSaving={setSaving}
+                    setSavingLabel={setSavingLabel}
+                    load={load}
+                  />
+                </>
+              ) : (
+              <>
               {/* Basic Information Section */}
               <div className="mb-8">
                 <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
@@ -3428,6 +4043,8 @@ export default function AdminProductsPage() {
                   );
                 })()}
               </div>
+              </>
+              )}
             </div>
 
             {/* Footer */}

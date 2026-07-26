@@ -4,6 +4,7 @@ import { getAllScents } from "@/lib/scents";
 import { getAlcoholTypes } from "@/lib/alcoholTypesStore";
 import type { Metadata } from "next";
 import ShopClient from "./ShopClient";
+import type { BottlePickerOption } from "./[slug]/HomeGoodsBottlePicker";
 
 export const revalidate = 30;
 
@@ -54,6 +55,32 @@ export default async function ShopPage() {
   // Optimize: Fetch scents for all products in parallel, then calculate stock synchronously
   const { getScentsForProduct } = await import("@/lib/scents");
   const { getTotalStock } = await import("@/lib/productsStore");
+  const { computeHomeGoodsStock, getBottleInventoryById, getSingleBottleStock } = await import("@/lib/bottleInventoryStore");
+  const bottleById = await getBottleInventoryById();
+
+  // Per-bottle image/price/stock for the Home Goods quick-add modal (shop grid)
+  const typeSortOrder = new Map(alcoholTypes.map((t) => [t.name, t.sortOrder ?? 9999]));
+  const homeGoodsBottlesBySlug: Record<string, BottlePickerOption[]> = {};
+  for (const p of visibleProducts) {
+    if (p.productType === "home_goods") {
+      homeGoodsBottlesBySlug[p.slug] = (p.bottleOptions || [])
+        .map((opt) => {
+          const b = bottleById.get(opt.bottleId);
+          return {
+            bottleId: opt.bottleId,
+            name: b?.name ?? opt.bottleName,
+            imageUrl: b?.imageUrl,
+            priceCents: opt.priceCents ?? Math.round(p.price * 100),
+            stock: b ? getSingleBottleStock(b, p.requiresUncut) : 0,
+            alcoholType: b?.alcoholType,
+          };
+        })
+        .sort((a, b) => {
+          const orderDiff = (typeSortOrder.get(a.alcoholType || "") ?? 9999) - (typeSortOrder.get(b.alcoholType || "") ?? 9999);
+          return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
+        });
+    }
+  }
 
   // Fetch all product scents in parallel (single batch operation)
   const productScentsMap = new Map<string, Awaited<ReturnType<typeof getScentsForProduct>>>();
@@ -70,7 +97,9 @@ export default async function ShopPage() {
   const productsWithStock = visibleProducts.map((p) => {
     let computedStock: number;
 
-    if (!p.variantConfig) {
+    if (p.productType === "home_goods") {
+      computedStock = computeHomeGoodsStock(p, bottleById);
+    } else if (!p.variantConfig) {
       computedStock = p.stock ?? 0;
     } else {
       const allowedScents = productScentsMap.get(p.slug);
@@ -166,6 +195,7 @@ export default async function ShopPage() {
         products={productsWithStock}
         globalScents={globalScents}
         alcoholTypes={alcoholTypes}
+        homeGoodsBottles={homeGoodsBottlesBySlug}
       />
     </section>
   );

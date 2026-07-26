@@ -195,6 +195,42 @@ export async function POST(req: NextRequest) {
       const item = lineItems.data[index];
       const qty = item.quantity ?? 1;
 
+      // Home Goods items have no real Stripe Price to reverse-lookup from —
+      // checkout stored the slug + bottleId directly in session metadata.
+      if (session.metadata?.[`item_${index}_type`] === "home_goods") {
+        const slug = session.metadata?.[`item_${index}_slug`];
+        const bottleId = session.metadata?.[`item_${index}_variant`];
+        const productName = session.metadata?.[`item_${index}_name`] || item.description || "Home Goods Item";
+        const itemTotal = item.amount_total || 0;
+
+        if (slug && qty > 0) {
+          orderItems.push({
+            productSlug: slug,
+            productName,
+            variantId: bottleId || undefined,
+            quantity: qty,
+            priceCents: itemTotal,
+          });
+          productSubtotalCents += itemTotal;
+
+          if (bottleId) {
+            try {
+              const { decrementBottleStockForSale } = await import("@/lib/bottleInventoryStore");
+              const { listResolvedProducts } = await import("@/lib/resolvedProducts");
+              const allProducts = await listResolvedProducts();
+              const product = allProducts.find((p) => p.slug === slug);
+              console.log(`Decrementing bottle stock: ${bottleId} x${qty} (requiresUncut=${!!product?.requiresUncut})`);
+              await decrementBottleStockForSale(bottleId, qty, product?.requiresUncut);
+            } catch (err) {
+              console.error(`Bottle stock decrement failed for ${slug} bottle ${bottleId} x${qty}`, err);
+            }
+          }
+        } else {
+          console.warn(`Home Goods line item ${index} missing slug in session metadata - skipping stock decrement`);
+        }
+        continue;
+      }
+
       // Get price ID from session metadata (set during checkout)
       const priceId = session.metadata?.[`item_${index}_price`] || item.price?.id || "";
       const productInfo = priceToProduct.get(priceId);

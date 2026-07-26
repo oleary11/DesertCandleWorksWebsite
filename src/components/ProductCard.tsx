@@ -9,6 +9,8 @@ import { getPrimaryImage } from "@/lib/products";
 import type { ProductVariant } from "@/lib/productsStore";
 import type { GlobalScent } from "@/lib/scents";
 import QuickAddModal from "./QuickAddModal";
+import HomeGoodsQuickAddModal from "./HomeGoodsQuickAddModal";
+import type { BottlePickerOption } from "@/app/shop/[slug]/HomeGoodsBottlePicker";
 
 type ProductWithStock = Product & { _computedStock?: number };
 type ProductCardProps = {
@@ -16,6 +18,7 @@ type ProductCardProps = {
   compact?: boolean;
   variants?: ProductVariant[];
   globalScents?: GlobalScent[];
+  homeGoodsBottles?: BottlePickerOption[];
 };
 
 export default function ProductCard({
@@ -23,11 +26,13 @@ export default function ProductCard({
   compact = false,
   variants = [],
   globalScents = [],
+  homeGoodsBottles = [],
 }: ProductCardProps) {
   // Use pre-computed stock if available, otherwise fall back to base stock
   const stock = product._computedStock ?? product.stock ?? 0;
   const isLowStock = stock === 1;
   const isOutOfStock = stock === 0;
+  const isHomeGoods = product.productType === "home_goods";
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [showRequestModal, setShowRequestModal] = useState(false);
   const [requestEmail, setRequestEmail] = useState("");
@@ -206,7 +211,7 @@ export default function ProductCard({
             </svg>
             <span className="hidden md:inline text-sm">Request</span>
           </button>
-        ) : product.variantConfig && variants.length > 0 ? (
+        ) : (isHomeGoods && homeGoodsBottles.length > 0) || (product.variantConfig && variants.length > 0) ? (
           <button
             onClick={handleQuickAdd}
             className="
@@ -250,7 +255,15 @@ export default function ProductCard({
     </Link>
 
       {/* Quick Add Modal */}
-      {showQuickAdd && product.variantConfig && (
+      {showQuickAdd && isHomeGoods && (
+        <HomeGoodsQuickAddModal
+          productSlug={product.slug}
+          productName={product.name}
+          bottles={homeGoodsBottles}
+          onClose={() => setShowQuickAdd(false)}
+        />
+      )}
+      {showQuickAdd && !isHomeGoods && product.variantConfig && (
         <QuickAddModal
           product={product}
           variants={variants}

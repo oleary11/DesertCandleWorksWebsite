@@ -150,6 +150,13 @@ export async function PATCH(req: NextRequest, ctx: RouteCtx) {
   const patch = (await req.json().catch(() => ({}))) as Partial<Product>;
   const merged: Product = { ...existing, ...patch, slug };
 
+  // Home Goods has no wick/scent/size variants — never let a stale candle-only
+  // config linger (JSON.stringify drops `undefined` keys, so a client that
+  // cleared this client-side wouldn't otherwise be able to un-set it via patch).
+  if (merged.productType === "home_goods") {
+    merged.variantConfig = undefined;
+  }
+
   if ("bestSeller" in patch) {
     merged.bestSeller = coerceBool(patch.bestSeller);
   }

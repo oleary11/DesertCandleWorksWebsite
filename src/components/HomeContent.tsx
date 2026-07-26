@@ -66,7 +66,6 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
       <section
         className="
           relative isolate overflow-hidden
-          w-screen left-1/2 -translate-x-1/2
           h-[420px] sm:h-[480px] lg:h-[520px]
           flex items-center justify-center text-center
           shadow-[inset_0_0_0_1px_color-mix(in_oklab,_var(--color-ink)_6%,_transparent)]

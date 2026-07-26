@@ -6,6 +6,7 @@ import { generateVariants, getAllImages } from "@/lib/products";
 import { getScentsForProduct } from "@/lib/scents";
 import ProductVariantForm from "./ProductVariantForm";
 import ProductActions from "./ProductActions";
+import HomeGoodsBottlePicker, { type BottlePickerOption } from "./HomeGoodsBottlePicker";
 import ProductBreadcrumbs from "@/components/ProductBreadcrumbs";
 import RecentlyViewed from "@/components/RecentlyViewed";
 import ProductPageTracker from "@/components/ProductPageTracker";
@@ -67,7 +68,33 @@ export default async function ProductPage({ params }: Props) {
   // Get global scents for this product
   const globalScents = p.variantConfig ? await getScentsForProduct(slug) : [];
 
-  const stock = await getTotalStockForProduct(p);
+  let stock: number;
+  let homeGoodsBottles: BottlePickerOption[] = [];
+  if (p.productType === "home_goods") {
+    const { computeHomeGoodsStock, getBottleInventoryById, getSingleBottleStock } = await import("@/lib/bottleInventoryStore");
+    const { getAlcoholTypes } = await import("@/lib/alcoholTypesStore");
+    const [bottleById, alcoholTypes] = await Promise.all([getBottleInventoryById(), getAlcoholTypes()]);
+    stock = computeHomeGoodsStock(p, bottleById);
+    const typeSortOrder = new Map(alcoholTypes.map((t) => [t.name, t.sortOrder ?? 9999]));
+    homeGoodsBottles = (p.bottleOptions || [])
+      .map((opt) => {
+        const b = bottleById.get(opt.bottleId);
+        return {
+          bottleId: opt.bottleId,
+          name: b?.name ?? opt.bottleName,
+          imageUrl: b?.imageUrl,
+          priceCents: opt.priceCents ?? Math.round(p.price * 100),
+          stock: b ? getSingleBottleStock(b, p.requiresUncut) : 0,
+          alcoholType: b?.alcoholType,
+        };
+      })
+      .sort((a, b) => {
+        const orderDiff = (typeSortOrder.get(a.alcoholType || "") ?? 9999) - (typeSortOrder.get(b.alcoholType || "") ?? 9999);
+        return orderDiff !== 0 ? orderDiff : a.name.localeCompare(b.name);
+      });
+  } else {
+    stock = await getTotalStockForProduct(p);
+  }
   const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
   const availability = stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock";
 
@@ -199,9 +226,13 @@ export default async function ProductPage({ params }: Props) {
             <ShareButtons productName={p.name} productSlug={p.slug} />
           </div>
           <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)] whitespace-pre-line">{p.seoDescription}</p>
-          <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
+          {p.productType !== "home_goods" && (
+            <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
+          )}
 
-          {p.variantConfig && globalScents.length > 0 ? (
+          {p.productType === "home_goods" ? (
+            <HomeGoodsBottlePicker productSlug={p.slug} productName={p.name} bottles={homeGoodsBottles} />
+          ) : p.variantConfig && globalScents.length > 0 ? (
             <ProductVariantForm product={p} variants={variants} globalScents={globalScents} variantConfig={p.variantConfig} />
           ) : p.variantConfig && globalScents.length === 0 ? (
             <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">

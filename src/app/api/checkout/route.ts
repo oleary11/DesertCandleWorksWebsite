@@ -7,6 +7,7 @@ import { validatePromotion } from "@/lib/promotionValidator";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { getBottleInventoryById, getSingleBottleStock } from "@/lib/bottleInventoryStore";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,12 @@ type ExtendedLineItem = {
     wickType?: string;
     scent?: string;
     variantId?: string;
+    // Home Goods items: variantId holds the chosen bottleId. productType
+    // marks it so we re-resolve price/stock server-side from productSlug's
+    // bottleOptions instead of trusting the (placeholder) `price` field —
+    // no Stripe Price object is pre-created per bottle.
+    productSlug?: string;
+    productType?: string;
   };
 };
 
@@ -169,7 +176,56 @@ export async function POST(req: NextRequest) {
     const products = await listResolvedProducts();
     const productsBySlug = new Map(products.map(p => [p.slug, p]));
 
-    for (const item of extendedLineItems) {
+    // Home Goods items carry no pre-created Stripe Price — fetch the shared
+    // bottle inventory once (only if needed) so price/stock can be computed
+    // fresh, server-side, from the product's own bottleOptions.
+    const hasHomeGoodsItems = extendedLineItems.some((i) => i.metadata?.productType === "home_goods");
+    const bottleById = hasHomeGoodsItems ? await getBottleInventoryById() : new Map();
+    // index -> trusted unit amount (cents), used later instead of retrieving a Stripe Price
+    const homeGoodsUnitAmounts = new Map<number, number>();
+
+    for (let i = 0; i < extendedLineItems.length; i++) {
+      const item = extendedLineItems[i];
+
+      if (item.metadata?.productType === "home_goods") {
+        const slug = item.metadata?.productSlug;
+        const bottleId = item.metadata?.variantId;
+        if (!slug || !bottleId) {
+          return NextResponse.json({ error: "Invalid Home Goods item in cart" }, { status: 400 });
+        }
+
+        const product = productsBySlug.get(slug);
+        if (!product || product.productType !== "home_goods") {
+          return NextResponse.json({ error: `Product not found: ${slug}` }, { status: 404 });
+        }
+
+        const opt = product.bottleOptions?.find((o) => o.bottleId === bottleId);
+        if (!opt) {
+          return NextResponse.json(
+            { error: `That bottle is no longer offered for ${product.name}. Please refresh and try again.` },
+            { status: 400 }
+          );
+        }
+
+        const requestedQty = item.quantity || 1;
+        const bottle = bottleById.get(bottleId);
+        const availableStock = bottle ? getSingleBottleStock(bottle, product.requiresUncut) : 0;
+
+        if (availableStock < requestedQty) {
+          return NextResponse.json(
+            {
+              error: `${product.name} (${opt.bottleName}) is out of stock. Requested: ${requestedQty}, Available: ${availableStock}`,
+            },
+            { status: 409 }
+          );
+        }
+
+        // Trusted price computed server-side from the product's own bottleOptions —
+        // never from the client-submitted `item.price` placeholder.
+        homeGoodsUnitAmounts.set(i, opt.priceCents ?? Math.round(product.price * 100));
+        continue;
+      }
+
       const productInfo = priceToProduct.get(item.price);
       if (!productInfo) {
         return NextResponse.json(
@@ -281,6 +337,11 @@ export async function POST(req: NextRequest) {
     const priceIds = extendedLineItems.map((item) => item.price);
     const priceDetailsArray = await Promise.all(
       priceIds.map(async (priceId, index) => {
+        // Home Goods: no Stripe Price object exists for this item — use the
+        // trusted, server-computed amount from the validation loop above.
+        if (homeGoodsUnitAmounts.has(index)) {
+          return { unit_amount: homeGoodsUnitAmounts.get(index)!, currency: "usd" } as Stripe.Price;
+        }
         try {
           return await stripe.prices.retrieve(priceId);
         } catch (error) {
@@ -327,6 +388,13 @@ export async function POST(req: NextRequest) {
       }
       if (item.metadata?.sizeName) {
         sessionMetadata[`item_${index}_sizeName`] = item.metadata.sizeName;
+      }
+      // Home Goods items have no real Stripe Price to reverse-lookup from —
+      // the webhook needs the slug + type directly to find the product and
+      // decrement the right bottle's inventory.
+      if (item.metadata?.productType === "home_goods" && item.metadata?.productSlug) {
+        sessionMetadata[`item_${index}_slug`] = item.metadata.productSlug;
+        sessionMetadata[`item_${index}_type`] = "home_goods";
       }
 
       // Build custom product name with variant details
@@ -493,14 +561,18 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate total weight (candles only)
+      // Calculate total weight (candles + Home Goods)
       let totalCandleWeightOz = 0;
       for (const item of extendedLineItems) {
-        const productInfo = priceToProduct.get(item.price);
-        if (productInfo) {
-          const product = productsBySlug.get(productInfo.slug);
+        const isHomeGoods = item.metadata?.productType === "home_goods";
+        const product = isHomeGoods
+          ? productsBySlug.get(item.metadata?.productSlug || "")
+          : productsBySlug.get(priceToProduct.get(item.price)?.slug || "");
+        if (product) {
           const quantity = item.quantity || 1;
           const sizeName = item.metadata?.sizeName;
+          // Home Goods products don't set an explicit weight yet, so this
+          // falls back to getProductWeight's conservative 40oz default.
           const weightPerItem = getProductWeight(product, sizeName);
           totalCandleWeightOz += weightPerItem * quantity;
         }

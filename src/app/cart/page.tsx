@@ -187,6 +187,8 @@ export default function CartPage() {
           wickType: item.wickTypeName,
           scent: item.scentName,
           variantId: item.variantId,
+          productSlug: item.productSlug,
+          productType: item.productType,
         },
       }));
 

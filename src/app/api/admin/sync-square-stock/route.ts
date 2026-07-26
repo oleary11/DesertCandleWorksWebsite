@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
+import { getBottleInventoryById, getSingleBottleStock } from "@/lib/bottleInventoryStore";
 
 export const runtime = "nodejs";
 
@@ -57,6 +58,9 @@ export async function POST(req: NextRequest) {
 
     console.log(`[Sync Square Stock] Syncing ${productsToSync.length} products`);
 
+    // Only needed for Home Goods products, but cheap enough to fetch once up front.
+    const bottleById = await getBottleInventoryById();
+
     const results = [];
     let successCount = 0;
     let errorCount = 0;
@@ -87,7 +91,28 @@ export async function POST(req: NextRequest) {
         // Build inventory changes for all variants
         const changes = [];
 
-        if (product.variantConfig) {
+        if (product.productType === "home_goods") {
+          // Home Goods - sync each bottle's own live stock (respects requiresUncut)
+          console.log(`[Sync Square Stock] ${product.slug}: Home Goods with ${Object.keys(product.squareVariantMapping).length} bottle mappings`);
+
+          for (const [bottleId, squareVariationId] of Object.entries(product.squareVariantMapping)) {
+            const bottle = bottleById.get(bottleId);
+            const bottleStock = bottle ? getSingleBottleStock(bottle, product.requiresUncut) : 0;
+
+            console.log(`[Sync Square Stock] ${product.slug}: Bottle ${bottleId} -> Square ${squareVariationId} (stock: ${bottleStock})`);
+
+            changes.push({
+              type: InventoryChangeType.PhysicalCount,
+              physicalCount: {
+                catalogObjectId: squareVariationId,
+                locationId: locationId,
+                state: InventoryState.InStock,
+                quantity: String(bottleStock),
+                occurredAt: new Date().toISOString(),
+              },
+            });
+          }
+        } else if (product.variantConfig) {
           // Product has variants - sync each variant's stock
           console.log(`[Sync Square Stock] ${product.slug}: Has variantConfig with ${Object.keys(product.variantConfig.variantData).length} variants`);
 

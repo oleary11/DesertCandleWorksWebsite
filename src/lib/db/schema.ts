@@ -150,6 +150,10 @@ export const products = pgTable('products', {
   materialCost: integer('material_cost'),
   visibleOnWebsite: boolean('visible_on_website').default(true),
   variantConfig: jsonb('variant_config'),
+  productType: varchar('product_type', { length: 20 }).default('candle'), // 'candle' | 'home_goods'
+  bottleOptions: jsonb('bottle_options'), // HomeGoodsBottleOption[] — only used when productType is 'home_goods'
+  requiresUncut: boolean('requires_uncut').default(false), // Home Goods only: only whole/uncut bottles work for this listing
+  requiresUnpoured: boolean('requires_unpoured').default(true), // Home Goods only: uncut OR cut bottles work (the common case)
   weight: jsonb('weight'),  // { value: number, units: "ounces" | "pounds" }
   dimensions: jsonb('dimensions'),  // { length: number, width: number, height: number, units: "inches" }
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -270,6 +274,52 @@ export const alcoholTypes = pgTable('alcohol_types', {
   id: varchar('id', { length: 100 }).primaryKey(),
   name: varchar('name', { length: 100 }).notNull().unique(),
   sortOrder: integer('sort_order').default(9999),
+  archived: boolean('archived').notNull().default(false),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
+// BOTTLE INVENTORY
+// ============================================
+
+// Raw bottle stock, tracked by cutting/polishing stage. Independent from
+// candle `products` rows — this is the shared pool that Home Goods listings
+// (succulents, utensil holders, soap dispensers, etc.) draw from.
+export const bottleInventory = pgTable('bottle_inventory', {
+  id: varchar('id', { length: 100 }).primaryKey(),
+  name: varchar('name', { length: 255 }).notNull().unique(),
+  qtyUncut: integer('qty_uncut').notNull().default(0),
+  qtyCutUnpolished: integer('qty_cut_unpolished').notNull().default(0),
+  qtyCutPolished: integer('qty_cut_polished').notNull().default(0),
+  // Manually-entered poured count — only used as the displayed value when
+  // this row has no linked candle product. Linked rows ignore this and show
+  // a live read of the candle's actual stock instead (see linkedCandleProductSlug).
+  qtyCutPouredManual: integer('qty_cut_poured_manual').notNull().default(0),
+  defaultPriceCents: integer('default_price_cents'),
+  // Shown in the Home Goods bottle picker (both admin and storefront) so a
+  // customer can see the actual bottle they're choosing before it's poured/used.
+  imageUrl: text('image_url'),
+  // Stores the alcohol type's *name* (e.g. "Whiskey"), same convention as
+  // products.alcoholType — used to group the Home Goods bottle picker into
+  // sections the same way the shop page groups candles. For a row linked to
+  // a candle product, this mirrors that candle's alcoholType (refreshed on
+  // every "Sync from Candles" run); unlinked rows are set manually.
+  alcoholType: varchar('alcohol_type', { length: 100 }),
+  // Set when this row was auto-seeded from a candle product name (stripped
+  // of a trailing " Candle"). Lets "Cut Poured" be a live read of that
+  // product's stock instead of a separately maintained number.
+  linkedCandleProductSlug: varchar('linked_candle_product_slug', { length: 100 }),
+  // When the linked candle product has more than one bottle size (e.g. a
+  // 750mL and a 1L Grey Goose are physically different bottles), this
+  // narrows the live stock read to just that size's variants instead of
+  // the whole product.
+  linkedSizeId: varchar('linked_size_id', { length: 100 }),
+  // Some bottles just aren't suitable for ANY Home Goods product (odd shape,
+  // too fragile, etc). Default true; admin flips it off per-bottle in the
+  // Inventory grid, and it's excluded from every Home Goods listing's
+  // bottle checklist from then on.
+  usableForHomeGoods: boolean('usable_for_home_goods').notNull().default(true),
   archived: boolean('archived').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),

@@ -6,6 +6,7 @@ import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 import { generateVariants } from "@/lib/products";
 import type { GlobalScent } from "@/lib/scents";
+import type { BottlePickerOption } from "./[slug]/HomeGoodsBottlePicker";
 import { useCartStore } from "@/lib/cartStore";
 import { Truck, Search, CheckCircle, XCircle, SlidersHorizontal, X } from "lucide-react";
 
@@ -13,14 +14,17 @@ type ProductWithStock = Product & { _computedStock: number };
 
 type SortOption = "name-asc" | "name-desc" | "price-asc" | "price-desc";
 type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
+type CategoryFilter = "all" | "candle" | "home_goods";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number };
 
 const FILTERS_KEY = "shopFilters";
+const HOME_GOODS_SECTION = "Home Goods";
 
 type SavedFilters = {
   sortBy: SortOption;
   filterBy: FilterOption;
+  categoryFilter: CategoryFilter;
   searchQuery: string;
   selectedScents: string[];
 };
@@ -43,14 +47,16 @@ type ShopClientProps = {
   products: ProductWithStock[];
   globalScents: GlobalScent[];
   alcoholTypes: AlcoholType[]; // NEW for grouping
+  homeGoodsBottles: Record<string, BottlePickerOption[]>;
 };
 
-export default function ShopClient({ products, globalScents, alcoholTypes }: ShopClientProps) {
+export default function ShopClient({ products, globalScents, alcoholTypes, homeGoodsBottles }: ShopClientProps) {
   const searchParams = useSearchParams();
   const clearCart = useCartStore((state) => state.clearCart);
 
   const [sortBy, setSortBy] = useState<SortOption>(() => getRestoredFilters()?.sortBy ?? "name-asc");
   const [filterBy, setFilterBy] = useState<FilterOption>(() => getRestoredFilters()?.filterBy ?? "in-stock");
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(() => getRestoredFilters()?.categoryFilter ?? "all");
   const [searchQuery, setSearchQuery] = useState<string>(() => getRestoredFilters()?.searchQuery ?? "");
   const [showStatusBanner, setShowStatusBanner] = useState(false);
   const [statusType, setStatusType] = useState<"success" | "cancelled" | null>(null);
@@ -85,6 +91,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   const hasActiveFilters =
     sortBy !== "name-asc" ||
     filterBy !== "in-stock" ||
+    categoryFilter !== "all" ||
     searchQuery !== "" ||
     priceMin !== priceRange.min ||
     priceMax !== priceRange.max ||
@@ -93,6 +100,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   function resetFilters() {
     setSortBy("name-asc");
     setFilterBy("in-stock");
+    setCategoryFilter("all");
     setSearchQuery("");
     setPriceMin(priceRange.min);
     setPriceMax(priceRange.max);
@@ -159,15 +167,21 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     const state: SavedFilters = {
       sortBy,
       filterBy,
+      categoryFilter,
       searchQuery,
       selectedScents: Array.from(selectedScents),
     };
     sessionStorage.setItem(FILTERS_KEY, JSON.stringify(state));
-  }, [sortBy, filterBy, searchQuery, selectedScents]);
+  }, [sortBy, filterBy, categoryFilter, searchQuery, selectedScents]);
 
   // Base filter/sort (before grouping)
   const filteredAndSortedProducts = useMemo(() => {
     let filtered = [...products];
+
+    // Category (Candles vs Home Goods)
+    if (categoryFilter !== "all") {
+      filtered = filtered.filter((p) => (p.productType || "candle") === categoryFilter);
+    }
 
     // Search
     if (searchQuery.trim()) {
@@ -264,6 +278,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     products,
     sortBy,
     filterBy,
+    categoryFilter,
     searchQuery,
     priceMin,
     priceMax,
@@ -276,14 +291,16 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
     const idx = new Map<string, number>();
     alcoholTypes.forEach((t, i) => idx.set(t.name, t.sortOrder ?? i + 1));
     if (!idx.has("Other")) idx.set("Other", 9999);
+    // Home Goods is its own section, always first (ahead of every alcohol-type section)
+    idx.set(HOME_GOODS_SECTION, -1);
     return idx;
   }, [alcoholTypes]);
 
-  // Group filtered results by Alcohol Type in requested order
+  // Group filtered results — Home Goods gets its own section, candles group by Alcohol Type
   const grouped = useMemo(() => {
     const m = new Map<string, ProductWithStock[]>();
     for (const p of filteredAndSortedProducts) {
-      const key = p.alcoholType || "Other";
+      const key = p.productType === "home_goods" ? HOME_GOODS_SECTION : (p.alcoholType || "Other");
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(p);
     }
@@ -311,8 +328,8 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
   }, [filteredAndSortedProducts, typeOrderIndex]);
 
   const productCount = products.length;
-  const inStockCount = products.filter((p) => p._computedStock > 0).length;
   const displayCount = filteredAndSortedProducts.length;
+  const inStockCount = filteredAndSortedProducts.filter((p) => p._computedStock > 0).length;
 
   return (
     <>
@@ -372,14 +389,35 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
       <div className="full-bleed relative isolate py-12 sm:py-16">
         <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white/70 to-white/90 backdrop-blur-[2px]" />
         <div className="mx-auto max-w-6xl px-6 text-center">
-          <h1>Shop Scottsdale Candles</h1>
+          <h1>Shop Scottsdale Candles & More</h1>
           <p className="mt-3 text-[var(--color-muted)]">
             100% natural coconut apricot wax candles made in Arizona. Clean burning, smokeless, and eco-friendly. Upcycled bottles, wood wicks, and desert-inspired scents.
           </p>
           <p className="mt-2 text-sm text-[var(--color-muted)]">
-            Showing {displayCount} of {productCount} {productCount === 1 ? "candle" : "candles"} (
+            Showing {displayCount} of {productCount} {productCount === 1 ? "product" : "products"} (
             {inStockCount} in stock)
           </p>
+
+          {/* Category Filter Buttons */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+            {([
+              { value: "all", label: "All Products" },
+              { value: "candle", label: "Candles" },
+              { value: "home_goods", label: "Home Goods" },
+            ] as { value: CategoryFilter; label: string }[]).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setCategoryFilter(opt.value)}
+                className={`px-4 py-2 text-sm font-medium rounded-full border transition ${
+                  categoryFilter === opt.value
+                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                    : "border-[var(--color-line)] hover:border-[var(--color-ink)] bg-white"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
 
           {/* Search Bar */}
           <div className="mt-6 mx-auto max-w-md">
@@ -537,46 +575,48 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
         </div>
 
         {/* Scent Filters - Mobile */}
-        <div className="p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-semibold">Scent</h3>
-            {selectedScents.size > 0 && (
-              <button
-                onClick={() => setSelectedScents(new Set())}
-                className="text-xs text-[var(--color-accent)] hover:underline"
-              >
-                Clear
-              </button>
-            )}
+        {categoryFilter !== "home_goods" && (
+          <div className="p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold">Scent</h3>
+              {selectedScents.size > 0 && (
+                <button
+                  onClick={() => setSelectedScents(new Set())}
+                  className="text-xs text-[var(--color-accent)] hover:underline"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {mainScents.map((scent) => (
+                <button
+                  key={scent.id}
+                  onClick={() => toggleScent(scent.id)}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition ${
+                    selectedScents.has(scent.id)
+                      ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                      : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                  }`}
+                >
+                  {scent.name}
+                </button>
+              ))}
+              {limitedScentIds.size > 0 && (
+                <button
+                  onClick={() => toggleScent("limited")}
+                  className={`px-3 py-1.5 text-sm rounded-full border transition italic ${
+                    selectedScents.has("limited")
+                      ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
+                      : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
+                  }`}
+                >
+                  Limited Scents
+                </button>
+              )}
+            </div>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {mainScents.map((scent) => (
-              <button
-                key={scent.id}
-                onClick={() => toggleScent(scent.id)}
-                className={`px-3 py-1.5 text-sm rounded-full border transition ${
-                  selectedScents.has(scent.id)
-                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                    : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-                }`}
-              >
-                {scent.name}
-              </button>
-            ))}
-            {limitedScentIds.size > 0 && (
-              <button
-                onClick={() => toggleScent("limited")}
-                className={`px-3 py-1.5 text-sm rounded-full border transition italic ${
-                  selectedScents.has("limited")
-                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                    : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-                }`}
-              >
-                Limited Scents
-              </button>
-            )}
-          </div>
-        </div>
+        )}
 
         {/* Reset all filters - Mobile */}
         {hasActiveFilters && (
@@ -679,47 +719,49 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                 </div>
 
                 {/* Scent Filter */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Scent</h3>
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
-                    {mainScents.map((scent) => (
-                      <label
-                        key={scent.id}
-                        className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition"
+                {categoryFilter !== "home_goods" && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Scent</h3>
+                    <div className="space-y-2 max-h-64 overflow-y-auto">
+                      {mainScents.map((scent) => (
+                        <label
+                          key={scent.id}
+                          className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedScents.has(scent.id)}
+                            onChange={() => toggleScent(scent.id)}
+                            className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
+                          />
+                          <span>{scent.name}</span>
+                        </label>
+                      ))}
+                      {/* Limited Scents option */}
+                      {limitedScentIds.size > 0 && (
+                        <label
+                          className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition border-t border-[var(--color-line)] pt-2 mt-2"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={selectedScents.has("limited")}
+                            onChange={() => toggleScent("limited")}
+                            className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
+                          />
+                          <span className="italic">Limited Scents</span>
+                        </label>
+                      )}
+                    </div>
+                    {selectedScents.size > 0 && (
+                      <button
+                        onClick={() => setSelectedScents(new Set())}
+                        className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
                       >
-                        <input
-                          type="checkbox"
-                          checked={selectedScents.has(scent.id)}
-                          onChange={() => toggleScent(scent.id)}
-                          className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
-                        />
-                        <span>{scent.name}</span>
-                      </label>
-                    ))}
-                    {/* Limited Scents option */}
-                    {limitedScentIds.size > 0 && (
-                      <label
-                        className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition border-t border-[var(--color-line)] pt-2 mt-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={selectedScents.has("limited")}
-                          onChange={() => toggleScent("limited")}
-                          className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
-                        />
-                        <span className="italic">Limited Scents</span>
-                      </label>
+                        Clear scent filters
+                      </button>
                     )}
                   </div>
-                  {selectedScents.size > 0 && (
-                    <button
-                      onClick={() => setSelectedScents(new Set())}
-                      className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
-                    >
-                      Clear scent filters
-                    </button>
-                  )}
-                </div>
+                )}
 
                 {/* Sort */}
                 <div>
@@ -766,6 +808,7 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
                           compact
                           variants={variants}
                           globalScents={globalScents}
+                          homeGoodsBottles={p.productType === "home_goods" ? homeGoodsBottles[p.slug] : undefined}
                         />
                       );
                     })}
@@ -779,10 +822,11 @@ export default function ShopClient({ products, globalScents, alcoholTypes }: Sho
               {/* Empty state */}
               {grouped.length === 0 && (
                 <div className="text-center py-12">
-                  <p className="text-[var(--color-muted)]">No candles match your filters.</p>
+                  <p className="text-[var(--color-muted)]">No products match your filters.</p>
                   <button
                     onClick={() => {
                       setFilterBy("all");
+                      setCategoryFilter("all");
                       setSortBy("name-asc");
                       setSearchQuery("");
                       setPriceMin(priceRange.min);

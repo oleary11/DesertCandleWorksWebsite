@@ -50,8 +50,23 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Check if product has variant config
-        if (!product.variantConfig || !product.variantConfig.wickTypes || product.variantConfig.wickTypes.length === 0) {
+        const isHomeGoods = product.productType === "home_goods";
+
+        // Check if product has enough configuration to build variations from
+        if (isHomeGoods) {
+          if (!product.bottleOptions || product.bottleOptions.length === 0) {
+            console.warn(`[Create All] ${product.slug}: Skipping - Home Goods listing has no bottle options`);
+            results.push({
+              productSlug: product.slug,
+              productName: product.name,
+              success: false,
+              skipped: true,
+              reason: "No bottle options configured",
+            });
+            skippedCount++;
+            continue;
+          }
+        } else if (!product.variantConfig || !product.variantConfig.wickTypes || product.variantConfig.wickTypes.length === 0) {
           console.warn(`[Create All] ${product.slug}: Skipping - no variant config (no wick types defined)`);
           results.push({
             productSlug: product.slug,
@@ -64,10 +79,10 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        // Get scents for this product
-        const productScents = await getScentsForProduct(product.slug);
+        // Get scents for this product (candles only)
+        const productScents = isHomeGoods ? [] : await getScentsForProduct(product.slug);
 
-        if (productScents.length === 0) {
+        if (!isHomeGoods && productScents.length === 0) {
           console.warn(`[Create All] ${product.slug}: Skipping - no scents available`);
           results.push({
             productSlug: product.slug,
@@ -80,17 +95,19 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        console.log(`[Create All] ${product.slug}: Creating with ${product.variantConfig.wickTypes.length} wick types × ${productScents.length} scents`);
-
         // Determine price
         let price = 0;
-        if (product.variantConfig.sizes && product.variantConfig.sizes.length > 0) {
+        if (isHomeGoods) {
+          price = product.price;
+        } else if (product.variantConfig!.sizes && product.variantConfig!.sizes.length > 0) {
           // Has sizes - use first size price
-          price = product.variantConfig.sizes[0].priceCents / 100;
+          price = product.variantConfig!.sizes[0].priceCents / 100;
         } else if (product.price && product.price > 0) {
           // Use base price (already in dollars)
           price = product.price;
-        } else {
+        }
+
+        if (!price || price <= 0) {
           console.error(`[Create All] ${product.slug}: No valid price found - cannot create`);
           results.push({
             productSlug: product.slug,
@@ -102,16 +119,31 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
+        console.log(
+          isHomeGoods
+            ? `[Create All] ${product.slug}: Creating with ${product.bottleOptions!.length} bottle options`
+            : `[Create All] ${product.slug}: Creating with ${product.variantConfig!.wickTypes.length} wick types × ${productScents.length} scents`
+        );
+
         // Call create-square-product endpoint
-        const createPayload = {
-          name: product.name,
-          price: price,
-          description: product.seoDescription,
-          sku: product.sku,
-          images: product.images,
-          variantConfig: product.variantConfig,
-          scents: productScents,
-        };
+        const createPayload = isHomeGoods
+          ? {
+              name: product.name,
+              price: price,
+              description: product.seoDescription,
+              sku: product.sku,
+              images: product.images,
+              bottleOptions: product.bottleOptions,
+            }
+          : {
+              name: product.name,
+              price: price,
+              description: product.seoDescription,
+              sku: product.sku,
+              images: product.images,
+              variantConfig: product.variantConfig,
+              scents: productScents,
+            };
 
         console.log(`[Create All] ${product.slug}: Creating Square product with price $${price}`);
 

@@ -32,6 +32,10 @@ export async function POST(req: NextRequest) {
   const data = (await req.json().catch(() => ({}))) as Partial<Product>;
   console.log("[API POST /api/admin/products] Received data:", JSON.stringify(data, null, 2));
 
+  const isHomeGoods = data.productType === "home_goods";
+
+  // For Home Goods, `price` is the listing's Default Price — each bottle
+  // option inherits it unless individually overridden, so it's still required.
   const required: (keyof Product)[] = ["slug", "name", "price", "sku"];
   for (const k of required) {
     if (data[k] == null || data[k] === "") {
@@ -50,21 +54,43 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  if (isHomeGoods && (!Array.isArray(data.bottleOptions) || data.bottleOptions.length === 0)) {
+    await logAdminAction({
+      action: "product.create",
+      adminEmail: session.email,
+      ip,
+      userAgent,
+      success: false,
+      details: { reason: "missing_bottleOptions", slug: data.slug },
+    });
+    return NextResponse.json({ error: "At least one bottle option is required" }, { status: 400 });
+  }
+
   const product: Product = {
     slug: String(data.slug),
     name: String(data.name),
-    price: Number(data.price),
+    price: Number(data.price ?? 0),
     image: data.image ? String(data.image) : undefined,
     images: data.images && Array.isArray(data.images) ? data.images : undefined,
     sku: String(data.sku),
     stripePriceId: data.stripePriceId ? String(data.stripePriceId) : undefined,
     squareCatalogId: data.squareCatalogId ? String(data.squareCatalogId) : undefined,
     squareVariantMapping: data.squareVariantMapping ?? undefined,
-    seoDescription: data.seoDescription ? String(data.seoDescription) : `Hand-poured candle in an upcycled bottle.`,
+    seoDescription: data.seoDescription
+      ? String(data.seoDescription)
+      : isHomeGoods
+        ? ""
+        : `Hand-poured candle in an upcycled bottle.`,
     bestSeller: coerceBool(data.bestSeller),
     youngDumb: coerceBool(data.youngDumb),
     stock: Math.max(0, Number(data.stock ?? 0)),
-    variantConfig: data.variantConfig,
+    // Home Goods has no wick/scent/size variants — never persist a candle-only
+    // config for it, or the storefront will try to render a wick/scent picker.
+    variantConfig: isHomeGoods ? undefined : data.variantConfig,
+    productType: isHomeGoods ? "home_goods" : "candle",
+    bottleOptions: isHomeGoods ? data.bottleOptions : undefined,
+    requiresUncut: isHomeGoods ? coerceBool(data.requiresUncut) : undefined,
+    requiresUnpoured: isHomeGoods ? (data.requiresUnpoured === undefined ? true : coerceBool(data.requiresUnpoured)) : undefined,
     alcoholType: data.alcoholType ?? undefined,
     materialCost: data.materialCost !== undefined ? Number(data.materialCost) : undefined,
     visibleOnWebsite: data.visibleOnWebsite !== undefined ? coerceBool(data.visibleOnWebsite) : true,

@@ -28,6 +28,12 @@ type Scent = {
   name: string;
 };
 
+type BottleOption = {
+  bottleId: string;
+  bottleName: string;
+  priceCents?: number; // falls back to the listing's base price when absent
+};
+
 type RequestBody = {
   name: string;
   price: number; // Price in dollars
@@ -36,6 +42,7 @@ type RequestBody = {
   images?: string[];
   variantConfig?: VariantConfig;
   scents?: Scent[]; // Global scents for this product
+  bottleOptions?: BottleOption[]; // Home Goods only: one variation per bottle choice
 };
 
 // --- Type helpers to avoid `any` and properly narrow the Square union types ---
@@ -66,7 +73,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { name, price, description, sku, images, variantConfig, scents } = body;
+    const { name, price, description, sku, images, variantConfig, scents, bottleOptions } = body;
 
     // Validate required fields
     if (!name || price === undefined || price <= 0) {
@@ -95,8 +102,33 @@ export async function POST(req: NextRequest) {
     // Build variations array
     const variations: CatalogObject[] = [];
     const hasSizes = variantConfig?.sizes && variantConfig.sizes.length > 0;
+    const hasBottleOptions = bottleOptions && bottleOptions.length > 0;
 
-    if (variantConfig && scents && scents.length > 0) {
+    if (hasBottleOptions) {
+      // Home Goods: one variation per bottle choice, each with its own price
+      // (falls back to the listing's base price when a bottle has no override).
+      for (const opt of bottleOptions!) {
+        const bottleCode = opt.bottleId.substring(0, 20).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        const variantSku = sku ? `${sku}-${bottleCode}` : undefined;
+
+        variations.push(
+          {
+            type: "ITEM_VARIATION",
+            id: `#var_${slug}_${opt.bottleId}`,
+            itemVariationData: {
+              itemId: itemTempId,
+              name: opt.bottleName,
+              pricingType: "FIXED_PRICING",
+              priceMoney: {
+                amount: BigInt(opt.priceCents ?? priceInCents),
+                currency: "USD",
+              },
+              sku: variantSku,
+            },
+          } satisfies CatalogObject
+        );
+      }
+    } else if (variantConfig && scents && scents.length > 0) {
       if (hasSizes) {
         // Create a variation for each size × wick type × scent combination
         for (const size of variantConfig.sizes!) {
@@ -244,7 +276,18 @@ export async function POST(req: NextRequest) {
     // Build variant mapping for response using idMappings
     // Square returns variations in idMappings, not in objects array
     const variantMapping: Record<string, string> = {};
-    if (variantConfig && scents && idMappings.length > 0) {
+    if (hasBottleOptions && idMappings.length > 0) {
+      for (const opt of bottleOptions!) {
+        const clientObjectId = `#var_${slug}_${opt.bottleId}`;
+        const mapping = idMappings.find((m) => m.clientObjectId === clientObjectId);
+        if (mapping?.objectId) {
+          variantMapping[opt.bottleId] = mapping.objectId;
+          console.log(`[Create Square Product] Mapped bottle ${opt.bottleId} -> ${mapping.objectId}`);
+        } else {
+          console.warn(`[Create Square Product] No mapping found for ${clientObjectId}`);
+        }
+      }
+    } else if (variantConfig && scents && idMappings.length > 0) {
       let variationIndex = 0;
 
       // Build the mapping using idMappings
