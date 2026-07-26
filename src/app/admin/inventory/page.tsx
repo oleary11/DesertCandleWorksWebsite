@@ -40,6 +40,15 @@ type AlcoholType = { id: string; name: string; sortOrder?: number };
 
 type UnmatchedCandle = { slug: string; name: string };
 
+const DEFAULT_SEARCH_TEMPLATE = "[name] bottle white background";
+const SEARCH_TEMPLATE_STORAGE_KEY = "dcw-bottle-image-search-template";
+
+function buildSearchQuery(template: string, bottleName: string): string {
+  return template.includes("[name]")
+    ? template.replace(/\[name\]/g, bottleName)
+    : `${bottleName} ${template}`;
+}
+
 type SortKey = "name" | "qtyUncut" | "qtyCutUnpolished" | "qtyCutPolished" | "qtyCutPoured";
 type StatusFilter = "all" | "active" | "archived";
 
@@ -157,6 +166,20 @@ export default function BottleInventoryAdminPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const uploadTargetIdRef = useRef<string | null>(null);
+
+  // default query template used to pre-fill the image search modal (persisted locally)
+  const [searchTemplate, setSearchTemplate] = useState(DEFAULT_SEARCH_TEMPLATE);
+  const [showSearchSettings, setShowSearchSettings] = useState(false);
+
+  useEffect(() => {
+    const saved = window.localStorage.getItem(SEARCH_TEMPLATE_STORAGE_KEY);
+    if (saved) setSearchTemplate(saved);
+  }, []);
+
+  function updateSearchTemplate(value: string) {
+    setSearchTemplate(value);
+    window.localStorage.setItem(SEARCH_TEMPLATE_STORAGE_KEY, value);
+  }
 
   // per-row "search for an image online" modal
   const [imageSearchTarget, setImageSearchTarget] = useState<{ id: string; name: string } | null>(null);
@@ -323,7 +346,7 @@ export default function BottleInventoryAdminPage() {
   }
 
   function openImageSearch(bottle: BottleInventoryItem) {
-    const query = `${bottle.name} bottle white background`;
+    const query = buildSearchQuery(searchTemplate, bottle.name);
     setImageSearchTarget({ id: bottle.id, name: bottle.name });
     setImageSearchQuery(query);
     setImageSearchResults([]);
@@ -557,6 +580,44 @@ export default function BottleInventoryAdminPage() {
             <button className="btn btn-primary" onClick={createBottle}>
               <Plus className="w-4 h-4 mr-1" /> Add bottle
             </button>
+          </div>
+        )}
+      </div>
+
+      {/* Default image search query (collapsible) */}
+      <div className="card p-4 space-y-3">
+        <button
+          type="button"
+          className="flex items-center justify-between w-full text-left"
+          onClick={() => setShowSearchSettings((v) => !v)}
+        >
+          <h2 className="text-base font-medium">Default image search</h2>
+          {showSearchSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </button>
+        {showSearchSettings && (
+          <div className="space-y-2">
+            <input
+              className="input"
+              value={searchTemplate}
+              onChange={(e) => updateSearchTemplate(e.target.value)}
+              placeholder={DEFAULT_SEARCH_TEMPLATE}
+            />
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-[var(--color-muted)]">
+                Used to pre-fill the search box when you click the search icon on a bottle. Use{" "}
+                <code className="px-1 rounded bg-neutral-100">[name]</code> as a placeholder for the bottle name
+                (e.g. &quot;{DEFAULT_SEARCH_TEMPLATE}&quot;). Still editable per-search in the search modal itself.
+              </p>
+              {searchTemplate !== DEFAULT_SEARCH_TEMPLATE && (
+                <button
+                  type="button"
+                  className="text-xs text-[var(--color-accent)] hover:underline shrink-0"
+                  onClick={() => updateSearchTemplate(DEFAULT_SEARCH_TEMPLATE)}
+                >
+                  Reset to default
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>
