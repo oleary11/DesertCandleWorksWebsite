@@ -43,6 +43,7 @@ type RequestBody = {
   variantConfig?: VariantConfig;
   scents?: Scent[]; // Global scents for this product
   bottleOptions?: BottleOption[]; // Home Goods only: one variation per bottle choice
+  replaceCatalogItemId?: string; // delete this superseded item after replacement succeeds
 };
 
 // --- Type helpers to avoid `any` and properly narrow the Square union types ---
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { name, price, description, sku, images, variantConfig, scents, bottleOptions } = body;
+    const { name, price, description, sku, images, variantConfig, scents, bottleOptions, replaceCatalogItemId } = body;
 
     // Validate required fields
     if (!name || price === undefined || price <= 0) {
@@ -446,12 +447,22 @@ export async function POST(req: NextRequest) {
       console.log(`[Create Square Product] Successfully uploaded ${createdImageIds.length} images`);
     }
 
+    let replacedCatalogItemDeleted = false;
+    if (replaceCatalogItemId && replaceCatalogItemId !== createdItem.id) {
+      try {
+        await client.catalog.batchDelete({ objectIds: [replaceCatalogItemId] });
+        replacedCatalogItemDeleted = true;
+      } catch (deleteError) {
+        console.warn(`[Create Square Product] Replacement succeeded but old item ${replaceCatalogItemId} could not be deleted:`, deleteError);
+      }
+    }
     return NextResponse.json({
       success: true,
       catalogItemId: createdItem.id,
       variationCount: createdVariations.length,
       variantMapping, // Maps website variantKey (e.g., "standard-vanilla") to Square variation ID
       imageCount: createdImageIds.length,
+      replacedCatalogItemDeleted,
       price: priceInCents,
       message: `Square catalog item created successfully with ${createdVariations.length} variations and ${createdImageIds.length} images`,
     });

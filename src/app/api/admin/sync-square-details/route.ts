@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import sharp from "sharp";
+import { db } from "@/lib/db/client";
+import { bottleInventory } from "@/lib/db/schema";
+import { inArray } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -55,6 +58,17 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
+    const homeGoodsBottleIds = Array.from(new Set(
+      productsToSync
+        .filter((product) => product.productType === "home_goods")
+        .flatMap((product) => product.bottleOptions?.map((option) => option.bottleId) || []),
+    ));
+    const bottleRows = homeGoodsBottleIds.length
+      ? await db.select({ id: bottleInventory.id, imageUrl: bottleInventory.imageUrl })
+          .from(bottleInventory)
+          .where(inArray(bottleInventory.id, homeGoodsBottleIds))
+      : [];
+    const bottleImageById = new Map(bottleRows.map((bottle) => [bottle.id, bottle.imageUrl]));
     const total = productsToSync.length;
     // Apply pagination slice when offset/limit are provided
     const batch = limit !== undefined ? productsToSync.slice(offset, offset + limit) : productsToSync.slice(offset);
@@ -122,12 +136,21 @@ export async function POST(req: NextRequest) {
         let imagesUploaded = 0;
 
         if (!skipImages) {
-          // Build the image list from images array or fall back to single image
-          const imageUrls: string[] = product.images?.length
+          // Home Goods images come from the selected bottle inventory records.
+          // Candle images continue to come from the product itself.
+          const productImageUrls: string[] = product.images?.length
             ? product.images
             : product.image ? [product.image] : [];
+          const bottleImageUrls = product.productType === "home_goods"
+            ? (product.bottleOptions || [])
+                .map((option) => bottleImageById.get(option.bottleId))
+                .filter((url): url is string => Boolean(url))
+            : [];
+          const imageUrls = Array.from(new Set(
+            product.productType === "home_goods" ? bottleImageUrls : productImageUrls,
+          ));
 
-          for (let i = 0; i < Math.min(imageUrls.length, 5); i++) {
+          for (let i = 0; i < Math.min(imageUrls.length, 100); i++) {
             const imageUrl = imageUrls[i];
 
             // Resolve relative paths (e.g. /images/xxx.png) to absolute URLs

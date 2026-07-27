@@ -782,6 +782,82 @@ function HomeGoodsSquareSection(props: {
 }) {
   const { editing, setEditing, showAlert, showConfirm, setSaving, setSavingLabel, load } = props;
 
+  async function createStripeProduct() {
+    if (!editing.name.trim()) {
+      await showAlert("Please enter a product name first", "Missing Information");
+      return;
+    }
+    if (!editing.price || editing.price <= 0) {
+      await showAlert("Please enter a valid default price first", "Missing Information");
+      return;
+    }
+    if (!editing.bottleOptions || editing.bottleOptions.length === 0) {
+      await showAlert("Select at least one bottle option first", "Missing Information");
+      return;
+    }
+
+    try {
+      setSavingLabel("Creating Stripe product and bottle prices…");
+      setSaving(true);
+      const stripeImages = editing.images?.length
+        ? editing.images
+        : editing.image ? [editing.image] : [];
+      const res = await fetch("/api/admin/create-stripe-product", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: editing.name,
+          price: editing.price,
+          description: editing.seoDescription,
+          images: stripeImages,
+          bottleOptions: editing.bottleOptions,
+        }),
+      });
+      const data = (await res.json()) as {
+        productId?: string;
+        priceId?: string;
+        priceMapping?: Record<string, string>;
+        priceCount?: number;
+        error?: string;
+        details?: string;
+      };
+      if (!res.ok || !data.priceId) {
+        throw new Error(data.details || data.error || "Failed to create Stripe product");
+      }
+
+      const bottleOptions = editing.bottleOptions.map((option) => ({
+        ...option,
+        stripePriceId: data.priceMapping?.[option.bottleId] || option.stripePriceId,
+      }));
+      const updated = { ...editing, stripePriceId: data.priceId, bottleOptions };
+      setEditing(updated);
+
+      const saveRes = await fetch(`/api/admin/products/${editing.slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stripePriceId: data.priceId, bottleOptions }),
+      });
+      if (!saveRes.ok) {
+        const saveError = (await saveRes.json()) as { error?: string };
+        await showAlert(
+          `Stripe product created but failed to save to the website: ${saveError.error || "Unknown error"}`,
+          "Warning",
+        );
+        return;
+      }
+
+      await load();
+      await showAlert(
+        `Stripe product created and saved successfully!\n\nProduct ID: ${data.productId}\nBottle prices: ${data.priceCount || bottleOptions.length}`,
+        "Success",
+      );
+    } catch (err) {
+      await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
   async function createSquareProduct() {
     if (!editing.name.trim()) {
       await showAlert("Please enter a product name first", "Missing Information");
@@ -814,6 +890,7 @@ function HomeGoodsSquareSection(props: {
           sku: editing.sku,
           images: squareImages,
           bottleOptions: editing.bottleOptions,
+          replaceCatalogItemId: editing.squareCatalogId || undefined,
         }),
       });
 
@@ -861,7 +938,7 @@ function HomeGoodsSquareSection(props: {
       setSaving(false);
       await showAlert(
         `Square catalog item ${wasRecreate ? "re-created" : "created"} and saved successfully!\n\nCatalog Item ID: ${data.catalogItemId}\nVariations: ${data.variationCount}\nImages: ${data.imageCount}` +
-          (wasRecreate ? "\n\nThe old Square item (if any) remains in your catalog and should be manually deleted." : ""),
+          (wasRecreate ? "\n\nThe previous Square item was replaced automatically." : ""),
         "Success"
       );
     } catch (err) {
@@ -917,7 +994,7 @@ function HomeGoodsSquareSection(props: {
 
   async function recreateWithCurrentBottles() {
     const confirmed = await showConfirm(
-      `This will re-create "${editing.name}" on Square with the current bottle list (including any bottles added or removed since it was last synced). The old Square item will remain in your catalog. Continue?`,
+      `This will re-create "${editing.name}" on Square with the current bottle list (including any bottles added or removed since it was last synced). The existing Square item will be replaced. Continue?`,
       "Re-create Square Item"
     );
     if (!confirmed) return;
@@ -926,6 +1003,33 @@ function HomeGoodsSquareSection(props: {
 
   return (
     <div className="mb-8">
+      <div className="mb-8">
+        <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4">Stripe (Online)</h3>
+        <label className="block">
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-xs">Stripe Price ID</span>
+            {!editing.stripePriceId && (
+              <button
+                type="button"
+                className="text-xs text-green-600 hover:text-green-700 font-medium"
+                onClick={createStripeProduct}
+              >
+                Create Stripe Product
+              </button>
+            )}
+          </div>
+          <input
+            className="input"
+            value={editing.stripePriceId || ""}
+            onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
+            placeholder="Click 'Create Stripe Product' or paste manually"
+          />
+        </label>
+        <p className="mt-1 text-xs text-[var(--color-muted)]">
+          Creates one Stripe product with a separate price for every selected bottle option.
+        </p>
+      </div>
+
       <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
         <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -995,6 +1099,7 @@ export default function AdminProductsPage() {
   const [savingLabel, setSavingLabel] = useState<string>("Working…");
   const [imageSyncProgress, setImageSyncProgress] = useState<{ current: number; total: number } | null>(null);
   const [squareSyncOpen, setSquareSyncOpen] = useState(false);
+  const [stripeSyncOpen, setStripeSyncOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1905,15 +2010,74 @@ export default function AdminProductsPage() {
               </div>
             )}
           </div>
-          <Link
-            href="/admin/stripe-product-sync"
-            className="btn !text-[var(--color-ink)] flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-            </svg>
-            Sync Images to Stripe
-          </Link>
+          <div className="relative">
+            <button
+              className="btn flex items-center gap-1"
+              disabled={saving}
+              onClick={() => setStripeSyncOpen((open) => !open)}
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {saving ? "Syncing..." : "Stripe Sync"}
+              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </button>
+            {stripeSyncOpen && (
+              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-56">
+                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Stripe Sync</p>
+                <button
+                  className="btn !bg-green-50 !text-green-800 hover:!bg-green-100 w-full text-sm flex items-center gap-2"
+                  disabled={saving}
+                  onClick={async () => {
+                    setStripeSyncOpen(false);
+                    const homeGoods = merged.filter((product) =>
+                      product.productType === "home_goods" && product.stripePriceId && product.bottleOptions?.length,
+                    );
+                    if (homeGoods.length === 0) {
+                      await showAlert("No Home Goods products are connected to Stripe yet.", "Info");
+                      return;
+                    }
+                    const confirmed = await showConfirm(
+                      `Sync prices and bottle variations for ${homeGoods.length} Home Goods Stripe products? Changed prices will receive new Stripe Price IDs.`,
+                      "Sync Stripe Prices",
+                    );
+                    if (!confirmed) return;
+                    setSavingLabel("Syncing Stripe prices and variations…");
+                    setSaving(true);
+                    try {
+                      const res = await fetch("/api/admin/sync-stripe-home-goods", { method: "POST" });
+                      const data = (await res.json()) as {
+                        synced?: number;
+                        failed?: number;
+                        pricesCreated?: number;
+                        pricesDeactivated?: number;
+                        error?: string;
+                      };
+                      if (!res.ok) throw new Error(data.error || "Stripe sync failed");
+                      await load();
+                      await showAlert(
+                        `Stripe sync complete!\n\nProducts: ${data.synced || 0} synced, ${data.failed || 0} failed\nNew prices: ${data.pricesCreated || 0}\nOld prices deactivated: ${data.pricesDeactivated || 0}`,
+                        "Sync Complete",
+                      );
+                    } catch (error) {
+                      await showAlert(error instanceof Error ? error.message : "Stripe sync failed", "Error");
+                    } finally {
+                      setSaving(false);
+                    }
+                  }}
+                >
+                  Sync Prices + Variations
+                </button>
+                <Link
+                  href="/admin/stripe-product-sync"
+                  className="btn !bg-blue-50 !text-blue-800 hover:!bg-blue-100 w-full text-sm flex items-center gap-2"
+                  onClick={() => setStripeSyncOpen(false)}
+                >
+                  Sync Images
+                </Link>
+              </div>
+            )}
+          </div>
           <div className="relative">
             <button
               className="btn flex items-center gap-1"
@@ -3345,6 +3509,7 @@ export default function AdminProductsPage() {
                                     description: editing.seoDescription,
                                     sku: editing.sku,
                                     images: squareImages,
+                                    replaceCatalogItemId: editing.squareCatalogId || undefined,
                                     variantConfig: editing.variantConfig,
                                     scents: productScents.map((s) => ({ id: s.id, name: s.name })),
                                   }),
@@ -3458,6 +3623,7 @@ export default function AdminProductsPage() {
                                     description: editing.seoDescription,
                                     sku: editing.sku,
                                     images: squareImages,
+                                    replaceCatalogItemId: editing.squareCatalogId || undefined,
                                     variantConfig: editing.variantConfig,
                                     scents: productScents.map((s) => ({ id: s.id, name: s.name })),
                                   }),

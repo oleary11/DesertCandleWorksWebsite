@@ -8,6 +8,7 @@ type RequestBody = {
   price: number; // Price in dollars
   description?: string;
   images?: string[]; // Array of image URLs
+  bottleOptions?: Array<{ bottleId: string; bottleName: string; priceCents?: number }>;
 };
 
 export async function POST(req: NextRequest) {
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
     const stripe = new Stripe(key, { apiVersion: "2025-09-30.clover" });
 
     const body: RequestBody = await req.json();
-    const { name, price, description, images } = body;
+    const { name, price, description, images, bottleOptions } = body;
 
     // Validate required fields
     if (!name || price === undefined || price <= 0) {
@@ -52,24 +53,49 @@ export async function POST(req: NextRequest) {
 
     console.log("[Create Stripe Product] Product created:", stripeProduct.id);
 
-    // Step 2: Create a one-time price for this product
-    const stripePrice = await stripe.prices.create({
-      product: stripeProduct.id,
-      unit_amount: priceInCents,
-      currency: "usd",
-      metadata: {
-        productName: name,
-      },
-    });
+    // Home Goods uses one price per bottle choice. Standard products keep one base price.
+    const priceMapping: Record<string, string> = {};
+    let defaultPriceId: string;
 
-    console.log("[Create Stripe Product] Price created:", stripePrice.id);
+    if (bottleOptions?.length) {
+      for (const option of bottleOptions) {
+        const optionPrice = option.priceCents && option.priceCents > 0 ? option.priceCents : priceInCents;
+        const stripePrice = await stripe.prices.create({
+          product: stripeProduct.id,
+          unit_amount: optionPrice,
+          currency: "usd",
+          nickname: option.bottleName,
+          metadata: {
+            productName: name,
+            bottleId: option.bottleId,
+            bottleName: option.bottleName,
+          },
+        });
+        priceMapping[option.bottleId] = stripePrice.id;
+      }
+      defaultPriceId = priceMapping[bottleOptions[0].bottleId];
+    } else {
+      const stripePrice = await stripe.prices.create({
+        product: stripeProduct.id,
+        unit_amount: priceInCents,
+        currency: "usd",
+        metadata: {
+          productName: name,
+        },
+      });
+      defaultPriceId = stripePrice.id;
+    }
+
+    console.log("[Create Stripe Product] Prices created:", bottleOptions?.length || 1);
 
     return NextResponse.json({
       success: true,
       productId: stripeProduct.id,
-      priceId: stripePrice.id,
+      priceId: defaultPriceId,
+      priceMapping,
       price: priceInCents,
-      message: "Stripe product and price created successfully",
+      priceCount: bottleOptions?.length || 1,
+      message: "Stripe product and prices created successfully",
     });
   } catch (error) {
     console.error("[Create Stripe Product] Error:", error);
