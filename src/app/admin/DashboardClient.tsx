@@ -94,6 +94,14 @@ function resolveCards(layout: LayoutData): { large: CardDef[]; small: CardDef[] 
   };
 }
 
+function normalizeLayout(layout: LayoutData): LayoutData {
+  const resolved = resolveCards(layout);
+  return {
+    large: resolved.large.map((card) => card.id),
+    small: resolved.small.map((card) => card.id),
+  };
+}
+
 /* ---------- Draggable section grid ---------- */
 function CardGrid({
   cards,
@@ -217,7 +225,7 @@ function CardGrid({
 
 /* ---------- Client component ---------- */
 export default function DashboardClient({ initialLayout }: { initialLayout?: LayoutData | null }) {
-  const defaultLayout = initialLayout ?? getDefaultLayout();
+  const defaultLayout = normalizeLayout(initialLayout ?? getDefaultLayout());
   const [layout, setLayout] = useState<LayoutData>(defaultLayout);
   const [preEditLayout, setPreEditLayout] = useState<LayoutData>(defaultLayout);
   const [editMode, setEditMode] = useState(false);

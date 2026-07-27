@@ -1678,7 +1678,7 @@ export default function CalculatorPage() {
                           <label className="flex items-center gap-2">
                             <span className="text-sm text-[var(--color-muted)] whitespace-nowrap">Water oz</span>
                             <input
-                              className="input !w-24 text-sm"
+                              className="input !w-24 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               type="number"
                               min="0"
                               step="0.01"

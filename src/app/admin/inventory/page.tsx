@@ -607,7 +607,7 @@ export default function BottleInventoryAdminPage() {
               <label className="space-y-1">
                 <span className="block text-xs text-center text-[var(--color-muted)]">Water Capacity (oz)</span>
                 <input
-                  className="input text-center !h-7 !py-0"
+                  className="input text-center !h-7 !py-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   type="number"
                   min="0"
                   step="0.1"
@@ -808,7 +808,7 @@ export default function BottleInventoryAdminPage() {
                       </td>
                       <td className="py-2 px-3">
                         <input
-                          className="input text-center tabular-nums !h-7 !py-0 !px-1 w-20"
+                          className="input text-center tabular-nums !h-7 !py-0 !px-1 w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           type="number"
                           min="0"
                           step="0.1"
