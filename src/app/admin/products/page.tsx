@@ -839,6 +839,7 @@ function HomeGoodsSquareSection(props: {
       });
       if (!saveRes.ok) {
         const saveError = (await saveRes.json()) as { error?: string };
+        setSaving(false);
         await showAlert(
           `Stripe product created but failed to save to the website: ${saveError.error || "Unknown error"}`,
           "Warning",
@@ -847,11 +848,13 @@ function HomeGoodsSquareSection(props: {
       }
 
       await load();
+      setSaving(false);
       await showAlert(
         `Stripe product created and saved successfully!\n\nProduct ID: ${data.productId}\nBottle prices: ${data.priceCount || bottleOptions.length}`,
         "Success",
       );
     } catch (err) {
+      setSaving(false);
       await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
     } finally {
       setSaving(false);
@@ -2299,44 +2302,76 @@ export default function AdminProductsPage() {
               );
               if (!confirmed) return;
 
-              const BATCH_SIZE = 5;
+              const IMAGE_CHUNK_SIZE = 5;
+              const bottleImageMap = new Map(bottleInventory.map((bottle) => [bottle.id, bottle.imageUrl]));
+              const imageJobs = merged
+                .filter((product) => product.squareCatalogId)
+                .map((product) => {
+                  const urls = product.productType === "home_goods"
+                    ? (product.bottleOptions || [])
+                        .map((option) => bottleImageMap.get(option.bottleId))
+                        .filter((url): url is string => Boolean(url))
+                    : product.images?.length ? product.images : product.image ? [product.image] : [];
+                  return { slug: product.slug, imageCount: new Set(urls).size, isHomeGoods: product.productType === "home_goods" };
+                })
+                .filter((job) => job.imageCount > 0);
+              const totalToProcess = imageJobs.reduce((sum, job) => sum + job.imageCount, 0);
+
               setSavingLabel("Syncing images to Square…");
               setSaving(true);
-              setImageSyncProgress({ current: 0, total: 0 });
+              setImageSyncProgress({ current: 0, total: totalToProcess });
               let totalImages = 0;
               let totalErrors = 0;
+              let processedImages = 0;
 
               try {
-                let offset = 0;
-                let total = Infinity;
+                for (const job of imageJobs) {
+                  for (let imageOffset = 0; imageOffset < job.imageCount; imageOffset += IMAGE_CHUNK_SIZE) {
+                    const res = await fetch(
+                      job.isHomeGoods
+                        ? "/api/admin/sync-square-home-goods-images"
+                        : "/api/admin/sync-square-details",
+                      {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify(
+                          job.isHomeGoods
+                            ? { productSlug: job.slug, offset: imageOffset, limit: IMAGE_CHUNK_SIZE }
+                            : {
+                                productSlug: job.slug,
+                                imagesOnly: true,
+                                imageOffset,
+                                imageLimit: IMAGE_CHUNK_SIZE,
+                              },
+                        ),
+                      },
+                    );
 
-                while (offset < total) {
-                  const res = await fetch("/api/admin/sync-square-details", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ imagesOnly: true, offset, limit: BATCH_SIZE }),
-                  });
+                    if (!res.ok) {
+                      const text = await res.text();
+                      throw new Error(`Image batch failed for ${job.slug} (${res.status}): ${text.slice(0, 100)}`);
+                    }
 
-                  if (!res.ok) {
-                    const text = await res.text();
-                    throw new Error(`Batch failed (${res.status}): ${text.slice(0, 100)}`);
+                    const data = (await res.json()) as {
+                      totalImagesUploaded?: number;
+                      errorCount?: number;
+                      results?: Array<{ imageErrors?: number; imagesProcessed?: number }>;
+                      uploaded?: number;
+                      failed?: number;
+                      processed?: number;
+                    };
+                    const result = data.results?.[0];
+                    totalImages += job.isHomeGoods ? (data.uploaded ?? 0) : (data.totalImagesUploaded ?? 0);
+                    totalErrors += job.isHomeGoods
+                      ? (data.failed ?? 0)
+                      : (data.errorCount ?? 0) + (result?.imageErrors ?? 0);
+                    processedImages += job.isHomeGoods
+                      ? (data.processed ?? 0)
+                      : result?.imagesProcessed ?? Math.min(IMAGE_CHUNK_SIZE, job.imageCount - imageOffset);
+                    setImageSyncProgress({ current: processedImages, total: totalToProcess });
                   }
-
-                  const data = (await res.json()) as {
-                    total: number;
-                    offset: number;
-                    successCount: number;
-                    errorCount: number;
-                    totalImagesUploaded: number;
-                  };
-
-                  total = data.total;
-                  totalImages += data.totalImagesUploaded ?? 0;
-                  totalErrors += data.errorCount ?? 0;
-                  offset += BATCH_SIZE;
-
-                  setImageSyncProgress({ current: Math.min(offset, total), total });
                 }
+                const total = imageJobs.length;
 
                 // Dismiss overlay before showing modal so user can see it
                 setSaving(false);

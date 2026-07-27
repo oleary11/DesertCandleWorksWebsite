@@ -2,9 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import sharp from "sharp";
-import { db } from "@/lib/db/client";
-import { bottleInventory } from "@/lib/db/schema";
-import { inArray } from "drizzle-orm";
 
 export const runtime = "nodejs";
 
@@ -13,7 +10,9 @@ type RequestBody = {
   skipImages?: boolean; // If true, only sync name/description (faster for bulk)
   imagesOnly?: boolean; // If true, skip metadata update — only upload images (for batch image sync)
   offset?: number;      // Batch start index (for paginated image sync)
-  limit?: number;       // Batch size (for paginated image sync)
+  limit?: number;       // Batch size (for paginated product sync)
+  imageOffset?: number; // First image for a chunked single-product upload
+  imageLimit?: number;  // Images per chunk
 };
 
 /**
@@ -43,7 +42,7 @@ export async function POST(req: NextRequest) {
     });
 
     const body: RequestBody = await req.json();
-    const { productSlug, skipImages = false, imagesOnly = false, offset = 0, limit } = body;
+    const { productSlug, skipImages = false, imagesOnly = false, offset = 0, limit, imageOffset = 0, imageLimit } = body;
 
     const allProducts = await listResolvedProducts();
     const productsToSync = productSlug
@@ -58,17 +57,6 @@ export async function POST(req: NextRequest) {
       }, { status: 404 });
     }
 
-    const homeGoodsBottleIds = Array.from(new Set(
-      productsToSync
-        .filter((product) => product.productType === "home_goods")
-        .flatMap((product) => product.bottleOptions?.map((option) => option.bottleId) || []),
-    ));
-    const bottleRows = homeGoodsBottleIds.length
-      ? await db.select({ id: bottleInventory.id, imageUrl: bottleInventory.imageUrl })
-          .from(bottleInventory)
-          .where(inArray(bottleInventory.id, homeGoodsBottleIds))
-      : [];
-    const bottleImageById = new Map(bottleRows.map((bottle) => [bottle.id, bottle.imageUrl]));
     const total = productsToSync.length;
     // Apply pagination slice when offset/limit are provided
     const batch = limit !== undefined ? productsToSync.slice(offset, offset + limit) : productsToSync.slice(offset);
@@ -134,6 +122,9 @@ export async function POST(req: NextRequest) {
         }
 
         let imagesUploaded = 0;
+        let imageErrors = 0;
+        let imagesProcessed = 0;
+        let availableImageCount = 0;
 
         if (!skipImages) {
           // Home Goods images come from the selected bottle inventory records.
@@ -141,17 +132,31 @@ export async function POST(req: NextRequest) {
           const productImageUrls: string[] = product.images?.length
             ? product.images
             : product.image ? [product.image] : [];
-          const bottleImageUrls = product.productType === "home_goods"
-            ? (product.bottleOptions || [])
-                .map((option) => bottleImageById.get(option.bottleId))
-                .filter((url): url is string => Boolean(url))
-            : [];
-          const imageUrls = Array.from(new Set(
-            product.productType === "home_goods" ? bottleImageUrls : productImageUrls,
-          ));
+                    const imageUrls = Array.from(new Set(productImageUrls));
 
-          for (let i = 0; i < Math.min(imageUrls.length, 100); i++) {
-            const imageUrl = imageUrls[i];
+          availableImageCount = imageUrls.length;
+          let existingSquareImageCount = 0;
+          if (imagesOnly) {
+            const currentItem = await client.catalog.object.get({
+              objectId: product.squareCatalogId!,
+              includeRelatedObjects: false,
+            });
+            existingSquareImageCount = currentItem.object?.type === "ITEM"
+              ? currentItem.object.itemData?.imageIds?.length || 0
+              : 0;
+          }
+          const requestedEnd = imageLimit === undefined
+            ? imageUrls.length
+            : Math.min(imageUrls.length, imageOffset + imageLimit);
+          const uploadStart = Math.max(imageOffset, existingSquareImageCount);
+          const imageChunk = uploadStart < requestedEnd
+            ? imageUrls.slice(uploadStart, requestedEnd)
+            : [];
+          imagesProcessed = Math.max(0, requestedEnd - imageOffset);
+
+          for (let chunkIndex = 0; chunkIndex < imageChunk.length; chunkIndex++) {
+            const i = uploadStart + chunkIndex;
+            const imageUrl = imageChunk[chunkIndex];
 
             // Resolve relative paths (e.g. /images/xxx.png) to absolute URLs
             const resolvedUrl = imageUrl.startsWith("/") ? `${baseWebUrl}${imageUrl}` : imageUrl;
@@ -215,9 +220,11 @@ export async function POST(req: NextRequest) {
                 totalImagesUploaded++;
                 console.log(`[Sync Square Details] ${product.slug}: Uploaded image ${i} -> ${uploadResult.image.id}`);
               } else {
-                console.error(`[Sync Square Details] ${product.slug}: Image ${i} upload failed:`, uploadResult.errors);
+                imageErrors++;
+              console.error(`[Sync Square Details] ${product.slug}: Image ${i} upload failed:`, uploadResult.errors);
               }
             } catch (imgErr) {
+              imageErrors++;
               console.error(`[Sync Square Details] ${product.slug}: Image ${i} error:`, imgErr);
             }
           }
@@ -228,6 +235,9 @@ export async function POST(req: NextRequest) {
           productName: product.name,
           success: true,
           imagesUploaded,
+          imageErrors,
+          imagesProcessed,
+          availableImageCount,
         });
         successCount++;
       } catch (err) {
