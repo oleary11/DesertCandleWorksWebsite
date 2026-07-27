@@ -2058,11 +2058,13 @@ export default function AdminProductsPage() {
                       };
                       if (!res.ok) throw new Error(data.error || "Stripe sync failed");
                       await load();
+                      setSaving(false);
                       await showAlert(
                         `Stripe sync complete!\n\nProducts: ${data.synced || 0} synced, ${data.failed || 0} failed\nNew prices: ${data.pricesCreated || 0}\nOld prices deactivated: ${data.pricesDeactivated || 0}`,
                         "Sync Complete",
                       );
                     } catch (error) {
+                      setSaving(false);
                       await showAlert(error instanceof Error ? error.message : "Stripe sync failed", "Error");
                     } finally {
                       setSaving(false);
