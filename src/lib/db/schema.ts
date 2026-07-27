@@ -11,6 +11,7 @@ import {
   varchar,
   text,
   integer,
+  doublePrecision,
   boolean,
   timestamp,
   pgEnum,
@@ -154,6 +155,7 @@ export const products = pgTable('products', {
   bottleOptions: jsonb('bottle_options'), // HomeGoodsBottleOption[] — only used when productType is 'home_goods'
   requiresUncut: boolean('requires_uncut').default(false), // Home Goods only: only whole/uncut bottles work for this listing
   requiresUnpoured: boolean('requires_unpoured').default(true), // Home Goods only: uncut OR cut bottles work (the common case)
+  containerId: varchar('container_id', { length: 100 }),
   weight: jsonb('weight'),  // { value: number, units: "ounces" | "pounds" }
   dimensions: jsonb('dimensions'),  // { length: number, width: number, height: number, units: "inches" }
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
@@ -297,6 +299,12 @@ export const bottleInventory = pgTable('bottle_inventory', {
   // a live read of the candle's actual stock instead (see linkedCandleProductSlug).
   qtyCutPouredManual: integer('qty_cut_poured_manual').notNull().default(0),
   defaultPriceCents: integer('default_price_cents'),
+  capacityWaterOz: doublePrecision('capacity_water_oz'),
+  containerShape: varchar('container_shape', { length: 100 }),
+  containerCostPerUnitCents: integer('container_cost_per_unit_cents'),
+  containerSupplier: varchar('container_supplier', { length: 255 }),
+  containerNotes: text('container_notes'),
+  legacyContainerId: varchar('legacy_container_id', { length: 100 }).unique(),
   // Shown in the Home Goods bottle picker (both admin and storefront) so a
   // customer can see the actual bottle they're choosing before it's poured/used.
   imageUrl: text('image_url'),

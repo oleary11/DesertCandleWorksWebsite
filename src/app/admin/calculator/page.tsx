@@ -22,7 +22,7 @@ type Product = {
   youngDumb?: boolean;
   stock: number;
   variantConfig?: {
-    sizes?: Array<{ id: string; name: string; ozs: number; priceCents: number; stripePriceId?: string }>;
+    sizes?: Array<{ id: string; name: string; ozs: number; priceCents: number; stripePriceId?: string; containerId?: string }>;
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
   };
@@ -42,6 +42,7 @@ type Container = {
   supplier?: string;
   costPerUnit: number;
   notes?: string;
+  imageUrl?: string;
 };
 
 type BaseOil = {
@@ -565,6 +566,12 @@ export default function CalculatorPage() {
   const [editingContainer, setEditingContainer] = useState<Container | null>(null);
   const [containerSearch, setContainerSearch] = useState("");
   const [savingContainer, setSavingContainer] = useState(false);
+  const [inlineContainerOz, setInlineContainerOz] = useState<Record<string, string>>({});
+  const dirtyInlineContainers = containers.filter((container) => {
+    if (!Object.prototype.hasOwnProperty.call(inlineContainerOz, container.id)) return false;
+    const value = Number(inlineContainerOz[container.id]);
+    return value > 0 && value !== container.capacityWaterOz;
+  });
   const [newContainer, setNewContainer] = useState<Partial<Container>>({
     name: "",
     capacityWaterOz: 0,
@@ -583,6 +590,11 @@ export default function CalculatorPage() {
 
       if (res.ok) {
         await loadData();
+        setInlineContainerOz((current) => {
+          const next = { ...current };
+          delete next[container.id];
+          return next;
+        });
         setEditingContainer(null);
         setNewContainer({
           name: "",
@@ -598,6 +610,32 @@ export default function CalculatorPage() {
     }
   }
 
+  async function saveInlineContainerOzChanges() {
+    if (dirtyInlineContainers.length === 0) return;
+    setSavingContainer(true);
+    try {
+      const responses = await Promise.all(
+        dirtyInlineContainers.map((container) =>
+          fetch("/api/admin/containers", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...container,
+              capacityWaterOz: Number(inlineContainerOz[container.id]),
+            }),
+          }),
+        ),
+      );
+      if (responses.every((response) => response.ok)) {
+        setInlineContainerOz({});
+        await loadData();
+      } else {
+        await showAlert("Some container changes could not be saved", "Error");
+      }
+    } finally {
+      setSavingContainer(false);
+    }
+  }
   async function deleteContainer(id: string) {
     const confirmed = await showConfirm("Delete this container?", "Confirm Delete");
     if (!confirmed) return;
@@ -1619,17 +1657,43 @@ export default function CalculatorPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between p-3 border border-[var(--color-line)] rounded">
-                        <div>
-                          <div className="font-medium">{c.name}</div>
-                          <div className="text-sm text-[var(--color-muted)]">
-                            {c.capacityWaterOz}oz • {c.shape} • ${c.costPerUnit.toFixed(2)}
-                            {c.supplier && ` • ${c.supplier}`}
+                      <div className="flex items-center justify-between gap-4 p-3 border border-[var(--color-line)] rounded">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded border border-[var(--color-line)] bg-[var(--color-surface-2)]">
+                            {c.imageUrl ? (
+                              <Image src={c.imageUrl} alt={c.name} fill sizes="56px" className="object-cover" />
+                            ) : (
+                              <div className="h-full grid place-items-center text-[10px] text-[var(--color-muted)]">No image</div>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <div className="font-medium truncate">{c.name}</div>
+                            <div className="text-sm text-[var(--color-muted)]">
+                              {c.capacityWaterOz}oz • {c.shape} • ${c.costPerUnit.toFixed(2)}
+                              {c.supplier && ` • ${c.supplier}`}
+                            </div>
                           </div>
                         </div>
-                        <div className="flex gap-2">
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-2">
+                            <span className="text-sm text-[var(--color-muted)] whitespace-nowrap">Water oz</span>
+                            <input
+                              className="input !w-24 text-sm"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={inlineContainerOz[c.id] ?? String(c.capacityWaterOz || "")}
+                              onChange={(e) =>
+                                setInlineContainerOz((current) => ({
+                                  ...current,
+                                  [c.id]: e.target.value,
+                                }))
+                              }
+                              onFocus={(e) => e.target.select()}
+                            />
+                          </label>
                           <button className="btn text-sm" onClick={() => setEditingContainer(c)}>
-                            Edit
+                            Details
                           </button>
                           <button className="btn text-sm !text-red-600 hover:!bg-red-50" onClick={() => void deleteContainer(c.id)}>
                             Delete
@@ -1639,6 +1703,20 @@ export default function CalculatorPage() {
                     )}
                   </div>
                 ))}
+              {dirtyInlineContainers.length > 0 && (
+                <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-3 shadow-lg">
+                  <span className="text-sm font-medium">
+                    {dirtyInlineContainers.length} unsaved {dirtyInlineContainers.length === 1 ? "change" : "changes"}
+                  </span>
+                  <button
+                    className="btn btn-primary text-sm"
+                    disabled={savingContainer}
+                    onClick={() => void saveInlineContainerOzChanges()}
+                  >
+                    {savingContainer ? "Saving…" : "Save changes"}
+                  </button>
+                </div>
+              )}
               {containers.length === 0 && (
                 <p className="text-[var(--color-muted)]">No containers yet</p>
               )}

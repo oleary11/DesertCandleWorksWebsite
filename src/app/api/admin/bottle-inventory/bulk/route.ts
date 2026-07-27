@@ -15,8 +15,8 @@ export async function PATCH(req: Request) {
       qtyUncut?: number;
       qtyCutUnpolished?: number;
       qtyCutPolished?: number;
-      qtyCutPoured?: number;
-      defaultPriceCents?: number | null;
+      capacityWaterOz?: number | null;
+        defaultPriceCents?: number | null;
       imageUrl?: string | null;
       alcoholType?: string | null;
       usableForHomeGoods?: boolean;

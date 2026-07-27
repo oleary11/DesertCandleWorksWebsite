@@ -23,6 +23,10 @@ export async function POST(req: Request) {
   const body = (await req.json().catch(() => ({}))) as {
     name?: string;
     defaultPriceCents?: number;
+    qtyUncut?: number;
+    qtyCutUnpolished?: number;
+    qtyCutPolished?: number;
+    capacityWaterOz?: number;
   };
   const name = (body.name ?? "").trim();
 
@@ -38,7 +42,12 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Name required" }, { status: 400 });
   }
 
-  const created = await addBottleType(name, body.defaultPriceCents);
+  const created = await addBottleType(name, body.defaultPriceCents, {
+    qtyUncut: body.qtyUncut,
+    qtyCutUnpolished: body.qtyCutUnpolished,
+    qtyCutPolished: body.qtyCutPolished,
+    capacityWaterOz: body.capacityWaterOz,
+  });
 
   await logAdminAction({
     action: "bottle-inventory.create",

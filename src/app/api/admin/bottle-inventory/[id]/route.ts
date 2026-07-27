@@ -18,7 +18,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     qtyUncut?: number;
     qtyCutUnpolished?: number;
     qtyCutPolished?: number;
-    qtyCutPoured?: number;
+    capacityWaterOz?: number | null;
     defaultPriceCents?: number | null;
     imageUrl?: string | null;
     alcoholType?: string | null;

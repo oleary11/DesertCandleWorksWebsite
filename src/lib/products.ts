@@ -9,6 +9,7 @@ export type ProductSize = {
   ozs: number;             // Size in ounces (for display/sorting)
   priceCents: number;      // Price for this size in cents
   stripePriceId?: string;  // Stripe price ID for this size
+  containerId?: string;    // bottle_inventory.id for this physical size
 };
 
 export type ProductVariant = {
@@ -71,6 +72,7 @@ export type Product = {
   alcoholType?: string;
   materialCost?: number;    // Cost to make the product (from calculator)
   visibleOnWebsite?: boolean;  // Controls shop page visibility (default: true)
+  containerId?: string;     // bottle_inventory.id used by this candle
   weight?: {                // Product weight for shipping (ShipStation)
     value: number;          // Weight value
     units: "ounces" | "pounds";  // Weight unit

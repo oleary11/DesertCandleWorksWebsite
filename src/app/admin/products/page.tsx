@@ -47,6 +47,7 @@ type ProductSize = {
   ozs: number;
   priceCents: number;
   stripePriceId?: string;
+  containerId?: string;
 };
 
 type VariantConfig = {
@@ -3695,7 +3696,7 @@ export default function AdminProductsPage() {
                             {editing.variantConfig.sizes.map((size, idx) => (
                               <div key={size.id} className="bg-white rounded-lg p-3 border border-neutral-200">
                                 <div className="grid grid-cols-1 gap-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
                                     <div>
                                       <label className="text-xs text-neutral-600 block mb-1">Size Name</label>
                                       <input
@@ -3736,7 +3737,24 @@ export default function AdminProductsPage() {
                                         placeholder="8"
                                       />
                                     </div>
-                                    <div>
+                                                                        <div>
+                                      <label className="text-xs text-neutral-600 block mb-1">Bottle / Container</label>
+                                      <select
+                                        className="input text-sm w-full"
+                                        value={size.containerId || ""}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, containerId: e.target.value || undefined };
+                                          setEditing({ ...editing, variantConfig: { ...editing.variantConfig!, sizes: newSizes } });
+                                        }}
+                                      >
+                                        <option value="">Use product container{editing.containerId ? ` (${containers.find((c) => c.id === editing.containerId)?.name || editing.containerId})` : ""}</option>
+                                        {containers.map((container) => (
+                                          <option key={container.id} value={container.id}>{container.name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+<div>
                                       <label className="text-xs text-neutral-600 block mb-1">Price ($)</label>
                                       <input
                                         className="input text-sm w-full"

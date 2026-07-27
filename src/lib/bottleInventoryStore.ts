@@ -17,7 +17,7 @@ import { db } from "./db/client";
 import { bottleInventory } from "./db/schema";
 import { eq } from "drizzle-orm";
 import { listResolvedProducts } from "./resolvedProducts";
-import { getTotalStock, type Product } from "./productsStore";
+import { getTotalStock, upsertProduct, type Product } from "./productsStore";
 
 export const BOTTLE_INVENTORY_TAG = "bottle-inventory";
 
@@ -29,6 +29,11 @@ export type BottleInventoryItem = {
   qtyCutPolished: number;
   qtyCutPoured: number; // computed, read-only — see module comment
   defaultPriceCents?: number;
+  capacityWaterOz?: number;
+  containerShape?: string;
+  containerCostPerUnitCents?: number;
+  containerSupplier?: string;
+  containerNotes?: string;
   imageUrl?: string; // shown in the Home Goods bottle picker (admin + storefront)
   alcoholType?: string; // groups the Home Goods bottle picker into sections, same convention as products.alcoholType
   linkedCandleProductSlug?: string;
@@ -41,6 +46,13 @@ export type UnmatchedCandle = { slug: string; name: string };
 
 type CandleBottleEntry = { name: string; sizeId?: string };
 
+export type NewBottleCounts = {
+  qtyUncut?: number;
+  qtyCutUnpolished?: number;
+  qtyCutPolished?: number;
+  capacityWaterOz?: number;
+};
+
 function slugifyId(name: string): string {
   return name
     .toLowerCase()
@@ -50,19 +62,17 @@ function slugifyId(name: string): string {
     .replace(/-+/g, "-");
 }
 
-/** "Grey Goose Vodka Candle" -> "Grey Goose Vodka"; returns null if the name doesn't end in "Candle" */
+/** "Grey Goose Vodka Candle" -> "Grey Goose Vodka"; keeps names whose optional "Candle" suffix is absent. */
 function deriveBottleNameFromCandle(productName: string): string | null {
-  const match = productName.match(/^(.*?)\s+candle$/i);
-  if (!match) return null;
-  const name = match[1].trim();
+  const name = productName.replace(/\s+candle$/i, "").trim();
   return name.length > 0 ? name : null;
 }
 
 /**
  * One entry per distinct physical bottle for this candle product: if it has
  * more than one size configured, each size gets its own name + sizeId (they
- * are different bottles); otherwise a single unsized entry. Returns null if
- * the product name doesn't end in "Candle" (needs manual review).
+ * are different bottles); otherwise a single unsized entry. The optional display-name
+ * suffix "Candle" is removed when present.
  */
 function getBottleEntriesForCandle(product: Product): CandleBottleEntry[] | null {
   const base = deriveBottleNameFromCandle(product.name);
@@ -85,21 +95,52 @@ function getStockForSize(product: Product, sizeId: string): number {
   return total;
 }
 
+function assignBottleToProduct(product: Product, bottleId: string, sizeId?: string): Product {
+  if (!sizeId) {
+    return product.containerId === bottleId ? product : { ...product, containerId: bottleId };
+  }
+  const sizes = product.variantConfig?.sizes;
+  if (!sizes) return product;
+  const size = sizes.find((candidate) => candidate.id === sizeId);
+  if (!size || size.containerId === bottleId) return product;
+  return {
+    ...product,
+    variantConfig: {
+      ...product.variantConfig!,
+      sizes: sizes.map((candidate) => candidate.id === sizeId ? { ...candidate, containerId: bottleId } : candidate),
+    },
+  };
+}
 function pouredKey(slug: string, sizeId?: string): string {
   return `${slug}::${sizeId ?? ""}`;
+}
+
+function bottlePouredKey(bottleId: string): string {
+  return `bottle::${bottleId}`;
+}
+
+function addPouredCount(map: Map<string, number>, key: string, count: number): void {
+  map.set(key, (map.get(key) ?? 0) + count);
 }
 
 async function getPouredCounts(): Promise<Map<string, number>> {
   const products = await listResolvedProducts();
   const map = new Map<string, number>();
   for (const p of products) {
+    if (p.productType === "home_goods") continue;
     const sizes = p.variantConfig?.sizes;
     if (sizes && sizes.length > 1) {
-      for (const s of sizes) {
-        map.set(pouredKey(p.slug, s.id), getStockForSize(p, s.id));
+      for (const size of sizes) {
+        const count = getStockForSize(p, size.id);
+        map.set(pouredKey(p.slug, size.id), count); // legacy sync link
+        const bottleId = size.containerId ?? p.containerId;
+        if (bottleId) addPouredCount(map, bottlePouredKey(bottleId), count);
       }
     } else {
-      map.set(pouredKey(p.slug), getTotalStock(p));
+      const count = getTotalStock(p);
+      map.set(pouredKey(p.slug), count); // legacy sync link
+      const bottleId = sizes?.[0]?.containerId ?? p.containerId;
+      if (bottleId) addPouredCount(map, bottlePouredKey(bottleId), count);
     }
   }
   return map;
@@ -118,10 +159,16 @@ export async function getAllBottleInventory(): Promise<BottleInventoryItem[]> {
       qtyUncut: r.qtyUncut,
       qtyCutUnpolished: r.qtyCutUnpolished,
       qtyCutPolished: r.qtyCutPolished,
-      qtyCutPoured: r.linkedCandleProductSlug
-        ? pouredByKey.get(pouredKey(r.linkedCandleProductSlug, r.linkedSizeId ?? undefined)) ?? 0
-        : r.qtyCutPouredManual,
+      qtyCutPoured: pouredByKey.get(bottlePouredKey(r.id))
+        ?? (r.linkedCandleProductSlug
+          ? pouredByKey.get(pouredKey(r.linkedCandleProductSlug, r.linkedSizeId ?? undefined)) ?? 0
+          : 0),
       defaultPriceCents: r.defaultPriceCents ?? undefined,
+      capacityWaterOz: r.capacityWaterOz ?? undefined,
+      containerShape: r.containerShape ?? undefined,
+      containerCostPerUnitCents: r.containerCostPerUnitCents ?? undefined,
+      containerSupplier: r.containerSupplier ?? undefined,
+      containerNotes: r.containerNotes ?? undefined,
       imageUrl: r.imageUrl ?? undefined,
       alcoholType: r.alcoholType ?? undefined,
       linkedCandleProductSlug: r.linkedCandleProductSlug ?? undefined,
@@ -134,10 +181,15 @@ export async function getAllBottleInventory(): Promise<BottleInventoryItem[]> {
 
 export async function addBottleType(
   name: string,
-  defaultPriceCents?: number
+  defaultPriceCents?: number,
+  counts: NewBottleCounts = {}
 ): Promise<BottleInventoryItem> {
   const trimmed = name.trim();
   const id = slugifyId(trimmed);
+  const qtyUncut = Math.max(0, Math.floor(counts.qtyUncut ?? 0));
+  const qtyCutUnpolished = Math.max(0, Math.floor(counts.qtyCutUnpolished ?? 0));
+  const qtyCutPolished = Math.max(0, Math.floor(counts.qtyCutPolished ?? 0));
+  const capacityWaterOz = counts.capacityWaterOz && counts.capacityWaterOz > 0 ? counts.capacityWaterOz : null;
 
   const [existing] = await db
     .select()
@@ -158,8 +210,13 @@ export async function addBottleType(
       qtyUncut: existing.qtyUncut,
       qtyCutUnpolished: existing.qtyCutUnpolished,
       qtyCutPolished: existing.qtyCutPolished,
-      qtyCutPoured: existing.qtyCutPouredManual,
+      qtyCutPoured: (await getPouredCounts()).get(bottlePouredKey(existing.id)) ?? 0,
       defaultPriceCents: existing.defaultPriceCents ?? undefined,
+      capacityWaterOz: existing.capacityWaterOz ?? undefined,
+      containerShape: existing.containerShape ?? undefined,
+      containerCostPerUnitCents: existing.containerCostPerUnitCents ?? undefined,
+      containerSupplier: existing.containerSupplier ?? undefined,
+      containerNotes: existing.containerNotes ?? undefined,
       imageUrl: existing.imageUrl ?? undefined,
       alcoholType: existing.alcoholType ?? undefined,
       linkedCandleProductSlug: existing.linkedCandleProductSlug ?? undefined,
@@ -172,9 +229,10 @@ export async function addBottleType(
   await db.insert(bottleInventory).values({
     id,
     name: trimmed,
-    qtyUncut: 0,
-    qtyCutUnpolished: 0,
-    qtyCutPolished: 0,
+    qtyUncut,
+    qtyCutUnpolished,
+    qtyCutPolished,
+    capacityWaterOz,
     defaultPriceCents: defaultPriceCents ?? null,
     archived: false,
     createdAt: new Date(),
@@ -184,10 +242,11 @@ export async function addBottleType(
   return {
     id,
     name: trimmed,
-    qtyUncut: 0,
-    qtyCutUnpolished: 0,
-    qtyCutPolished: 0,
+    qtyUncut,
+    qtyCutUnpolished,
+    qtyCutPolished,
     qtyCutPoured: 0,
+    capacityWaterOz: capacityWaterOz ?? undefined,
     defaultPriceCents,
     usableForHomeGoods: true,
     archived: false,
@@ -201,8 +260,12 @@ export async function updateBottleType(
     qtyUncut?: number;
     qtyCutUnpolished?: number;
     qtyCutPolished?: number;
-    qtyCutPoured?: number;
     defaultPriceCents?: number | null;
+    capacityWaterOz?: number | null;
+    containerShape?: string | null;
+    containerCostPerUnitCents?: number | null;
+    containerSupplier?: string | null;
+    containerNotes?: string | null;
     imageUrl?: string | null;
     alcoholType?: string | null;
     usableForHomeGoods?: boolean;
@@ -222,9 +285,12 @@ export async function updateBottleType(
   if (typeof patch.qtyUncut !== "undefined") updateValues.qtyUncut = Math.max(0, Math.floor(patch.qtyUncut));
   if (typeof patch.qtyCutUnpolished !== "undefined") updateValues.qtyCutUnpolished = Math.max(0, Math.floor(patch.qtyCutUnpolished));
   if (typeof patch.qtyCutPolished !== "undefined") updateValues.qtyCutPolished = Math.max(0, Math.floor(patch.qtyCutPolished));
-  // Only meaningful for rows with no linked candle product — see module comment.
-  if (typeof patch.qtyCutPoured !== "undefined") updateValues.qtyCutPouredManual = Math.max(0, Math.floor(patch.qtyCutPoured));
   if (typeof patch.defaultPriceCents !== "undefined") updateValues.defaultPriceCents = patch.defaultPriceCents;
+  if (typeof patch.capacityWaterOz !== "undefined") updateValues.capacityWaterOz = patch.capacityWaterOz;
+  if (typeof patch.containerShape !== "undefined") updateValues.containerShape = patch.containerShape;
+  if (typeof patch.containerCostPerUnitCents !== "undefined") updateValues.containerCostPerUnitCents = patch.containerCostPerUnitCents;
+  if (typeof patch.containerSupplier !== "undefined") updateValues.containerSupplier = patch.containerSupplier;
+  if (typeof patch.containerNotes !== "undefined") updateValues.containerNotes = patch.containerNotes;
   if (typeof patch.imageUrl !== "undefined") updateValues.imageUrl = patch.imageUrl;
   if (typeof patch.alcoholType !== "undefined") updateValues.alcoholType = patch.alcoholType;
   if (typeof patch.usableForHomeGoods !== "undefined") updateValues.usableForHomeGoods = !!patch.usableForHomeGoods;
@@ -232,7 +298,7 @@ export async function updateBottleType(
 
   await db.update(bottleInventory).set(updateValues).where(eq(bottleInventory.id, id));
 
-  const pouredByKey = found.linkedCandleProductSlug ? await getPouredCounts() : null;
+  const pouredByKey = await getPouredCounts();
 
   return {
     id: found.id,
@@ -240,10 +306,16 @@ export async function updateBottleType(
     qtyUncut: (updateValues.qtyUncut as number | undefined) ?? found.qtyUncut,
     qtyCutUnpolished: (updateValues.qtyCutUnpolished as number | undefined) ?? found.qtyCutUnpolished,
     qtyCutPolished: (updateValues.qtyCutPolished as number | undefined) ?? found.qtyCutPolished,
-    qtyCutPoured: found.linkedCandleProductSlug
-      ? pouredByKey!.get(pouredKey(found.linkedCandleProductSlug, found.linkedSizeId ?? undefined)) ?? 0
-      : (updateValues.qtyCutPouredManual as number | undefined) ?? found.qtyCutPouredManual,
+    qtyCutPoured: pouredByKey.get(bottlePouredKey(found.id))
+      ?? (found.linkedCandleProductSlug
+        ? pouredByKey.get(pouredKey(found.linkedCandleProductSlug, found.linkedSizeId ?? undefined)) ?? 0
+        : 0),
     defaultPriceCents: (patch.defaultPriceCents ?? found.defaultPriceCents) ?? undefined,
+    capacityWaterOz: (patch.capacityWaterOz ?? found.capacityWaterOz) ?? undefined,
+    containerShape: (patch.containerShape ?? found.containerShape) ?? undefined,
+    containerCostPerUnitCents: (patch.containerCostPerUnitCents ?? found.containerCostPerUnitCents) ?? undefined,
+    containerSupplier: (patch.containerSupplier ?? found.containerSupplier) ?? undefined,
+    containerNotes: (patch.containerNotes ?? found.containerNotes) ?? undefined,
     imageUrl: (patch.imageUrl !== undefined ? patch.imageUrl : found.imageUrl) ?? undefined,
     alcoholType: (patch.alcoholType !== undefined ? patch.alcoholType : found.alcoholType) ?? undefined,
     linkedCandleProductSlug: found.linkedCandleProductSlug ?? undefined,
@@ -260,8 +332,12 @@ export async function updateBottleTypesMany(
     qtyUncut?: number;
     qtyCutUnpolished?: number;
     qtyCutPolished?: number;
-    qtyCutPoured?: number;
     defaultPriceCents?: number | null;
+    capacityWaterOz?: number | null;
+    containerShape?: string | null;
+    containerCostPerUnitCents?: number | null;
+    containerSupplier?: string | null;
+    containerNotes?: string | null;
     imageUrl?: string | null;
     alcoholType?: string | null;
     usableForHomeGoods?: boolean;
@@ -274,9 +350,12 @@ export async function updateBottleTypesMany(
     if (typeof u.qtyUncut !== "undefined") updateValues.qtyUncut = Math.max(0, Math.floor(u.qtyUncut));
     if (typeof u.qtyCutUnpolished !== "undefined") updateValues.qtyCutUnpolished = Math.max(0, Math.floor(u.qtyCutUnpolished));
     if (typeof u.qtyCutPolished !== "undefined") updateValues.qtyCutPolished = Math.max(0, Math.floor(u.qtyCutPolished));
-    // Only meaningful for rows with no linked candle product — see module comment.
-    if (typeof u.qtyCutPoured !== "undefined") updateValues.qtyCutPouredManual = Math.max(0, Math.floor(u.qtyCutPoured));
-    if (typeof u.defaultPriceCents !== "undefined") updateValues.defaultPriceCents = u.defaultPriceCents;
+      if (typeof u.defaultPriceCents !== "undefined") updateValues.defaultPriceCents = u.defaultPriceCents;
+    if (typeof u.capacityWaterOz !== "undefined") updateValues.capacityWaterOz = u.capacityWaterOz;
+    if (typeof u.containerShape !== "undefined") updateValues.containerShape = u.containerShape;
+    if (typeof u.containerCostPerUnitCents !== "undefined") updateValues.containerCostPerUnitCents = u.containerCostPerUnitCents;
+    if (typeof u.containerSupplier !== "undefined") updateValues.containerSupplier = u.containerSupplier;
+    if (typeof u.containerNotes !== "undefined") updateValues.containerNotes = u.containerNotes;
     if (typeof u.imageUrl !== "undefined") updateValues.imageUrl = u.imageUrl;
     if (typeof u.alcoholType !== "undefined") updateValues.alcoholType = u.alcoholType;
     if (typeof u.usableForHomeGoods !== "undefined") updateValues.usableForHomeGoods = !!u.usableForHomeGoods;
@@ -325,6 +404,9 @@ export async function syncBottleInventoryFromCandles(): Promise<{
   const unmatched: UnmatchedCandle[] = [];
 
   for (const product of products) {
+    if (product.productType === "home_goods") continue;
+
+    let productWithLinks = product;
     const entries = getBottleEntriesForCandle(product);
     if (!entries) {
       unmatched.push({ slug: product.slug, name: product.name });
@@ -335,6 +417,7 @@ export async function syncBottleInventoryFromCandles(): Promise<{
       const key = pouredKey(product.slug, entry.sizeId);
       const alreadyLinked = byLinkedKey.get(key);
       if (alreadyLinked) {
+        productWithLinks = assignBottleToProduct(productWithLinks, alreadyLinked.id, entry.sizeId);
         // Already linked from a previous sync — just refresh its alcohol type
         // in case the candle's type changed (or this column didn't exist yet).
         if ((alreadyLinked.alcoholType ?? null) !== (product.alcoholType ?? null)) {
@@ -348,6 +431,7 @@ export async function syncBottleInventoryFromCandles(): Promise<{
 
       const existing = byName.get(entry.name.toLowerCase());
       if (existing) {
+        productWithLinks = assignBottleToProduct(productWithLinks, existing.id, entry.sizeId);
         if (!existing.linkedCandleProductSlug) {
           await db
             .update(bottleInventory)
@@ -378,6 +462,7 @@ export async function syncBottleInventoryFromCandles(): Promise<{
         updatedAt: new Date(),
       });
       created.push(entry.name);
+      productWithLinks = assignBottleToProduct(productWithLinks, id, entry.sizeId);
       byName.set(entry.name.toLowerCase(), {
         id,
         name: entry.name,
@@ -386,6 +471,12 @@ export async function syncBottleInventoryFromCandles(): Promise<{
         qtyCutPolished: 0,
         qtyCutPouredManual: 0,
         defaultPriceCents: null,
+        capacityWaterOz: null,
+        containerShape: null,
+        containerCostPerUnitCents: null,
+        containerSupplier: null,
+        containerNotes: null,
+        legacyContainerId: null,
         imageUrl: null,
         alcoholType: product.alcoholType ?? null,
         linkedCandleProductSlug: product.slug,
@@ -395,6 +486,10 @@ export async function syncBottleInventoryFromCandles(): Promise<{
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+    }
+
+    if (productWithLinks !== product) {
+      await upsertProduct(productWithLinks);
     }
   }
 

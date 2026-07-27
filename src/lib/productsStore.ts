@@ -53,6 +53,7 @@ export async function listProducts(): Promise<Product[]> {
     bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | null) ?? undefined,
     requiresUncut: p.requiresUncut ?? false,
     requiresUnpoured: p.requiresUnpoured ?? true,
+    containerId: p.containerId || undefined,
     weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
     dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   }));
@@ -86,6 +87,7 @@ export async function getProductBySlug(slug: string): Promise<Product | null> {
     bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | null) ?? undefined,
     requiresUncut: p.requiresUncut ?? false,
     requiresUnpoured: p.requiresUnpoured ?? true,
+    containerId: p.containerId || undefined,
     weight: (p.weight as { value: number; units: "ounces" | "pounds" }) || undefined,
     dimensions: (p.dimensions as { length: number; width: number; height: number; units: "inches" }) || undefined,
   };
@@ -121,6 +123,7 @@ export async function upsertProduct(p: Product): Promise<Product> {
       bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | undefined) || null,
       requiresUncut: p.requiresUncut ?? false,
       requiresUnpoured: p.requiresUnpoured ?? true,
+      containerId: p.containerId || null,
       weight: p.weight || null,
       dimensions: p.dimensions || null,
     })
@@ -145,6 +148,7 @@ export async function upsertProduct(p: Product): Promise<Product> {
         variantConfig: (p.variantConfig as VariantConfig | undefined) ?? null,
         productType: p.productType || "candle",
         bottleOptions: (p.bottleOptions as HomeGoodsBottleOption[] | undefined) || null,
+        containerId: p.containerId || null,
         weight: p.weight || null,
         dimensions: p.dimensions || null,
       },

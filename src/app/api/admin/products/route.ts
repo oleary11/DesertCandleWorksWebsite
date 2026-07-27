@@ -94,6 +94,9 @@ export async function POST(req: NextRequest) {
     alcoholType: data.alcoholType ?? undefined,
     materialCost: data.materialCost !== undefined ? Number(data.materialCost) : undefined,
     visibleOnWebsite: data.visibleOnWebsite !== undefined ? coerceBool(data.visibleOnWebsite) : true,
+    containerId: isHomeGoods ? undefined : data.containerId,
+    weight: data.weight,
+    dimensions: data.dimensions,
   };
 
   await upsertProduct(product);

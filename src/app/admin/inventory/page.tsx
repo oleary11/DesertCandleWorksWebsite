@@ -28,6 +28,7 @@ type BottleInventoryItem = {
   qtyCutPolished: number;
   qtyCutPoured: number;
   defaultPriceCents?: number;
+  capacityWaterOz?: number;
   imageUrl?: string;
   alcoholType?: string;
   linkedCandleProductSlug?: string;
@@ -49,10 +50,13 @@ function buildSearchQuery(template: string, bottleName: string): string {
     : `${bottleName} ${template}`;
 }
 
-type SortKey = "name" | "qtyUncut" | "qtyCutUnpolished" | "qtyCutPolished" | "qtyCutPoured";
+type SortKey = "image" | "name" | "alcoholType" | "capacityWaterOz" | "qtyUncut" | "qtyCutUnpolished" | "qtyCutPolished" | "qtyCutPoured";
 type StatusFilter = "all" | "active" | "archived";
 
 function getSortValue(item: BottleInventoryItem, key: SortKey): number | string {
+  if (key === "image") return item.imageUrl ? 1 : 0;
+  if (key === "capacityWaterOz") return item.capacityWaterOz ?? -1;
+  if (key === "alcoholType") return item.alcoholType ?? "";
   return key === "name" ? item.name : item[key];
 }
 
@@ -151,6 +155,12 @@ export default function BottleInventoryAdminPage() {
   // add-new form
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState("");
+  const [newCounts, setNewCounts] = useState({
+    qtyUncut: 0,
+    qtyCutUnpolished: 0,
+    qtyCutPolished: 0,
+    capacityWaterOz: 0,
+  });
 
   // search / filter / sort
   const [search, setSearch] = useState("");
@@ -229,7 +239,7 @@ export default function BottleInventoryAdminPage() {
         qtyUncut: e.qtyUncut,
         qtyCutUnpolished: e.qtyCutUnpolished,
         qtyCutPolished: e.qtyCutPolished,
-        qtyCutPoured: e.qtyCutPoured,
+        capacityWaterOz: e.capacityWaterOz ?? null,
         alcoholType: e.alcoholType ?? null,
         usableForHomeGoods: e.usableForHomeGoods,
       };
@@ -255,10 +265,11 @@ export default function BottleInventoryAdminPage() {
     const res = await fetch("/api/admin/bottle-inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n }),
+      body: JSON.stringify({ name: n, ...newCounts }),
     });
     if (res.ok) {
       setNewName("");
+      setNewCounts({ qtyUncut: 0, qtyCutUnpolished: 0, qtyCutPolished: 0, capacityWaterOz: 0 });
       setShowAddForm(false);
       await load();
     } else {
@@ -456,14 +467,15 @@ export default function BottleInventoryAdminPage() {
   const merged = useMemo(() => items.map((t) => edited[t.id] ?? t), [items, edited]);
 
   const stats = useMemo(() => {
-    const total = merged.length;
+    const totalBottles = merged.reduce(
+      (sum, t) => sum + t.qtyUncut + t.qtyCutUnpolished + t.qtyCutPolished + t.qtyCutPoured,
+      0
+    );
+    const totalUniqueBottles = merged.length;
     const archivedCount = merged.filter((t) => t.archived).length;
-    const active = total - archivedCount;
-    const needsCounting = merged.filter(
-      (t) => !t.archived && t.qtyUncut === 0 && t.qtyCutUnpolished === 0 && t.qtyCutPolished === 0
-    ).length;
+    const active = totalUniqueBottles - archivedCount;
     const totalPoured = merged.reduce((sum, t) => sum + t.qtyCutPoured, 0);
-    return { total, active, archivedCount, needsCounting, totalPoured };
+    return { totalBottles, totalUniqueBottles, active, totalPoured };
   }, [merged]);
 
   const filtered = useMemo(() => {
@@ -532,28 +544,24 @@ export default function BottleInventoryAdminPage() {
 
       <p className="text-sm text-[var(--color-muted)]">
         Uncut / Cut Unpolished / Cut Polished are the raw bottles available for Home Goods
-        listings — edit any count directly with the +/− controls. Cut Poured shows a flame and
+        listings — edit any count directly with the +/- controls. Cut Poured shows a flame and
         locks once a bottle is linked to a candle listing (it&apos;s a live read of that listing&apos;s
         stock, since a poured bottle can&apos;t be reused) — otherwise it&apos;s editable like the rest.
       </p>
 
       {/* Stat tiles */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card card--mist p-4">
-          <div className="text-2xl font-semibold">{stats.total}</div>
-          <div className="text-xs text-[var(--color-muted)]">Total Bottles</div>
+        <div className="card card--mist p-4 flex items-center">
+          <div className="text-2xl font-semibold">{stats.totalBottles} <span className="text-base font-normal text-[var(--color-muted)]">total bottles</span></div>
         </div>
-        <div className="card card--sage p-4">
-          <div className="text-2xl font-semibold">{stats.active}</div>
-          <div className="text-xs text-[var(--color-muted)]">Active</div>
+        <div className="card card--sage p-4 flex items-center">
+          <div className="text-2xl font-semibold">{stats.totalUniqueBottles} <span className="text-base font-normal text-[var(--color-muted)]">total unique bottles</span></div>
         </div>
-        <div className="card card--rose p-4">
-          <div className="text-2xl font-semibold">{stats.needsCounting}</div>
-          <div className="text-xs text-[var(--color-muted)]">Needs Counting</div>
+        <div className="card card--rose p-4 flex items-center">
+          <div className="text-2xl font-semibold">{stats.active} <span className="text-base font-normal text-[var(--color-muted)]">active</span></div>
         </div>
-        <div className="card card--lilac p-4">
-          <div className="text-2xl font-semibold">{stats.totalPoured}</div>
-          <div className="text-xs text-[var(--color-muted)]">Already Poured</div>
+        <div className="card card--lilac p-4 flex items-center">
+          <div className="text-2xl font-semibold">{stats.totalPoured} <span className="text-base font-normal text-[var(--color-muted)]">poured</span></div>
         </div>
       </div>
 
@@ -568,18 +576,46 @@ export default function BottleInventoryAdminPage() {
           {showAddForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
         {showAddForm && (
-          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-            <input
-              className="input"
-              placeholder="e.g. Empty Jack Daniels 1L (never poured)"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void createBottle(); }}
-              autoFocus
-            />
-            <button className="btn btn-primary" onClick={createBottle}>
-              <Plus className="w-4 h-4 mr-1" /> Add bottle
-            </button>
+          <div className="space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+              <input
+                className="input"
+                placeholder="e.g. Empty Jack Daniels 1L (never poured)"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") void createBottle(); }}
+                autoFocus
+              />
+              <button className="btn btn-primary" onClick={createBottle}>
+                <Plus className="w-4 h-4 mr-1" /> Add bottle
+              </button>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {([
+                ["qtyUncut", "Uncut"],
+                ["qtyCutUnpolished", "Cut Unpolished"],
+                ["qtyCutPolished", "Cut Polished"],
+              ] as const).map(([key, label]) => (
+                <label key={key} className="space-y-1">
+                  <span className="block text-xs text-center text-[var(--color-muted)]">{label}</span>
+                  <Stepper
+                    value={newCounts[key]}
+                    onChange={(value) => setNewCounts((current) => ({ ...current, [key]: value }))}
+                  />
+                </label>
+              ))}
+              <label className="space-y-1">
+                <span className="block text-xs text-center text-[var(--color-muted)]">Water Capacity (oz)</span>
+                <input
+                  className="input text-center !h-7 !py-0"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={newCounts.capacityWaterOz || ""}
+                  onChange={(e) => setNewCounts((current) => ({ ...current, capacityWaterOz: Math.max(0, Number(e.target.value) || 0) }))}
+                />
+              </label>
+            </div>
           </div>
         )}
       </div>
@@ -691,9 +727,10 @@ export default function BottleInventoryAdminPage() {
                       aria-label="Select all visible"
                     />
                   </th>
-                  <th className="py-3 px-3 w-28 text-center">Image</th>
+                  <SortHeader label="Image" sortKey="image" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-28" />
                   <SortHeader label="Bottle" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggleSort} className="min-w-[14rem]" />
-                  <th className="py-3 px-3 w-36 text-center">Type</th>
+                  <SortHeader label="Type" sortKey="alcoholType" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-36" />
+                  <SortHeader label="Water Oz" sortKey="capacityWaterOz" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-28" />
                   <SortHeader label="Uncut" sortKey="qtyUncut" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
                   <SortHeader label="Cut Unpolished" sortKey="qtyCutUnpolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-36" />
                   <SortHeader label="Cut Polished" sortKey="qtyCutPolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
@@ -706,7 +743,6 @@ export default function BottleInventoryAdminPage() {
               <tbody>
                 {view.map((t, idx) => {
                   const dirty = dirtyIds.has(t.id);
-                  const isLinked = !!t.linkedCandleProductSlug;
                   return (
                     <tr
                       key={t.id}
@@ -764,11 +800,22 @@ export default function BottleInventoryAdminPage() {
                           onChange={(e) => markDirty(t.id, { alcoholType: e.target.value || undefined })}
                           title="Groups this bottle in the Home Goods bottle picker"
                         >
-                          <option value="">— None —</option>
+                          <option value="">None</option>
                           {alcoholTypes.map((at) => (
                             <option key={at.id} value={at.name}>{at.name}</option>
                           ))}
                         </select>
+                      </td>
+                      <td className="py-2 px-3">
+                        <input
+                          className="input text-center tabular-nums !h-7 !py-0 !px-1 w-20"
+                          type="number"
+                          min="0"
+                          step="0.1"
+                          value={t.capacityWaterOz ?? ""}
+                          onChange={(e) => markDirty(t.id, { capacityWaterOz: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })}
+                          placeholder="—"
+                        />
                       </td>
                       <td className="py-2 px-3">
                         <Stepper value={t.qtyUncut} onChange={(v) => markDirty(t.id, { qtyUncut: v })} />
@@ -780,17 +827,13 @@ export default function BottleInventoryAdminPage() {
                         <Stepper value={t.qtyCutPolished} onChange={(v) => markDirty(t.id, { qtyCutPolished: v })} />
                       </td>
                       <td className="py-2 px-3">
-                        {isLinked ? (
-                          <div
-                            className="flex items-center justify-center gap-1.5 text-[var(--color-muted)]"
-                            title="Auto-tracked from the linked candle listing's stock — can't be edited here"
-                          >
-                            <Flame className="w-3.5 h-3.5" />
-                            <span className="tabular-nums">{t.qtyCutPoured}</span>
-                          </div>
-                        ) : (
-                          <Stepper value={t.qtyCutPoured} onChange={(v) => markDirty(t.id, { qtyCutPoured: v })} />
-                        )}
+                        <div
+                          className="flex items-center justify-center gap-1.5 text-[var(--color-muted)]"
+                          title="Read-only; derived from candle products linked to this bottle"
+                        >
+                          <Flame className="w-3.5 h-3.5" />
+                          <span className="tabular-nums">{t.qtyCutPoured}</span>
+                        </div>
                       </td>
                       <td className="py-2 px-3 text-center">
                         <input
