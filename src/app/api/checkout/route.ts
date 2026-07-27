@@ -527,7 +527,7 @@ export async function POST(req: NextRequest) {
     if (shippingAddress) {
       // SECURITY: Validate shipping address before fetching rates
       // This prevents shipping to invalid addresses and reduces fraud
-      const { validateAddress, getShippingRates, getProductWeight } = await import("@/lib/shipstation");
+      const { validateAddress, getShippingRates, getProductWeight } = await import("@/lib/shippo");
 
       try {
         const validatedAddress = await validateAddress({
@@ -579,13 +579,13 @@ export async function POST(req: NextRequest) {
       }
 
       // Add packaging weight once per shipment (not per item!)
-      const { PACKAGING_WEIGHT_OZ } = await import("@/lib/shipstation");
+      const { PACKAGING_WEIGHT_OZ } = await import("@/lib/shippo");
       const totalWeightOz = totalCandleWeightOz + PACKAGING_WEIGHT_OZ;
 
       console.log(`[Checkout] Total weight: ${totalCandleWeightOz} oz candles + ${PACKAGING_WEIGHT_OZ} oz packaging = ${totalWeightOz} oz`);
 
       // Get business postal code from environment
-      const fromPostalCode = process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";
+      const fromPostalCode = process.env.SHIPPO_FROM_POSTAL_CODE || process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";
 
       try {
         // Fetch shipping rates
@@ -595,7 +595,10 @@ export async function POST(req: NextRequest) {
           totalWeightOz,
           true, // residential
           shippingAddress.city,
-          shippingAddress.state
+          shippingAddress.state,
+          shippingAddress.line1,
+          shippingAddress.line2,
+          shippingAddress.country || "US"
         );
 
         // Add $2 for packing materials

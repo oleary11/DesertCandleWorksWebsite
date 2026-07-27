@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getShippingRates, getProductWeight } from "@/lib/shipstation";
+import { getShippingRates, getProductWeight } from "@/lib/shippo";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 
@@ -18,7 +18,7 @@ type ShippingRate = {
 /**
  * Filter shipping rates to show only 3 simple options
  * Strategy: Cheapest standard, cheapest 2-day, cheapest overnight
- * Based on REAL delivery_days from ShipStation, not service name guessing
+ * Based on real delivery estimates returned by Shippo, not service-name guessing
  */
 function filterRelevantRates(rates: ShippingRate[]): ShippingRate[] {
   if (rates.length === 0) {
@@ -63,7 +63,7 @@ function filterRelevantRates(rates: ShippingRate[]): ShippingRate[] {
 
 /**
  * POST /api/shipping/rates
- * Calculate shipping rates for a cart using ShipStation API
+ * Calculate shipping rates for a cart using Shippo
  *
  * Request body:
  * {
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
     console.log(`[Shipping] Total cart weight: ${totalWeightOz} oz for ${lineItems.length} items`);
 
     // Get business postal code from environment (your warehouse/home location)
-    const fromPostalCode = process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260"; // Scottsdale, AZ default
+    const fromPostalCode = process.env.SHIPPO_FROM_POSTAL_CODE || process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";
 
     // Get shipping rates from V2 API (will query all carriers)
     const allRates: ShippingRate[] = [];
@@ -134,7 +134,10 @@ export async function POST(req: NextRequest) {
         totalWeightOz,
         true, // residential
         shippingAddress.city,
-        shippingAddress.state
+        shippingAddress.state,
+        shippingAddress.line1,
+        shippingAddress.line2,
+        shippingAddress.country || "US"
       );
 
       // Add $2 for packing materials to each rate

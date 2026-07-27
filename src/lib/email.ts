@@ -394,11 +394,15 @@ Scottsdale, AZ | www.desertcandleworks.com
 }
 
 /**
- * Send shipping confirmation email with USPS tracking
+ * Send shipping confirmation email with carrier tracking
  * @param orderId - The order ID
- * @param trackingNumber - USPS tracking number
+ * @param trackingNumber - Carrier tracking number
  */
-export async function sendShippingConfirmationEmail(orderId: string, trackingNumber: string): Promise<void> {
+export async function sendShippingConfirmationEmail(
+  orderId: string,
+  trackingNumber: string,
+  shipment?: { carrierName?: string; trackingUrl?: string }
+): Promise<void> {
   const { getOrderById } = await import("@/lib/userStore");
   const order = await getOrderById(orderId);
 
@@ -408,8 +412,10 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
 
   const recipientEmail = order.email;
 
-  // USPS tracking URL
-  const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${trackingNumber}`;
+  const carrierName = shipment?.carrierName || "the carrier";
+  const trackingUrl =
+    shipment?.trackingUrl ||
+    `https://www.google.com/search?q=${encodeURIComponent(`${carrierName} tracking ${trackingNumber}`)}`;
 
   const html = `
     <!DOCTYPE html>
@@ -435,7 +441,7 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
           </div>
           <div class="content">
             <h2>📦 Shipped!</h2>
-            <p>Great news! Your order has been shipped via USPS and is on its way to you.</p>
+            <p>Great news! Your order has been shipped via ${carrierName} and is on its way to you.</p>
 
             <p style="margin: 20px 0;">
               <strong>Order #${orderId}</strong><br>
@@ -443,7 +449,7 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
             </p>
 
             <div class="tracking-box">
-              <p style="margin: 0 0 10px 0; color: #1e40af; font-weight: 600;">USPS Tracking Number</p>
+              <p style="margin: 0 0 10px 0; color: #1e40af; font-weight: 600;">${carrierName} Tracking Number</p>
               <div class="tracking-number">${trackingNumber}</div>
               <p style="margin: 15px 0 0 0;">
                 <a href="${trackingUrl}" class="button">Track Your Package</a>
@@ -468,7 +474,7 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
                 <strong>📬 Estimated Delivery</strong>
               </p>
               <p style="margin: 0; font-size: 14px; color: #92400e;">
-                USPS Flat Rate shipping typically arrives within <strong>2-3 business days</strong> from the ship date. You can track your package in real-time using the tracking number above.
+                Delivery timing is determined by ${carrierName}. You can follow the latest progress using the tracking link above.
               </p>
             </div>
 
@@ -493,12 +499,12 @@ export async function sendShippingConfirmationEmail(orderId: string, trackingNum
   const text = `
 Desert Candle Works - Your Order Has Shipped!
 
-📦 Great news! Your order has been shipped via USPS and is on its way to you.
+📦 Great news! Your order has been shipped via ${carrierName} and is on its way to you.
 
 Order #${orderId}
 Shipped on ${new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}
 
-USPS TRACKING NUMBER:
+${carrierName.toUpperCase()} TRACKING NUMBER:
 ${trackingNumber}
 
 Track your package:
@@ -514,7 +520,7 @@ ${order.shippingAddress.country || ''}
 ` : ''}
 
 📬 ESTIMATED DELIVERY:
-USPS Flat Rate shipping typically arrives within 2-3 business days from the ship date. You can track your package in real-time using the tracking number above.
+Delivery timing is determined by ${carrierName}. You can follow the latest progress using the tracking link above.
 
 WHAT'S IN YOUR PACKAGE:
 ${order.items.map((item: { productName: string; quantity: number }) => `- ${item.productName} (x${item.quantity})`).join('\n')}

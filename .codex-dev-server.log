@@ -1,0 +1,52 @@
+
+> desert-candle-works@0.1.0 dev
+> next dev --turbopack
+
+   ▲ Next.js 15.5.9 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://100.114.202.114:3000
+   - Environments: .env.development.local, .env.local
+
+ ✓ Starting...
+Creating turbopack project {
+  dir: 'D:\\Desktop-backup\\Personal Projects\\Publish\\Desert Candle Works\\Website\\desert-candle-works-fresh',
+  testMode: true
+}
+ ✓ Compiled middleware in 156ms
+ ✓ Ready in 1523ms
+ ○ Compiling /admin/inventory ...
+ ✓ Compiled /admin/inventory in 1526ms
+ GET /admin/inventory 200 in 1778ms
+ ✓ Compiled /favicon.ico in 308ms
+ GET /favicon.ico?favicon.44e0d273.ico 200 in 410ms
+ GET /api/auth/me 401 in 641ms
+ GET /api/admin/alcohol-types?active=1 200 in 602ms
+ GET /api/admin/bottle-inventory 200 in 932ms
+ ✓ Compiled /shop in 287ms
+ ✓ Compiled /api/t in 92ms
+ POST /api/t 200 in 962ms
+ GET /shop 200 in 12635ms
+ GET /shop 200 in 12196ms
+ ✓ Compiled /shop/[slug] in 206ms
+ POST /api/t 200 in 643ms
+ POST /api/t 200 in 670ms
+ GET /shop/alcohol-bottle-soap-dispenser 200 in 1632ms
+ POST /api/t 200 in 384ms
+ ✓ Compiled /cart in 176ms
+ GET /cart 200 in 234ms
+ ✓ Compiled /api/promotions/validate in 85ms
+ POST /api/t 200 in 335ms
+ POST /api/t 200 in 553ms
+ POST /api/promotions/validate 200 in 646ms
+ POST /api/promotions/validate 200 in 646ms
+ ✓ Compiled /api/checkout in 206ms
+[Checkout] Address validated successfully
+[Checkout] Total weight: 40 oz candles + 16 oz packaging = 56 oz
+[Checkout] Deduplicated 10 rates to 3 unique delivery times
+ POST /api/checkout 200 in 4261ms
+ POST /api/t 200 in 426ms
+ POST /api/t 200 in 418ms
+ ✓ Compiled / in 182ms
+ GET / 200 in 1350ms
+ ✓ Compiled middleware in 1ms
+   Reload env: .env.development.local

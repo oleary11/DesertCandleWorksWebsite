@@ -688,7 +688,11 @@ export async function deleteOrder(orderId: string): Promise<void> {
 export async function updateOrderShipping(
   orderId: string,
   trackingNumber: string,
-  shippingStatus: "shipped" | "delivered"
+  shippingStatus: "shipped" | "delivered",
+  shippingDetails?: {
+    carrierCode?: string;
+    serviceCode?: string;
+  }
 ): Promise<Order> {
   const now = new Date();
 
@@ -697,6 +701,8 @@ export async function updateOrderShipping(
     .set({
       trackingNumber,
       shippingStatus,
+      carrierCode: shippingDetails?.carrierCode,
+      serviceCode: shippingDetails?.serviceCode,
       shippedAt: shippingStatus === "shipped" ? now : undefined,
       deliveredAt: shippingStatus === "delivered" ? now : undefined,
     })

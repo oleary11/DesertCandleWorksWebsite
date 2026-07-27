@@ -187,6 +187,25 @@ export async function POST(req: NextRequest) {
     // Extract phone number
     const phone = session.customer_details?.phone || undefined;
 
+    // Retrieve the shipping rate selected by the customer in Stripe.
+    // Its metadata tells us whether this is a carrier shipment or local pickup.
+    let selectedShippingMethod = "Carrier shipping";
+    let selectedShippingType = "carrier";
+    try {
+      const shippingRateRef = session.shipping_cost?.shipping_rate;
+      const shippingRateId =
+        typeof shippingRateRef === "string"
+          ? shippingRateRef
+          : shippingRateRef?.id;
+      if (shippingRateId) {
+        const selectedRate = await stripe.shippingRates.retrieve(shippingRateId);
+        selectedShippingMethod = selectedRate.display_name || selectedShippingMethod;
+        selectedShippingType = selectedRate.metadata?.shipping_type || selectedShippingType;
+      }
+    } catch (shippingRateError) {
+      console.error("[Webhook] Could not retrieve selected Stripe shipping rate:", shippingRateError);
+    }
+
     // Calculate product subtotal (EXCLUDING shipping and tax)
     let productSubtotalCents = 0;
 
@@ -409,13 +428,61 @@ export async function POST(req: NextRequest) {
           // Don't throw - order is already created
         }
 
-        // NOTE: ShipStation orders are now pulled via Custom Store integration
-        // instead of being pushed via API. This enables automatic customer
-        // email notifications (shipped, out for delivery, delivered).
-        // ShipStation will fetch orders from /api/shipstation/custom-store
-        // See SHIPSTATION_SETUP.md for configuration details.
-        if (shippingAddress) {
-          console.log(`[ShipStation] Order ${orderId} will be pulled by ShipStation Custom Store`);
+        // Push carrier-shipped orders to Shippo for manual label purchasing.
+        // Local pickup orders remain in this site's order dashboard only.
+        if (
+          shippingAddress?.line1 &&
+          shippingAddress.city &&
+          shippingAddress.state &&
+          shippingAddress.postalCode &&
+          selectedShippingType !== "local_pickup"
+        ) {
+          try {
+            const { createShippoOrder, getProductWeight } = await import("@/lib/shippo");
+            const { listResolvedProducts } = await import("@/lib/resolvedProducts");
+            const products = await listResolvedProducts();
+            const productsBySlug = new Map(products.map(product => [product.slug, product]));
+
+            const shippoOrder = await createShippoOrder({
+              orderNumber: orderId,
+              stripeSessionId: session.id,
+              placedAt: new Date(session.created * 1000).toISOString(),
+              email: customerEmail,
+              phone,
+              toAddress: {
+                name: shippingAddress.name,
+                line1: shippingAddress.line1,
+                line2: shippingAddress.line2,
+                city: shippingAddress.city,
+                state: shippingAddress.state,
+                postalCode: shippingAddress.postalCode,
+                country: shippingAddress.country,
+              },
+              lineItems: orderItems.map(item => {
+                const product = productsBySlug.get(item.productSlug);
+                return {
+                  sku: product?.sku || item.productSlug,
+                  title: item.productName,
+                  variantTitle: item.sizeName || item.variantId,
+                  quantity: item.quantity,
+                  totalPriceCents: item.priceCents,
+                  weightOz: getProductWeight(product, item.sizeName),
+                };
+              }),
+              subtotalCents: productSubtotalCents,
+              totalCents,
+              taxCents,
+              shippingCents,
+              shippingMethod: selectedShippingMethod,
+            });
+            console.log(`[Shippo] Order ${orderId} synced (${shippoOrder.object_id})`);
+          } catch (shippoError) {
+            // Payment and local order creation have already succeeded. Do not
+            // make checkout fulfillment fail solely because Shippo is down.
+            console.error(`[Shippo] Failed to sync order ${orderId}:`, shippoError);
+          }
+        } else if (selectedShippingType === "local_pickup") {
+          console.log(`[Shippo] Skipping local-pickup order ${orderId}`);
         }
       } catch (err) {
         console.error(`Failed to process order for ${customerEmail}:`, err);
