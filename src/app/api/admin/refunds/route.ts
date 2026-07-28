@@ -13,6 +13,7 @@ import {
 import { randomUUID } from "crypto";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 /**
  * GET /api/admin/refunds - List all refunds
@@ -25,7 +26,9 @@ export async function GET() {
 
   try {
     const refunds = await listRefunds();
-    return NextResponse.json(refunds);
+    return NextResponse.json(refunds, {
+      headers: { "Cache-Control": "no-store, max-age=0" },
+    });
   } catch (error) {
     console.error("[Admin Refunds] Failed to list refunds:", error);
     return NextResponse.json(
@@ -216,9 +219,59 @@ export async function POST(req: NextRequest) {
         } else if (order.id.startsWith("ch_")) {
           chargeId = order.id;
         } else {
-          throw new Error(
-            `Order ${order.id} does not contain a recognized Stripe payment reference`
-          );
+          const savedSessionId = order.notes?.match(
+            /Stripe Checkout Session:\s*(cs_[A-Za-z0-9_]+)/,
+          )?.[1];
+
+          let checkoutSession: Stripe.Checkout.Session | undefined;
+          if (savedSessionId) {
+            checkoutSession = await stripe.checkout.sessions.retrieve(savedSessionId);
+          } else if (order.createdAt) {
+            // Legacy ST orders did not save their Checkout Session ID. Resolve
+            // them conservatively using multiple immutable payment attributes.
+            const createdAtSeconds = Math.floor(
+              new Date(order.createdAt).getTime() / 1000,
+            );
+            const candidates = await stripe.checkout.sessions.list({
+              created: {
+                gte: createdAtSeconds - 60 * 60,
+                lte: createdAtSeconds + 60 * 60,
+              },
+              limit: 100,
+            });
+            const normalizedEmail = order.email.trim().toLowerCase();
+            const matches = candidates.data.filter((candidate) => {
+              const candidateEmail = (
+                candidate.customer_details?.email ||
+                candidate.customer_email ||
+                ""
+              ).trim().toLowerCase();
+              return (
+                candidate.payment_status === "paid" &&
+                candidate.amount_total === order.totalCents &&
+                candidateEmail === normalizedEmail
+              );
+            });
+
+            if (matches.length === 1) {
+              checkoutSession = matches[0];
+            } else if (matches.length > 1) {
+              throw new Error(
+                `Found multiple Stripe payments matching order ${order.id}; refund must be reviewed manually`
+              );
+            }
+          }
+
+          paymentIntentId =
+            typeof checkoutSession?.payment_intent === "string"
+              ? checkoutSession.payment_intent
+              : checkoutSession?.payment_intent?.id;
+
+          if (!paymentIntentId) {
+            throw new Error(
+              `Could not safely match order ${order.id} to its Stripe payment`
+            );
+          }
         }
 
         // Create Stripe refund

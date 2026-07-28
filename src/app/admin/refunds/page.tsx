@@ -86,7 +86,9 @@ export default function RefundsPage() {
   async function loadRefunds() {
     try {
       setLoading(true);
-      const res = await fetch("/api/admin/refunds");
+      const res = await fetch(`/api/admin/refunds?t=${Date.now()}`, {
+        cache: "no-store",
+      });
       if (res.ok) {
         const data = await res.json();
         setRefunds(data);
@@ -153,18 +155,23 @@ export default function RefundsPage() {
         }),
       });
 
+      const result = await res.json();
+
+      // The API creates a refund record before contacting the processor, so
+      // refresh for both completed and failed attempts.
+      await loadRefunds();
+
       if (res.ok) {
-        alert("Refund processed successfully!");
         setShowCreateModal(false);
         resetForm();
-        await loadRefunds();
+        alert("Refund processed successfully!");
       } else {
-        const error = await res.json();
-        const detail = typeof error.details === "string" ? `\n\n${error.details}` : "";
-        alert(`Failed to process refund: ${error.error || "Unknown error"}${detail}`);
+        const detail = typeof result.details === "string" ? `\n\n${result.details}` : "";
+        alert(`Failed to process refund: ${result.error || "Unknown error"}${detail}`);
       }
     } catch (err) {
       console.error("Failed to create refund:", err);
+      await loadRefunds();
       alert("Failed to process refund");
     } finally {
       setProcessingRefund(false);

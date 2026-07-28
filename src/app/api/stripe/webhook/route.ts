@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
           // User has an account - create order and award points
           // IMPORTANT: Use productSubtotalCents (products only, no shipping/tax) for points
           console.log(`Creating order for user ${user.id} (${customerEmail})`);
-          await createOrder(customerEmail, orderId, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents, "stripe", undefined, shippingAddress, phone);
+          await createOrder(customerEmail, orderId, totalCents, orderItems, user.id, productSubtotalCents, shippingCents, taxCents, "stripe", `Stripe Checkout Session: ${session.id}`, shippingAddress, phone);
           await completeOrder(orderId);
           console.log(`Awarded ${Math.round(productSubtotalCents / 100)} points to ${customerEmail}`);
 
@@ -374,7 +374,7 @@ export async function POST(req: NextRequest) {
         } else {
           // Guest checkout - create order without userId
           console.log(`Guest checkout for ${customerEmail} - creating guest order`);
-          await createOrder(customerEmail, orderId, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents, "stripe", undefined, shippingAddress, phone);
+          await createOrder(customerEmail, orderId, totalCents, orderItems, undefined, productSubtotalCents, shippingCents, taxCents, "stripe", `Stripe Checkout Session: ${session.id}`, shippingAddress, phone);
           await completeOrder(orderId);
           console.log(`Guest order created for ${customerEmail}`);
 
