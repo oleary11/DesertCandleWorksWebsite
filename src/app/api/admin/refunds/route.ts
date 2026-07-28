@@ -194,10 +194,37 @@ export async function POST(req: NextRequest) {
 
         const stripe = new Stripe(secretKey);
 
+        // Website orders are normally keyed by their Checkout Session (`cs_...`),
+        // while Stripe refunds require the underlying PaymentIntent or Charge.
+        let paymentIntentId: string | undefined;
+        let chargeId: string | undefined;
+
+        if (order.id.startsWith("cs_")) {
+          const checkoutSession = await stripe.checkout.sessions.retrieve(order.id);
+          paymentIntentId =
+            typeof checkoutSession.payment_intent === "string"
+              ? checkoutSession.payment_intent
+              : checkoutSession.payment_intent?.id;
+
+          if (!paymentIntentId) {
+            throw new Error(
+              `Stripe Checkout Session ${order.id} does not have a refundable PaymentIntent`
+            );
+          }
+        } else if (order.id.startsWith("pi_")) {
+          paymentIntentId = order.id;
+        } else if (order.id.startsWith("ch_")) {
+          chargeId = order.id;
+        } else {
+          throw new Error(
+            `Order ${order.id} does not contain a recognized Stripe payment reference`
+          );
+        }
+
         // Create Stripe refund
         const stripeRefund = await stripe.refunds.create({
-          payment_intent: order.id.startsWith("pi_") ? order.id : undefined,
-          charge: order.id.startsWith("ch_") ? order.id : undefined,
+          payment_intent: paymentIntentId,
+          charge: chargeId,
           amount: refundAmountCents,
           reason: mapReasonToStripe(body.reason),
           metadata: {
@@ -248,6 +275,16 @@ export async function POST(req: NextRequest) {
         } catch (err) {
           console.error(`[Refund] Failed to deduct points:`, err);
         }
+      }
+
+      // Send our branded confirmation only after the payment processor has
+      // accepted the refund. Email delivery must never roll back a refund.
+      try {
+        const { sendRefundConfirmationEmail } = await import("@/lib/refundEmails");
+        await sendRefundConfirmationEmail(order, refund);
+        console.log(`[Refund] Confirmation email sent to ${order.email}`);
+      } catch (emailError) {
+        console.error("[Refund] Refund succeeded but confirmation email failed:", emailError);
       }
 
       return NextResponse.json({

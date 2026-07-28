@@ -160,7 +160,8 @@ export default function RefundsPage() {
         await loadRefunds();
       } else {
         const error = await res.json();
-        alert(`Failed to process refund: ${error.error || "Unknown error"}`);
+        const detail = typeof error.details === "string" ? `\n\n${error.details}` : "";
+        alert(`Failed to process refund: ${error.error || "Unknown error"}${detail}`);
       }
     } catch (err) {
       console.error("Failed to create refund:", err);

@@ -251,6 +251,10 @@ export async function getShippingRates(
         zip: fromPostalCode,
         country: "US",
         phone: process.env.SHIPPO_FROM_PHONE || process.env.SHIPSTATION_FROM_PHONE,
+        email:
+          process.env.SHIPPO_FROM_EMAIL ||
+          process.env.SHIPSTATION_FROM_EMAIL ||
+          "contact@desertcandleworks.com",
       },
       address_to: {
         name: "Customer",
@@ -341,6 +345,10 @@ export async function createShippoOrder(
         zip: process.env.SHIPPO_FROM_POSTAL_CODE || process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260",
         country: "US",
         phone: process.env.SHIPPO_FROM_PHONE || process.env.SHIPSTATION_FROM_PHONE || "",
+        email:
+          process.env.SHIPPO_FROM_EMAIL ||
+          process.env.SHIPSTATION_FROM_EMAIL ||
+          "contact@desertcandleworks.com",
       },
       line_items: order.lineItems.map(item => ({
         sku: item.sku,
