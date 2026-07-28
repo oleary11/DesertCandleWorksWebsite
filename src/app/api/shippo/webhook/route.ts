@@ -13,9 +13,9 @@ import {
   updateOrderShipping,
 } from "@/lib/userStore";
 import {
-  sendDeliveryConfirmationEmail,
-  sendShippingConfirmationEmail,
-} from "@/lib/email";
+  sendPremiumDeliveryEmail,
+  sendPremiumShippingEmail,
+} from "@/lib/shipmentEmails";
 
 export const runtime = "nodejs";
 
@@ -151,7 +151,44 @@ export async function POST(req: NextRequest) {
         serviceCode,
       });
       if (shouldEmail) {
-        await sendDeliveryConfirmationEmail(orderId, trackingNumber);
+        const trackingLocation =
+          data.tracking_status &&
+          typeof data.tracking_status === "object" &&
+          "location" in data.tracking_status
+            ? (data.tracking_status as { location?: unknown }).location
+            : undefined;
+        const location =
+          trackingLocation && typeof trackingLocation === "object"
+            ? [
+                stringValue((trackingLocation as { city?: unknown }).city),
+                stringValue((trackingLocation as { state?: unknown }).state),
+                stringValue((trackingLocation as { zip?: unknown }).zip),
+              ]
+                .filter(Boolean)
+                .join(" ")
+            : undefined;
+        await sendPremiumDeliveryEmail(orderId, {
+          trackingNumber,
+          trackingUrl,
+          carrierName,
+          serviceName: rate?.servicelevel?.name,
+          deliveredAt:
+            stringValue(
+              data.tracking_status &&
+                typeof data.tracking_status === "object" &&
+                "status_date" in data.tracking_status
+                ? (data.tracking_status as { status_date?: unknown }).status_date
+                : undefined
+            ) || payload.event_created_at,
+          deliveryLocation: location,
+          statusDetails: stringValue(
+            data.tracking_status &&
+              typeof data.tracking_status === "object" &&
+              "status_details" in data.tracking_status
+              ? (data.tracking_status as { status_details?: unknown }).status_details
+              : undefined
+          ),
+        });
       }
     } else if (shouldMarkShipped) {
       const shouldEmail =
@@ -161,9 +198,21 @@ export async function POST(req: NextRequest) {
         serviceCode,
       });
       if (shouldEmail) {
-        await sendShippingConfirmationEmail(orderId, trackingNumber, {
+        await sendPremiumShippingEmail(orderId, {
+          trackingNumber,
           carrierName,
           trackingUrl,
+          serviceName: rate?.servicelevel?.name,
+          estimatedDelivery: stringValue(
+            (transaction as ShippoTransaction & { eta?: unknown }).eta
+          ),
+          statusDetails: stringValue(
+            data.tracking_status &&
+              typeof data.tracking_status === "object" &&
+              "status_details" in data.tracking_status
+              ? (data.tracking_status as { status_details?: unknown }).status_details
+              : undefined
+          ),
         });
       }
     }
