@@ -182,6 +182,10 @@ Once verified, you'll be able to earn and redeem points on your purchases!
  * @param customEmail - Optional custom email to override the order's email (for manual sales)
  */
 export async function sendOrderInvoiceEmail(orderId: string, customEmail?: string): Promise<void> {
+  const { sendPremiumOrderConfirmationEmail } = await import("@/lib/shipmentEmails");
+  return sendPremiumOrderConfirmationEmail(orderId, customEmail);
+
+  /*
   const { getOrderById, createInvoiceAccessToken } = await import("@/lib/userStore");
   const order = await getOrderById(orderId);
 
@@ -391,6 +395,7 @@ Scottsdale, AZ | www.desertcandleworks.com
     html,
     text,
   });
+  */
 }
 
 /**

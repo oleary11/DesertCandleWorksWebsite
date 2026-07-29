@@ -18,6 +18,136 @@ export type ShipmentEmailDetails = {
   deliveryLocation?: string;
 };
 
+export async function sendPremiumOrderConfirmationEmail(
+  orderId: string,
+  customEmail?: string,
+): Promise<void> {
+  const { order, items, baseUrl, invoiceUrl, logoUrl } =
+    await buildEmailContext(orderId);
+  const recipient = customEmail || order.email;
+  const orderDate = new Date(order.createdAt).toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    timeZone: "America/Phoenix",
+  });
+
+  const html = `
+    <!doctype html>
+    <html>
+      <body style="margin:0;padding:0;background:${COLORS.cream};">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${COLORS.cream};">
+          <tr>
+            <td align="center" style="padding:24px 12px 36px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${COLORS.white};border:1px solid ${COLORS.sand};border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(66,48,28,.08);">
+                <tr><td>${header(logoUrl, `We received your order ${orderId}.`)}</td></tr>
+                <tr>
+                  <td align="center" style="padding:34px 34px 12px;">
+                    <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.8px;text-transform:uppercase;color:${COLORS.goldDark};font-weight:700;">Order confirmed</div>
+                    <h1 style="margin:8px 0 10px;font-family:Georgia,'Times New Roman',serif;font-size:31px;line-height:38px;font-weight:400;color:${COLORS.ink};">Thank you for your order</h1>
+                    <p style="margin:0;max-width:500px;font-family:Arial,sans-serif;font-size:15px;line-height:24px;color:${COLORS.muted};">
+                      We have received your order and will begin preparing it with care. We will email your tracking details as soon as it ships.
+                    </p>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:18px 34px 0;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${COLORS.cream};border:1px solid ${COLORS.sand};border-radius:12px;">
+                      <tr>
+                        <td style="padding:17px 20px;">
+                          <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.3px;text-transform:uppercase;color:${COLORS.muted};">Order number</div>
+                          <div style="margin-top:3px;font-family:Arial,sans-serif;font-size:15px;line-height:21px;font-weight:700;color:${COLORS.ink};">${escapeHtml(order.id)}</div>
+                        </td>
+                        <td align="right" style="padding:17px 20px;">
+                          <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.3px;text-transform:uppercase;color:${COLORS.muted};">Order date</div>
+                          <div style="margin-top:3px;font-family:Arial,sans-serif;font-size:13px;line-height:21px;color:${COLORS.ink};">${escapeHtml(orderDate)}</div>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:27px 34px 0;">
+                    <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.muted};font-weight:700;margin-bottom:3px;">Your selections</div>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      ${orderItems(items)}
+                    </table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:25px 34px 0;">
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                      <tr>
+                        <td style="width:52%;padding-right:24px;vertical-align:top;">
+                          ${order.shippingAddress ? `
+                            <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.muted};font-weight:700;margin-bottom:8px;">Shipping to</div>
+                            ${address(order)}
+                          ` : ""}
+                        </td>
+                        <td style="width:48%;vertical-align:top;">
+                          ${totals(order)}
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+                ${!order.isGuest && order.pointsEarned > 0 ? `
+                  <tr>
+                    <td style="padding:26px 34px 0;">
+                      <div style="padding:17px 20px;background:${COLORS.greenSoft};border:1px solid #cfe5d8;border-radius:12px;font-family:Arial,sans-serif;color:${COLORS.green};font-size:14px;line-height:21px;">
+                        <strong>You earned ${order.pointsEarned} rewards points.</strong><br>
+                        They are ready to use toward a future purchase.
+                      </div>
+                    </td>
+                  </tr>
+                ` : ""}
+                <tr>
+                  <td align="center" style="padding:30px 34px 10px;">
+                    <a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.white};font-family:Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:14px 27px;border-radius:9px;">View order invoice</a>
+                    <p style="margin:18px auto 0;max-width:470px;font-family:Arial,sans-serif;font-size:13px;line-height:21px;color:${COLORS.muted};">
+                      Most orders are prepared within 2-3 business days. Fragile bottle pieces are carefully wrapped and packed by hand.
+                    </p>
+                  </td>
+                </tr>
+                <tr><td>${footer(baseUrl)}</td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const text = [
+    "Desert Candle Works",
+    "Order confirmed",
+    "",
+    `Order: ${order.id}`,
+    `Date: ${orderDate}`,
+    "",
+    "Items:",
+    ...order.items.map(item => `${item.quantity} x ${item.productName}${item.sizeName ? ` - ${item.sizeName}` : ""} - ${money(item.priceCents)}`),
+    "",
+    `Subtotal: ${money(order.productSubtotalCents)}`,
+    `Shipping: ${order.shippingCents === 0 ? "Free" : money(order.shippingCents)}`,
+    `Tax: ${money(order.taxCents)}`,
+    `Total: ${money(order.totalCents)}`,
+    "",
+    `View invoice: ${invoiceUrl}`,
+    "",
+    "We will email tracking details as soon as your order ships.",
+    "Questions? contact@desertcandleworks.com",
+  ].join("\n");
+
+  await sendEmail({
+    to: recipient,
+    subject: `Order confirmed: ${order.id} | Desert Candle Works`,
+    html,
+    text,
+  });
+}
+
 const COLORS = {
   ink: "#211a16",
   muted: "#6f655e",

@@ -53,6 +53,13 @@ function buildSearchQuery(template: string, bottleName: string): string {
 type SortKey = "image" | "name" | "alcoholType" | "capacityWaterOz" | "qtyUncut" | "qtyCutUnpolished" | "qtyCutPolished" | "qtyCutPoured";
 type StatusFilter = "all" | "active" | "archived";
 
+type NewBottleCounts = {
+  qtyUncut: number;
+  qtyCutUnpolished: number;
+  qtyCutPolished: number;
+  capacityWaterOz: number;
+};
+
 function getSortValue(item: BottleInventoryItem, key: SortKey): number | string {
   if (key === "image") return item.imageUrl ? 1 : 0;
   if (key === "capacityWaterOz") return item.capacityWaterOz ?? -1;
@@ -101,6 +108,82 @@ function Stepper({
       >
         <Plus className="w-3 h-3" />
       </button>
+    </div>
+  );
+}
+
+/**
+ * Owns its own name/counts state so typing here only re-renders this small
+ * form, not the full (often 100+ row) bottle table in the parent — that
+ * colocation is what made typing feel laggy on slower devices like iPads.
+ */
+function AddBottleForm({
+  onAdd,
+}: {
+  onAdd: (name: string, counts: NewBottleCounts) => Promise<boolean>;
+}) {
+  const [name, setName] = useState("");
+  const [counts, setCounts] = useState<NewBottleCounts>({
+    qtyUncut: 0,
+    qtyCutUnpolished: 0,
+    qtyCutPolished: 0,
+    capacityWaterOz: 0,
+  });
+  const [submitting, setSubmitting] = useState(false);
+
+  async function handleSubmit() {
+    const n = name.trim();
+    if (!n || submitting) return;
+    setSubmitting(true);
+    const ok = await onAdd(n, counts);
+    setSubmitting(false);
+    if (ok) {
+      setName("");
+      setCounts({ qtyUncut: 0, qtyCutUnpolished: 0, qtyCutPolished: 0, capacityWaterOz: 0 });
+    }
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
+        <input
+          className="input"
+          placeholder="e.g. Empty Jack Daniels 1L (never poured)"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
+          autoFocus
+        />
+        <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
+          <Plus className="w-4 h-4 mr-1" /> Add bottle
+        </button>
+      </div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {([
+          ["qtyUncut", "Uncut"],
+          ["qtyCutUnpolished", "Cut Unpolished"],
+          ["qtyCutPolished", "Cut Polished"],
+        ] as const).map(([key, label]) => (
+          <label key={key} className="space-y-1">
+            <span className="block text-xs text-center text-[var(--color-muted)]">{label}</span>
+            <Stepper
+              value={counts[key]}
+              onChange={(value) => setCounts((current) => ({ ...current, [key]: value }))}
+            />
+          </label>
+        ))}
+        <label className="space-y-1">
+          <span className="block text-xs text-center text-[var(--color-muted)]">Water Capacity (oz)</span>
+          <input
+            className="input text-center !h-7 !py-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            type="number"
+            min="0"
+            step="0.1"
+            value={counts.capacityWaterOz || ""}
+            onChange={(e) => setCounts((current) => ({ ...current, capacityWaterOz: Math.max(0, Number(e.target.value) || 0) }))}
+          />
+        </label>
+      </div>
     </div>
   );
 }
@@ -154,13 +237,6 @@ export default function BottleInventoryAdminPage() {
 
   // add-new form
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newCounts, setNewCounts] = useState({
-    qtyUncut: 0,
-    qtyCutUnpolished: 0,
-    qtyCutPolished: 0,
-    capacityWaterOz: 0,
-  });
 
   // search / filter / sort
   const [search, setSearch] = useState("");
@@ -259,22 +335,19 @@ export default function BottleInventoryAdminPage() {
     setDirtyIds(new Set());
   }
 
-  async function createBottle() {
-    const n = newName.trim();
-    if (!n) return;
+  async function handleAddBottle(name: string, counts: NewBottleCounts): Promise<boolean> {
     const res = await fetch("/api/admin/bottle-inventory", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: n, ...newCounts }),
+      body: JSON.stringify({ name, ...counts }),
     });
     if (res.ok) {
-      setNewName("");
-      setNewCounts({ qtyUncut: 0, qtyCutUnpolished: 0, qtyCutPolished: 0, capacityWaterOz: 0 });
       setShowAddForm(false);
       await load();
-    } else {
-      await showAlert("Create failed", "Error");
+      return true;
     }
+    await showAlert("Create failed", "Error");
+    return false;
   }
 
   async function toggleArchive(id: string, archived: boolean) {
@@ -575,49 +648,7 @@ export default function BottleInventoryAdminPage() {
           <h2 className="text-base font-medium">Add a bottle not tied to any candle</h2>
           {showAddForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
         </button>
-        {showAddForm && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-              <input
-                className="input"
-                placeholder="e.g. Empty Jack Daniels 1L (never poured)"
-                value={newName}
-                onChange={(e) => setNewName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") void createBottle(); }}
-                autoFocus
-              />
-              <button className="btn btn-primary" onClick={createBottle}>
-                <Plus className="w-4 h-4 mr-1" /> Add bottle
-              </button>
-            </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {([
-                ["qtyUncut", "Uncut"],
-                ["qtyCutUnpolished", "Cut Unpolished"],
-                ["qtyCutPolished", "Cut Polished"],
-              ] as const).map(([key, label]) => (
-                <label key={key} className="space-y-1">
-                  <span className="block text-xs text-center text-[var(--color-muted)]">{label}</span>
-                  <Stepper
-                    value={newCounts[key]}
-                    onChange={(value) => setNewCounts((current) => ({ ...current, [key]: value }))}
-                  />
-                </label>
-              ))}
-              <label className="space-y-1">
-                <span className="block text-xs text-center text-[var(--color-muted)]">Water Capacity (oz)</span>
-                <input
-                  className="input text-center !h-7 !py-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                  type="number"
-                  min="0"
-                  step="0.1"
-                  value={newCounts.capacityWaterOz || ""}
-                  onChange={(e) => setNewCounts((current) => ({ ...current, capacityWaterOz: Math.max(0, Number(e.target.value) || 0) }))}
-                />
-              </label>
-            </div>
-          </div>
-        )}
+        {showAddForm && <AddBottleForm onAdd={handleAddBottle} />}
       </div>
 
       {/* Default image search query (collapsible) */}

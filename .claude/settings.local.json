@@ -46,7 +46,9 @@
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:dev.to)",
       "Read(//c/Users/joshu/AppData/Local/Claude/**)",
-      "Read(//c/Users/joshu/.config/Claude/**)"
+      "Read(//c/Users/joshu/.config/Claude/**)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)"
     ],
     "deny": [],
     "ask": []
