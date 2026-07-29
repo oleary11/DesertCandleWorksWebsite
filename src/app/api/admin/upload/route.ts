@@ -15,6 +15,7 @@ const ALLOWED_TYPES = [
   "image/heic",
   "image/heif",
   "application/octet-stream", // HEIC files often detected as this
+  "application/pdf",
 ];
 // NOTE: HEIC support requires sharp with libheif (included in sharp 0.34+)
 // HEIC works on Vercel (Linux) but may not work on Windows dev environment
@@ -60,6 +61,16 @@ export async function POST(req: NextRequest) {
 
     // Convert file to buffer for processing
     const buffer = Buffer.from(await file.arrayBuffer());
+
+    // PDFs: upload directly without image processing
+    if (file.type === "application/pdf" || file.name?.toLowerCase().endsWith(".pdf")) {
+      const filename = `receipts/${crypto.randomUUID()}.pdf`;
+      const blob = await put(filename, buffer, {
+        access: "public",
+        contentType: "application/pdf",
+      });
+      return NextResponse.json({ url: blob.url }, { status: 200 });
+    }
 
     // SECURITY: Validate actual image content (not just MIME type)
     // This prevents uploaded SVG with JS, PHP files disguised as images, etc.
