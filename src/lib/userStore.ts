@@ -60,6 +60,7 @@ export type Order = {
   productSubtotalCents?: number;
   shippingCents?: number;
   taxCents?: number;
+  discountCents?: number;
   pointsEarned: number;
   pointsRedeemed?: number;
   promotionId?: string;
@@ -403,7 +404,8 @@ export async function createOrder(
   paymentMethod?: string,
   notes?: string,
   shippingAddress?: Order["shippingAddress"],
-  phone?: string
+  phone?: string,
+  discountCents?: number
 ): Promise<Order> {
   // Calculate points based on product subtotal only
   const pointsBase = productSubtotalCents ?? totalCents;
@@ -422,6 +424,7 @@ export async function createOrder(
         productSubtotalCents: productSubtotalCents || null,
         shippingCents: shippingCents || null,
         taxCents: taxCents || null,
+        discountCents: discountCents || null,
         paymentMethod: (paymentMethod as "stripe" | "cash" | "card" | "square" | "other" | null) || null,
         notes: notes || null,
         pointsEarned,
@@ -459,6 +462,7 @@ export async function createOrder(
       productSubtotalCents: order.productSubtotalCents || undefined,
       shippingCents: order.shippingCents || undefined,
       taxCents: order.taxCents || undefined,
+      discountCents: order.discountCents || undefined,
       pointsEarned: order.pointsEarned,
       pointsRedeemed: order.pointsRedeemed || undefined,
       promotionId: order.promotionId || undefined,
@@ -535,6 +539,7 @@ export async function getUserOrders(userId: string, limit = 50): Promise<Order[]
         productSubtotalCents: order.productSubtotalCents || undefined,
         shippingCents: order.shippingCents || undefined,
         taxCents: order.taxCents || undefined,
+        discountCents: order.discountCents || undefined,
         pointsEarned: order.pointsEarned,
         pointsRedeemed: order.pointsRedeemed || undefined,
         promotionId: order.promotionId || undefined,
@@ -590,6 +595,7 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     productSubtotalCents: order.productSubtotalCents || undefined,
     shippingCents: order.shippingCents || undefined,
     taxCents: order.taxCents || undefined,
+    discountCents: order.discountCents || undefined,
     pointsEarned: order.pointsEarned,
     pointsRedeemed: order.pointsRedeemed || undefined,
     promotionId: order.promotionId || undefined,
@@ -640,6 +646,7 @@ export async function getAllOrders(): Promise<Order[]> {
         productSubtotalCents: order.productSubtotalCents || undefined,
         shippingCents: order.shippingCents || undefined,
         taxCents: order.taxCents || undefined,
+        discountCents: order.discountCents || undefined,
         pointsEarned: order.pointsEarned,
         pointsRedeemed: order.pointsRedeemed || undefined,
         promotionId: order.promotionId || undefined,
@@ -720,6 +727,7 @@ export async function updateOrderShipping(
     productSubtotalCents: updated.productSubtotalCents || undefined,
     shippingCents: updated.shippingCents || undefined,
     taxCents: updated.taxCents || undefined,
+    discountCents: updated.discountCents || undefined,
     pointsEarned: updated.pointsEarned,
     pointsRedeemed: updated.pointsRedeemed || undefined,
     promotionId: updated.promotionId || undefined,

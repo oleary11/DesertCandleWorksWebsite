@@ -14,6 +14,7 @@ type Order = {
   productSubtotalCents?: number;
   shippingCents?: number;
   taxCents?: number;
+  discountCents?: number;
   pointsEarned: number;
   paymentMethod?: string;
   notes?: string;
@@ -750,6 +751,12 @@ export default function AdminOrdersPage() {
                           <div className="flex justify-between">
                             <span className="text-[var(--color-muted)]">Tax:</span>
                             <span className="font-medium">${(order.taxCents / 100).toFixed(2)}</span>
+                          </div>
+                        )}
+                        {order.discountCents !== undefined && order.discountCents > 0 && (
+                          <div className="flex justify-between text-rose-600">
+                            <span>Discount:</span>
+                            <span className="font-medium">-${(order.discountCents / 100).toFixed(2)}</span>
                           </div>
                         )}
                         <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold">

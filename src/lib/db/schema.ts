@@ -73,6 +73,7 @@ export const orders = pgTable('orders', {
   productSubtotalCents: integer('product_subtotal_cents'),
   shippingCents: integer('shipping_cents'),
   taxCents: integer('tax_cents'),
+  discountCents: integer('discount_cents'),
 
   // Points & Promotions
   pointsEarned: integer('points_earned').notNull().default(0),

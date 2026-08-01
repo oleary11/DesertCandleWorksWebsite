@@ -201,6 +201,7 @@ export async function POST(req: NextRequest) {
       let totalCents = 0;
       let productSubtotalCents = 0;
       let taxCents = 0;
+      let discountCents = 0;
 
       // Extract tax from order details
       if (orderDetails?.totalTaxMoney?.amount) {
@@ -209,6 +210,16 @@ export async function POST(req: NextRequest) {
           : (typeof orderDetails.totalTaxMoney.amount === 'string'
             ? parseInt(orderDetails.totalTaxMoney.amount)
             : orderDetails.totalTaxMoney.amount);
+      }
+
+      // Extract any discount applied at the register (e.g. a manual $ off) so
+      // it shows up on the order instead of just silently shrinking the total.
+      if (orderDetails?.totalDiscountMoney?.amount) {
+        discountCents = typeof orderDetails.totalDiscountMoney.amount === 'bigint'
+          ? Number(orderDetails.totalDiscountMoney.amount)
+          : (typeof orderDetails.totalDiscountMoney.amount === 'string'
+            ? parseInt(orderDetails.totalDiscountMoney.amount)
+            : orderDetails.totalDiscountMoney.amount);
       }
 
       if (orderDetails?.lineItems) {
@@ -292,7 +303,7 @@ export async function POST(req: NextRequest) {
         ? parseInt(payment.total_money.amount)
         : (payment.total_money?.amount ?? 0);
 
-      console.log(`[Square Webhook] Order breakdown - Subtotal: $${(productSubtotalCents / 100).toFixed(2)}, Tax: $${(taxCents / 100).toFixed(2)}, Total: $${(totalCents / 100).toFixed(2)}`);
+      console.log(`[Square Webhook] Order breakdown - Subtotal: $${(productSubtotalCents / 100).toFixed(2)}, Discount: $${(discountCents / 100).toFixed(2)}, Tax: $${(taxCents / 100).toFixed(2)}, Total: $${(totalCents / 100).toFixed(2)}`);
 
       // Create order record
       // Note: Square doesn't provide customer email via webhook, use a placeholder
@@ -308,7 +319,10 @@ export async function POST(req: NextRequest) {
         undefined, // shippingCents - no shipping for POS
         taxCents, // taxCents - now properly extracted from Square order
         "square", // paymentMethod
-        `Square Payment ID: ${payment.id}\nReceipt: ${payment.receipt_url || payment.receipt_number || "N/A"}` // notes
+        `Square Payment ID: ${payment.id}\nReceipt: ${payment.receipt_url || payment.receipt_number || "N/A"}`, // notes
+        undefined, // shippingAddress - no shipping for POS
+        undefined, // phone
+        discountCents // discountCents - any register-applied discount
       );
 
       // Complete the order immediately
@@ -327,6 +341,7 @@ export async function POST(req: NextRequest) {
           squarePaymentId: payment.id,
           orderId: squareOrderId,
           totalCents,
+          discountCents,
           itemCount: orderItems.length,
           items: orderItems,
         },
