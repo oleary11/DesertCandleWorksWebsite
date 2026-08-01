@@ -179,6 +179,25 @@ export async function getAllBottleInventory(): Promise<BottleInventoryItem[]> {
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+/**
+ * A newly created bottle type should be immediately purchasable everywhere
+ * it's eligible, not just in bottles added before a Home Goods listing was
+ * configured — so add it to every existing Home Goods listing's bottleOptions
+ * (at that listing's default price; no per-bottle override). Called once per
+ * brand-new bottle_inventory row, from addBottleType and syncBottleInventoryFromCandles.
+ */
+async function addBottleToHomeGoodsListings(bottleId: string, bottleName: string): Promise<void> {
+  const products = await listResolvedProducts();
+  for (const product of products) {
+    if (product.productType !== "home_goods") continue;
+    if ((product.bottleOptions || []).some((o) => o.bottleId === bottleId)) continue;
+    await upsertProduct({
+      ...product,
+      bottleOptions: [...(product.bottleOptions || []), { bottleId, bottleName }],
+    });
+  }
+}
+
 export async function addBottleType(
   name: string,
   defaultPriceCents?: number,
@@ -238,6 +257,8 @@ export async function addBottleType(
     createdAt: new Date(),
     updatedAt: new Date(),
   });
+
+  await addBottleToHomeGoodsListings(id, trimmed);
 
   return {
     id,
@@ -461,6 +482,7 @@ export async function syncBottleInventoryFromCandles(): Promise<{
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      await addBottleToHomeGoodsListings(id, entry.name);
       created.push(entry.name);
       productWithLinks = assignBottleToProduct(productWithLinks, id, entry.sizeId);
       byName.set(entry.name.toLowerCase(), {
