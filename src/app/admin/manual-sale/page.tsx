@@ -17,7 +17,31 @@ type Product = {
     wickTypes: Array<{ id: string; name: string }>;
     variantData: Record<string, { stock: number }>;
   };
+  productType?: "candle" | "home_goods";
+  bottleOptions?: Array<{ bottleId: string; bottleName: string; priceCents?: number }>;
+  requiresUncut?: boolean;
 };
+
+type BottleInventoryItem = {
+  id: string;
+  name: string;
+  imageUrl?: string;
+  alcoholType?: string;
+  qtyUncut: number;
+  qtyCutUnpolished: number;
+  qtyCutPolished: number;
+  usableForHomeGoods: boolean;
+  archived: boolean;
+};
+
+// Mirrors getSingleBottleStock() in src/lib/bottleInventoryStore.ts — that
+// version is server-only (imports the db client), so the same small formula
+// is duplicated here for the admin UI's stock display.
+function getBottleStock(bottle: BottleInventoryItem, requiresUncut?: boolean): number {
+  return requiresUncut
+    ? bottle.qtyUncut
+    : bottle.qtyUncut + bottle.qtyCutUnpolished + bottle.qtyCutPolished;
+}
 
 type GlobalScent = {
   id: string;
@@ -40,13 +64,15 @@ type SaleItem = {
   productName: string;
   quantity: number;
   unitPriceCents: number; // Price per unit (not total)
-  variantId?: string;
+  variantId?: string; // candle variant id ("wickType-scentId"), OR — for Home Goods items — the selected bottle's id (bottle_inventory.id)
   selectedSizeId?: string; // size ID for variant tracking
   sizeName?: string;
   wickType?: string; // wick type ID for scent tracking
   scentId?: string; // scent ID for analytics
   scentName?: string; // scent name for display
   alcoholType?: string; // alcohol type for analytics
+  productType?: "candle" | "home_goods";
+  bottleName?: string; // denormalized label for the selected Home Goods bottle
 };
 
 /* ---------- Searchable ComboBox (filters as you type, mobile-friendly) ---------- */
@@ -271,6 +297,7 @@ export default function ManualSalePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [scents, setScents] = useState<GlobalScent[]>([]);
   const [alcoholTypes, setAlcoholTypes] = useState<AlcoholType[]>([]);
+  const [bottleInventory, setBottleInventory] = useState<BottleInventoryItem[]>([]);
   const [items, setItems] = useState<SaleItem[]>([]);
   const [customerEmail, setCustomerEmail] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<"cash" | "card" | "other">("cash");
@@ -288,23 +315,27 @@ export default function ManualSalePage() {
 
   async function loadData() {
     try {
-      const [productsRes, scentsRes, alcoholTypesRes] = await Promise.all([
+      const [productsRes, scentsRes, alcoholTypesRes, bottleInventoryRes] = await Promise.all([
         fetch("/api/admin/products"),
         fetch("/api/admin/scents"),
         fetch("/api/admin/alcohol-types"),
+        fetch("/api/admin/bottle-inventory"),
       ]);
 
       if (!productsRes.ok) throw new Error("Failed to load products");
       if (!scentsRes.ok) throw new Error("Failed to load scents");
       if (!alcoholTypesRes.ok) throw new Error("Failed to load alcohol types");
+      if (!bottleInventoryRes.ok) throw new Error("Failed to load bottle inventory");
 
       const productsData = await productsRes.json();
       const scentsData = await scentsRes.json();
       const alcoholTypesData = await alcoholTypesRes.json();
+      const bottleInventoryData = await bottleInventoryRes.json();
 
       setProducts(productsData.items || []);
       setScents(scentsData.scents || []);
       setAlcoholTypes(alcoholTypesData.types || []);
+      setBottleInventory(bottleInventoryData.items || []);
     } catch (err) {
       setError("Failed to load data");
       console.error(err);
@@ -351,15 +382,36 @@ export default function ManualSalePage() {
         productSlug: product.slug,
         productName: product.name,
         unitPriceCents: Math.round(product.price * 100),
+        productType: product.productType === "home_goods" ? "home_goods" : "candle",
         variantId: undefined,
         selectedSizeId: undefined,
         sizeName: undefined,
         wickType: undefined,
         scentId: undefined,
         scentName: undefined,
+        bottleName: undefined,
         alcoholType: product.alcoholType,
       });
     }
+  }
+
+  // Home Goods items select a physical bottle instead of a wick/scent/size
+  // variant — the bottle IS the variant (see SaleItem.variantId doc comment).
+  function handleBottleChange(itemId: string, bottleId: string) {
+    const item = items.find((i) => i.id === itemId);
+    const product = products.find((p) => p.slug === item?.productSlug);
+    if (!item || !product) return;
+
+    const option = product.bottleOptions?.find((o) => o.bottleId === bottleId);
+    const bottle = bottleInventory.find((b) => b.id === bottleId);
+    const unitPriceCents = option?.priceCents ?? Math.round(product.price * 100);
+
+    updateItem(itemId, {
+      variantId: bottleId || undefined,
+      bottleName: bottle?.name ?? option?.bottleName,
+      unitPriceCents,
+      alcoholType: bottle?.alcoholType ?? product.alcoholType,
+    });
   }
 
   function handleSizeChange(itemId: string, sizeId: string) {
@@ -420,8 +472,19 @@ export default function ManualSalePage() {
     }
   }
 
-  // Helper function to calculate total stock for a product (base + all variants)
+  const bottleById = useMemo(() => new Map(bottleInventory.map((b) => [b.id, b])), [bottleInventory]);
+
+  // Helper function to calculate total stock for a product (base + all variants,
+  // or — for Home Goods — the live sum across its linked bottles)
   function calculateTotalStock(product: Product): number {
+    if (product.productType === "home_goods") {
+      let total = 0;
+      for (const opt of product.bottleOptions || []) {
+        const bottle = bottleById.get(opt.bottleId);
+        if (bottle) total += getBottleStock(bottle, product.requiresUncut);
+      }
+      return total;
+    }
     let total = product.stock || 0;
     if (product.variantConfig?.variantData) {
       for (const variant of Object.values(product.variantConfig.variantData)) {
@@ -448,7 +511,10 @@ export default function ManualSalePage() {
         };
       }),
     ];
-  }, [products]);
+    // calculateTotalStock is a plain function (not memoized) that closes over
+    // bottleById, which is already listed below as the real reactive dependency.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [products, bottleById]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -470,6 +536,10 @@ export default function ManualSalePage() {
       } else {
         if (!item.productSlug) {
           setError("Please select a product for all items");
+          return;
+        }
+        if (item.productType === "home_goods" && !item.variantId) {
+          setError(`Please select a bottle for "${item.productName}"`);
           return;
         }
       }
@@ -499,6 +569,8 @@ export default function ManualSalePage() {
             scentId: item.scentId,
             scentName: item.scentName,
             alcoholType: item.alcoholType,
+            productType: item.isCustom ? undefined : item.productType,
+            bottleName: item.bottleName,
           })),
           discountCents: effectiveDiscountCents, // Order-level discount to distribute
           customerEmail: customerEmail || undefined,
@@ -611,15 +683,31 @@ export default function ManualSalePage() {
               <div className="space-y-4">
                 {items.map((item) => {
                   const selectedProduct = products.find((p) => p.slug === item.productSlug);
-                  const hasVariants = selectedProduct?.variantConfig?.wickTypes &&
+                  const isHomeGoods = !item.isCustom && selectedProduct?.productType === "home_goods";
+                  const hasVariants = !isHomeGoods && selectedProduct?.variantConfig?.wickTypes &&
                     selectedProduct.variantConfig.wickTypes.length > 0;
-                  const hasSizes = (selectedProduct?.variantConfig?.sizes?.length ?? 0) > 0;
+                  const hasSizes = !isHomeGoods && (selectedProduct?.variantConfig?.sizes?.length ?? 0) > 0;
 
                   // Get wick types - use product's wick types if available, otherwise default options
                   const wickTypes = selectedProduct?.variantConfig?.wickTypes || [
                     { id: "standard-wick", name: "Standard Wick" },
                     { id: "wood-wick", name: "Wood Wick" },
                   ];
+
+                  // Bottle choices for Home Goods items — same eligible bottles + live
+                  // stock the storefront's bottle picker shows (see HomeGoodsBottlePicker).
+                  const bottleItems: ComboItem<string>[] = isHomeGoods
+                    ? (selectedProduct?.bottleOptions || []).map((opt) => {
+                        const bottle = bottleById.get(opt.bottleId);
+                        const stock = bottle ? getBottleStock(bottle, selectedProduct?.requiresUncut) : 0;
+                        return {
+                          value: opt.bottleId,
+                          label: bottle?.name ?? opt.bottleName,
+                          sublabel: `Stock: ${stock}${bottle?.alcoholType ? ` | ${bottle.alcoholType}` : ""}`,
+                          disabled: stock <= 0,
+                        };
+                      })
+                    : [];
 
                   return (
                     <div key={item.id} className="border border-[var(--color-line)] rounded-lg p-4 mb-4">
@@ -708,6 +796,22 @@ export default function ManualSalePage() {
                         </div>
                       </div>
 
+                      {/* Bottle Selection - Home Goods items sell a specific physical bottle */}
+                      {isHomeGoods && (
+                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                          <ComboBox
+                            id={`bottle-${item.id}`}
+                            label="Bottle *"
+                            placeholder="Search bottles..."
+                            value={item.variantId || ""}
+                            items={bottleItems}
+                            onChange={(val) => handleBottleChange(item.id, val)}
+                            emptyMessage="No bottles configured for this product — add one in Bottle Inventory first."
+                            className="md:w-96"
+                          />
+                        </div>
+                      )}
+
                       {/* Size Selection - only shown for products with sizes */}
                       {!item.isCustom && hasSizes && (
                         <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
@@ -730,7 +834,7 @@ export default function ManualSalePage() {
                       )}
 
                       {/* Variant Selection - shown for all items */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 pt-4 border-t border-[var(--color-line)]">
+                      <div className={`grid grid-cols-1 ${isHomeGoods ? "" : "md:grid-cols-3"} gap-4 mt-4 pt-4 border-t border-[var(--color-line)]`}>
                         {/* Alcohol Type */}
                         <div>
                           <label className="block text-sm font-medium mb-1">
@@ -752,7 +856,8 @@ export default function ManualSalePage() {
                           </select>
                         </div>
 
-                        {/* Wick Type */}
+                        {/* Wick Type - candle-only */}
+                        {!isHomeGoods && (
                         <div>
                           <label className="block text-sm font-medium mb-1">
                             Wick Type <span className="text-[var(--color-muted)]">(optional)</span>
@@ -770,8 +875,10 @@ export default function ManualSalePage() {
                             ))}
                           </select>
                         </div>
+                        )}
 
-                        {/* Scent */}
+                        {/* Scent - candle-only */}
+                        {!isHomeGoods && (
                         <div>
                           <label className="block text-sm font-medium mb-1">
                             Scent <span className="text-[var(--color-muted)]">(optional)</span>
@@ -791,6 +898,7 @@ export default function ManualSalePage() {
                               ))}
                           </select>
                         </div>
+                        )}
                       </div>
 
                       {/* Stock info for non-custom products with variants */}

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { createOrder, completeOrder, generateOrderId } from "@/lib/userStore";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
+import { decrementBottleStockForSale } from "@/lib/bottleInventoryStore";
+import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
@@ -12,11 +14,13 @@ type ManualSaleItem = {
   productName: string;
   quantity: number;
   priceCents: number;
-  variantId?: string;
+  variantId?: string; // candle variant id, OR — for Home Goods items — the selected bottle_inventory.id
   sizeName?: string;
   wickType?: string;
   scentId?: string;
   scentName?: string;
+  productType?: "candle" | "home_goods";
+  bottleName?: string;
 };
 
 type ManualSaleRequest = {
@@ -107,6 +111,20 @@ export async function POST(req: NextRequest) {
             { status: 400 }
           );
         }
+        if (item.productType === "home_goods" && !item.variantId) {
+          await logAdminAction({
+            action: "manual-sale.create",
+            adminEmail: "admin",
+            ip,
+            userAgent,
+            success: false,
+            details: { reason: "home_goods_missing_bottle", item },
+          });
+          return NextResponse.json(
+            { error: `Please select a bottle for "${item.productName}"` },
+            { status: 400 }
+          );
+        }
       }
 
       if (!item.quantity || item.quantity < 1) {
@@ -153,6 +171,10 @@ export async function POST(req: NextRequest) {
 
     // Process stock decrements (only if requested)
     if (body.decrementStock) {
+      // Only needed to look up requiresUncut for Home Goods items — fetched once, not per item.
+      const needsProductLookup = body.items.some((item) => item.productType === "home_goods");
+      const allProducts = needsProductLookup ? await listResolvedProducts() : [];
+
       for (const item of body.items) {
         const isCustomProduct = item.isCustom || item.productSlug === "custom";
 
@@ -163,7 +185,17 @@ export async function POST(req: NextRequest) {
         }
 
         try {
-          if (item.variantId) {
+          if (item.productType === "home_goods") {
+            // Home Goods items sell a specific physical bottle — variantId is
+            // that bottle's bottle_inventory.id, same convention the Stripe
+            // checkout webhook uses (see src/app/api/stripe/webhook/route.ts).
+            if (!item.variantId) {
+              throw new Error("Missing bottle selection (variantId) for Home Goods item");
+            }
+            const product = allProducts.find((p) => p.slug === item.productSlug);
+            console.log(`[Manual Sale] Decrementing bottle stock: ${item.variantId} x${item.quantity} (requiresUncut=${!!product?.requiresUncut})`);
+            await decrementBottleStockForSale(item.variantId, item.quantity, product?.requiresUncut);
+          } else if (item.variantId) {
             // Decrement variant stock
             console.log(`[Manual Sale] Decrementing variant stock: ${item.productSlug} variant ${item.variantId} x${item.quantity}`);
             await incrVariantStock(item.productSlug, item.variantId, -item.quantity);
@@ -214,9 +246,16 @@ export async function POST(req: NextRequest) {
 
       const discountedPriceCents = item.priceCents - itemDiscount;
 
+      // Matches the storefront's "{listing} — {bottle}" convention (see
+      // HomeGoodsBottlePicker.buildCartItem) so order history shows which
+      // physical bottle was actually sold, not just the generic listing name.
+      const productName = item.productType === "home_goods" && item.bottleName
+        ? `${item.productName} — ${item.bottleName}`
+        : item.productName;
+
       return {
         productSlug: isCustomProduct ? "custom" : item.productSlug,
-        productName: item.productName,
+        productName,
         quantity: item.quantity,
         priceCents: discountedPriceCents, // Store discounted price for analytics
         variantId,
