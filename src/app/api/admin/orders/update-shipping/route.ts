@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { updateOrderShipping } from "@/lib/userStore";
-import { sendShippingConfirmationEmail, sendDeliveryConfirmationEmail } from "@/lib/email";
+import { sendPremiumShippingEmail, sendPremiumDeliveryEmail } from "@/lib/shipmentEmails";
 import { getAdminSession } from "@/lib/adminSession";
 
 export const runtime = "nodejs";
@@ -39,13 +39,21 @@ export async function POST(req: NextRequest) {
     // Update order with tracking info
     const updatedOrder = await updateOrderShipping(orderId, trackingNumber, shippingStatus);
 
-    // Send appropriate email based on status
+    // Send appropriate email based on status — same "Premium" branded
+    // templates the Shippo webhook uses, so manual and automatic emails
+    // look consistent. This form only collects a USPS tracking number.
+    const emailDetails = {
+      trackingNumber,
+      carrierName: "USPS",
+      trackingUrl: `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`,
+    };
+
     try {
       if (shippingStatus === "shipped") {
-        await sendShippingConfirmationEmail(orderId, trackingNumber);
+        await sendPremiumShippingEmail(orderId, emailDetails);
         console.log(`[Admin] Shipping confirmation email sent for order ${orderId}`);
       } else if (shippingStatus === "delivered") {
-        await sendDeliveryConfirmationEmail(orderId, trackingNumber);
+        await sendPremiumDeliveryEmail(orderId, emailDetails);
         console.log(`[Admin] Delivery confirmation email sent for order ${orderId}`);
       }
     } catch (emailError) {
