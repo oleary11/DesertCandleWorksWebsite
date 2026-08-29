@@ -391,6 +391,47 @@ export async function getShippoRate(rateId: string): Promise<ShippoRateDetails> 
   return shippoRequest<ShippoRateDetails>(`/rates/${encodeURIComponent(rateId)}/`);
 }
 
+// Centroid for the shop's shipping-from ZIP (85257 — 6601 E McDowell Rd,
+// Scottsdale, AZ). Update if the shop's origin ZIP ever changes.
+const SHOP_LAT = 33.4669;
+const SHOP_LON = -111.9151;
+
+function haversineMiles(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const EARTH_RADIUS_MILES = 3958.8;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return EARTH_RADIUS_MILES * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+/**
+ * Straight-line distance in miles from the shop to a US ZIP code, via a
+ * free public ZIP-centroid lookup (zippopotam.us — no API key required).
+ * Returns null if the lookup fails so callers can fail safe (treat distance
+ * as unknown/out-of-radius) instead of guessing.
+ */
+export async function getMilesFromShop(postalCode: string): Promise<number | null> {
+  try {
+    const zip = postalCode.trim().slice(0, 5);
+    const res = await fetch(`https://api.zippopotam.us/us/${zip}`, { cache: "no-store" });
+    if (!res.ok) return null;
+
+    const data = await res.json();
+    const place = data?.places?.[0];
+    const lat = parseFloat(place?.latitude);
+    const lon = parseFloat(place?.longitude);
+    if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+
+    return haversineMiles(SHOP_LAT, SHOP_LON, lat, lon);
+  } catch (error) {
+    console.error(`[Shippo] Failed to look up distance for ZIP ${postalCode}:`, error);
+    return null;
+  }
+}
+
 export const PACKAGING_WEIGHT_OZ = 16;
 
 export function getProductWeight(

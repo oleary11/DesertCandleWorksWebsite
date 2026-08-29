@@ -527,7 +527,7 @@ export async function POST(req: NextRequest) {
     if (shippingAddress) {
       // SECURITY: Validate shipping address before fetching rates
       // This prevents shipping to invalid addresses and reduces fraud
-      const { validateAddress, getShippingRates, getProductWeight } = await import("@/lib/shippo");
+      const { validateAddress, getShippingRates, getProductWeight, getMilesFromShop } = await import("@/lib/shippo");
 
       try {
         const validatedAddress = await validateAddress({
@@ -561,6 +561,18 @@ export async function POST(req: NextRequest) {
         );
       }
 
+      // Local Pickup only makes sense near the shop. If we can't determine
+      // distance, fail safe and treat the customer as out of radius rather
+      // than risk offering pickup-only to someone who can't actually pick up.
+      const PICKUP_RADIUS_MILES = 50;
+      const milesFromShop = shippingAddress.country === "US" || !shippingAddress.country
+        ? await getMilesFromShop(shippingAddress.postalCode)
+        : null;
+      const isWithinPickupRadius = milesFromShop !== null && milesFromShop <= PICKUP_RADIUS_MILES;
+      console.log(
+        `[Checkout] Distance from shop: ${milesFromShop !== null ? milesFromShop.toFixed(1) + " mi" : "unknown"} — local pickup ${isWithinPickupRadius ? "offered" : "hidden"}`
+      );
+
       // Calculate total weight (candles + Home Goods)
       let totalCandleWeightOz = 0;
       for (const item of extendedLineItems) {
@@ -591,6 +603,7 @@ export async function POST(req: NextRequest) {
       // both the live-rate path and the fallback-rate path below.
       const FREE_SHIPPING_THRESHOLD = 10000; // $100 in cents
       const qualifiesForFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+      const FALLBACK_SHIPPING_COST = 8.99;
 
       try {
         // Fetch shipping rates
@@ -630,9 +643,9 @@ export async function POST(req: NextRequest) {
           .sort((a, b) => a.shipmentCost - b.shipmentCost);
 
         // SECURITY/CORRECTNESS: Stripe hard-caps shipping_options at 5 total.
-        // We always add a "Local Pickup" option below, so only the 4 cheapest
-        // carrier rates can be offered here.
-        const MAX_CARRIER_SHIPPING_OPTIONS = 4;
+        // Local Pickup only gets added when the customer is within radius,
+        // so it only needs to reserve a slot in that case.
+        const MAX_CARRIER_SHIPPING_OPTIONS = isWithinPickupRadius ? 4 : 5;
         const limitedRates = deduplicatedRates.slice(0, MAX_CARRIER_SHIPPING_OPTIONS);
 
         console.log(`[Checkout] Deduplicated ${rates.length} rates to ${deduplicatedRates.length} unique delivery times, capped to ${limitedRates.length} (Stripe max is 5 incl. local pickup)`);
@@ -668,21 +681,24 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Always add local pickup as an option
-        shippingOptions.push({
-          shipping_rate_data: {
-            type: "fixed_amount",
-            fixed_amount: { amount: 0, currency: "usd" },
-            display_name: "Local Pickup (Scottsdale, AZ)",
-            metadata: {
-              shipping_type: "local_pickup",
+        // Add local pickup only for customers within the pickup radius —
+        // offering it to someone hundreds of miles away means they'd get a
+        // "free" order that never actually ships.
+        if (isWithinPickupRadius) {
+          shippingOptions.push({
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: 0, currency: "usd" },
+              display_name: "Local Pickup (Scottsdale, AZ)",
+              metadata: {
+                shipping_type: "local_pickup",
+              },
             },
-          },
-        });
+          });
+        }
 
-        // If no carrier rates available, that's okay - we still have local pickup
-        if (shippingOptions.length === 1) {
-          console.log("[Checkout] No carrier rates available, but offering local pickup");
+        if (shippingOptions.length === 0) {
+          console.log("[Checkout] No carrier rates available and customer is outside pickup radius");
         }
       } catch (error) {
         console.error("[Checkout] Failed to fetch shipping rates:", error);
@@ -693,7 +709,6 @@ export async function POST(req: NextRequest) {
         // still be placed and still gets a "carrier" order pushed to
         // Shippo for a real label. Same free-shipping-over-$100 rule as
         // real carrier rates.
-        const FALLBACK_SHIPPING_COST = 8.99;
         const fallbackCost = qualifiesForFreeShipping ? 0 : FALLBACK_SHIPPING_COST;
 
         shippingOptions.push({
@@ -709,14 +724,35 @@ export async function POST(req: NextRequest) {
           },
         });
 
-        // Still offer local pickup too
+        // Local pickup only for customers within the pickup radius
+        if (isWithinPickupRadius) {
+          shippingOptions.push({
+            shipping_rate_data: {
+              type: "fixed_amount",
+              fixed_amount: { amount: 0, currency: "usd" },
+              display_name: "Local Pickup (Scottsdale, AZ)",
+              metadata: {
+                shipping_type: "local_pickup",
+              },
+            },
+          });
+        }
+      }
+
+      // Safety net: an out-of-radius customer with zero live carrier rates
+      // (rare, but possible for some ZIPs) would otherwise be left with an
+      // empty shipping_options array and no way to check out at all.
+      if (shippingOptions.length === 0) {
+        const fallbackCost = qualifiesForFreeShipping ? 0 : FALLBACK_SHIPPING_COST;
         shippingOptions.push({
           shipping_rate_data: {
             type: "fixed_amount",
-            fixed_amount: { amount: 0, currency: "usd" },
-            display_name: "Local Pickup (Scottsdale, AZ)",
+            fixed_amount: { amount: Math.round(fallbackCost * 100), currency: "usd" },
+            display_name: qualifiesForFreeShipping ? "Standard Shipping (FREE)" : "Standard Shipping",
             metadata: {
-              shipping_type: "local_pickup",
+              shipping_type: "carrier",
+              carrier_code: "fallback",
+              service_code: "flat_rate_fallback",
             },
           },
         });
