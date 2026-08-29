@@ -88,6 +88,8 @@ export type Order = {
   phone?: string;
   trackingNumber?: string;
   shippingStatus?: "pending" | "shipped" | "delivered";
+  shippingMethod?: string;
+  isLocalPickup?: boolean;
   shippedAt?: string;
   deliveredAt?: string;
   createdAt: string;
@@ -405,7 +407,9 @@ export async function createOrder(
   notes?: string,
   shippingAddress?: Order["shippingAddress"],
   phone?: string,
-  discountCents?: number
+  discountCents?: number,
+  shippingMethod?: string,
+  isLocalPickup?: boolean
 ): Promise<Order> {
   // Calculate points based on product subtotal only
   const pointsBase = productSubtotalCents ?? totalCents;
@@ -438,6 +442,8 @@ export async function createOrder(
         shippingState: shippingAddress?.state || null,
         shippingPostalCode: shippingAddress?.postalCode || null,
         shippingCountry: shippingAddress?.country || "US",
+        shippingMethod: shippingMethod || null,
+        isLocalPickup: isLocalPickup || false,
       })
       .returning();
 
@@ -475,6 +481,8 @@ export async function createOrder(
       phone: order.phone || undefined,
       trackingNumber: order.trackingNumber || undefined,
       shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+      shippingMethod: order.shippingMethod || undefined,
+      isLocalPickup: order.isLocalPickup || false,
       shippedAt: order.shippedAt?.toISOString(),
       deliveredAt: order.deliveredAt?.toISOString(),
       createdAt: order.createdAt.toISOString(),
@@ -569,6 +577,8 @@ export async function getUserOrders(userId: string, limit = 50): Promise<Order[]
         phone: order.phone || undefined,
         trackingNumber: order.trackingNumber || undefined,
         shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+        shippingMethod: order.shippingMethod || undefined,
+        isLocalPickup: order.isLocalPickup || false,
         shippedAt: order.shippedAt?.toISOString(),
         deliveredAt: order.deliveredAt?.toISOString(),
         createdAt: order.createdAt.toISOString(),
@@ -624,6 +634,8 @@ export async function getOrderById(orderId: string): Promise<Order | null> {
     phone: order.phone || undefined,
     trackingNumber: order.trackingNumber || undefined,
     shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+    shippingMethod: order.shippingMethod || undefined,
+    isLocalPickup: order.isLocalPickup || false,
     shippedAt: order.shippedAt?.toISOString(),
     deliveredAt: order.deliveredAt?.toISOString(),
     createdAt: order.createdAt.toISOString(),
@@ -676,6 +688,8 @@ export async function getAllOrders(): Promise<Order[]> {
         phone: order.phone || undefined,
         trackingNumber: order.trackingNumber || undefined,
         shippingStatus: (order.shippingStatus as "pending" | "shipped" | "delivered" | null) || undefined,
+        shippingMethod: order.shippingMethod || undefined,
+        isLocalPickup: order.isLocalPickup || false,
         shippedAt: order.shippedAt?.toISOString(),
         deliveredAt: order.deliveredAt?.toISOString(),
         createdAt: order.createdAt.toISOString(),

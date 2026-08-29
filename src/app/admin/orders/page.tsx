@@ -39,6 +39,8 @@ type Order = {
   phone?: string;
   trackingNumber?: string;
   shippingStatus?: "pending" | "shipped" | "delivered";
+  shippingMethod?: string;
+  isLocalPickup?: boolean;
   shippedAt?: string;
   deliveredAt?: string;
   createdAt: string;
@@ -618,6 +620,11 @@ export default function AdminOrdersPage() {
                               Square POS
                             </span>
                           )}
+                          {order.isLocalPickup && (
+                            <span className="badge text-xs bg-orange-100 text-orange-700">
+                              🏪 Local Pickup (Scottsdale)
+                            </span>
+                          )}
                         </div>
 
                         {/* Order ID with Copy Button */}
@@ -799,6 +806,12 @@ export default function AdminOrdersPage() {
                       {order.shippingAddress && (
                         <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
                           <h4 className="font-bold mb-2 text-sm">Shipping Address:</h4>
+                          {order.shippingMethod && (
+                            <div className={`text-sm mb-2 ${order.isLocalPickup ? "text-orange-700 font-semibold" : "text-[var(--color-muted)]"}`}>
+                              Method: {order.shippingMethod}
+                              {order.isLocalPickup && " — customer will NOT receive a shipment"}
+                            </div>
+                          )}
                           <div className="text-sm space-y-1">
                             {order.shippingAddress.name && (
                               <div className="font-medium">{order.shippingAddress.name}</div>

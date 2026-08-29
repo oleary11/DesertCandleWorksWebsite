@@ -628,12 +628,18 @@ export async function POST(req: NextRequest) {
         const deduplicatedRates = Array.from(ratesByDeliveryDays.values())
           .sort((a, b) => a.shipmentCost - b.shipmentCost);
 
-        console.log(`[Checkout] Deduplicated ${rates.length} rates to ${deduplicatedRates.length} unique delivery times`);
+        // SECURITY/CORRECTNESS: Stripe hard-caps shipping_options at 5 total.
+        // We always add a "Local Pickup" option below, so only the 4 cheapest
+        // carrier rates can be offered here.
+        const MAX_CARRIER_SHIPPING_OPTIONS = 4;
+        const limitedRates = deduplicatedRates.slice(0, MAX_CARRIER_SHIPPING_OPTIONS);
 
-        // Convert deduplicated rates to Stripe shipping options
+        console.log(`[Checkout] Deduplicated ${rates.length} rates to ${deduplicatedRates.length} unique delivery times, capped to ${limitedRates.length} (Stripe max is 5 incl. local pickup)`);
+
+        // Convert capped rates to Stripe shipping options
         // First rate (cheapest) will be Stripe's default selection
-        const overallCheapest = deduplicatedRates[0];
-        for (const rate of deduplicatedRates) {
+        const overallCheapest = limitedRates[0];
+        for (const rate of limitedRates) {
           const totalCost = rate.shipmentCost + PACKING_COST;
           const isCheapest = rate === overallCheapest;
 

@@ -101,6 +101,8 @@ export const orders = pgTable('orders', {
   shippingState: varchar('shipping_state', { length: 100 }),
   shippingPostalCode: varchar('shipping_postal_code', { length: 20 }),
   shippingCountry: varchar('shipping_country', { length: 2 }).default('US'),
+  shippingMethod: varchar('shipping_method', { length: 200 }),  // e.g. "USPS Priority Mail" or "Local Pickup (Scottsdale, AZ)"
+  isLocalPickup: boolean('is_local_pickup').notNull().default(false),
 
   // Timestamps
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
