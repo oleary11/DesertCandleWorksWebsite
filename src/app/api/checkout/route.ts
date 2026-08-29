@@ -587,6 +587,11 @@ export async function POST(req: NextRequest) {
       // Get business postal code from environment
       const fromPostalCode = process.env.SHIPPO_FROM_POSTAL_CODE || process.env.SHIPSTATION_FROM_POSTAL_CODE || "85260";
 
+      // Check if order qualifies for free shipping (over $100) — shared by
+      // both the live-rate path and the fallback-rate path below.
+      const FREE_SHIPPING_THRESHOLD = 10000; // $100 in cents
+      const qualifiesForFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
+
       try {
         // Fetch shipping rates
         const rates = await getShippingRates(
@@ -603,10 +608,6 @@ export async function POST(req: NextRequest) {
 
         // Add $2 for packing materials
         const PACKING_COST = 2.00;
-
-        // Check if order qualifies for free shipping (over $100)
-        const FREE_SHIPPING_THRESHOLD = 10000; // $100 in cents
-        const qualifiesForFreeShipping = subtotal >= FREE_SHIPPING_THRESHOLD;
 
         // Sort rates by cost to find cheapest
         const sortedRates = [...rates].sort((a, b) => a.shipmentCost - b.shipmentCost);
@@ -685,7 +686,30 @@ export async function POST(req: NextRequest) {
         }
       } catch (error) {
         console.error("[Checkout] Failed to fetch shipping rates:", error);
-        // Still offer local pickup even if carrier rates fail
+
+        // Live rate lookup failed (Shippo outage, bad geocode, etc). Don't
+        // leave a non-local customer stranded with pickup as their only
+        // option — offer a flat estimated rate instead, so an order can
+        // still be placed and still gets a "carrier" order pushed to
+        // Shippo for a real label. Same free-shipping-over-$100 rule as
+        // real carrier rates.
+        const FALLBACK_SHIPPING_COST = 8.99;
+        const fallbackCost = qualifiesForFreeShipping ? 0 : FALLBACK_SHIPPING_COST;
+
+        shippingOptions.push({
+          shipping_rate_data: {
+            type: "fixed_amount",
+            fixed_amount: { amount: Math.round(fallbackCost * 100), currency: "usd" },
+            display_name: qualifiesForFreeShipping ? "Standard Shipping (FREE)" : "Standard Shipping",
+            metadata: {
+              shipping_type: "carrier",
+              carrier_code: "fallback",
+              service_code: "flat_rate_fallback",
+            },
+          },
+        });
+
+        // Still offer local pickup too
         shippingOptions.push({
           shipping_rate_data: {
             type: "fixed_amount",
