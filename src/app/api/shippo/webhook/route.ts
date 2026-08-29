@@ -105,11 +105,20 @@ export async function POST(req: NextRequest) {
       throw new Error(`Shippo transaction ${transaction.object_id} is not linked to an order`);
     }
 
+    // TEMPORARY one-off fix: this Shippo order was created manually in the
+    // Shippo dashboard before the website order ID was typed into its Order
+    // Number field, so Shippo has no order_number to match on — and Shippo's
+    // API doesn't allow editing order_number after creation (PATCH/PUT both
+    // return 405). Safe to delete this override once ST89662 is delivered.
+    const MANUAL_SHIPPO_ORDER_OVERRIDES: Record<string, string> = {
+      "70f3c716a15f409297b757c41a4dc177": "ST89662", // Keula Fletcher, Great Falls VA
+    };
+
     const shippoOrder = await getShippoDashboardOrder(shippoOrderId);
-    const orderId = shippoOrder.order_number;
-    const order = await getOrderById(orderId);
+    const orderId = shippoOrder.order_number || MANUAL_SHIPPO_ORDER_OVERRIDES[shippoOrderId];
+    const order = orderId ? await getOrderById(orderId) : null;
     if (!order) {
-      throw new Error(`Website order ${orderId} was not found`);
+      throw new Error(`Website order ${orderId ?? "(none)"} was not found`);
     }
 
     const trackingNumber =
