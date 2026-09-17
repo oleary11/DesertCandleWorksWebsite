@@ -351,6 +351,11 @@ export const MCP_TOOLS = [
     },
   },
   {
+    name: "get_purchase_receipt_file",
+    description: "Fetch the actual receipt file attached to a purchase and return it inline as base64 (an image content block for photos, an embedded resource block for PDFs) — not just the receiptImageUrl string. Only works for receipts hosted on this app's own Blob storage (i.e. uploaded via attach_purchase_receipt or the admin UI); if receiptImageUrl points elsewhere, returns an error with that raw URL instead. Capped at 15MB.",
+    inputSchema: { type: "object", properties: { purchaseId: { type: "string" } }, required: ["purchaseId"] },
+  },
+  {
     name: "delete_purchase",
     description: "Delete a supply purchase record by its ID.",
     inputSchema: { type: "object", properties: { purchaseId: { type: "string" } }, required: ["purchaseId"] },
@@ -424,9 +429,20 @@ export const MCP_TOOLS = [
 // ---------------------------------------------------------------------------
 
 type Args = Record<string, unknown>;
-type ToolResult = { content: Array<{ type: "text"; text: string }> };
+type ToolContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; data: string; mimeType: string }
+  | { type: "resource"; resource: { uri: string; mimeType: string; blob: string } };
+type ToolResult = { content: ToolContentBlock[] };
 const t = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+
+// Receipts are only ever written to this app's own Blob store — restrict
+// get_purchase_receipt_file's fetch to that host so a receiptImageUrl set to
+// an arbitrary/internal URL (via update_purchase) can't be used as an SSRF
+// read gadget through this tool.
+const RECEIPT_BLOB_HOST_SUFFIX = ".public.blob.vercel-storage.com";
+const MAX_RECEIPT_FETCH_BYTES = 15 * 1024 * 1024;
 
 export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> = {
   async list_products({ includeHidden }) {
@@ -661,6 +677,40 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
     }
     await updatePurchase(purchaseId as string, { receiptImageUrl: result.url });
     return t(`Receipt uploaded and attached to purchase ${purchaseId} (${existing.vendorName} — ${existing.purchaseDate}).\nURL: ${result.url}`);
+  },
+  async get_purchase_receipt_file({ purchaseId }) {
+    const purchase = await getPurchaseById(purchaseId as string);
+    if (!purchase) return t(`Error: No purchase found with ID: ${purchaseId}`);
+    if (!purchase.receiptImageUrl) {
+      return t(`Purchase ${purchaseId} (${purchase.vendorName} — ${purchase.purchaseDate}) has no receipt attached. Use attach_purchase_receipt to upload one.`);
+    }
+
+    let url: URL;
+    try { url = new URL(purchase.receiptImageUrl); }
+    catch { return t(`Error: receiptImageUrl on this purchase isn't a valid URL: ${purchase.receiptImageUrl}`); }
+    if (url.protocol !== "https:" || !url.hostname.endsWith(RECEIPT_BLOB_HOST_SUFFIX)) {
+      return t(`Error: this tool only fetches receipts hosted on this app's own Blob storage (*${RECEIPT_BLOB_HOST_SUFFIX}). This purchase's receiptImageUrl points elsewhere — open it directly: ${purchase.receiptImageUrl}`);
+    }
+
+    let res: Response;
+    try { res = await fetch(url.toString()); }
+    catch (err) { return t(`Error: failed to fetch receipt file: ${String(err)}`); }
+    if (!res.ok) return t(`Error: fetching the receipt returned ${res.status} ${res.statusText}. URL: ${purchase.receiptImageUrl}`);
+
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_RECEIPT_FETCH_BYTES) {
+      return t(`Error: receipt file is ${(buffer.length / 1024 / 1024).toFixed(1)}MB — too large to return inline (max ${MAX_RECEIPT_FETCH_BYTES / 1024 / 1024}MB). Open it directly: ${purchase.receiptImageUrl}`);
+    }
+
+    const mimeType = res.headers.get("content-type")
+      || (url.pathname.endsWith(".pdf") ? "application/pdf" : url.pathname.endsWith(".png") ? "image/png" : "image/jpeg");
+    const base64 = buffer.toString("base64");
+    const label = `Receipt for purchase ${purchaseId} (${purchase.vendorName} — ${purchase.purchaseDate}), ${(buffer.length / 1024).toFixed(0)}KB, ${mimeType}.`;
+
+    if (mimeType.startsWith("image/")) {
+      return { content: [{ type: "text", text: label }, { type: "image", data: base64, mimeType }] };
+    }
+    return { content: [{ type: "text", text: label }, { type: "resource", resource: { uri: purchase.receiptImageUrl, mimeType, blob: base64 } }] };
   },
   async delete_purchase({ purchaseId }) {
     const existing = await getPurchaseById(purchaseId as string);
