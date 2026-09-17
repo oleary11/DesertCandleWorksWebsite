@@ -33,6 +33,64 @@ import {
 } from "@/lib/purchasesStore";
 import { listRefunds } from "@/lib/refundStore";
 import { sendShippingConfirmationEmail, sendDeliveryConfirmationEmail } from "@/lib/email";
+import { put } from "@vercel/blob";
+import sharp from "sharp";
+import crypto from "node:crypto";
+
+// ---------------------------------------------------------------------------
+// Receipt upload — mirrors /api/admin/upload's image handling so receipts
+// attached via MCP end up identical to ones uploaded through the admin UI.
+// ---------------------------------------------------------------------------
+
+// Vercel serverless functions cap request bodies around 4.5MB; base64 inflates
+// the original file by ~33%, so keep the source file well under that ceiling.
+const MAX_RECEIPT_FILE_BYTES = 3 * 1024 * 1024;
+const RECEIPT_IMAGE_FORMATS = ["jpeg", "jpg", "png", "webp", "gif", "heic", "heif"];
+
+function _decodeBase64File(input: string): { buffer: Buffer; mimeType?: string } {
+  const match = input.match(/^data:([^;]+);base64,([\s\S]+)$/);
+  if (match) return { buffer: Buffer.from(match[2], "base64"), mimeType: match[1] };
+  return { buffer: Buffer.from(input, "base64") };
+}
+
+async function _uploadReceiptFile(fileBase64: string, filename?: string): Promise<{ url: string } | { error: string }> {
+  const { buffer, mimeType } = _decodeBase64File(fileBase64);
+  if (!buffer.length) return { error: "Empty or invalid base64 file data." };
+  if (buffer.length > MAX_RECEIPT_FILE_BYTES) {
+    return { error: `File too large (${(buffer.length / 1024 / 1024).toFixed(1)}MB). Keep receipts under ${MAX_RECEIPT_FILE_BYTES / 1024 / 1024}MB — resize/compress the photo first.` };
+  }
+
+  const isPdf = mimeType === "application/pdf" || filename?.toLowerCase().endsWith(".pdf");
+  if (isPdf) {
+    const blob = await put(`receipts/${crypto.randomUUID()}.pdf`, buffer, { access: "public", contentType: "application/pdf" });
+    return { url: blob.url };
+  }
+
+  let metadata;
+  try {
+    metadata = await sharp(buffer).metadata();
+  } catch {
+    return { error: "Invalid file — provide a valid image (JPEG/PNG/WebP/GIF/HEIC) or PDF as base64, optionally as a data: URI." };
+  }
+  if (!metadata.format || !RECEIPT_IMAGE_FORMATS.includes(metadata.format)) {
+    return { error: `Unsupported image format: ${metadata.format ?? "unknown"}. Use JPEG, PNG, WebP, GIF, HEIC, or PDF.` };
+  }
+
+  let processed = sharp(buffer).rotate();
+  if (metadata.width && metadata.width > 2000) {
+    processed = processed.resize(2000, null, { fit: "inside", withoutEnlargement: true });
+  }
+  const hasAlpha = !!metadata.hasAlpha;
+  const optimized = hasAlpha
+    ? await processed.png({ compressionLevel: 9 }).toBuffer()
+    : await processed.jpeg({ quality: 85, mozjpeg: true }).toBuffer();
+
+  const blob = await put(`receipts/${crypto.randomUUID()}.${hasAlpha ? "png" : "jpg"}`, optimized, {
+    access: "public",
+    contentType: hasAlpha ? "image/png" : "image/jpeg",
+  });
+  return { url: blob.url };
+}
 
 // ---------------------------------------------------------------------------
 // Analytics helpers (shared by get_analytics, get_combo_analytics, get_tax_summary, get_profit_loss)
@@ -246,7 +304,7 @@ export const MCP_TOOLS = [
   },
   {
     name: "update_purchase",
-    description: "Update an existing supply purchase's vendor, date, items, shipping, tax, or notes.",
+    description: "Update an existing supply purchase's vendor, date, items, shipping, tax, receipt URL, or notes.",
     inputSchema: {
       type: "object",
       properties: {
@@ -269,9 +327,23 @@ export const MCP_TOOLS = [
         },
         shippingCents: { type: "number" },
         taxCents: { type: "number" },
+        receiptImageUrl: { type: "string", description: "Usually set via attach_purchase_receipt rather than passed directly." },
         notes: { type: "string" },
       },
       required: ["purchaseId"],
+    },
+  },
+  {
+    name: "attach_purchase_receipt",
+    description: "Upload a receipt photo or PDF (as base64) to Vercel Blob storage and attach it to a supply purchase. Pass purchaseId to attach it to an existing purchase immediately, or omit it to just get back a hosted URL to pass as receiptImageUrl when calling record_purchase. Keep the file under ~3MB (larger photos should be resized/compressed first — request bodies are capped around 4.5MB).",
+    inputSchema: {
+      type: "object",
+      properties: {
+        fileBase64: { type: "string", description: "The receipt file, base64-encoded — either a raw base64 string or a data URI (e.g. data:image/jpeg;base64,...)." },
+        filename: { type: "string", description: "Original filename, used to detect PDF vs image when the base64 string isn't a data URI (e.g. receipt.pdf)." },
+        purchaseId: { type: "string", description: "If provided, attaches the uploaded receipt to this existing purchase immediately." },
+      },
+      required: ["fileBase64"],
     },
   },
   {
@@ -525,7 +597,7 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
       `Total: ${fmt(purchase.totalCents)} (subtotal ${fmt(purchase.subtotalCents)} + shipping ${fmt(purchase.shippingCents)} + tax ${fmt(purchase.taxCents)})`,
     ].join("\n"));
   },
-  async update_purchase({ purchaseId, vendorName, purchaseDate, items, shippingCents, taxCents, notes }) {
+  async update_purchase({ purchaseId, vendorName, purchaseDate, items, shippingCents, taxCents, receiptImageUrl, notes }) {
     const existing = await getPurchaseById(purchaseId as string);
     if (!existing) return t(`Error: No purchase found with ID: ${purchaseId}`);
     const newItems = (items as PurchaseItem[] | undefined) ?? existing.items;
@@ -541,10 +613,24 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
       taxCents: newTax,
       subtotalCents,
       totalCents,
+      receiptImageUrl: (receiptImageUrl as string | undefined) ?? existing.receiptImageUrl,
       notes: (notes as string | undefined) ?? existing.notes,
     });
     if (!updated) return t(`Error: No purchase found with ID: ${purchaseId}`);
     return t(`Purchase ${purchaseId} updated.\nVendor: ${updated.vendorName} — ${updated.purchaseDate}\nTotal: ${fmt(updated.totalCents)}`);
+  },
+  async attach_purchase_receipt({ fileBase64, filename, purchaseId }) {
+    const result = await _uploadReceiptFile(fileBase64 as string, filename as string | undefined);
+    if ("error" in result) return t(`Error: ${result.error}`);
+    if (!purchaseId) {
+      return t(`Receipt uploaded: ${result.url}\nPass this as receiptImageUrl to record_purchase (new purchase) or update_purchase (existing purchase) to attach it.`);
+    }
+    const existing = await getPurchaseById(purchaseId as string);
+    if (!existing) {
+      return t(`Receipt uploaded to ${result.url}, but no purchase found with ID: ${purchaseId}. Pass this URL as receiptImageUrl to record_purchase or update_purchase instead.`);
+    }
+    await updatePurchase(purchaseId as string, { receiptImageUrl: result.url });
+    return t(`Receipt uploaded and attached to purchase ${purchaseId} (${existing.vendorName} — ${existing.purchaseDate}).\nURL: ${result.url}`);
   },
   async delete_purchase({ purchaseId }) {
     const existing = await getPurchaseById(purchaseId as string);
