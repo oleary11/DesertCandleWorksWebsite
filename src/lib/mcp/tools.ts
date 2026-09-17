@@ -352,7 +352,7 @@ export const MCP_TOOLS = [
   },
   {
     name: "get_purchase_receipt_file",
-    description: "Fetch the actual receipt file attached to a purchase and return it inline as base64 (an image content block for photos, an embedded resource block for PDFs) — not just the receiptImageUrl string. Only works for receipts hosted on this app's own Blob storage (i.e. uploaded via attach_purchase_receipt or the admin UI); if receiptImageUrl points elsewhere, returns an error with that raw URL instead. Capped at 15MB.",
+    description: "Fetch the actual receipt file attached to a purchase — not just the receiptImageUrl string. Returns two text content blocks: a short human-readable label, and a JSON object {filename, mime, fileBase64} with the complete, untruncated base64-encoded file — pass fileBase64 straight through to another tool's file/receipt upload input. Only works for receipts hosted on this app's own Blob storage (i.e. uploaded via attach_purchase_receipt or the admin UI); if receiptImageUrl points elsewhere, returns an error with that raw URL instead. Capped at 15MB.",
     inputSchema: { type: "object", properties: { purchaseId: { type: "string" } }, required: ["purchaseId"] },
   },
   {
@@ -429,11 +429,7 @@ export const MCP_TOOLS = [
 // ---------------------------------------------------------------------------
 
 type Args = Record<string, unknown>;
-type ToolContentBlock =
-  | { type: "text"; text: string }
-  | { type: "image"; data: string; mimeType: string }
-  | { type: "resource"; resource: { uri: string; mimeType: string; blob: string } };
-type ToolResult = { content: ToolContentBlock[] };
+type ToolResult = { content: Array<{ type: "text"; text: string }> };
 const t = (text: string): ToolResult => ({ content: [{ type: "text", text }] });
 const fmt = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -704,13 +700,16 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
 
     const mimeType = res.headers.get("content-type")
       || (url.pathname.endsWith(".pdf") ? "application/pdf" : url.pathname.endsWith(".png") ? "image/png" : "image/jpeg");
+    const filename = url.pathname.split("/").pop() || `receipt-${purchaseId}`;
     const base64 = buffer.toString("base64");
-    const label = `Receipt for purchase ${purchaseId} (${purchase.vendorName} — ${purchase.purchaseDate}), ${(buffer.length / 1024).toFixed(0)}KB, ${mimeType}.`;
+    const label = `Receipt for purchase ${purchaseId} (${purchase.vendorName} — ${purchase.purchaseDate}), ${(buffer.length / 1024).toFixed(0)}KB, ${mimeType}. The second content block is JSON with the complete, untruncated file: {filename, mime, fileBase64}.`;
 
-    if (mimeType.startsWith("image/")) {
-      return { content: [{ type: "text", text: label }, { type: "image", data: base64, mimeType }] };
-    }
-    return { content: [{ type: "text", text: label }, { type: "resource", resource: { uri: purchase.receiptImageUrl, mimeType, blob: base64 } }] };
+    return {
+      content: [
+        { type: "text", text: label },
+        { type: "text", text: JSON.stringify({ filename, mime: mimeType, fileBase64: base64 }) },
+      ],
+    };
   },
   async delete_purchase({ purchaseId }) {
     const existing = await getPurchaseById(purchaseId as string);
