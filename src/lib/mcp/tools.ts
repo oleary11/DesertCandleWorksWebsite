@@ -135,8 +135,12 @@ async function _loadAnalytics(dateFrom?: string | null, dateTo?: string | null) 
   for (const r of refundsRaw as Array<{ orderId: string; amountCents: number; status: string }>) {
     if (r.status === "completed") refundMap.set(r.orderId, (refundMap.get(r.orderId) ?? 0) + r.amountCents);
   }
+  // Note: deliberately no email-domain filtering here — Square POS and manual
+  // in-person sales use synthetic "@admin.local" emails (no real customer
+  // account) but are real revenue and must count. See list_orders/
+  // get_revenue_summary for the same pitfall this used to have.
   let orders = (ordersRaw as AnalyticsOrder[]).filter(
-    (o) => o.status === "completed" && !o.id.includes("@admin.local") && (refundMap.get(o.id) ?? 0) < o.totalCents
+    (o) => o.status === "completed" && (refundMap.get(o.id) ?? 0) < o.totalCents
   );
   if (dateFrom && dateTo) {
     const start = new Date(dateFrom + "T00:00:00.000Z"), end = new Date(dateTo + "T23:59:59.999Z");
@@ -183,7 +187,7 @@ export const MCP_TOOLS = [
   },
   {
     name: "list_orders",
-    description: "List orders with optional filters. Returns customer, total, items, and status.",
+    description: "List orders with optional filters (Stripe website, Square POS, and manual in-person sales are all included). Returns customer, total, items, status, and refund tag if refunded. For financial reconciliation against Business Overview/get_analytics, prefer list_financial_sales — it exposes refund-adjusted net revenue per sale, which this tool does not compute.",
     inputSchema: {
       type: "object",
       properties: {
@@ -227,7 +231,7 @@ export const MCP_TOOLS = [
   },
   {
     name: "get_revenue_summary",
-    description: "Total revenue, order count, and average order value for a date range, broken down by payment method.",
+    description: "Total revenue, order count, and average order value for a date range, broken down by payment method (includes Square POS and manual in-person sales, not just Stripe). Does not net out refunds — use get_analytics or list_financial_sales for refund-adjusted revenue.",
     inputSchema: { type: "object", properties: { dateFrom: { type: "string" }, dateTo: { type: "string" } } },
   },
   { name: "list_customers", description: "List all customer accounts (email, name, ID).", inputSchema: { type: "object", properties: {} } },
@@ -377,6 +381,21 @@ export const MCP_TOOLS = [
     inputSchema: { type: "object", properties: { dateFrom: { type: "string" }, dateTo: { type: "string" }, limit: { type: "number", description: "Top N combos to return (default: 20)" } } },
   },
   {
+    name: "list_financial_sales",
+    description: "The exact underlying sale records behind Business Overview / get_analytics revenue, for financial reconciliation (e.g. an external ledger). Returns EVERY completed sale across all channels — Stripe website, Square POS, and manual in-person — including fully/partially refunded ones (never silently dropped). Each sale's netRevenueCents is refund-adjusted; summing netRevenueCents for a date range exactly equals get_analytics/Business Overview Gross Revenue for that same range and channel counts exactly match get_analytics. Response includes a `summary` block (totals + per-channel breakdown) plus the `sales` array, newest first.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        dateFrom: { type: "string", description: "YYYY-MM-DD, matched against completedAt (falls back to createdAt) — same basis get_analytics uses" },
+        dateTo: { type: "string", description: "YYYY-MM-DD" },
+        channel: { type: "string", enum: ["stripe", "square", "manual"], description: "Filter to one sales channel" },
+        status: { type: "string", enum: ["completed", "pending", "cancelled"], description: "Defaults to completed only — the same universe Business Overview revenue is computed from. Only completed sales reconcile against get_analytics; pending/cancelled are exposed for audit but don't count as revenue anywhere." },
+        limit: { type: "number", description: "Max sales to return (default 100, max 500)" },
+        offset: { type: "number", description: "Pagination offset (default 0)" },
+      },
+    },
+  },
+  {
     name: "get_profit_loss",
     description: "Real profit & loss for a period: gross revenue, payment processing fees, supply/COGS purchases, and net profit with margin — both store-wide and product-only views. This is your actual earnings, unlike get_revenue_summary which only shows gross sales before costs.",
     inputSchema: { type: "object", properties: { dateFrom: { type: "string", description: "YYYY-MM-DD" }, dateTo: { type: "string", description: "YYYY-MM-DD" } } },
@@ -443,7 +462,9 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
     const from = dateFrom ? new Date(dateFrom as string) : null;
     const to = dateTo ? new Date(dateTo as string) : null;
     let orders = await getAllOrders();
-    orders = orders.filter((o) => !o.email.includes("@admin.local"));
+    // No email-domain filtering here — Square POS and manual in-person sales
+    // use synthetic "@admin.local" emails (no real customer account) but are
+    // real orders and must be visible. (Previously excluded — see get_analytics.)
     if (status) orders = orders.filter((o) => o.status === status);
     if (paymentMethod) orders = orders.filter((o) => o.paymentMethod?.toLowerCase().includes((paymentMethod as string).toLowerCase()));
     if (from) orders = orders.filter((o) => new Date(o.createdAt) >= from);
@@ -451,7 +472,15 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
     orders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     orders = orders.slice(0, max);
     if (!orders.length) return t("No orders found matching the given filters.");
-    const lines = orders.map((o) => `[${o.id}] ${new Date(o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} — ${o.email} — $${(o.totalCents / 100).toFixed(2)} (${o.paymentMethod ?? "?"}) — ${o.status}${o.trackingNumber ? ` | tracking: ${o.trackingNumber}` : ""}\n  Items: ${o.items.map((i) => `${i.quantity}× ${i.productName}`).join(", ")}`);
+    const refundMap = new Map<string, number>();
+    for (const r of await listRefunds()) {
+      if (r.status === "completed") refundMap.set(r.orderId, (refundMap.get(r.orderId) ?? 0) + r.amountCents);
+    }
+    const lines = orders.map((o) => {
+      const refunded = refundMap.get(o.id) ?? 0;
+      const refundTag = refunded === 0 ? "" : ` | REFUNDED ${fmt(refunded)}${refunded >= o.totalCents ? " (full — $0 net revenue)" : " (partial)"}`;
+      return `[${o.id}] ${new Date(o.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })} — ${o.email} — $${(o.totalCents / 100).toFixed(2)} (${o.paymentMethod ?? "?"}) — ${o.status}${refundTag}${o.trackingNumber ? ` | tracking: ${o.trackingNumber}` : ""}\n  Items: ${o.items.map((i) => `${i.quantity}× ${i.productName}`).join(", ")}`;
+    });
     return t(`${orders.length} orders:\n\n${lines.join("\n")}`);
   },
   async get_order({ orderId }) {
@@ -495,7 +524,8 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
     const from = dateFrom ? new Date(dateFrom as string) : null;
     const to = dateTo ? new Date(dateTo as string) : null;
     let orders = await getAllOrders();
-    orders = orders.filter((o) => o.status === "completed" && !o.email.includes("@admin.local"));
+    // No email-domain filtering — see list_orders/get_analytics for why.
+    orders = orders.filter((o) => o.status === "completed");
     if (from) orders = orders.filter((o) => new Date(o.createdAt) >= from);
     if (to) { const end = new Date(to); end.setHours(23, 59, 59, 999); orders = orders.filter((o) => new Date(o.createdAt) <= end); }
     if (!orders.length) return t("No completed orders found for the given date range.");
@@ -782,6 +812,96 @@ export const MCP_HANDLERS: Record<string, (args: Args) => Promise<ToolResult>> =
     const label = (dateFrom && dateTo) ? ` (${dateFrom} – ${dateTo})` : " (all time)";
     const lines = sorted.map((c, i) => `#${String(i + 1).padStart(2)}  ${c.alcoholType} × ${c.scent}  —  ${c.units} units  ${fmt(c.revenue)}`);
     return t(`Top ${sorted.length} Alcohol Type × Scent Combos${label}:\n\n${lines.join("\n")}`);
+  },
+  async list_financial_sales({ dateFrom, dateTo, channel, status, limit, offset }) {
+    const from = dateFrom ? new Date(dateFrom as string + "T00:00:00.000Z") : null;
+    const to = dateTo ? new Date(dateTo as string + "T23:59:59.999Z") : null;
+    const statusFilter = (status as string | undefined) ?? "completed";
+    const max = Math.min(Number(limit ?? 100), 500);
+    const start = Number(offset ?? 0);
+
+    const [allOrders, allRefunds] = await Promise.all([getAllOrders(), listRefunds()]);
+    const refundMap = new Map<string, number>();
+    for (const r of allRefunds) {
+      if (r.status === "completed") refundMap.set(r.orderId, (refundMap.get(r.orderId) ?? 0) + r.amountCents);
+    }
+
+    let orders = allOrders.filter((o) => o.status === statusFilter);
+    if (from || to) {
+      orders = orders.filter((o) => {
+        const d = new Date(o.completedAt || o.createdAt);
+        return (!from || d >= from) && (!to || d <= to);
+      });
+    }
+    if (channel) {
+      orders = orders.filter((o) => {
+        const ch = _isMSale(o.id) ? "manual" : _isSQOrder(o.id) ? "square" : "stripe";
+        return ch === channel;
+      });
+    }
+    orders.sort((a, b) => new Date(b.completedAt || b.createdAt).getTime() - new Date(a.completedAt || a.createdAt).getTime());
+
+    const totalMatched = orders.length;
+    const page = orders.slice(start, start + max);
+
+    const sales = page.map((o) => {
+      const channelName = _isMSale(o.id) ? "manual" : _isSQOrder(o.id) ? "square" : "stripe";
+      const refundedCents = refundMap.get(o.id) ?? 0;
+      const refundStatus = refundedCents === 0 ? "none" : refundedCents >= o.totalCents ? "full" : "partial";
+      const netRevenueCents = o.totalCents - refundedCents;
+
+      // Old orders may not have shippingCents stored directly — derive it the
+      // same way /api/admin/analytics (which feeds Business Overview) does.
+      let shippingCents = o.shippingCents ?? 0;
+      if (shippingCents === 0 && o.productSubtotalCents != null) {
+        shippingCents = o.totalCents - o.productSubtotalCents - (o.taxCents ?? 0);
+        if (shippingCents < 0) shippingCents = 0;
+      }
+
+      const stripeSessionMatch = o.notes?.match(/Stripe Checkout Session:\s*(\S+)/);
+      const squarePaymentMatch = o.notes?.match(/Square Payment ID:\s*(\S+)/);
+      const processorPaymentId = stripeSessionMatch?.[1] ?? squarePaymentMatch?.[1] ?? null;
+
+      return {
+        saleId: o.id, // durable, unique — same ID refunds key off (refund.orderId); use this for dedup
+        channel: channelName,
+        status: o.status,
+        saleDate: o.completedAt || o.createdAt,
+        paymentMethod: o.paymentMethod ?? null,
+        customerEmail: o.email,
+        customerId: o.userId ?? null,
+        grossTotalCents: o.totalCents, // pre-refund total actually charged
+        productSubtotalCents: o.productSubtotalCents ?? null,
+        shippingCents,
+        taxCents: o.taxCents ?? 0,
+        discountCents: o.discountCents ?? 0,
+        processingFeeCents: _paymentFee(o.id, o.totalCents),
+        refund: { amountCents: refundedCents, status: refundStatus },
+        netRevenueCents, // <-- sum this field to reconcile against Business Overview / get_analytics revenue
+        processorPaymentId, // parsed from order notes; null for manual sales (no processor) or older orders that predate this being recorded
+        processorPayoutId: null, // not tracked by this system (would require pulling Stripe/Square Payouts API separately)
+        items: o.items,
+        itemSummary: o.items.map((i) => `${i.quantity}× ${i.productName}`).join(", "),
+      };
+    });
+
+    const summary = { totalSales: 0, totalGrossCents: 0, totalNetRevenueCents: 0, totalRefundedCents: 0, byChannel: {} as Record<string, { count: number; grossCents: number; netRevenueCents: number }> };
+    for (const s of sales) {
+      summary.totalSales++;
+      summary.totalGrossCents += s.grossTotalCents;
+      summary.totalNetRevenueCents += s.netRevenueCents;
+      summary.totalRefundedCents += s.refund.amountCents;
+      const c = summary.byChannel[s.channel] ?? { count: 0, grossCents: 0, netRevenueCents: 0 };
+      c.count++; c.grossCents += s.grossTotalCents; c.netRevenueCents += s.netRevenueCents;
+      summary.byChannel[s.channel] = c;
+    }
+
+    return t(JSON.stringify({
+      summary,
+      pagination: { offset: start, limit: max, returned: sales.length, totalMatched, hasMore: start + max < totalMatched },
+      note: "Sum netRevenueCents (not grossTotalCents) to reconcile against Business Overview Gross Revenue / get_analytics for the same dateFrom/dateTo and status=completed — fully refunded sales are included here with netRevenueCents:0 rather than dropped.",
+      sales,
+    }, null, 2));
   },
   async get_profit_loss({ dateFrom, dateTo }) {
     const { orders, refundMap } = await _loadAnalytics(dateFrom as string | null, dateTo as string | null);
