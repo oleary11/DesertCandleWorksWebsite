@@ -65,18 +65,40 @@
     0 18px 40px -12px rgb(63 42 33 / 0.28);
 }
 
-/* Soft organic scent cards: gently irregular corners that always leave room
-   for the text (a true blob clips copy near its edges). */
+/* Soft organic scent blobs. Content is centred with generous padding and the
+   blob stays close to square, so the curved edges never clip the text. */
+.blob,
+.blobAlt,
+.blobAlt2 {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 17rem;
+  padding: 2.75rem 2.5rem;
+}
+
+@media (min-width: 640px) {
+  .blob,
+  .blobAlt,
+  .blobAlt2 {
+    aspect-ratio: 1 / 1.05;
+    min-height: 0;
+    padding: 2.5rem 2.25rem;
+  }
+}
+
 .blob {
-  border-radius: 3.25rem 2.25rem 3rem 2.5rem / 2.75rem 3.25rem 2.25rem 3rem;
+  border-radius: 46% 54% 44% 56% / 38% 42% 58% 62%;
 }
 
 .blobAlt {
-  border-radius: 2.5rem 3.5rem 2.25rem 3.25rem / 3.25rem 2.25rem 3.5rem 2.5rem;
+  border-radius: 58% 42% 52% 48% / 44% 58% 42% 56%;
 }
 
 .blobAlt2 {
-  border-radius: 3rem 2.5rem 3.5rem 2.25rem / 2.5rem 3.5rem 2.75rem 3.25rem;
+  border-radius: 42% 58% 56% 44% / 56% 40% 60% 44%;
 }
 
 .softShadow {

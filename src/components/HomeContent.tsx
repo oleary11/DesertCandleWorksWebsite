@@ -216,8 +216,8 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
 
       {/* OUR SCENTS */}
       <section className={`${s.cream} ${s.tornTop} px-6 py-20`}>
-        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-12 lg:gap-10">
-          <div className={`${s.reveal} lg:col-span-4 lg:pt-10`}>
+        <div className="mx-auto grid max-w-7xl gap-12 xl:grid-cols-12 xl:gap-10">
+          <div className={`${s.reveal} xl:col-span-4 xl:pt-10`}>
             <h2 className={`${serif.className} text-4xl text-[var(--home-ink)] sm:text-5xl`}>Our scents</h2>
             <div className="mt-4 h-0.5 w-12 rounded bg-[var(--home-clay)]/70" />
             <p className="mt-5 max-w-sm text-lg leading-relaxed text-[var(--home-muted)]">
@@ -226,22 +226,22 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             </p>
           </div>
 
-          <div className="grid gap-6 sm:grid-cols-3 lg:col-span-8">
-            <article className={`${s.reveal} ${s.blob} ${s.softShadow} bg-[var(--home-sage)] px-7 py-9 sm:px-8 sm:py-10`}>
+          <div className="grid gap-6 sm:grid-cols-3 xl:col-span-8 xl:gap-5">
+            <article className={`${s.reveal} ${s.blob} ${s.softShadow} bg-[var(--home-sage)]`}>
               <Sprout size={28} strokeWidth={1.6} className="text-[#5c6b4a]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Signature</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
                 Our core, desert-inspired blends. Always in rotation, always a good idea.
               </p>
             </article>
-            <article className={`${s.reveal} ${s.blobAlt} ${s.softShadow} bg-[var(--home-peach)] px-7 py-9 sm:px-8 sm:py-10`}>
+            <article className={`${s.reveal} ${s.blobAlt} ${s.softShadow} bg-[var(--home-peach)]`}>
               <Sparkles size={28} strokeWidth={1.6} className="text-[var(--home-clay)]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Limited</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
                 Small-batch pours on select bottles. When they&apos;re gone, they&apos;re gone.
               </p>
             </article>
-            <article className={`${s.reveal} ${s.blobAlt2} ${s.softShadow} bg-[var(--home-blush)] px-7 py-9 sm:px-8 sm:py-10`}>
+            <article className={`${s.reveal} ${s.blobAlt2} ${s.softShadow} bg-[var(--home-blush)]`}>
               <Sun size={28} strokeWidth={1.6} className="text-[#a0605a]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Seasonal</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
