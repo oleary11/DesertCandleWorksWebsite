@@ -65,17 +65,18 @@
     0 18px 40px -12px rgb(63 42 33 / 0.28);
 }
 
-/* Soft organic scent cards. */
+/* Soft organic scent cards: gently irregular corners that always leave room
+   for the text (a true blob clips copy near its edges). */
 .blob {
-  border-radius: 46% 54% 44% 56% / 38% 42% 58% 62%;
+  border-radius: 3.25rem 2.25rem 3rem 2.5rem / 2.75rem 3.25rem 2.25rem 3rem;
 }
 
 .blobAlt {
-  border-radius: 58% 42% 52% 48% / 44% 58% 42% 56%;
+  border-radius: 2.5rem 3.5rem 2.25rem 3.25rem / 3.25rem 2.25rem 3.5rem 2.5rem;
 }
 
 .blobAlt2 {
-  border-radius: 42% 58% 56% 44% / 56% 40% 60% 44%;
+  border-radius: 3rem 2.5rem 3.5rem 2.25rem / 2.5rem 3.5rem 2.75rem 3.25rem;
 }
 
 .softShadow {

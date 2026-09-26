@@ -227,21 +227,21 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
           </div>
 
           <div className="grid gap-6 sm:grid-cols-3 lg:col-span-8">
-            <article className={`${s.reveal} ${s.blob} ${s.softShadow} bg-[var(--home-sage)] px-8 py-10`}>
+            <article className={`${s.reveal} ${s.blob} ${s.softShadow} bg-[var(--home-sage)] px-7 py-9 sm:px-8 sm:py-10`}>
               <Sprout size={28} strokeWidth={1.6} className="text-[#5c6b4a]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Signature</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
                 Our core, desert-inspired blends. Always in rotation, always a good idea.
               </p>
             </article>
-            <article className={`${s.reveal} ${s.blobAlt} ${s.softShadow} bg-[var(--home-peach)] px-8 py-10`}>
+            <article className={`${s.reveal} ${s.blobAlt} ${s.softShadow} bg-[var(--home-peach)] px-7 py-9 sm:px-8 sm:py-10`}>
               <Sparkles size={28} strokeWidth={1.6} className="text-[var(--home-clay)]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Limited</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
                 Small-batch pours on select bottles. When they&apos;re gone, they&apos;re gone.
               </p>
             </article>
-            <article className={`${s.reveal} ${s.blobAlt2} ${s.softShadow} bg-[var(--home-blush)] px-8 py-10`}>
+            <article className={`${s.reveal} ${s.blobAlt2} ${s.softShadow} bg-[var(--home-blush)] px-7 py-9 sm:px-8 sm:py-10`}>
               <Sun size={28} strokeWidth={1.6} className="text-[#a0605a]" aria-hidden="true" />
               <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Seasonal</h3>
               <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
