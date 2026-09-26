@@ -1,19 +1,22 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import localFont from "next/font/local";
+import { Young_Serif } from "next/font/google";
+import { useEffect, useState } from "react";
+import { ArrowRight, Flame, Leaf, Recycle, Sparkles, Sun, Sprout } from "lucide-react";
 import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
-import Link from "next/link";
-import { useScrollAnimation } from "@/hooks/useScrollAnimation";
-import localFont from "next/font/local";
 import type { Product } from "@/lib/products";
-import { useEffect, useState } from "react";
+import s from "@/components/home/home.module.css";
 
-const megastina = localFont({
+const script = localFont({
   src: [{ path: "../../public/fonts/Megastina.ttf", weight: "400", style: "normal" }],
-  variable: "--font-megastina",
   display: "swap",
 });
+
+const serif = Young_Serif({ weight: "400", subsets: ["latin"], display: "swap" });
 
 interface HomeContentProps {
   bestsellers: (Product & { _computedStock?: number })[];
@@ -29,17 +32,42 @@ type InstagramPost = {
   timestamp: string;
 };
 
-export default function HomeContent({ bestsellers }: HomeContentProps) {
-  // Scroll animations for different sections
-  const bestSellersSection = useScrollAnimation({ threshold: 0.2 });
-  const ourSmellsSection = useScrollAnimation({ threshold: 0.2 });
-  const signatureCard = useScrollAnimation({ threshold: 0.3 });
-  const limitedCard = useScrollAnimation({ threshold: 0.3 });
-  const seasonalCard = useScrollAnimation({ threshold: 0.3 });
-  const mailingListSection = useScrollAnimation({ threshold: 0.3 });
-  const instagramSection = useScrollAnimation({ threshold: 0.3 });
+const promises = [
+  {
+    icon: Leaf,
+    title: "Natural coconut apricot wax",
+    body: "No paraffin, no petroleum. Kinder for you, your family and your pets.",
+  },
+  {
+    icon: Flame,
+    title: "Clean, smokeless burn",
+    body: "Burns cleaner and longer, with no black soot.",
+  },
+  {
+    icon: Recycle,
+    title: "Upcycled bottles",
+    body: "Rescued from Scottsdale bars and restaurants and given a second life.",
+  },
+];
 
-  // Instagram posts state
+const signatureScents = [
+  { name: "Cabin Spa", notes: "Sandalwood, gentle lavender and warm amber. A spa retreat in candle form." },
+  { name: "Boot Leather", notes: "Ever smell the inside of a boot store? Rich leather and warm bonfire embers." },
+  { name: "Smoked Amber", notes: "Smooth amber wrapped in smoky embers. Rich, refined and balanced." },
+  { name: "Minted Lavender", notes: "Crisp eucalyptus and soft lavender for a clean, spa-fresh scent." },
+  { name: "Sea Salt & Linen", notes: "Fresh linen with warm Caribbean teakwood. Clean and calming." },
+];
+
+const InstagramIcon = ({ className = "" }: { className?: string }) => (
+  <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
+  </svg>
+);
+
+const primaryButton =
+  "inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--home-clay)] px-7 py-3.5 text-base font-semibold !text-white shadow-[0_10px_24px_-10px_rgb(169_80_47/0.7)] transition-colors hover:bg-[var(--home-clay-hover)] active:scale-[0.98]";
+
+export default function HomeContent({ bestsellers }: HomeContentProps) {
   const [instagramPosts, setInstagramPosts] = useState<InstagramPost[]>([]);
   const [instagramLoading, setInstagramLoading] = useState(true);
 
@@ -61,578 +89,304 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
   }, []);
 
   return (
-    <>
+    <div className={s.page}>
       {/* HERO */}
-      <section
-        className="
-          relative isolate overflow-hidden
-          h-[420px] sm:h-[480px] lg:h-[520px]
-          flex items-center justify-center text-center
-          shadow-[inset_0_0_0_1px_color-mix(in_oklab,_var(--color-ink)_6%,_transparent)]
-        "
-      >
-        <Image
-          src="/images/desert-bg.jpg"
-          alt="Desert landscape"
-          fill
-          className="object-cover object-center pointer-events-none"
-          priority
-          sizes="100vw"
-          quality={90}
-        />
-        <div className="absolute inset-0 bg-white/40 backdrop-blur-[2px]" />
-        <div className="relative z-10 px-6">
-          <h1 className="text-4xl sm:text-5xl font-semibold tracking-tight">
-            All-Natural Candles in Scottsdale, Arizona
-          </h1>
-          <p className="mt-4 max-w-2xl mx-auto text-base sm:text-lg text-[var(--color-muted)]">
-            100% natural coconut apricot wax candles in upcycled liquor bottles. Clean burning, smokeless, and eco-friendly. Desert-inspired scents made with premium natural ingredients.
-          </p>
-          <div className="mt-8">
-            <Link
-              href="/shop"
-              className="
-                btn-cta inline-flex items-center justify-center rounded-2xl px-10 py-4 text-base sm:text-lg font-semibold
-                border-0 text-white
-                [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-                shadow-[0_2px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(212,165,116,.25),0_8px_20px_rgba(20,16,12,.12)]
-                hover:shadow-[0_2px_0_rgba(255,255,255,.6)_inset,0_16px_50px_rgba(212,165,116,.35),0_12px_30px_rgba(20,16,12,.16)]
-                hover:-translate-y-1 transition-all duration-200
-                hover:scale-105
-              "
+      <section className={`${s.paper} overflow-hidden px-6 pt-12 pb-16 sm:pt-16 lg:pt-20 lg:pb-24`}>
+        <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-12 lg:gap-8">
+          <div className="lg:col-span-5">
+            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--home-clay)] uppercase">
+              Real bottles. Brighter days.
+            </p>
+            <h1
+              className={`${serif.className} mt-5 text-[2.6rem] leading-[1.08] text-balance text-[var(--home-ink)] sm:text-5xl lg:text-[3.5rem]`}
             >
-              Shop Candles
+              Hand-poured in Scottsdale, one bottle at a time.
+            </h1>
+            <div className="mt-6 h-0.5 w-14 rounded bg-[var(--home-clay)]/70" />
+            <p className="mt-6 max-w-md text-lg leading-relaxed text-[var(--home-muted)]">
+              Natural coconut apricot wax in upcycled liquor bottles. Candles with a story, from
+              our hands to yours.
+            </p>
+            <div className="mt-9 flex flex-wrap items-center gap-6">
+              <Link href="/shop" className={primaryButton}>
+                Shop candles
+                <ArrowRight size={18} />
+              </Link>
+              <p
+                className={`${script.className} -rotate-6 text-[1.7rem] leading-none text-[var(--home-muted)]`}
+                aria-hidden="true"
+              >
+                small batches ♡
+              </p>
+            </div>
+          </div>
+
+          {/* Photo collage */}
+          <div className="relative mx-auto h-[380px] w-full max-w-[560px] sm:h-[460px] lg:col-span-7 lg:h-[520px] lg:max-w-none">
+            <div className="absolute top-[4%] left-[2%] w-[56%] -rotate-3 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)] sm:left-[4%]">
+              <div className="relative aspect-[4/5]">
+                <Image
+                  src="/images/hendricks.png"
+                  alt="A lit Desert Candle Works candle poured into a Hendrick's Gin bottle"
+                  fill
+                  priority
+                  sizes="(max-width: 1024px) 60vw, 34vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <div className="absolute top-[14%] right-[2%] z-10 w-[46%] rotate-3 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
+              <div className="relative aspect-[5/4]">
+                <Image
+                  src="/images/home/pour.jpg"
+                  alt="Pouring natural wax into an upcycled amber bottle"
+                  fill
+                  sizes="(max-width: 1024px) 50vw, 28vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+            <div className="absolute right-[10%] bottom-[2%] z-20 w-[38%] -rotate-2 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
+              <div className="relative aspect-[16/10]">
+                <Image
+                  src="/images/scottsdale.png"
+                  alt="Sonoran desert sunset near Scottsdale"
+                  fill
+                  sizes="(max-width: 1024px) 40vw, 22vw"
+                  className="object-cover"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* PROMISES */}
+      <section className={`${s.cream} ${s.tornTop} ${s.tornBottom} px-6 py-12`}>
+        <ul className="mx-auto grid max-w-6xl gap-8 sm:grid-cols-3 sm:gap-0">
+          {promises.map(({ icon: Icon, title, body }, i) => (
+            <li
+              key={title}
+              className={`flex items-start gap-4 sm:px-8 ${i > 0 ? "sm:border-l sm:border-[var(--home-line)]" : ""}`}
+            >
+              <Icon size={26} strokeWidth={1.6} className="mt-0.5 shrink-0 text-[var(--home-clay)]" aria-hidden="true" />
+              <div>
+                <p className={`${serif.className} text-lg text-[var(--home-ink)]`}>{title}</p>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--home-muted)]">{body}</p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* BEST SELLERS */}
+      <section className={`${s.paper} px-0 pt-20 pb-16`}>
+        <div className={`${s.reveal} relative mx-auto max-w-6xl px-6 text-center`}>
+          <h2 className={`${serif.className} text-4xl text-[var(--home-ink)] sm:text-5xl`}>Best sellers</h2>
+          <div className="mx-auto mt-4 h-0.5 w-12 rounded bg-[var(--home-clay)]/70" />
+          <p
+            className={`${script.className} absolute top-0 right-6 hidden rotate-[-6deg] text-[1.7rem] text-[var(--home-muted)] md:block`}
+            aria-hidden="true"
+          >
+            fan favorites ♡
+          </p>
+        </div>
+        <div className="mt-6">
+          <BestSellerCarousel products={bestsellers} />
+        </div>
+        <div className="mt-10 text-center">
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-2 font-semibold text-[var(--home-clay)] underline decoration-[var(--home-clay)]/30 decoration-2 underline-offset-[6px] hover:decoration-[var(--home-clay)]"
+          >
+            Shop all candles
+            <ArrowRight size={16} />
+          </Link>
+        </div>
+      </section>
+
+      {/* OUR SCENTS */}
+      <section className={`${s.cream} ${s.tornTop} px-6 py-20`}>
+        <div className="mx-auto grid max-w-7xl gap-12 lg:grid-cols-12 lg:gap-10">
+          <div className={`${s.reveal} lg:col-span-4 lg:pt-10`}>
+            <h2 className={`${serif.className} text-4xl text-[var(--home-ink)] sm:text-5xl`}>Our scents</h2>
+            <div className="mt-4 h-0.5 w-12 rounded bg-[var(--home-clay)]/70" />
+            <p className="mt-5 max-w-sm text-lg leading-relaxed text-[var(--home-muted)]">
+              Three collections: core blends that are always around, small-batch experiments, and
+              scents made for the season.
+            </p>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-3 lg:col-span-8">
+            <article className={`${s.reveal} ${s.blob} ${s.softShadow} bg-[var(--home-sage)] px-8 py-10`}>
+              <Sprout size={28} strokeWidth={1.6} className="text-[#5c6b4a]" aria-hidden="true" />
+              <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Signature</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
+                Our core, desert-inspired blends. Always in rotation, always a good idea.
+              </p>
+            </article>
+            <article className={`${s.reveal} ${s.blobAlt} ${s.softShadow} bg-[var(--home-peach)] px-8 py-10`}>
+              <Sparkles size={28} strokeWidth={1.6} className="text-[var(--home-clay)]" aria-hidden="true" />
+              <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Limited</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
+                Small-batch pours on select bottles. When they&apos;re gone, they&apos;re gone.
+              </p>
+            </article>
+            <article className={`${s.reveal} ${s.blobAlt2} ${s.softShadow} bg-[var(--home-blush)] px-8 py-10`}>
+              <Sun size={28} strokeWidth={1.6} className="text-[#a0605a]" aria-hidden="true" />
+              <h3 className={`${serif.className} mt-4 text-2xl text-[var(--home-ink)]`}>Seasonal</h3>
+              <p className="mt-2 text-[15px] leading-relaxed text-[var(--home-muted)]">
+                Timed to the season on select bottles. Watch our socials and newsletter for drops.
+              </p>
+            </article>
+          </div>
+        </div>
+
+        <div className={`${s.reveal} mx-auto mt-16 max-w-7xl`}>
+          <p className={`${script.className} text-[1.9rem] text-[var(--home-muted)]`}>the signature five</p>
+          <ul className="mt-4 grid gap-x-10 gap-y-5 border-t border-[var(--home-line)] pt-6 sm:grid-cols-2 lg:grid-cols-5">
+            {signatureScents.map(({ name, notes }) => (
+              <li key={name}>
+                <h3 className={`${serif.className} text-lg text-[var(--home-ink)]`}>{name}</h3>
+                <p className="mt-1 text-sm leading-relaxed text-[var(--home-muted)]">{notes}</p>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* STORY */}
+      <section className={`${s.paper} ${s.tornTop} ${s.tornBottom} overflow-hidden px-6 py-24`}>
+        <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-12">
+          <div className="relative mx-auto h-[440px] w-full max-w-[420px] lg:col-span-5">
+            <figure className={`${s.polaroid} absolute top-6 right-0 w-[62%] rotate-6`}>
+              <div className="relative aspect-[3/4] overflow-hidden rounded-[3px]">
+                <Image
+                  src="/images/home/rescued-bottles.jpg"
+                  alt="A box of rescued liquor bottles waiting to be cut"
+                  fill
+                  sizes="260px"
+                  className="object-cover"
+                />
+              </div>
+            </figure>
+            <figure className={`${s.polaroid} absolute top-16 left-0 w-[66%] -rotate-[5deg]`}>
+              <div className="relative aspect-[3/4] overflow-hidden rounded-[3px]">
+                <Image
+                  src="/images/home/workshop.jpg"
+                  alt="Cutting a liquor bottle by hand in the Desert Candle Works workshop"
+                  fill
+                  sizes="280px"
+                  className="object-cover"
+                />
+              </div>
+              <figcaption className={`${script.className} absolute inset-x-0 bottom-3 text-center text-[1.35rem] text-[var(--home-muted)]`}>
+                cut by hand ♡
+              </figcaption>
+            </figure>
+          </div>
+
+          <div className={`${s.reveal} lg:col-span-7`}>
+            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--home-clay)] uppercase">Our story</p>
+            <h2 className={`${serif.className} mt-4 text-4xl leading-[1.12] text-balance text-[var(--home-ink)] sm:text-5xl`}>
+              From bottles to something brighter.
+            </h2>
+            <p className="mt-6 max-w-xl text-lg leading-relaxed text-[var(--home-muted)]">
+              We rescue beautiful bottles from Scottsdale bars and restaurants, then cut, sand and
+              hand-pour every candle in our small workshop. What was once a celebration becomes a
+              candle, and a little less glass ends up in the landfill.
+            </p>
+            <Link href="/about" className={`${primaryButton} mt-9`}>
+              Our story
+              <ArrowRight size={18} />
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ECO-FRIENDLY & ALL-NATURAL BENEFITS */}
-      <section className="mx-auto max-w-6xl px-6 py-16">
-        <div className="text-center mb-12">
-          <h2
-            className={`${megastina.className} script-title script-hero mb-8 inline-block relative max-w-full`}
-            style={{ color: "var(--color-ink)" }}
-          >
-            Why Desert Candle Works?
-            <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-            <span className="absolute -bottom-2 left-0 h-0.5 w-0 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
+      {/* MAILING LIST */}
+      <section className={`${s.cream} px-6 pt-24 pb-16`}>
+        <div className={`${s.reveal} mx-auto max-w-2xl text-center`}>
+          <h2 className={`${serif.className} text-4xl text-[var(--home-ink)] sm:text-[2.75rem]`}>
+            Join our candle circle
           </h2>
-        </div>
-        <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {/* All-Natural Ingredients */}
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
-              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">100% Natural Coconut Apricot Wax</h3>
-            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              Made from a premium blend of renewable coconut and apricot wax—no paraffin, no petroleum. Clean burning with zero toxic fumes. Safe for you, your family, and your pets.
-            </p>
-          </div>
-
-          {/* Clean & Smokeless */}
-          <div className="text-center">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
-              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">Clean & Smokeless Burn</h3>
-            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              Premium coconut apricot wax burns cleaner and longer than traditional candles. No black soot, no smoke, no harsh chemicals—just pure, natural fragrance.
-            </p>
-          </div>
-
-          {/* Eco-Friendly Upcycling */}
-          <div className="text-center sm:col-span-2 lg:col-span-1">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-[color-mix(in_oklab,var(--color-accent)_10%,transparent)] mb-4">
-              <svg className="w-8 h-8 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold mb-2 text-[var(--color-ink)]">Eco-Friendly Upcycled Bottles</h3>
-            <p className="text-sm text-[var(--color-muted)] leading-relaxed">
-              We rescue beautiful bottles from Scottsdale bars and restaurants, giving them new life instead of the landfill. Each candle saves glass waste and reduces environmental impact.
-            </p>
-          </div>
-        </div>
-      </section>
-
-      {/* Divider */}
-      <div className="mx-auto max-w-4xl px-6 mb-6">
-        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
-      </div>
-
-      {/* BEST SELLERS */}
-      <section
-        ref={bestSellersSection.ref as React.RefObject<HTMLElement>}
-        className={`mx-auto max-w-7xl px-6 pt-6 pb-8 transition-all duration-1000 ${
-          bestSellersSection.isVisible
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-10"
-        }`}
-      >
-        <div className="text-center mb-8">
-          <h2
-            className={`${megastina.className} script-title script-hero relative inline-block`}
-          >
-            <span className="relative">
-              Best Sellers
-              <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-              <span className="absolute -bottom-2 left-0 h-0.5 w-0 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
-            </span>
-          </h2>
-        </div>
-      </section>
-
-      {/* BEST SELLERS — still pulled up tight */}
-      <div className="-mt-2">
-        <BestSellerCarousel products={bestsellers} />
-      </div>
-
-      {/* Divider line between Best Sellers and Our Smells */}
-      <div className="mx-auto max-w-4xl px-6 my-4">
-        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
-      </div>
-
-      {/* OUR SMELLS SECTION */}
-      <section
-        ref={ourSmellsSection.ref as React.RefObject<HTMLElement>}
-        className={`mx-auto max-w-7xl px-6 pt-6 pb-16 transition-all duration-1000 ${
-          ourSmellsSection.isVisible
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-10"
-        }`}
-      >
-        {/* Header */}
-        <div className="text-center mb-12">
-          <h2
-            className={`${megastina.className} script-title script-hero mb-10 relative inline-block`}
-            style={{ color: "var(--color-ink)" }}
-          >
-            <span className="relative">
-              Our Smells
-              <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-              <span className="absolute -bottom-2 left-0 h-0.5 w-0 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
-            </span>
-          </h2>
-          <p className="text-base sm:text-lg leading-relaxed text-[var(--color-muted)] max-w-3xl mx-auto">
-            Our lineup features core{" "}
-            <span className="font-semibold text-[var(--color-ink)]">Signature</span> blends,
-            small-batch{" "}
-            <span className="font-semibold text-[var(--color-ink)]">Limited</span> pours on select
-            bottles, and limited-time{" "}
-            <span className="font-semibold text-[var(--color-ink)]">Seasonal</span> scents on
-            select bottles.
+          <p className="mt-4 text-lg text-[var(--home-muted)]">
+            Discount codes, drops, restocks and desert-scented stories. No spam, unsubscribe anytime.
           </p>
         </div>
-
-        {/* Scent Cards Grid */}
-        <div className="grid gap-8 md:grid-cols-3">
-          {/* Signature Card */}
-          <div
-            ref={signatureCard.ref as React.RefObject<HTMLDivElement>}
-            className={`group relative overflow-hidden rounded-3xl bg-gradient-to-br from-amber-50 via-white to-orange-50 p-8 shadow-lg hover:shadow-xl transition-all duration-700 border border-amber-100/50 ${
-              signatureCard.isVisible
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-10"
-            }`}
-          >
-            {/* Decorative element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-amber-200/20 to-orange-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500" />
-
-            <div className="relative">
-              {/* Icon */}
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-amber-500 to-orange-600 mb-4 shadow-lg">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"
-                  />
-                </svg>
-              </div>
-
-              {/* Badge and label */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
-                  Signature
-                </span>
-                <span className="text-xs text-[var(--color-muted)]">Our Favorites</span>
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xl font-bold mb-3 text-[var(--color-ink)]">
-                Always-Return Favorites
-              </h3>
-
-              {/* Description */}
-              <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
-                Our core, desert-inspired blends that are always in rotation.
-              </p>
-
-              {/* Scent list */}
-              <div className="space-y-3">
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Cabin Spa:</span>{" "}
-                    <span className="text-[var(--color-muted)]">Small notes of sandalwood, gentle lavender, and warm amber create a spa retreat in candle form.</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Boot Leather:</span>{" "}
-                    <span className="text-[var(--color-muted)]">Ever smell the inside of a boot store? A bold blend of rich leather and warm bonfire embers.</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Smoked Amber:</span>{" "}
-                    <span className="text-[var(--color-muted)]">Smooth amber wrapped in smoky bonfire embers - rich, refined, and beautifully balanced.</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Minted Lavender:</span>{" "}
-                    <span className="text-[var(--color-muted)]">Crisp eucalyptus and soft lavender create a clean, spa-fresh scent.</span>
-                  </p>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 mt-2 flex-shrink-0" />
-                  <p className="text-sm">
-                    <span className="font-semibold text-[var(--color-ink)]">Sea Salt & Linen:</span>{" "}
-                    <span className="text-[var(--color-muted)]">Fresh linen with warm Caribbean teakwood creating a clean and calming coastal scent.</span>
-                  </p>
-                </div>
-              </div>
-
-              {/* Link */}
-              <div className="mt-6 pt-4 border-t border-amber-100">
-                <Link
-                  href="/shop"
-                  className="inline-flex items-center gap-1.5 text-sm font-semibold text-amber-700 hover:text-amber-800 transition-colors group/link"
-                >
-                  <span>View All Signature Scents</span>
-                  <svg
-                    className="w-4 h-4 group-hover/link:translate-x-1 transition-transform"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5l7 7-7 7"
-                    />
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          {/* Limited Card */}
-          <div
-            ref={limitedCard.ref as React.RefObject<HTMLDivElement>}
-            className={`group relative overflow-hidden rounded-3xl bg-gradient-to-br from-purple-50 via-white to-pink-50 p-8 shadow-lg hover:shadow-xl transition-all duration-700 delay-100 border border-purple-100/50 ${
-              limitedCard.isVisible
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-10"
-            }`}
-          >
-            {/* Decorative element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-200/20 to-pink-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500" />
-
-            <div className="relative">
-              {/* Icon */}
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-purple-500 to-pink-600 mb-4 shadow-lg">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
-                  />
-                </svg>
-              </div>
-
-              {/* Badge and label */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-purple-100 text-purple-800">
-                  Limited
-                </span>
-                <span className="text-xs text-[var(--color-muted)]">Small-Batch Experiments</span>
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xl font-bold mb-3 text-[var(--color-ink)]">
-                Exclusive Experiments
-              </h3>
-
-              {/* Description */}
-              <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
-                We test fresh pairings and tweak ratios. These pours are{" "}
-                <span className="font-semibold text-[var(--color-ink)]">small-batch</span> and only
-                appear on{" "}
-                <span className="font-semibold text-[var(--color-ink)]">select candles</span>. When
-                they&apos;re gone, they&apos;re gone.
-              </p>
-
-              {/* Additional info */}
-              <div className="mt-6 pt-4 border-t border-purple-100">
-                <p className="text-xs text-[var(--color-muted)] italic">
-                  Look for the Limited badge in our shop. Once we sell out, the scent may never come
-                  back.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Seasonal Card */}
-          <div
-            ref={seasonalCard.ref as React.RefObject<HTMLDivElement>}
-            className={`group relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-50 via-white to-teal-50 p-8 shadow-lg hover:shadow-xl transition-all duration-700 delay-200 border border-emerald-100/50 ${
-              seasonalCard.isVisible
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-10"
-            }`}
-          >
-            {/* Decorative element */}
-            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-200/20 to-teal-200/20 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 group-hover:scale-150 transition-transform duration-500" />
-
-            <div className="relative">
-              {/* Icon */}
-              <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 mb-4 shadow-lg">
-                <svg
-                  className="w-7 h-7 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"
-                  />
-                </svg>
-              </div>
-
-              {/* Badge and label */}
-              <div className="flex items-center gap-2 mb-3">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800">
-                  Seasonal
-                </span>
-                <span className="text-xs text-[var(--color-muted)]">Limited Time</span>
-              </div>
-
-              {/* Title */}
-              <h3 className="text-xl font-bold mb-3 text-[var(--color-ink)]">Made for the Moment</h3>
-
-              {/* Description */}
-              <p className="text-sm text-[var(--color-muted)] leading-relaxed mb-4">
-                Timed to the season and available{" "}
-                <span className="font-semibold text-[var(--color-ink)]">on select bottles</span>{" "}
-                during the run.
-              </p>
-
-              {/* Additional info */}
-              <div className="mt-6 pt-4 border-t border-emerald-100">
-                <p className="text-xs text-[var(--color-muted)] italic">
-                  Look for drop dates and restocks on socials and our newsletter.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Shop Button */}
-        <div className="mt-12 text-center">
-          <Link
-            href="/shop"
-            className="
-              inline-flex items-center justify-center rounded-2xl px-10 py-4 text-base sm:text-lg font-semibold
-              border-0 !text-white
-              [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-              shadow-[0_2px_0_rgba(255,255,255,.5)_inset,0_12px_40px_rgba(212,165,116,.25),0_8px_20px_rgba(20,16,12,.12)]
-              hover:shadow-[0_2px_0_rgba(255,255,255,.6)_inset,0_16px_50px_rgba(212,165,116,.35),0_12px_30px_rgba(20,16,12,.16)]
-              hover:-translate-y-1 transition-all duration-200
-              hover:scale-105
-            "
-          >
-            Shop Our Scents
-          </Link>
-        </div>
-      </section>
-
-      <div className="mx-auto max-w-4xl px-6 my-3">
-        <div className="h-px bg-[color-mix(in_oklab,var(--color-ink)_15%,transparent)]" />
-      </div>
-
-      <div
-        className={`pb-6 transition-all duration-1000 ${
-          mailingListSection.isVisible
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-10"
-        }`}
-      >
-        <div ref={mailingListSection.ref as React.RefObject<HTMLDivElement>}>
-          <div className="text-center mb-10 px-6">
-            <h2
-              className={`${megastina.className} script-title script-hero mb-8 relative inline-block`}
-              style={{ color: "var(--color-ink)" }}
-            >
-              <span className="relative">
-                Join Our Mailing List
-                <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-                <span className="absolute -bottom-2 left-0 h-0.5 w-0 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
-              </span>
-            </h2>
-          </div>
+        <div className="mt-8">
           <MailingListSignup />
         </div>
-      </div>
+      </section>
 
-      {/* INSTAGRAM SECTION */}
-      <section
-        ref={instagramSection.ref as React.RefObject<HTMLElement>}
-        className={`mx-auto max-w-7xl px-6 py-16 transition-all duration-1000 ${
-          instagramSection.isVisible
-            ? "opacity-100 translate-y-0"
-            : "opacity-0 translate-y-10"
-        }`}
-      >
-        <div className="text-center mb-10">
-          <h2
-            className={`${megastina.className} script-title script-hero mb-8 relative inline-block`}
-            style={{ color: "var(--color-ink)" }}
-          >
-            <span className="relative">
-              Follow Our Journey
-              <span className="inline-block w-0.5 h-[1em] bg-black ml-2 animate-[caretBlink_1s_step-end_infinite] rotate-12 origin-bottom"></span>
-              <span className="absolute -bottom-2 left-0 h-0.5 w-0 bg-[var(--color-accent)] animate-[expandWidth_1s_ease-out_0.3s_forwards]"></span>
-            </span>
-          </h2>
-          <p className="text-base text-[var(--color-muted)] max-w-2xl mx-auto mb-6">
-            See behind the scenes, new releases, and candle inspiration on Instagram
-          </p>
-          <a
-            href="https://instagram.com/desertcandleworks"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--color-accent)] hover:text-[var(--color-ink)] transition-colors"
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-            </svg>
-            @desertcandleworks
-          </a>
-        </div>
+      {/* INSTAGRAM */}
+      <section className={`${s.cream} px-6 pt-10 pb-24`}>
+        <div className="mx-auto max-w-7xl">
+          <div className={`${s.reveal} text-center`}>
+            <h2 className={`${serif.className} text-3xl text-[var(--home-ink)] sm:text-4xl`}>
+              Follow along on Instagram
+            </h2>
+            <a
+              href="https://instagram.com/desertcandleworks"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-2 font-semibold text-[var(--home-clay)] hover:text-[var(--home-clay-hover)]"
+            >
+              <InstagramIcon className="h-5 w-5" />
+              @desertcandleworks
+            </a>
+          </div>
 
-        {/* Instagram Grid */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {instagramLoading ? (
-            // Loading skeleton
-            Array.from({ length: 4 }).map((_, i) => (
-              <div
-                key={i}
-                className="aspect-square overflow-hidden rounded-2xl bg-neutral-200 animate-pulse"
-              />
-            ))
-          ) : instagramPosts.length > 0 ? (
-            // Show actual Instagram posts
-            instagramPosts.map((post) => {
-              const isVideo = post.media_type === "VIDEO";
-              const imageUrl = isVideo ? (post.thumbnail_url || post.media_url) : post.media_url;
-              const captionPreview = post.caption ? post.caption.substring(0, 120) + (post.caption.length > 120 ? "..." : "") : "";
-
-              return (
-                <a
-                  key={post.id}
-                  href={post.permalink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="group relative aspect-square overflow-hidden rounded-2xl bg-neutral-100 hover:shadow-xl transition-all duration-300"
-                >
-                  <img
-                    src={imageUrl}
-                    alt={post.caption || "Instagram post"}
-                    className="w-full h-full object-cover"
-                  />
-
-                  {/* Caption overlay on hover */}
-                  <div className="absolute inset-0 bg-black/75 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center p-6">
-                    {captionPreview ? (
-                      <p className="text-white text-base text-center leading-relaxed">
-                        {captionPreview}
-                      </p>
-                    ) : (
-                      <p className="text-white text-base text-center">View on Instagram</p>
-                    )}
-                  </div>
-                </a>
-              );
-            })
-          ) : (
-            // Fallback placeholder when no posts available
-            Array.from({ length: 4 }).map((_, i) => (
-              <a
-                key={i}
-                href="https://instagram.com/desertcandleworks"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group relative aspect-square overflow-hidden rounded-2xl bg-neutral-100 hover:shadow-xl transition-all duration-300"
-              >
-                <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-orange-500/10" />
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <svg className="w-12 h-12 text-neutral-300" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-                  </svg>
-                </div>
-              </a>
-            ))
-          )}
-        </div>
-
-        {/* View More Button */}
-        <div className="mt-10 text-center">
-          <a
-            href="https://instagram.com/desertcandleworks"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="
-              inline-flex items-center justify-center gap-2 rounded-2xl px-8 py-3 text-base font-semibold
-              border-2 border-[var(--color-accent)] text-[var(--color-accent)]
-              hover:bg-[var(--color-accent)] hover:!text-white
-              transition-all duration-200
-              hover:scale-105 hover:shadow-lg
-            "
-          >
-            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-              <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/>
-            </svg>
-            View More on Instagram
-          </a>
+          <div className="mt-10 grid grid-cols-2 gap-4 md:grid-cols-4">
+            {instagramLoading
+              ? Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="aspect-square animate-pulse rounded-2xl bg-[var(--home-line)]" />
+                ))
+              : instagramPosts.length > 0
+                ? instagramPosts.map((post) => {
+                    const imageUrl =
+                      post.media_type === "VIDEO" ? post.thumbnail_url || post.media_url : post.media_url;
+                    const captionPreview = post.caption
+                      ? post.caption.substring(0, 120) + (post.caption.length > 120 ? "…" : "")
+                      : "";
+                    return (
+                      <a
+                        key={post.id}
+                        href={post.permalink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`${s.softShadow} group relative aspect-square overflow-hidden rounded-2xl bg-[var(--home-line)]`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imageUrl}
+                          alt={post.caption || "Instagram post"}
+                          loading="lazy"
+                          className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-[rgb(63_42_33/0.72)] p-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                          <p className="text-center text-base leading-relaxed text-white">
+                            {captionPreview || "View on Instagram"}
+                          </p>
+                        </div>
+                      </a>
+                    );
+                  })
+                : Array.from({ length: 4 }).map((_, i) => (
+                    <a
+                      key={i}
+                      href="https://instagram.com/desertcandleworks"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label="Desert Candle Works on Instagram"
+                      className="flex aspect-square items-center justify-center rounded-2xl bg-[var(--home-line)] text-[var(--home-muted)]"
+                    >
+                      <InstagramIcon className="h-10 w-10 opacity-60" />
+                    </a>
+                  ))}
+          </div>
         </div>
       </section>
-    </>
+    </div>
   );
 }

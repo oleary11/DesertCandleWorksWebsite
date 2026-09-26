@@ -1,0 +1,107 @@
+/* Homepage-only styles ("warm gift shop" direction). Scoped via CSS modules
+   so nothing here touches the shop, product or admin pages. */
+
+.page {
+  --home-sand: #f6ece2;
+  --home-cream: #fbf6f0;
+  --home-blush: #f1ddd3;
+  --home-sage: #dfe3d4;
+  --home-peach: #f3dccb;
+  --home-ink: #3f2a21;
+  --home-muted: #74594b;
+  --home-clay: #a9502f;
+  --home-clay-hover: #8f4125;
+  --home-line: #e5d3c4;
+  color: var(--home-ink);
+}
+
+/* Subtle paper grain, drawn with an SVG noise filter. */
+.paper {
+  background-color: var(--home-sand);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .32 0 0 0 0 .24 0 0 0 .07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+.cream {
+  background-color: var(--home-cream);
+}
+
+/* Torn-paper edges above and below a band. */
+.tornTop,
+.tornBottom {
+  position: relative;
+}
+
+.tornTop::before,
+.tornBottom::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 18px;
+  background: inherit;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9l38-4 41 6 37-7 44 5 29-3 46 6 38-8 43 5 36-3 47 7 31-6 45 4 39-5 42 6 34-4 46 5 33-6 44 7 40-5 37 3 45-6 39 5 35-3 44 6 38-7 42 5 37-2 34 4 25-3V18z'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9l38-4 41 6 37-7 44 5 29-3 46 6 38-8 43 5 36-3 47 7 31-6 45 4 39-5 42 6 34-4 46 5 33-6 44 7 40-5 37 3 45-6 39 5 35-3 44 6 38-7 42 5 37-2 34 4 25-3V18z'/%3E%3C/svg%3E")
+    center / 100% 100% no-repeat;
+}
+
+.tornTop::before {
+  top: -17px;
+}
+
+.tornBottom::after {
+  bottom: -17px;
+  transform: scaleY(-1);
+}
+
+/* Polaroid-style frame. */
+.polaroid {
+  background: #fffdfa;
+  padding: 12px 12px 56px;
+  border-radius: 6px;
+  box-shadow:
+    0 1px 2px rgb(63 42 33 / 0.08),
+    0 18px 40px -12px rgb(63 42 33 / 0.28);
+}
+
+/* Soft organic scent cards. */
+.blob {
+  border-radius: 46% 54% 44% 56% / 38% 42% 58% 62%;
+}
+
+.blobAlt {
+  border-radius: 58% 42% 52% 48% / 44% 58% 42% 56%;
+}
+
+.blobAlt2 {
+  border-radius: 42% 58% 56% 44% / 56% 40% 60% 44%;
+}
+
+.softShadow {
+  box-shadow:
+    0 1px 2px rgb(63 42 33 / 0.06),
+    0 22px 44px -18px rgb(63 42 33 / 0.3);
+}
+
+/* Gentle entrance on scroll. No JS; older browsers just show the content. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    @keyframes rise {
+      from {
+        opacity: 0;
+        transform: translateY(24px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .reveal {
+      animation: rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+  }
+}

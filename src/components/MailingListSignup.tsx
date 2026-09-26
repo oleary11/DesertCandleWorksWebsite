@@ -39,49 +39,42 @@ export default function MailingListSignup() {
   };  
 
   return (
-    <section className="mx-auto max-w-6xl px-6">
-      <div className="rounded-2xl border p-8 sm:p-10 bg-white
-                      border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)]
-                      shadow-[0_8px_30px_rgba(20,16,12,0.06)]">
-        <div className="max-w-2xl">
-          <p className="text-sm text-neutral-600">
-            Discount codes, drops, restocks, and desert-scented stories. No spam, unsubscribe anytime.
-          </p>
+    <section className="mx-auto max-w-xl px-0">
+      <form onSubmit={onSubmit} className="flex flex-col gap-3 sm:flex-row">
+        <label htmlFor="newsletter-email" className="sr-only">
+          Email address
+        </label>
+        <input
+          id="newsletter-email"
+          type="email"
+          name="email"
+          autoComplete="email"
+          spellCheck={false}
+          required
+          placeholder="Your email address"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          className="w-full rounded-xl border border-[#e5d3c4] bg-white px-4 py-3.5 text-base text-[#3f2a21]
+                     placeholder:text-[#9a8072] focus:border-[#a9502f] focus:outline-none focus:ring-2 focus:ring-[#a9502f]/25 sm:flex-1"
+        />
+        <button
+          type="submit"
+          disabled={status === "loading"}
+          className="rounded-xl bg-[#a9502f] px-7 py-3.5 font-semibold text-white shadow-[0_10px_24px_-10px_rgb(169_80_47/0.7)]
+                     transition-colors hover:bg-[#8f4125] disabled:opacity-60"
+        >
+          {status === "loading" ? "Joining…" : "Sign me up"}
+        </button>
+      </form>
 
-          <form onSubmit={onSubmit} className="mt-6 flex flex-col sm:flex-row gap-3">
-            <input
-              type="email"
-              required
-              placeholder="you@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full sm:flex-1 rounded-xl border px-4 py-3
-                         border-[color-mix(in_oklab,var(--color-ink)_18%,transparent)]
-                         focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)]"
-            />
-            <button
-              type="submit"
-              disabled={status === "loading"}
-              className="rounded-xl px-6 py-3 font-medium text-white
-                         [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_92%,_white_8%),_color-mix(in_oklab,_var(--color-accent)_78%,_black_4%))]
-                         shadow-[0_1px_0_rgba(255,255,255,.45)_inset,0_10px_30px_rgba(20,16,12,.08)]
-                         hover:opacity-95 transition disabled:opacity-60"
-            >
-              {status === "loading" ? "Joining…" : "Join"}
-            </button>
-          </form>
-
-          {status !== "idle" && (
-            <p
-              className={`mt-3 text-sm ${
-                status === "success" ? "text-emerald-600" : "text-rose-600"
-              }`}
-            >
-              {message}
-            </p>
-          )}
-        </div>
-      </div>
+      <p
+        aria-live="polite"
+        className={`mt-3 min-h-5 text-center text-sm ${
+          status === "success" ? "text-emerald-700" : "text-rose-700"
+        }`}
+      >
+        {status !== "idle" ? message : ""}
+      </p>
     </section>
   );
 }
