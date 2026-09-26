@@ -58,6 +58,15 @@ const signatureScents = [
   { name: "Sea Salt & Linen", notes: "Fresh linen with warm Caribbean teakwood. Clean and calming." },
 ];
 
+// Shown when the Instagram feed can't load (e.g. the access token expired),
+// so the section still looks like a live feed instead of empty tiles.
+const instagramFallback = [
+  { src: "/images/hendricks.png", alt: "A lit candle in an upcycled Hendrick's Gin bottle" },
+  { src: "/images/home/workshop.jpg", alt: "Cutting a liquor bottle by hand in the workshop" },
+  { src: "/images/1800.png", alt: "A lit candle in an upcycled 1800 Tequila bottle" },
+  { src: "/images/home/rescued-bottles.jpg", alt: "A box of rescued liquor bottles waiting to be cut" },
+];
+
 const InstagramIcon = ({ className = "" }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
     <path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z" />
@@ -94,7 +103,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
       <section className={`${s.paper} overflow-hidden px-6 pt-12 pb-16 sm:pt-16 lg:pt-20 lg:pb-24`}>
         <div className="mx-auto grid max-w-7xl items-center gap-12 lg:grid-cols-12 lg:gap-8">
           <div className="lg:col-span-5">
-            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--home-clay)] uppercase">
+            <p className="text-[13px] font-semibold tracking-[0.16em] text-[var(--home-clay)] uppercase">
               Real bottles. Brighter days.
             </p>
             <h1
@@ -122,8 +131,8 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
           </div>
 
           {/* Photo collage */}
-          <div className="relative mx-auto h-[380px] w-full max-w-[560px] sm:h-[460px] lg:col-span-7 lg:h-[520px] lg:max-w-none">
-            <div className="absolute top-[4%] left-[2%] w-[56%] -rotate-3 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)] sm:left-[4%]">
+          <div className="relative mx-auto h-[310px] w-full max-w-[560px] sm:h-[460px] lg:col-span-7 lg:h-[520px] lg:max-w-none">
+            <div className="absolute top-0 left-0 w-[62%] -rotate-3 sm:top-[4%] sm:left-[4%] sm:w-[56%] overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
               <div className="relative aspect-[4/5]">
                 <Image
                   src="/images/hendricks.png"
@@ -135,7 +144,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 />
               </div>
             </div>
-            <div className="absolute top-[14%] right-[2%] z-10 w-[46%] rotate-3 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
+            <div className="absolute top-[16%] right-0 z-10 w-[48%] rotate-3 sm:top-[14%] sm:right-[2%] sm:w-[46%] overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
               <div className="relative aspect-[5/4]">
                 <Image
                   src="/images/home/pour.jpg"
@@ -146,7 +155,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 />
               </div>
             </div>
-            <div className="absolute right-[10%] bottom-[2%] z-20 w-[38%] -rotate-2 overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
+            <div className="absolute right-[14%] bottom-0 z-20 w-[42%] -rotate-2 sm:right-[10%] sm:bottom-[2%] sm:w-[38%] overflow-hidden rounded-2xl border-[6px] border-white bg-white shadow-[0_24px_50px_-18px_rgb(63_42_33/0.45)]">
               <div className="relative aspect-[16/10]">
                 <Image
                   src="/images/scottsdale.png"
@@ -197,7 +206,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
         <div className="mt-10 text-center">
           <Link
             href="/shop"
-            className="inline-flex items-center gap-2 font-semibold text-[var(--home-clay)] underline decoration-[var(--home-clay)]/30 decoration-2 underline-offset-[6px] hover:decoration-[var(--home-clay)]"
+            className="inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--home-clay)] underline decoration-[var(--home-clay)]/30 decoration-2 underline-offset-[6px] hover:decoration-[var(--home-clay)]"
           >
             Shop all candles
             <ArrowRight size={16} />
@@ -258,7 +267,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
       {/* STORY */}
       <section className={`${s.paper} ${s.tornTop} ${s.tornBottom} overflow-hidden px-6 py-24`}>
         <div className="mx-auto grid max-w-6xl items-center gap-16 lg:grid-cols-12">
-          <div className="relative mx-auto h-[440px] w-full max-w-[420px] lg:col-span-5">
+          <div className="relative mx-auto h-[360px] w-full max-w-[420px] sm:h-[440px] lg:col-span-5">
             <figure className={`${s.polaroid} absolute top-6 right-0 w-[62%] rotate-6`}>
               <div className="relative aspect-[3/4] overflow-hidden rounded-[3px]">
                 <Image
@@ -270,7 +279,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                 />
               </div>
             </figure>
-            <figure className={`${s.polaroid} absolute top-16 left-0 w-[66%] -rotate-[5deg]`}>
+            <figure className={`${s.polaroid} absolute top-10 left-0 w-[66%] -rotate-[5deg] sm:top-16`}>
               <div className="relative aspect-[3/4] overflow-hidden rounded-[3px]">
                 <Image
                   src="/images/home/workshop.jpg"
@@ -287,7 +296,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
           </div>
 
           <div className={`${s.reveal} lg:col-span-7`}>
-            <p className="text-xs font-semibold tracking-[0.18em] text-[var(--home-clay)] uppercase">Our story</p>
+            <p className="text-[13px] font-semibold tracking-[0.16em] text-[var(--home-clay)] uppercase">Our story</p>
             <h2 className={`${serif.className} mt-4 text-4xl leading-[1.12] text-balance text-[var(--home-ink)] sm:text-5xl`}>
               From bottles to something brighter.
             </h2>
@@ -330,7 +339,7 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
               href="https://instagram.com/desertcandleworks"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-flex items-center gap-2 font-semibold text-[var(--home-clay)] hover:text-[var(--home-clay-hover)]"
+              className="mt-2 inline-flex min-h-11 items-center gap-2 px-2 font-semibold text-[var(--home-clay)] hover:text-[var(--home-clay-hover)]"
             >
               <InstagramIcon className="h-5 w-5" />
               @desertcandleworks
@@ -372,16 +381,25 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
                       </a>
                     );
                   })
-                : Array.from({ length: 4 }).map((_, i) => (
+                : instagramFallback.map((photo) => (
                     <a
-                      key={i}
+                      key={photo.src}
                       href="https://instagram.com/desertcandleworks"
                       target="_blank"
                       rel="noopener noreferrer"
-                      aria-label="Desert Candle Works on Instagram"
-                      className="flex aspect-square items-center justify-center rounded-2xl bg-[var(--home-line)] text-[var(--home-muted)]"
+                      className={`${s.softShadow} group relative aspect-square overflow-hidden rounded-2xl bg-[var(--home-line)]`}
                     >
-                      <InstagramIcon className="h-10 w-10 opacity-60" />
+                      <Image
+                        src={photo.src}
+                        alt={photo.alt}
+                        fill
+                        sizes="(max-width: 768px) 50vw, 25vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+                      />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[rgb(63_42_33/0.72)] p-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                        <InstagramIcon className="h-7 w-7 text-white" />
+                        <p className="text-center text-base text-white">See more on Instagram</p>
+                      </div>
                     </a>
                   ))}
           </div>
