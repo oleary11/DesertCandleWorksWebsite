@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Menu, X, ShoppingCart, ChevronDown, User } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { useCartStore } from "@/lib/cartStore";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -24,6 +25,14 @@ export default function NavBar() {
       <div className="flex items-center justify-between px-6 py-5 max-w-6xl mx-auto">
         {/* Logo + Name */}
         <Link href="/" className="flex items-center gap-3">
+          <Image
+            src="/images/logo.png"
+            alt=""
+            width={40}
+            height={40}
+            priority
+            className="h-9 w-9 rounded-full border border-[var(--color-line)] md:h-10 md:w-10"
+          />
           <span className="text-base md:text-lg font-semibold tracking-tight">
             Desert Candle Works
           </span>
