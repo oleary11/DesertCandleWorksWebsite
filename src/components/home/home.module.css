@@ -40,9 +40,9 @@
   height: 18px;
   background: inherit;
   pointer-events: none;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9l38-4 41 6 37-7 44 5 29-3 46 6 38-8 43 5 36-3 47 7 31-6 45 4 39-5 42 6 34-4 46 5 33-6 44 7 40-5 37 3 45-6 39 5 35-3 44 6 38-7 42 5 37-2 34 4 25-3V18z'/%3E%3C/svg%3E")
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9L40.4 5L84.0 11L123.3 4L170.1 9L200.9 6L249.8 12L290.2 4L335.9 9L374.1 6L424.1 13L457.0 7L504.9 11L546.3 6L591.0 12L627.1 8L676.0 13L711.1 7L757.8 14L800.4 9L839.7 12L887.5 6L929.0 11L966.2 8L1012.9 14L1053.3 7L1098.0 12L1137.3 10L1173.4 14L1200 9V18z'/%3E%3C/svg%3E")
     center / 100% 100% no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9l38-4 41 6 37-7 44 5 29-3 46 6 38-8 43 5 36-3 47 7 31-6 45 4 39-5 42 6 34-4 46 5 33-6 44 7 40-5 37 3 45-6 39 5 35-3 44 6 38-7 42 5 37-2 34 4 25-3V18z'/%3E%3C/svg%3E")
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 18' preserveAspectRatio='none'%3E%3Cpath d='M0 18V9L40.4 5L84.0 11L123.3 4L170.1 9L200.9 6L249.8 12L290.2 4L335.9 9L374.1 6L424.1 13L457.0 7L504.9 11L546.3 6L591.0 12L627.1 8L676.0 13L711.1 7L757.8 14L800.4 9L839.7 12L887.5 6L929.0 11L966.2 8L1012.9 14L1053.3 7L1098.0 12L1137.3 10L1173.4 14L1200 9V18z'/%3E%3C/svg%3E")
     center / 100% 100% no-repeat;
 }
 
