@@ -52,6 +52,8 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://m.stripe.network",
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https: blob:",
+      // Generated social reels are served from Vercel Blob (admin preview player)
+      "media-src 'self' blob: https://*.public.blob.vercel-storage.com",
       "font-src 'self' data:",
       "connect-src 'self' https://api.stripe.com https://m.stripe.network https://api.buttondown.email",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",

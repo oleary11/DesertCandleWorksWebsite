@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
+import SlideCarousel from "./SlideCarousel";
 
 /* ---------- Types (mirror src/lib/social/types.ts) ---------- */
 type Kind = "reel" | "slideshow" | "meme";
@@ -318,7 +319,6 @@ function PostCard({
   const [caption, setCaption] = useState(post.caption);
   const [hook, setHook] = useState(post.hook);
   const [tags, setTags] = useState(post.hashtags.join(" "));
-  const [slide, setSlide] = useState(0);
   const meta = KIND_META[post.kind];
   const Icon = meta.icon;
   const busy = post.status === "generating" || post.status === "rendering" || post.status === "publishing";
@@ -339,22 +339,7 @@ function PostCard({
         {post.kind === "reel" && post.videoUrl ? (
           <video src={post.videoUrl} poster={post.coverImageUrl ?? undefined} controls loop playsInline className="w-full h-full object-cover" />
         ) : post.slides.length ? (
-          <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={post.slides[slide]} alt={`Slide ${slide + 1}`} className="w-full h-full object-cover" />
-            {post.slides.length > 1 && (
-              <div className="absolute bottom-2 inset-x-0 flex justify-center gap-1.5">
-                {post.slides.map((_, i) => (
-                  <button
-                    key={i}
-                    aria-label={`Slide ${i + 1}`}
-                    onClick={() => setSlide(i)}
-                    className={`h-2 rounded-full transition-all ${i === slide ? "w-5 bg-white" : "w-2 bg-white/50"}`}
-                  />
-                ))}
-              </div>
-            )}
-          </>
+          <SlideCarousel slides={post.slides} />
         ) : post.coverImageUrl ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={post.coverImageUrl} alt="" className="w-full h-full object-cover opacity-60" />
