@@ -64,7 +64,15 @@ export function productPhotos(p: Product): string[] {
   return [...new Set(all.filter(Boolean))];
 }
 
-export type SocialProduct = { slug: string; name: string; description: string; bestSeller: boolean; photos: string[] };
+export type SocialProduct = {
+  slug: string;
+  name: string;
+  description: string;
+  category: string; // spirit / wine type, e.g. "Tequila"
+  price: number;
+  bestSeller: boolean;
+  photos: string[];
+};
 
 /** Products that are on the site and have at least one photo switched on for social. */
 export async function listSocialProducts(): Promise<SocialProduct[]> {
@@ -75,17 +83,19 @@ export async function listSocialProducts(): Promise<SocialProduct[]> {
       slug: p.slug,
       name: p.name,
       description: (p.seoDescription || "").slice(0, 240),
+      category: p.alcoholType || (p.productType === "home_goods" ? "Home goods" : "Other"),
+      price: p.price,
       bestSeller: !!p.bestSeller,
       photos: productPhotos(p).filter((u) => !excluded.has(u)),
     }))
     .filter((p) => p.photos.length > 0);
 }
 
-// ---------- Batch planning (slideshows + memes) ----------
+// ---------- Batch planning (collections + slideshows + memes) ----------
 
 export type PlannedSlideshow = {
   kind: "slideshow";
-  productSlug: string;
+  productSlug: string | null; // null for multi-product collections
   hook: string;
   caption: string;
   hashtags: string[];
@@ -98,6 +108,7 @@ type RawSlide = { source?: string; photo_index?: number; scene_prompt?: string; 
 type RawPost = {
   kind?: string;
   product_slug?: string;
+  product_slugs?: string[];
   hook?: string;
   caption?: string;
   hashtags?: string[];
@@ -116,9 +127,29 @@ const SLIDESHOW_ANGLES = [
   "before and after: empty bottle to finished candle",
 ];
 
-export async function planBatch(slideshows: number, memes: number, hooksToAvoid: string[]): Promise<PlannedPost[]> {
+export type BatchCounts = { collections: number; slideshows: number; memes: number };
+
+const COLLECTION_THEMES = [
+  "a few of our favorites",
+  "best sellers",
+  "one spirit type (tequila, whiskey and bourbon, gin, wine, mezcal, vodka...)",
+  "gift ideas, for a specific person (the tequila friend, the whiskey dad, the wine mom, a host gift)",
+  "gifts under a price point",
+  "new on the shelf",
+  "pick your pour: which one are you",
+  "fresh out of the saw: bottles that just became candles",
+];
+
+/**
+ * Plans a batch in one OpenAI call:
+ * - collections: several products, real photos only (no AI image cost)
+ * - slideshows: one product, may include 1-2 AI scene slides
+ * - memes
+ */
+export async function planBatch(counts: BatchCounts, hooksToAvoid: string[]): Promise<PlannedPost[]> {
+  const { collections, slideshows, memes } = counts;
   const products = await listSocialProducts();
-  if (!products.length && slideshows > 0) {
+  if (!products.length && collections + slideshows > 0) {
     throw new Error("No products have photos switched on for social. Turn some on in the Photos tab.");
   }
 
@@ -128,6 +159,7 @@ export async function planBatch(slideshows: number, memes: number, hooksToAvoid:
     product: shuffled[i % Math.max(shuffled.length, 1)],
     angle: SLIDESHOW_ANGLES[Math.floor(Math.random() * SLIDESHOW_ANGLES.length)],
   }));
+  const themes = [...COLLECTION_THEMES].sort(() => Math.random() - 0.5).slice(0, collections);
 
   const productLines = assignments
     .map(
@@ -135,14 +167,25 @@ export async function planBatch(slideshows: number, memes: number, hooksToAvoid:
         `Slideshow ${i + 1}: product_slug="${a.product.slug}" name="${a.product.name}" photos=${a.product.photos.length} angle="${a.angle}"\n   about: ${a.product.description}`
     )
     .join("\n");
+  const catalog = products
+    .map((p) => `${p.slug} | ${p.name} | ${p.category} | $${p.price}${p.bestSeller ? " | best seller" : ""}`)
+    .join("\n");
 
-  const prompt = `Plan ${slideshows} photo slideshow posts and ${memes} meme posts for Instagram, TikTok and Facebook.
-
-SLIDESHOW ASSIGNMENTS (one post each, in this order):
-${productLines || "(none)"}
+  const prompt = `Plan ${collections} collection posts, ${slideshows} single product slideshow posts and ${memes} meme posts for Instagram, TikTok and Facebook.
 
 ${hooksToAvoid.length ? `RECENT HOOKS, do not reuse these angles or openings:\n${hooksToAvoid.map((h) => `- ${h}`).join("\n")}\n` : ""}
-SLIDESHOW RULES
+COLLECTION POSTS (${collections})
+Themes to use, one each: ${themes.length ? themes.map((t) => `"${t}"`).join(", ") : "(none)"}
+- A cover slide with the hook, then one real product photo per slide labeled with its name. Nothing else to design.
+- product_slugs: 4 to 7 products from the catalog that genuinely fit the theme. The first one is on the cover, so pick a striking one.
+- Vary products across collections; don't reuse the same product in two collections unless the theme needs it.
+- hook: the cover headline, short and warm, max 7 words, e.g. "A few of our favorites", "For the tequila people", "Gifts under $30".
+
+CATALOG (slug | name | type | price):
+${catalog || "(none)"}
+
+SINGLE PRODUCT SLIDESHOWS (${slideshows}, one post each, in this order):
+${productLines || "(none)"}
 - 3 to 5 slides. Slide 1 is the cover and carries the hook as its headline.
 - Each slide is either "photo" (the real product photo, untouched) or "scene" (the same real candle placed into a new setting by an image editor).
 - Use "photo" for the cover most of the time. Use 1 or 2 "scene" slides per post, never more.
@@ -153,7 +196,7 @@ SLIDESHOW RULES
   Never ask for people, hands, faces, pets, text, logos or other bottles. Never describe the candle itself.
 - headline: max 7 words. body: optional, max 18 words. Text sits on the photo, so less is more. Final slide can be a soft call to action like "Shop the bottle, link in bio".
 
-MEME RULES
+MEMES (${memes})
 - A single image, relatable candle-person humor (buying too many candles, saving the good candle, "just one more", the smell of a new candle, candle math, burning a candle so the house looks clean).
 - meme_prompt: a complete image generation prompt for a clean, well known meme layout or a funny realistic still life. Include the exact caption text to render, max 14 words total, spelled exactly.
 - NO people, faces, hands or characters in memes. Objects, candles, rooms, cats are fine.
@@ -165,12 +208,13 @@ EVERY POST
 - hashtags: 6 to 10, lowercase, no #. Mix broad (candles, candlelover, smallbusiness) with specific (scottsdale, arizonamade, upcycled, homedecor, giftideas).
 
 Return JSON: {"posts":[
+  {"kind":"collection","hook":"...","product_slugs":["..."],"caption":"...","hashtags":["..."]},
   {"kind":"slideshow","product_slug":"...","hook":"...","slides":[{"source":"photo"|"scene","photo_index":0,"scene_prompt":"...","headline":"...","body":"..."}],"caption":"...","hashtags":["..."]},
   {"kind":"meme","hook":"...","meme_prompt":"...","caption":"...","hashtags":["..."]}
 ]}
-Slideshows first in assignment order, then memes.`;
+Collections first, then slideshows in assignment order, then memes.`;
 
-  const { posts } = await chatJson<{ posts: RawPost[] }>(VOICE_SYSTEM, prompt, 10000);
+  const { posts } = await chatJson<{ posts: RawPost[] }>(VOICE_SYSTEM, prompt, 12000);
   if (!Array.isArray(posts)) throw new Error("OpenAI plan had no posts array");
 
   const bySlug = new Map(products.map((p) => [p.slug, p]));
@@ -178,10 +222,32 @@ Slideshows first in assignment order, then memes.`;
 
   for (const raw of posts) {
     const hashtags = (raw.hashtags ?? []).map((h) => h.replace(/^#/, "").toLowerCase().replace(/\s+/g, "")).slice(0, 12);
+
     if (raw.kind === "meme" && raw.meme_prompt) {
       planned.push({ kind: "meme", hook: raw.hook ?? "", caption: raw.caption ?? "", hashtags, memePrompt: raw.meme_prompt });
       continue;
     }
+
+    if (raw.kind === "collection") {
+      const picks = [...new Set(raw.product_slugs ?? [])]
+        .map((slug) => bySlug.get(slug))
+        .filter((p): p is SocialProduct => !!p)
+        .slice(0, 7);
+      if (picks.length < 3 || !raw.hook) continue;
+      const slides: SlidePlan[] = [
+        { source: "photo", photoUrl: picks[0].photos[0], headline: raw.hook },
+        ...picks.slice(1).map((p, i, rest) => ({
+          source: "photo" as const,
+          photoUrl: p.photos[0],
+          headline: p.name,
+          body: i === rest.length - 1 ? "Link in bio" : undefined,
+          nameLabel: true,
+        })),
+      ];
+      planned.push({ kind: "slideshow", productSlug: null, hook: raw.hook, caption: raw.caption ?? "", hashtags, slides });
+      continue;
+    }
+
     const product = raw.product_slug ? bySlug.get(raw.product_slug) : undefined;
     if (raw.kind !== "slideshow" || !product || !raw.slides?.length) continue;
 

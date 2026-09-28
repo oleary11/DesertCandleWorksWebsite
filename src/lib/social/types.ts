@@ -27,6 +27,7 @@ export type SlidePlan = {
   photoUrl: string;
   scenePrompt?: string;
   detail?: boolean; // photo already used earlier in the post: show a tighter close-up so slides don't repeat
+  nameLabel?: boolean; // collection slide: headline is just the product name, set small
   headline: string;
   body?: string;
 };

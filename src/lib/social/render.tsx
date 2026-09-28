@@ -82,13 +82,16 @@ export async function copyToBlob(url: string, pathname: string, contentType: str
   return uploadToBlob(pathname, Buffer.from(await res.arrayBuffer()), contentType);
 }
 
-function headlineSize(text: string, cover: boolean): number {
+export type SlideVariant = "cover" | "content" | "label"; // label = collection slide showing just the product name
+
+function headlineSize(text: string, variant: SlideVariant): number {
   const n = text.length;
-  if (cover) return n <= 18 ? 92 : n <= 32 ? 78 : 64;
+  if (variant === "label") return n <= 28 ? 50 : 42;
+  if (variant === "cover") return n <= 18 ? 92 : n <= 32 ? 78 : 64;
   return n <= 18 ? 72 : n <= 32 ? 62 : 52;
 }
 
-function Slide({ photo, headline, body, cover }: { photo: string; headline: string; body?: string; cover: boolean }) {
+function Slide({ photo, headline, body, variant }: { photo: string; headline: string; body?: string; variant: SlideVariant }) {
   return (
     <div style={{ width: SLIDE_W, height: SLIDE_H, display: "flex", position: "relative", background: INK }}>
       {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
@@ -100,7 +103,7 @@ function Slide({ photo, headline, body, cover }: { photo: string; headline: stri
             left: 0,
             right: 0,
             bottom: 0,
-            height: cover ? 620 : 520,
+            height: variant === "cover" ? 620 : variant === "label" ? 380 : 520,
             display: "flex",
             flexDirection: "column",
             justifyContent: "flex-end",
@@ -114,7 +117,7 @@ function Slide({ photo, headline, body, cover }: { photo: string; headline: stri
               style={{
                 display: "flex",
                 fontFamily: "Young Serif",
-                fontSize: headlineSize(headline, cover),
+                fontSize: headlineSize(headline, variant),
                 lineHeight: 1.12,
                 color: CREAM,
                 letterSpacing: -0.5,
@@ -148,10 +151,10 @@ function Slide({ photo, headline, body, cover }: { photo: string; headline: stri
 }
 
 /** Renders one slideshow slide: the photo (already cropped to 4:5) with brand text laid over it. Returns JPEG. */
-export async function renderSlide(photoJpeg: Buffer, headline: string, body: string | undefined, cover: boolean): Promise<Buffer> {
+export async function renderSlide(photoJpeg: Buffer, headline: string, body: string | undefined, variant: SlideVariant): Promise<Buffer> {
   const fonts = await getFonts();
   const photo = `data:image/jpeg;base64,${photoJpeg.toString("base64")}`;
-  const png = new ImageResponse(<Slide photo={photo} headline={headline} body={body} cover={cover} />, {
+  const png = new ImageResponse(<Slide photo={photo} headline={headline} body={body} variant={variant} />, {
     width: SLIDE_W,
     height: SLIDE_H,
     fonts,

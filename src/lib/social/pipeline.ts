@@ -5,6 +5,7 @@ import {
   listSocialProducts,
   planBatch,
   writeReelCopy,
+  type BatchCounts,
   type PlannedPost,
 } from "./content";
 import { REEL_H, REEL_W, SLIDE_H, SLIDE_W, copyToBlob, cropTo, detailCrop, fetchImage, renderSlide, uploadToBlob } from "./render";
@@ -150,9 +151,9 @@ async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
   }
 }
 
-/** Plans and starts a batch of slideshows and memes. Scenes and memes finish asynchronously. */
-export async function createBatch(slideshows: number, memes: number): Promise<SocialPost[]> {
-  const planned = await planBatch(slideshows, memes, await recentHooks());
+/** Plans and starts a batch of collections, slideshows and memes. Scenes and memes finish asynchronously. */
+export async function createBatch(counts: BatchCounts): Promise<SocialPost[]> {
+  const planned = await planBatch(counts, await recentHooks());
   const posts: SocialPost[] = [];
   for (const p of planned) posts.push(await startPlannedPost(p));
   return posts;
@@ -168,7 +169,7 @@ async function finishSlideshow(post: SocialPost): Promise<SocialPostPatch> {
     const scene = post.jobs.find((j) => j.key === `scene-${i}`)?.outputUrl;
     const source = await fetchImage(scene ?? s.photoUrl);
     const photo = !scene && s.detail ? await detailCrop(source, SLIDE_W, SLIDE_H) : await cropTo(source, SLIDE_W, SLIDE_H);
-    const jpeg = await renderSlide(photo, s.headline, s.body, i === 0);
+    const jpeg = await renderSlide(photo, s.headline, s.body, i === 0 ? "cover" : s.nameLabel ? "label" : "content");
     rendered.push(await uploadToBlob(`social/${post.id}/slide-${i}.jpg`, jpeg, "image/jpeg"));
   }
   return { slides: rendered, coverImageUrl: rendered[0] };

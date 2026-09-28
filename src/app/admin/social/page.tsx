@@ -97,7 +97,7 @@ export default function AdminSocialPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
-  const [batch, setBatch] = useState({ slideshows: 2, memes: 1 });
+  const [batch, setBatch] = useState({ collections: 2, slideshows: 1, memes: 1 });
 
   const load = useCallback(async (view: Tab) => {
     if (view === "reel" || view === "photos") return;
@@ -200,7 +200,18 @@ export default function AdminSocialPage() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="flex items-center gap-1 text-sm">
+          <label className="flex items-center gap-1 text-sm" title="Several products, real photos only. No AI image cost.">
+            Collections
+            <input
+              type="number"
+              min={0}
+              max={12}
+              className="input w-16 py-1"
+              value={batch.collections}
+              onChange={(e) => setBatch((b) => ({ ...b, collections: Number(e.target.value) }))}
+            />
+          </label>
+          <label className="flex items-center gap-1 text-sm" title="One product, with 1-2 AI scene slides.">
             Slideshows
             <input
               type="number"
