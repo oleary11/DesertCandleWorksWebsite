@@ -1,9 +1,37 @@
-export const metadata = { title: "Policies" };
+export const metadata = { title: "Policies", alternates: { canonical: "/policies" } };
+
+const EMAIL = "contact@desertcandleworks.com";
 
 export default function Policies() {
   return (
     <section className="prose prose-neutral max-w-none px-6 sm:px-10 py-12">
       <h1>Policies & Terms of Use</h1>
+      <p><em>Last updated: September 27, 2026</em></p>
+      <p>
+        These policies apply to purchases from Desert Candle Works, a small candle business in Scottsdale, Arizona, and
+        to your use of desertcandleworks.com. Questions? Email <a href={`mailto:${EMAIL}`}>{EMAIL}</a>. Our{" "}
+        <a href="/privacy">Privacy Policy</a> explains how we handle your information.
+      </p>
+
+      <h2>Prices, Taxes & Shipping</h2>
+      <ul>
+        <li>Prices are in US dollars. Sales tax and shipping are calculated and shown at checkout before you pay. There are no other fees.</li>
+        <li>We ship within the United States and to Canada. Orders to Canada may be charged import duties or taxes by Canadian customs, which the buyer pays on delivery.</li>
+        <li>Free local pickup is available in the Scottsdale and Phoenix area. Choose Local Pickup at checkout and we&rsquo;ll contact you to arrange a time.</li>
+        <li>Discount codes can&rsquo;t be combined unless we say so, have no cash value and may expire.</li>
+      </ul>
+
+      <h2>Handmade & Upcycled Products</h2>
+      <p>
+        Every candle is hand-poured into an upcycled bottle, so each one is unique. Bottle shape, color, labels, small
+        marks and wax appearance may differ slightly from the photos. That&rsquo;s part of what makes each piece one of a
+        kind, and it isn&rsquo;t a defect.
+      </p>
+      <p>
+        The spirits brands whose bottles we reuse are trademarks of their owners. Desert Candle Works isn&rsquo;t
+        affiliated with, sponsored by or endorsed by any of these brands. We use brand names only to describe the
+        original bottle. Our candles contain no alcohol.
+      </p>
 
       <h2>Order Acceptance & Right to Refuse</h2>
       <p>
@@ -12,7 +40,7 @@ export default function Policies() {
         (ii) errors in product description or pricing, 
         (iii) suspected fraud, or 
         (iv) issues verifying payment.  
-        If we cancel your order after payment, we will refund the full amount paid (less any transaction fees).  
+        If we cancel your order after payment, we will refund the full amount you paid.
       </p>
 
       <h2>Refunds, Returns, & Exchanges</h2>
@@ -62,12 +90,12 @@ export default function Policies() {
       <h2>Severability & Governing Law</h2>
       <p>
         If any provision of these policies is held invalid or unenforceable under applicable law, such provision shall be struck and the remaining provisions will continue in full force and effect.  
-        These policies and any dispute relating to them or your purchase shall be governed by the laws of the state in which Desert Candle Works is located, without regard to conflict of law principles.
+        These policies and any dispute relating to them or your purchase shall be governed by the laws of the State of Arizona, without regard to conflict of law principles. Nothing in these policies limits any rights you have under consumer protection laws that can&rsquo;t be waived.
       </p>
 
       <h2>Changes to Policies</h2>
       <p>
-        We reserve the right, at our sole discretion, to update or change these policies from time to time. The most current version will always be posted on this page and will take effect once posted.
+        We reserve the right, at our sole discretion, to update or change these policies from time to time. The most current version will always be posted on this page and will take effect once posted. Changes don&rsquo;t apply to orders already placed.
       </p>
     </section>
   );

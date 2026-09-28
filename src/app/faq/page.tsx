@@ -5,14 +5,13 @@ const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.
 export const metadata: Metadata = {
   title: "Frequently Asked Questions | Desert Candle Works",
   description:
-    "Find answers about our all-natural coconut apricot wax candles. Learn about our eco-friendly process, shipping, local pickup in Scottsdale, and what makes our candles safe for pets and family.",
+    "Find answers about our all-natural coconut apricot wax candles. Learn about our eco-friendly process, shipping, local pickup in Scottsdale, and how to enjoy them safely around pets and family.",
   keywords: [
     "candle FAQ",
     "coconut apricot wax questions",
     "natural candle safety",
     "Scottsdale candle shop",
     "eco-friendly candles FAQ",
-    "pet safe candles",
     "local pickup Scottsdale",
   ],
   alternates: { canonical: `${BASE}/faq` },
@@ -32,9 +31,9 @@ const FAQS = [
       "Our candles are made with 100% natural coconut apricot wax, which burns cleaner and longer than paraffin or soy. We pour them into upcycled liquor bottles rescued from local Scottsdale bars, reducing landfill waste while creating beautiful, sustainable home decor.",
   },
   {
-    question: "Are your candles safe for pets and children?",
+    question: "Can I burn your candles around pets and children?",
     answer:
-      "Yes! Our coconut apricot wax is 100% natural, non-toxic, and petroleum-free. It burns clean with no black soot or smoke, making it safe for your family and pets when used as directed. Always keep burning candles out of reach of children and pets.",
+      "Our coconut apricot wax is plant-based and burns cleaner than paraffin, with very little soot when the wick is trimmed. Like any candle, burn it in a well-ventilated room and keep it out of reach of children and pets. Some pets, especially birds and cats, are sensitive to fragrance, so if you have one, burn candles in rooms they don't spend time in and ask your vet if you're unsure.",
   },
   {
     question: "Where are Desert Candle Works candles made?",
@@ -74,7 +73,7 @@ const FAQS = [
   {
     question: "Can I reuse the bottle after the candle is finished?",
     answer:
-      "Absolutely! Once your candle is done, clean out any remaining wax with warm water. The bottle makes a beautiful vase, drinking glass, or storage container. That's the beauty of upcycling—it keeps giving.",
+      "Absolutely! Once your candle is done, clean out any remaining wax with warm water. The bottle makes a beautiful vase or storage container (we don't recommend drinking from it). That's the beauty of upcycling—it keeps giving.",
   },
   {
     question: "Do you offer wholesale or bulk orders?",
@@ -84,7 +83,7 @@ const FAQS = [
   {
     question: "Are your fragrances natural?",
     answer:
-      "We use high-quality fragrance oils that are phthalate-free and formulated to be safe for home use. Combined with our natural coconut apricot wax, you get a clean, consistent scent throw without harmful chemicals.",
+      "We use high-quality fragrance oils that are phthalate-free and formulated to be safe for home use. Combined with our natural coconut apricot wax, you get a clean, consistent scent throw.",
   },
 ];
 

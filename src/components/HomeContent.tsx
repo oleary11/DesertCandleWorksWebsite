@@ -40,7 +40,7 @@ const promises = [
   },
   {
     icon: Flame,
-    title: "Clean, smokeless burn",
+    title: "Clean, low-soot burn",
     body: "Burns cleaner and longer, with no black soot.",
   },
   {

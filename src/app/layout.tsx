@@ -13,19 +13,19 @@ export const metadata: Metadata = {
     template: "%s · Desert Candle Works",
   },
   description:
-    "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and eco-friendly. Upcycled liquor bottles save waste from landfills. Premium ingredients, zero toxins, safe for family and pets.",
+    "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, low-soot, and eco-friendly. Upcycled liquor bottles save waste from landfills. Premium ingredients, poured by hand.",
   keywords: [
     "natural candles Scottsdale",
     "all-natural candles Arizona",
     "clean burning candles Phoenix",
-    "smokeless candles Arizona",
+    "clean burning candles Arizona",
     "coconut apricot wax candles Scottsdale",
     "coconut wax candles Arizona",
     "eco-friendly candles Phoenix",
     "sustainable candles Arizona",
     "upcycled bottle candles",
     "zero waste candles Scottsdale",
-    "non-toxic candles Arizona",
+    "natural wax candles Arizona",
     "pet safe candles Phoenix",
     "environmentally friendly candles",
     "renewable candles Arizona",
@@ -45,7 +45,7 @@ export const metadata: Metadata = {
     siteName: "Desert Candle Works",
     title: "Desert Candle Works | All-Natural, Eco-Friendly Candles in Scottsdale, AZ",
     description:
-      "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, smokeless, and safe for your family. Upcycled bottles save waste from landfills. Premium eco-friendly ingredients.",
+      "100% natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning and low-soot. Upcycled bottles save waste from landfills. Premium eco-friendly ingredients.",
     images: [{ url: "/images/logo.svg" }],
     locale: "en_US",
   },
@@ -53,7 +53,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Desert Candle Works | All-Natural, Clean Burning Candles",
     description:
-      "100% natural coconut apricot wax candles in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled bottles save waste from landfills.",
+      "100% natural coconut apricot wax candles in Scottsdale, AZ. Clean burning, low-soot, eco-friendly. Upcycled bottles save waste from landfills.",
     images: ["/images/logo.svg"],
   },
   robots: { index: true, follow: true },
@@ -68,7 +68,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     url: BASE,
     logo: `${BASE}/images/logo.svg`,
     image: `${BASE}/images/logo.svg`,
-    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend—clean burning, smokeless, and non-toxic. Upcycled liquor bottles save waste from landfills. Safe for family and pets.",
+    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend—clean burning and low-soot. Upcycled liquor bottles save waste from landfills.",
     priceRange: "$$",
     telephone: "",
     address: {
@@ -120,7 +120,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           itemOffered: {
             "@type": "Product",
             name: "100% Natural Coconut Apricot Wax Candles in Upcycled Bottles",
-            description: "All-natural, clean burning coconut apricot wax candles. Smokeless, non-toxic, and eco-friendly. Poured into upcycled liquor bottles rescued from landfills. Safe for family and pets.",
+            description: "All-natural, clean burning coconut apricot wax candles. Low-soot, plant-based and eco-friendly. Poured into upcycled liquor bottles rescued from landfills.",
             brand: {
               "@type": "Brand",
               name: "Desert Candle Works",
@@ -146,7 +146,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     name: "Desert Candle Works",
     url: BASE,
     logo: `${BASE}/images/logo.svg`,
-    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend, clean burning, smokeless, and non-toxic. Upcycled bottles save waste from landfills.",
+    description: "All-natural, eco-friendly candles made in Scottsdale, Arizona. 100% natural coconut apricot wax blend, clean burning and low-soot. Upcycled bottles save waste from landfills.",
     founder: {
       "@type": "Person",
       name: "Desert Candle Works Team",
@@ -169,7 +169,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     "@id": `${BASE}#website`,
     name: "Desert Candle Works",
     url: BASE,
-    description: "All-natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, smokeless, eco-friendly candles in upcycled bottles.",
+    description: "All-natural coconut apricot wax candles made in Scottsdale, Arizona. Clean burning, low-soot, eco-friendly candles in upcycled bottles.",
     publisher: {
       "@id": `${BASE}#organization`,
     },
@@ -198,10 +198,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       },
       {
         "@type": "Question",
-        name: "Are your candles safe for pets and children?",
+        name: "Can I burn your candles around pets and children?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes! Our coconut apricot wax is 100% natural, non-toxic, and petroleum-free. It burns clean with no black soot or smoke, making it safe for your family and pets when used as directed.",
+          text: "Our coconut apricot wax is plant-based and burns cleaner than paraffin, with very little soot when the wick is trimmed. Like any candle, burn it in a well-ventilated room and keep it out of reach of children and pets. Some pets, especially birds and cats, are sensitive to fragrance, so if you have one, burn candles in rooms they don't spend time in and ask your vet if you're unsure.",
         },
       },
       {
@@ -275,9 +275,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               {" · "}
               <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
               {" · "}
+              <a className="underline hover:text-[var(--color-ink)] transition" href="/privacy">Privacy</a>
+              {" · "}
               <a className="underline hover:text-[var(--color-ink)] transition" href="https://desertcandleworks.faire.com" target="_blank" rel="noopener noreferrer">Wholesale</a>
               {" · "}
               <span>Scottsdale, AZ</span>
+              {" · "}
+              <a className="underline hover:text-[var(--color-ink)] transition" href="mailto:contact@desertcandleworks.com">contact@desertcandleworks.com</a>
             </div>
           </footer>
         </Providers>

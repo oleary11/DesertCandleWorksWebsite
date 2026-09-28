@@ -818,6 +818,11 @@ export async function POST(req: NextRequest) {
       shipping_options: shippingOptions,
       metadata: sessionMetadata, // Pass product/variant info for webhook
       automatic_tax: { enabled: true }, // Stripe Tax enabled
+      custom_text: {
+        submit: {
+          message: `By placing your order you agree to our [policies, including returns](${origin}/policies) and [privacy policy](${origin}/privacy).`,
+        },
+      },
     };
 
     // If shipping address provided, create a customer and lock the address

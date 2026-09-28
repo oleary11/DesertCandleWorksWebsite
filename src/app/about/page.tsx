@@ -11,7 +11,7 @@ export const revalidate = 3600;
 export const metadata: Metadata = {
   title: "About Us | All-Natural, Eco-Friendly Candles Made in Scottsdale, Arizona",
   description:
-    "Discover Desert Candle Works' commitment to sustainability and natural ingredients. 100% coconut apricot wax candles in upcycled bottles—clean burning, smokeless, and environmentally friendly. Made in Scottsdale, AZ.",
+    "Discover Desert Candle Works' commitment to sustainability and natural ingredients. 100% coconut apricot wax candles in upcycled bottles—clean burning, low-soot, and environmentally friendly. Made in Scottsdale, AZ.",
   keywords: [
     "natural candles Scottsdale",
     "eco-friendly candles Arizona",
@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     "coconut wax candles Scottsdale",
     "upcycled candles Scottsdale",
     "clean burning candles",
-    "smokeless candles",
+    "low soot candles",
     "all-natural candles Arizona",
     "environmentally friendly candles",
     "zero waste candles",
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   alternates: { canonical: "/about" },
   openGraph: {
     title: "About Desert Candle Works | All-Natural, Eco-Friendly Candles",
-    description: "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, smokeless, and environmentally friendly. Made in Scottsdale, Arizona.",
+    description: "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, low-soot, and environmentally friendly. Made in Scottsdale, Arizona.",
     type: "website",
   },
 };
@@ -69,7 +69,7 @@ const steps = [
 
 const promises = [
   { icon: Leaf, text: "100% natural coconut apricot wax" },
-  { icon: Flame, text: "Clean, smokeless burn" },
+  { icon: Flame, text: "Clean, low-soot burn" },
   { icon: Recycle, text: "Every candle saves a bottle" },
 ];
 

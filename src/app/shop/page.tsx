@@ -13,12 +13,12 @@ export const generateMetadata = (): Metadata => {
   return {
     title: "Shop All-Natural Candles | Scottsdale & Phoenix Clean Burning Coconut Apricot Wax Candles",
     description:
-      "Shop 100% natural coconut apricot wax candles made in Scottsdale, AZ. Clean burning, smokeless, eco-friendly. Upcycled liquor bottle candles with wood wicks. Local Arizona candles, natural gifts, desert scents.",
+      "Shop 100% natural coconut apricot wax candles made in Scottsdale, AZ. Clean burning, low-soot, eco-friendly. Upcycled liquor bottle candles with wood wicks. Local Arizona candles, natural gifts, desert scents.",
     keywords: [
       "buy natural candles Scottsdale",
       "coconut apricot wax candles Arizona",
       "clean burning candles Phoenix",
-      "smokeless candles Arizona",
+      "clean burning candles Arizona",
       "buy candles Scottsdale",
       "candles Phoenix Arizona",
       "handmade candles near me",
@@ -28,14 +28,14 @@ export const generateMetadata = (): Metadata => {
       "upcycled bottle candles",
       "eco-friendly candles",
       "sustainable candles Arizona",
-      "non-toxic candles Scottsdale",
+      "natural wax candles Scottsdale",
       "Arizona gifts",
     ],
     alternates: { canonical: `${base}/shop` },
     openGraph: {
       title: "Shop All-Natural Candles | Scottsdale Clean Burning Coconut Apricot Wax Candles",
       description:
-        "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, smokeless, eco-friendly. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
+        "100% natural coconut apricot wax candles in upcycled bottles. Clean burning, low-soot, eco-friendly. Made in Scottsdale, Arizona with wood wicks and desert-inspired scents.",
       url: `${base}/shop`,
       type: "website",
     },
@@ -154,7 +154,7 @@ export default async function ShopPage() {
     "@type": "CollectionPage",
     "@id": `${base}/shop#collection`,
     name: "All-Natural Candles | Desert Candle Works Shop",
-    description: "Shop our collection of 100% natural coconut apricot wax candles in upcycled liquor bottles. Clean burning, smokeless, eco-friendly candles made in Scottsdale, Arizona.",
+    description: "Shop our collection of 100% natural coconut apricot wax candles in upcycled liquor bottles. Clean burning, low-soot, eco-friendly candles made in Scottsdale, Arizona.",
     url: `${base}/shop`,
     isPartOf: {
       "@id": `${base}#website`,
