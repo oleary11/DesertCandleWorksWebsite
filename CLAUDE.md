@@ -112,6 +112,16 @@ The codebase uses a **two-tier product data system**:
 - `SQUARE_ENVIRONMENT` - "production" or "sandbox"
 - `SQUARE_WEBHOOK_SIGNATURE_KEY` - Webhook signature verification key
 
+### Social Media Generator (`/admin/social`, `src/lib/social/`)
+
+Generates posts, holds them for review, then posts them to Instagram, TikTok and Facebook.
+- **Reels** (started by hand, ~2/week): admin picks a product + 1-2 photos → cropped to 9:16 → two 5s Kling v3 Pro clips on fal.ai → fal ffmpeg merge → copied to Blob. ~$1.12 each.
+- **Slideshows / memes** (weekly cron batch, 8 + 4): OpenAI plans copy (`content.ts`); "scene" slides use Nano Banana Pro edit to place the real product in a new setting; slides rendered with `next/og` in brand fonts (`render.tsx`), JPEG for Instagram.
+- Generation is a state machine in `pipeline.ts` (`advancePost`): fal jobs finish via `/api/social/fal-webhook`, the admin page's 15s poll, or the publish cron. Posts go `generating → rendering → pending_review → approved (queue) → publishing → published`.
+- Posting (`publish.ts`): TikTok + Facebook via Zernio (TikTok gets a trending Commercial Music Library track); Instagram via Graph API. Set `META_PAGE_ACCESS_TOKEN` (Facebook Login) to also attach trending Instagram audio to reels; the Instagram Login token can't.
+- Product photos can be switched off for social in the Photos tab (`social_excluded_images`).
+- Env: `FAL_KEY`, `OPENAI_API_KEY`, `ZERNIO_API_KEY`, `INSTAGRAM_POST_ACCESS_TOKEN`, `INSTAGRAM_POST_USER_ID`, optional `META_PAGE_ACCESS_TOKEN`. Crons in `vercel.json` (times are UTC; Arizona is UTC-7).
+
 ### Stripe Integration
 
 **Checkout Flow**:

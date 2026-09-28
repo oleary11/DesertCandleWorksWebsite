@@ -456,6 +456,39 @@ export const analyticsEvents = pgTable('analytics_events', {
 });
 
 // ============================================
+// SOCIAL MEDIA GENERATOR
+// ============================================
+
+export const socialPosts = pgTable('social_posts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  kind: varchar('kind', { length: 20 }).notNull(), // 'reel' | 'slideshow' | 'meme'
+  status: varchar('status', { length: 20 }).notNull().default('generating'),
+  productSlug: varchar('product_slug', { length: 100 }),
+  hook: text('hook').notNull().default(''),
+  caption: text('caption').notNull().default(''),
+  hashtags: jsonb('hashtags').notNull().default([]), // string[]
+  plan: jsonb('plan').notNull().default({}),
+  jobs: jsonb('jobs').notNull().default([]),
+  slides: jsonb('slides').notNull().default([]), // string[] of image URLs
+  videoUrl: text('video_url'),
+  coverImageUrl: text('cover_image_url'),
+  costCents: integer('cost_cents').notNull().default(0),
+  queueOrder: integer('queue_order'),
+  error: text('error'),
+  publishedAt: timestamp('published_at', { withTimezone: true }),
+  instagramPostId: varchar('instagram_post_id', { length: 100 }),
+  tiktokPostId: varchar('tiktok_post_id', { length: 100 }),
+  facebookPostId: varchar('facebook_post_id', { length: 100 }),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const socialExcludedImages = pgTable('social_excluded_images', {
+  imageUrl: text('image_url').primaryKey(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 
