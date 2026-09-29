@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Plus, Edit, Trash2, Calendar, Tag, TrendingUp } from "lucide-react";
+import { Pencil, Plus, Tag, Trash2 } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Stat, Switch } from "../_components/ui";
 import { Promotion, PromotionType } from "@/lib/promotions";
 import PromotionModal from "@/components/PromotionModal";
 import { useModal } from "@/hooks/useModal";
@@ -105,250 +106,157 @@ export default function AdminPromotionsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading promotions…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading promotions…</p>
       </div>
     );
   }
 
+  const sorted = [...activePromotions, ...inactivePromotions];
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Promotions</h1>
-              <p className="text-[var(--color-muted)] mt-1">
-                Manage discount codes and promotional campaigns
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn bg-[var(--color-accent)] text-white flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create Promotion
-            </button>
-          </div>
-        </div>
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Promotions"
+        description="Discount codes and automatic promotions."
+        actions={
+          <button onClick={() => setShowCreateModal(true)} className="a-btn a-btn-primary">
+            <Plus className="h-4 w-4" aria-hidden />
+            New promotion
+          </button>
+        }
+      />
 
-        {/* Stats */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <Tag className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Active Promotions</span>
-            </div>
-            <p className="text-3xl font-bold">{activePromotions.length}</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Redemptions</span>
-            </div>
-            <p className="text-3xl font-bold">
-              {promotions.reduce((sum, p) => sum + p.currentRedemptions, 0)}
-            </p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Promotions</span>
-            </div>
-            <p className="text-3xl font-bold">{promotions.length}</p>
-          </div>
-        </div>
-
-        {error && (
-          <div className="card p-4 bg-red-50 border border-red-200 text-red-800 mb-6">
-            {error}
-          </div>
-        )}
-
-        {/* Active Promotions */}
-        {activePromotions.length > 0 && (
-          <div className="card p-6 bg-white mb-6">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-green-500"></span>
-              Active Promotions ({activePromotions.length})
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-line)]">
-                    <th className="text-left py-3 text-sm font-semibold">Code</th>
-                    <th className="text-left py-3 text-sm font-semibold">Name</th>
-                    <th className="text-left py-3 text-sm font-semibold">Type</th>
-                    <th className="text-left py-3 text-sm font-semibold">Discount</th>
-                    <th className="text-right py-3 text-sm font-semibold">Redemptions</th>
-                    <th className="text-left py-3 text-sm font-semibold">Expires</th>
-                    <th className="text-right py-3 text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {activePromotions.map((promo) => (
-                    <tr key={promo.id} className="border-b border-[var(--color-line)]">
-                      <td className="py-3 text-sm font-mono font-bold">{promo.code}</td>
-                      <td className="py-3 text-sm">{promo.name}</td>
-                      <td className="py-3 text-sm">
-                        <span className="badge bg-blue-100 text-blue-700 text-xs">
-                          {getTypeLabel(promo.type)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-sm font-medium text-green-600">
-                        {getDiscountDisplay(promo)}
-                      </td>
-                      <td className="py-3 text-sm text-right">
-                        {promo.currentRedemptions}
-                        {promo.maxRedemptions && ` / ${promo.maxRedemptions}`}
-                      </td>
-                      <td className="py-3 text-sm text-[var(--color-muted)]">
-                        {formatDate(promo.expiresAt)}
-                      </td>
-                      <td className="py-3 text-sm text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => toggleActive(promo)}
-                            className="text-xs btn btn-sm px-2 py-1"
-                          >
-                            Deactivate
-                          </button>
-                          <button
-                            onClick={() => setEditingPromotion(promo)}
-                            className="p-1 text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-                            title="Edit"
-                          >
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => deletePromotion(promo.id)}
-                            className="p-1 text-[var(--color-muted)] hover:text-rose-600"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Inactive Promotions */}
-        {inactivePromotions.length > 0 && (
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-gray-400"></span>
-              Inactive Promotions ({inactivePromotions.length})
-            </h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-line)]">
-                    <th className="text-left py-3 text-sm font-semibold">Code</th>
-                    <th className="text-left py-3 text-sm font-semibold">Name</th>
-                    <th className="text-left py-3 text-sm font-semibold">Type</th>
-                    <th className="text-right py-3 text-sm font-semibold">Redemptions</th>
-                    <th className="text-right py-3 text-sm font-semibold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {inactivePromotions.map((promo) => (
-                    <tr key={promo.id} className="border-b border-[var(--color-line)] opacity-60">
-                      <td className="py-3 text-sm font-mono">{promo.code}</td>
-                      <td className="py-3 text-sm">{promo.name}</td>
-                      <td className="py-3 text-sm">
-                        <span className="badge bg-gray-100 text-gray-700 text-xs">
-                          {getTypeLabel(promo.type)}
-                        </span>
-                      </td>
-                      <td className="py-3 text-sm text-right">{promo.currentRedemptions}</td>
-                      <td className="py-3 text-sm text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => toggleActive(promo)}
-                            className="text-xs btn btn-sm px-2 py-1"
-                          >
-                            Activate
-                          </button>
-                          <button
-                            onClick={() => deletePromotion(promo.id)}
-                            className="p-1 text-[var(--color-muted)] hover:text-rose-600"
-                            title="Delete"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {promotions.length === 0 && (
-          <div className="card p-12 bg-white text-center">
-            <Tag className="w-12 h-12 text-[var(--color-muted)] mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No Promotions Yet</h3>
-            <p className="text-[var(--color-muted)] mb-6">
-              Create your first promotion to start offering discounts to customers
-            </p>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn bg-[var(--color-accent)] text-white inline-flex items-center gap-2"
-            >
-              <Plus className="w-4 h-4" />
-              Create Promotion
-            </button>
-          </div>
-        )}
-
-        {/* Create/Edit Modal */}
-        {showCreateModal && (
-          <PromotionModal
-            onClose={() => setShowCreateModal(false)}
-            onSuccess={() => {
-              setShowCreateModal(false);
-              loadPromotions();
-            }}
-          />
-        )}
-
-        {editingPromotion && (
-          <PromotionModal
-            promotion={editingPromotion}
-            onClose={() => setEditingPromotion(null)}
-            onSuccess={() => {
-              setEditingPromotion(null);
-              loadPromotions();
-            }}
-          />
-        )}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Stat label="Active" value={activePromotions.length} />
+        <Stat label="Redemptions" value={promotions.reduce((sum, p) => sum + p.currentRedemptions, 0)} hint="All promotions" />
+        <Stat className="col-span-2 sm:col-span-1" label="Total promotions" value={promotions.length} />
       </div>
+
+      {error && (
+        <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4 text-sm text-[#7a1a12]">
+          {error}
+        </div>
+      )}
+
+      {promotions.length === 0 ? (
+        <div className="a-card flex flex-col items-center px-6 py-16 text-center">
+          <span className="a-icon-tile mb-3 h-11 w-11">
+            <Tag className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="font-medium text-[var(--a-ink)]">No promotions yet</p>
+          <p className="mt-1 text-sm text-[var(--a-muted)]">Create one to start offering discounts.</p>
+          <button onClick={() => setShowCreateModal(true)} className="a-btn a-btn-primary mt-4">
+            <Plus className="h-4 w-4" aria-hidden />
+            New promotion
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Desktop table */}
+          <div className="a-card hidden overflow-hidden md:block">
+            <table className="a-table">
+              <thead>
+                <tr>
+                  <th className="w-20">Active</th>
+                  <th>Code</th>
+                  <th>Discount</th>
+                  <th className="text-right">Used</th>
+                  <th>Expires</th>
+                  <th className="w-24">
+                    <span className="sr-only">Actions</span>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sorted.map((promo) => (
+                  <tr key={promo.id} className={promo.active ? undefined : "text-[var(--a-muted)]"}>
+                    <td>
+                      <Switch checked={promo.active} onChange={() => toggleActive(promo)} label={`${promo.active ? "Deactivate" : "Activate"} ${promo.code}`} />
+                    </td>
+                    <td>
+                      <p className={`font-mono font-semibold ${promo.active ? "text-[var(--a-ink)]" : ""}`}>{promo.code}</p>
+                      <p className="mt-0.5 text-xs text-[var(--a-muted)]">{promo.name}</p>
+                    </td>
+                    <td>
+                      <p className={promo.active ? "font-medium text-[var(--a-ink)]" : ""}>{getDiscountDisplay(promo)}</p>
+                      <p className="mt-0.5 text-xs text-[var(--a-muted)]">{getTypeLabel(promo.type)}</p>
+                    </td>
+                    <td className="a-num">
+                      {promo.currentRedemptions}
+                      {promo.maxRedemptions ? <span className="text-[var(--a-muted)]"> / {promo.maxRedemptions}</span> : null}
+                    </td>
+                    <td className="whitespace-nowrap text-[var(--a-muted)]">{formatDate(promo.expiresAt)}</td>
+                    <td>
+                      <div className="flex justify-end gap-1">
+                        <button onClick={() => setEditingPromotion(promo)} className="a-icon-btn" aria-label={`Edit ${promo.code}`} title="Edit">
+                          <Pencil className="h-4 w-4" aria-hidden />
+                        </button>
+                        <button
+                          onClick={() => deletePromotion(promo.id)}
+                          className="a-icon-btn a-icon-btn-danger"
+                          aria-label={`Delete ${promo.code}`}
+                          title="Delete"
+                        >
+                          <Trash2 className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Mobile list */}
+          <ul className="a-card divide-y divide-[var(--a-line)] md:hidden">
+            {sorted.map((promo) => (
+              <li key={promo.id} className="flex items-start gap-3 px-4 py-3">
+                <div className="pt-0.5">
+                  <Switch checked={promo.active} onChange={() => toggleActive(promo)} label={`${promo.active ? "Deactivate" : "Activate"} ${promo.code}`} />
+                </div>
+                <button type="button" className="min-w-0 flex-1 text-left" onClick={() => setEditingPromotion(promo)}>
+                  <p className="font-mono font-semibold text-[var(--a-ink)]">{promo.code}</p>
+                  <p className="text-sm text-[var(--a-muted)]">
+                    {getDiscountDisplay(promo)} · used {promo.currentRedemptions}
+                    {promo.maxRedemptions ? ` / ${promo.maxRedemptions}` : ""}
+                  </p>
+                  <p className="text-xs text-[var(--a-muted)]">{promo.expiresAt ? `Expires ${formatDate(promo.expiresAt)}` : "No expiration"}</p>
+                </button>
+                <button
+                  onClick={() => deletePromotion(promo.id)}
+                  className="a-icon-btn a-icon-btn-danger h-8 w-8 shrink-0"
+                  aria-label={`Delete ${promo.code}`}
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {showCreateModal && (
+        <PromotionModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => {
+            setShowCreateModal(false);
+            loadPromotions();
+          }}
+        />
+      )}
+
+      {editingPromotion && (
+        <PromotionModal
+          promotion={editingPromotion}
+          onClose={() => setEditingPromotion(null)}
+          onSuccess={() => {
+            setEditingPromotion(null);
+            loadPromotions();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { Search, Users, Package } from "lucide-react";
+import { Modal } from "@/app/admin/_components/ui";
 import { Promotion, PromotionType, PromotionTrigger, UserTargeting } from "@/lib/promotions";
 
 type Product = {
@@ -276,68 +277,59 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
   );
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="absolute inset-0" onClick={onClose} />
-
-      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
-          <div>
-            <h2 className="text-xl font-semibold text-[var(--color-ink)]">
-              {isEditing ? "Edit Promotion" : "Create Promotion"}
-            </h2>
-            <p className="text-sm text-[var(--color-muted)] mt-0.5">
-              {isEditing ? "Update promotion details and settings" : "Create a new discount code or promotional campaign"}
-            </p>
-          </div>
-          <button
-            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-            onClick={onClose}
-          >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+    <Modal
+      size="lg"
+      title={isEditing ? "Edit promotion" : "New promotion"}
+      description={isEditing ? "Update the code, discount and who can use it." : "A discount code or automatic promotion."}
+      onClose={onClose}
+      busy={loading}
+      footer={
+        <>
+          <button type="button" onClick={onClose} className="a-btn" disabled={loading}>
+            Cancel
           </button>
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
-          {/* Content */}
-          <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 min-h-0">
+          <button type="submit" form="promotion-form" className="a-btn a-btn-primary" disabled={loading}>
+            {loading ? "Saving…" : isEditing ? "Save promotion" : "Create promotion"}
+          </button>
+        </>
+      }
+    >
+        <form id="promotion-form" onSubmit={handleSubmit} className="space-y-7">
           {error && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg">
-              <p className="text-sm text-rose-900">{error}</p>
+            <div role="alert" className="rounded-lg border border-red-200 bg-[#fdecea] p-3 text-sm text-[#7a1a12]">
+              {error}
             </div>
           )}
 
           {/* Basic Info */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Basic Information</h3>
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)]">Details</h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Promotion Code <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Promotion Code <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full uppercase"
+                  className="a-input font-mono uppercase"
                   value={formData.code}
                   onChange={(e) => handleChange("code", e.target.value.toUpperCase())}
                   placeholder="SUMMER10"
                   required
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   Customer-facing code (will be uppercase)
                 </p>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Internal Name <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Internal Name <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={formData.name}
                   onChange={(e) => handleChange("name", e.target.value)}
                   placeholder="Summer Sale 2024"
@@ -347,68 +339,68 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Description</label>
+              <label className="a-label">Description</label>
               <textarea
-                className="textarea w-full"
+                className="a-textarea"
                 value={formData.description}
                 onChange={(e) => handleChange("description", e.target.value)}
                 placeholder="Optional description for internal use"
                 rows={2}
               />
             </div>
-          </div>
+          </section>
 
           {/* Trigger Method */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Activation Method</h3>
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)]">How it applies</h3>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)] has-[:checked]:border-[var(--a-ink)]">
                 <input
                   type="radio"
                   name="trigger"
                   value="code_required"
                   checked={formData.trigger === "code_required"}
                   onChange={(e) => handleChange("trigger", e.target.value)}
-                  className="w-4 h-4"
+                  className="a-check"
                 />
                 <div>
-                  <div className="font-medium">Require Promo Code</div>
-                  <div className="text-xs text-[var(--color-muted)]">
+                  <div className="text-sm font-medium text-[var(--a-ink)]">Require Promo Code</div>
+                  <div className="text-xs text-[var(--a-muted)]">
                     Customer must enter the code at checkout
                   </div>
                 </div>
               </label>
 
-              <label className="flex items-center gap-2 cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)] has-[:checked]:border-[var(--a-ink)]">
                 <input
                   type="radio"
                   name="trigger"
                   value="automatic"
                   checked={formData.trigger === "automatic"}
                   onChange={(e) => handleChange("trigger", e.target.value)}
-                  className="w-4 h-4"
+                  className="a-check"
                 />
                 <div>
-                  <div className="font-medium">Automatic</div>
-                  <div className="text-xs text-[var(--color-muted)]">
+                  <div className="text-sm font-medium text-[var(--a-ink)]">Automatic</div>
+                  <div className="text-xs text-[var(--a-muted)]">
                     Auto-applies when criteria are met
                   </div>
                 </div>
               </label>
             </div>
-          </div>
+          </section>
 
           {/* Discount Type & Amount */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Discount Settings</h3>
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)]">Discount</h3>
 
             <div>
-              <label className="block text-sm font-medium mb-1">
-                Discount Type <span className="text-rose-600">*</span>
+              <label className="a-label">
+                Discount Type <span className="text-[var(--a-faint)]" aria-hidden>*</span>
               </label>
               <select
-                className="input w-full"
+                className="a-select"
                 value={formData.type}
                 onChange={(e) => handleChange("type", e.target.value)}
                 required
@@ -421,13 +413,13 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             {formData.type === "percentage" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Discount Percentage <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Discount Percentage <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <div className="relative">
                   <input
                     type="number"
-                    className="input w-full pr-8"
+                    className="a-input pr-8 tabular-nums"
                     value={formData.discountPercent}
                     onChange={(e) => handleChange("discountPercent", e.target.value)}
                     placeholder="50"
@@ -436,7 +428,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     step="0.01"
                     required
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">
                     %
                   </span>
                 </div>
@@ -445,17 +437,17 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             {formData.type === "fixed_amount" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Discount Amount <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Discount Amount <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">
                     $
                   </span>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input w-full !pl-8"
+                    className="a-input !pl-7 tabular-nums"
                     value={formData.discountAmountCents}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -472,68 +464,68 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             {formData.type === "bogo" && (
               <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Buy Quantity <span className="text-rose-600">*</span>
+                    <label className="a-label">
+                      Buy Quantity <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                     </label>
                     <input
                       type="number"
-                      className="input w-full"
+                      className="a-input"
                       value={formData.minQuantity}
                       onChange={(e) => handleChange("minQuantity", e.target.value)}
                       placeholder="1"
                       min="1"
                       required
                     />
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                    <p className="a-help">
                       Customer must buy this many
                     </p>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Get Quantity <span className="text-rose-600">*</span>
+                    <label className="a-label">
+                      Get Quantity <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                     </label>
                     <input
                       type="number"
-                      className="input w-full"
+                      className="a-input"
                       value={formData.applyToQuantity}
                       onChange={(e) => handleChange("applyToQuantity", e.target.value)}
                       placeholder="1"
                       min="1"
                       required
                     />
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                    <p className="a-help">
                       This many items get the discount
                     </p>
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Discount on those items <span className="text-rose-600">*</span>
+                  <label className="a-label">
+                    Discount on those items <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                   </label>
                   <div className="flex gap-3">
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)] has-[:checked]:border-[var(--a-ink)]">
                       <input
                         type="radio"
                         name="bogoDiscountType"
                         value="free"
                         checked={formData.bogoDiscountType === "free"}
                         onChange={() => handleChange("bogoDiscountType", "free")}
-                        className="w-4 h-4"
+                        className="a-check"
                       />
                       <span className="text-sm font-medium">Free (100% off)</span>
                     </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
+                    <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)] has-[:checked]:border-[var(--a-ink)]">
                       <input
                         type="radio"
                         name="bogoDiscountType"
                         value="percent"
                         checked={formData.bogoDiscountType === "percent"}
                         onChange={() => handleChange("bogoDiscountType", "percent")}
-                        className="w-4 h-4"
+                        className="a-check"
                       />
                       <span className="text-sm font-medium">Percentage off</span>
                     </label>
@@ -542,13 +534,13 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
                 {formData.bogoDiscountType === "percent" && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">
-                      Discount Percentage <span className="text-rose-600">*</span>
+                    <label className="a-label">
+                      Discount Percentage <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                     </label>
                     <div className="relative">
                       <input
                         type="number"
-                        className="input w-full pr-8"
+                        className="a-input pr-8 tabular-nums"
                         value={formData.bogoDiscountPercent}
                         onChange={(e) => handleChange("bogoDiscountPercent", e.target.value)}
                         placeholder="50"
@@ -556,30 +548,30 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                         max="99"
                         required
                       />
-                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                      <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">
                         %
                       </span>
                     </div>
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
+                    <p className="a-help">
                       e.g. 50 = buy 1 get 1 at half price
                     </p>
                   </div>
                 )}
               </div>
             )}
-          </div>
+          </section>
 
           {/* User Targeting */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-              <Users className="w-5 h-5" />
-              User Targeting
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)] flex items-center gap-2">
+              <Users className="h-4 w-4 text-[var(--a-muted)]" aria-hidden />
+              Who can use it
             </h3>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Who can use this promotion?</label>
+              <label className="a-label">Who can use this promotion?</label>
               <select
-                className="input w-full"
+                className="a-select"
                 value={formData.userTargeting}
                 onChange={(e) => handleChange("userTargeting", e.target.value)}
               >
@@ -593,23 +585,23 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
             </div>
 
             {formData.userTargeting === "specific_users" && (
-              <div className="border border-[var(--color-line)] rounded-lg p-4">
+              <div className="rounded-lg border border-[var(--a-line)] p-4">
                 <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium">
+                  <label className="a-label mb-0">
                     Selected Users ({selectedUsers.length})
                   </label>
                   <div className="flex gap-2">
                     <button
                       type="button"
                       onClick={selectAllUsers}
-                      className="text-xs btn btn-sm px-2 py-1"
+                      className="a-btn a-btn-sm"
                     >
                       Select All
                     </button>
                     <button
                       type="button"
                       onClick={clearAllUsers}
-                      className="text-xs btn btn-sm px-2 py-1"
+                      className="a-btn a-btn-sm"
                     >
                       Clear All
                     </button>
@@ -618,10 +610,10 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
                 <div className="mb-3">
                   <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+                    <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" />
                     <input
                       type="text"
-                      className="input w-full !pl-10"
+                      className="a-input !pl-9"
                       placeholder="Search users by name or email..."
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
@@ -631,26 +623,26 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
                 <div className="max-h-60 overflow-y-auto space-y-1">
                   {filteredUsers.length === 0 ? (
-                    <p className="text-sm text-[var(--color-muted)] text-center py-4">
+                    <p className="text-sm text-[var(--a-muted)] text-center py-4">
                       No users found
                     </p>
                   ) : (
                     filteredUsers.map((user) => (
                       <label
                         key={user.id}
-                        className="flex items-center gap-2 p-2 hover:bg-neutral-50 rounded cursor-pointer"
+                        className="a-menu-item font-normal"
                       >
                         <input
                           type="checkbox"
                           checked={selectedUsers.includes(user.id)}
                           onChange={() => toggleUser(user.id)}
-                          className="w-4 h-4"
+                          className="a-check"
                         />
                         <div className="flex-1 min-w-0">
                           <div className="text-sm font-medium truncate">
                             {user.firstName} {user.lastName}
                           </div>
-                          <div className="text-xs text-[var(--color-muted)] truncate">
+                          <div className="text-xs text-[var(--a-muted)] truncate">
                             {user.email}
                           </div>
                         </div>
@@ -663,19 +655,19 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             {formData.userTargeting === "order_count" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Minimum Order Count <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Minimum Order Count <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <input
                   type="number"
-                  className="input w-full"
+                  className="a-input"
                   value={formData.minOrderCount}
                   onChange={(e) => handleChange("minOrderCount", e.target.value)}
                   placeholder="5"
                   min="1"
                   required
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   User must have at least this many completed orders
                 </p>
               </div>
@@ -683,16 +675,16 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             {formData.userTargeting === "lifetime_spend" && (
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Minimum Lifetime Spend <span className="text-rose-600">*</span>
+                <label className="a-label">
+                  Minimum Lifetime Spend <span className="text-[var(--a-faint)]" aria-hidden>*</span>
                 </label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">
                     $
                   </span>
                   <input
                     type="number"
-                    className="input w-full !pl-8"
+                    className="a-input !pl-7 tabular-nums"
                     value={formData.minLifetimeSpendCents}
                     onChange={(e) => handleChange("minLifetimeSpendCents", e.target.value)}
                     placeholder="100.00"
@@ -701,28 +693,28 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     required
                   />
                 </div>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   User must have spent at least this much in total
                 </p>
               </div>
             )}
-          </div>
+          </section>
 
           {/* Order Restrictions */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Order Restrictions</h3>
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)]">Limits</h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Minimum Order Amount</label>
+                <label className="a-label">Minimum Order Amount</label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)]">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">
                     $
                   </span>
                   <input
                     type="text"
                     inputMode="decimal"
-                    className="input w-full !pl-8"
+                    className="a-input !pl-7 tabular-nums"
                     value={formData.minOrderAmountCents}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -736,10 +728,10 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Max Total Uses</label>
+                <label className="a-label">Max Total Uses</label>
                 <input
                   type="number"
-                  className="input w-full"
+                  className="a-input"
                   value={formData.maxRedemptions}
                   onChange={(e) => handleChange("maxRedemptions", e.target.value)}
                   placeholder="Unlimited"
@@ -749,45 +741,45 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-1">Max Uses Per Customer</label>
+              <label className="a-label">Max Uses Per Customer</label>
               <input
                 type="number"
-                className="input w-full"
+                className="a-input"
                 value={formData.maxRedemptionsPerCustomer}
                 onChange={(e) => handleChange("maxRedemptionsPerCustomer", e.target.value)}
                 placeholder="Unlimited"
                 min="1"
               />
             </div>
-          </div>
+          </section>
 
           {/* Product Restrictions */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2 flex items-center gap-2">
-              <Package className="w-5 h-5" />
-              Product Restrictions (Optional)
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)] flex items-center gap-2">
+              <Package className="h-4 w-4 text-[var(--a-muted)]" aria-hidden />
+              Products (optional)
             </h3>
 
-            <p className="text-sm text-[var(--color-muted)]">
+            <p className="text-sm text-[var(--a-muted)]">
               Leave empty to apply to all products, or select specific products:
             </p>
 
-            <div className="border border-[var(--color-line)] rounded-lg p-4 max-h-60 overflow-y-auto space-y-1">
+            <div className="max-h-60 overflow-y-auto rounded-lg border border-[var(--a-line)] p-1">
               {products.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)] text-center py-4">
+                <p className="text-sm text-[var(--a-muted)] text-center py-4">
                   No products available
                 </p>
               ) : (
                 products.map((product) => (
                   <label
                     key={product.slug}
-                    className="flex items-center gap-2 p-2 hover:bg-neutral-50 rounded cursor-pointer"
+                    className="a-menu-item font-normal"
                   >
                     <input
                       type="checkbox"
                       checked={selectedProducts.includes(product.slug)}
                       onChange={() => toggleProduct(product.slug)}
-                      className="w-4 h-4"
+                      className="a-check"
                     />
                     <span className="text-sm">{product.name}</span>
                   </label>
@@ -796,74 +788,53 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
             </div>
 
             {selectedProducts.length > 0 && (
-              <p className="text-xs text-[var(--color-muted)]">
+              <p className="text-xs text-[var(--a-muted)]">
                 {selectedProducts.length} product(s) selected
               </p>
             )}
-          </div>
+          </section>
 
           {/* Timeline */}
-          <div className="space-y-4">
-            <h3 className="font-semibold text-lg border-b pb-2">Timeline</h3>
+          <section className="space-y-4 border-b border-[var(--a-line)] pb-7">
+            <h3 className="text-base font-semibold text-[var(--a-ink)]">Dates</h3>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Start Date (Optional)</label>
+                <label className="a-label">Start Date (Optional)</label>
                 <input
                   type="date"
-                  className="input w-full"
+                  className="a-input"
                   value={formData.startsAt}
                   onChange={(e) => handleChange("startsAt", e.target.value)}
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Expiration Date (Optional)</label>
+                <label className="a-label">Expiration Date (Optional)</label>
                 <input
                   type="date"
-                  className="input w-full"
+                  className="a-input"
                   value={formData.expiresAt}
                   onChange={(e) => handleChange("expiresAt", e.target.value)}
                 />
               </div>
             </div>
-          </div>
+          </section>
 
           {/* Active Status */}
-          <div className="flex items-center gap-2">
+          <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-[var(--a-line)] p-3 text-sm">
             <input
               type="checkbox"
-              id="active"
+              className="a-check"
               checked={formData.active}
               onChange={(e) => handleChange("active", e.target.checked)}
-              className="w-4 h-4"
             />
-            <label htmlFor="active" className="text-sm font-medium cursor-pointer">
-              Active (promotion can be used)
-            </label>
-          </div>
-          </div>
-
-          {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-            <button
-              type="button"
-              onClick={onClose}
-              className="btn hover:bg-white transition-colors"
-              disabled={loading}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
-              {loading ? "Saving..." : isEditing ? "Update Promotion" : "Create Promotion"}
-            </button>
-          </div>
+            <span>
+              <span className="block font-medium text-[var(--a-ink)]">Active</span>
+              <span className="block text-xs text-[var(--a-muted)]">Customers can use this promotion now.</span>
+            </span>
+          </label>
         </form>
-      </div>
-    </div>
+    </Modal>
   );
 }

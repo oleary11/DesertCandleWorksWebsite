@@ -294,3 +294,24 @@ export function Tabs<T extends string>({
     </div>
   );
 }
+
+/** On/off toggle that acts immediately. */
+export function Switch({ checked, onChange, label }: { checked: boolean; onChange: () => void; label: string }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      title={label}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--a-accent)] focus-visible:ring-offset-2 ${
+        checked ? "bg-[#2f7a4a]" : "bg-[var(--a-line-strong)]"
+      }`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-[18px]" : "translate-x-0.5"}`}
+      />
+    </button>
+  );
+}
