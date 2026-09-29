@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { Search, X, Mail, Users, User, Package, Edit, Trash2, Plus, Save } from "lucide-react";
+import { Mail, Package, Pencil, Save, Search, Trash2, Users, X } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Modal } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 
 type Recipient = {
@@ -393,376 +394,207 @@ contact@desertcandleworks.com`;
     }
   };
 
-  return (
-    <div style={{ padding: "20px", maxWidth: "900px", margin: "0 auto" }}>
-      <div style={{ marginBottom: "20px" }}>
-        <Link href="/admin" style={{ color: "#1e40af", textDecoration: "none" }}>
-          ← Back to Admin
-        </Link>
-      </div>
+  const activeSaved = savedTemplates.find((t) => t.id === template);
+  const needsOrder = template !== "custom" && !!activeSaved?.message.includes("[Order ID]");
+  const canSend = !sending && selectedRecipients.length > 0 && !!subject && !!message;
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
-      <h1 style={{ marginBottom: "10px" }}>Send Emails</h1>
-      <p style={{ color: "#666", marginBottom: "30px" }}>
-        Send emails to customers using templates or custom messages
-      </p>
+  return (
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader title="Send emails" description="Email customers with a saved template or a one-off message." />
 
       {sendMessage && (
         <div
-          style={{
-            padding: "15px",
-            marginBottom: "20px",
-            borderRadius: "8px",
-            background: sendMessage.type === "success" ? "#f0fdf4" : "#fef2f2",
-            border: `1px solid ${sendMessage.type === "success" ? "#86efac" : "#fca5a5"}`,
-            color: sendMessage.type === "success" ? "#15803d" : "#dc2626",
-          }}
+          role={sendMessage.type === "error" ? "alert" : "status"}
+          className={`mb-6 flex items-start justify-between gap-3 rounded-lg border p-4 text-sm ${
+            sendMessage.type === "success" ? "border-green-200 bg-[#e8f5ec] text-[#1f4d2e]" : "border-red-200 bg-[#fdecea] text-[#7a1a12]"
+          }`}
         >
           {sendMessage.text}
+          <button className="shrink-0 opacity-70 hover:opacity-100" onClick={() => setSendMessage(null)} aria-label="Dismiss">
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
       )}
 
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e5e7eb",
-          borderRadius: "8px",
-          padding: "24px",
-        }}
-      >
-        {/* Template Selection */}
-        <div style={{ marginBottom: "24px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "8px" }}>
-            <label style={{ fontWeight: "600" }}>
-              Email Template
-            </label>
-            <div style={{ display: "flex", gap: "8px" }}>
-              <button
-                onClick={() => {
-                  setShowTemplateModal(true);
-                  setTemplateName("");
-                }}
-                style={{
-                  padding: "6px 12px",
-                  background: "#1e40af",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "4px",
-                }}
-              >
-                <Save size={14} />
-                Save as Template
-              </button>
-              {template !== "custom" && (
-                <>
-                  <button
-                    onClick={() => {
-                      const savedTemplate = savedTemplates.find(t => t.id === template);
-                      if (savedTemplate) {
-                        setEditingTemplate(savedTemplate);
-                      }
-                    }}
-                    style={{
-                      padding: "6px 12px",
-                      background: "#3b82f6",
-                      color: "white",
-                      border: "none",
-                      borderRadius: "6px",
-                      cursor: "pointer",
-                      fontSize: "13px",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                  >
-                    <Edit size={14} />
-                    Edit
-                  </button>
-                  {!savedTemplates.find(t => t.id === template)?.isDefault && (
-                    <button
-                      onClick={() => deleteTemplate(template)}
-                      style={{
-                        padding: "6px 12px",
-                        background: "#dc2626",
-                        color: "white",
-                        border: "none",
-                        borderRadius: "6px",
-                        cursor: "pointer",
-                        fontSize: "13px",
-                        display: "flex",
-                        alignItems: "center",
-                        gap: "4px",
-                      }}
-                    >
-                      <Trash2 size={14} />
-                      Delete
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-          <select
-            value={template}
-            onChange={(e) => setTemplate(e.target.value as EmailTemplate)}
-            style={{
-              width: "100%",
-              padding: "10px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              fontSize: "14px",
-            }}
-          >
-            <option value="custom">Custom Message</option>
-            {savedTemplates.length > 0 && savedTemplates.map(t => (
-              <option key={t.id} value={t.id}>{t.name}</option>
-            ))}
-          </select>
-        </div>
-
-        {/* Order-specific fields */}
-        {template !== "custom" && savedTemplates.find(t => t.id === template)?.message.includes("[Order ID]") && (
-          <>
-            <div style={{ marginBottom: "20px" }}>
-              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-                Order
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+        {/* Compose */}
+        <section className="a-card space-y-5 p-5 sm:p-6">
+          <div>
+            <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
+              <label htmlFor="email-template" className="a-label mb-0">
+                Template
               </label>
-
-              {selectedOrder ? (
-                <div
-                  style={{
-                    padding: "12px",
-                    background: "#eff6ff",
-                    border: "2px solid #1e40af",
-                    borderRadius: "8px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontWeight: "600", fontSize: "14px" }}>
-                      Order #{selectedOrder.id}
-                    </div>
-                    <div style={{ fontSize: "13px", color: "#666", marginTop: "2px" }}>
-                      {selectedOrder.customerName} ({selectedOrder.email})
-                    </div>
-                    <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
-                      {new Date(selectedOrder.createdAt).toLocaleDateString()} · ${(selectedOrder.totalCents / 100).toFixed(2)}
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => {
-                      setSelectedOrder(null);
-                      setOrderId("");
-                    }}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "4px",
-                    }}
-                  >
-                    <X style={{ width: "20px", height: "20px", color: "#6b7280" }} />
-                  </button>
-                </div>
-              ) : (
+              <div className="flex gap-1">
                 <button
-                  onClick={() => setShowOrderModal(true)}
-                  style={{
-                    width: "100%",
-                    padding: "12px",
-                    background: "#f9fafb",
-                    border: "2px dashed #d1d5db",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "14px",
-                    color: "#4b5563",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    gap: "8px",
+                  onClick={() => {
+                    setShowTemplateModal(true);
+                    setTemplateName("");
                   }}
+                  className="a-btn a-btn-sm"
+                  disabled={!subject.trim() || !message.trim()}
+                  title={!subject.trim() || !message.trim() ? "Write a subject and message first" : undefined}
                 >
-                  <Package style={{ width: "18px", height: "18px" }} />
-                  Select Order
+                  <Save className="h-3.5 w-3.5" aria-hidden />
+                  Save as template
                 </button>
-              )}
+                {template !== "custom" && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (activeSaved) setEditingTemplate(activeSaved);
+                      }}
+                      className="a-icon-btn h-8 w-8"
+                      aria-label="Edit template"
+                      title="Edit template"
+                    >
+                      <Pencil className="h-4 w-4" aria-hidden />
+                    </button>
+                    {!activeSaved?.isDefault && (
+                      <button
+                        onClick={() => deleteTemplate(template)}
+                        className="a-icon-btn a-icon-btn-danger h-8 w-8"
+                        aria-label="Delete template"
+                        title="Delete template"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-
-            <div style={{ marginBottom: "24px" }}>
-              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-                Tracking Number
-              </label>
-              <input
-                type="text"
-                value={trackingNumber}
-                onChange={(e) => setTrackingNumber(e.target.value)}
-                placeholder="HAND-DELIVERED or tracking number"
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
-              />
-              <p style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>
-                For internal delivery, use &ldquo;HAND-DELIVERED&rdquo; or any custom text
-              </p>
-            </div>
-          </>
-        )}
-
-        {/* Recipients */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-            Recipients ({selectedRecipients.length} selected)
-          </label>
-
-          {selectedRecipients.length > 0 && (
-            <div
-              style={{
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "8px",
-                marginBottom: "12px",
-                padding: "12px",
-                background: "#f9fafb",
-                borderRadius: "6px",
-              }}
+            <select
+              id="email-template"
+              className="a-select text-[var(--a-ink)]"
+              value={template}
+              onChange={(e) => setTemplate(e.target.value as EmailTemplate)}
+              disabled={loadingTemplates}
             >
-              {selectedRecipients.map(recipient => (
-                <div
-                  key={recipient.email}
-                  style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 10px",
-                    background: "#fff",
-                    border: "1px solid #e5e7eb",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                  }}
-                >
-                  <span>{recipient.name} ({recipient.email})</span>
-                  <button
-                    onClick={() => toggleRecipient(recipient)}
-                    style={{
-                      background: "none",
-                      border: "none",
-                      cursor: "pointer",
-                      padding: "2px",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <X style={{ width: "14px", height: "14px", color: "#6b7280" }} />
-                  </button>
-                </div>
+              <option value="custom">Custom message</option>
+              {savedTemplates.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
               ))}
+            </select>
+          </div>
+
+          {needsOrder && (
+            <div className="a-panel space-y-4">
+              <div>
+                <p className="a-label">Order</p>
+                {selectedOrder ? (
+                  <div className="flex items-start justify-between gap-3 rounded-lg border border-[var(--a-line)] bg-white p-3">
+                    <div className="min-w-0 text-sm">
+                      <p className="truncate font-mono font-medium text-[var(--a-ink)]">{selectedOrder.id}</p>
+                      <p className="truncate text-[var(--a-muted)]">
+                        {selectedOrder.customerName} · {selectedOrder.email}
+                      </p>
+                      <p className="text-xs text-[var(--a-faint)]">
+                        {new Date(selectedOrder.createdAt).toLocaleDateString()} · {money(selectedOrder.totalCents)}
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => {
+                        setSelectedOrder(null);
+                        setOrderId("");
+                      }}
+                      className="a-icon-btn h-8 w-8 shrink-0"
+                      aria-label="Clear order"
+                    >
+                      <X className="h-4 w-4" aria-hidden />
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={() => setShowOrderModal(true)} className="a-btn w-full border-dashed">
+                    <Package className="h-4 w-4" aria-hidden />
+                    Choose an order
+                  </button>
+                )}
+              </div>
+
+              <label className="block">
+                <span className="a-label">Tracking number</span>
+                <input
+                  type="text"
+                  className="a-input font-mono"
+                  value={trackingNumber}
+                  onChange={(e) => setTrackingNumber(e.target.value)}
+                  placeholder="HAND-DELIVERED or a tracking number"
+                />
+                <p className="a-help">For hand delivery, type HAND-DELIVERED or any note.</p>
+              </label>
             </div>
           )}
 
-          <button
-            onClick={() => setShowRecipientModal(true)}
-            style={{
-              width: "100%",
-              padding: "12px",
-              background: "#f9fafb",
-              border: "2px dashed #d1d5db",
-              borderRadius: "6px",
-              cursor: "pointer",
-              fontSize: "14px",
-              color: "#4b5563",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "8px",
-            }}
-          >
-            <Users style={{ width: "18px", height: "18px" }} />
-            {selectedRecipients.length === 0 ? "Select Recipients" : "Add More Recipients"}
+          <div>
+            <p className="a-label">
+              To <span className="font-normal text-[var(--a-muted)]">({selectedRecipients.length})</span>
+            </p>
+            {selectedRecipients.length > 0 && (
+              <ul className="mb-2 flex flex-wrap gap-1.5">
+                {selectedRecipients.map((recipient) => (
+                  <li
+                    key={recipient.email}
+                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--a-line)] bg-[var(--a-canvas)] py-0.5 pl-2.5 pr-1 text-sm"
+                    title={recipient.email}
+                  >
+                    <span className="truncate">{recipient.name || recipient.email}</span>
+                    <button
+                      onClick={() => toggleRecipient(recipient)}
+                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)]"
+                      aria-label={`Remove ${recipient.email}`}
+                    >
+                      <X className="h-3 w-3" aria-hidden />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button onClick={() => setShowRecipientModal(true)} className="a-btn w-full border-dashed">
+              <Users className="h-4 w-4" aria-hidden />
+              {selectedRecipients.length === 0 ? "Choose recipients" : "Add more recipients"}
+            </button>
+          </div>
+
+          <label className="block">
+            <span className="a-label">Subject</span>
+            <input type="text" className="a-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line" />
+          </label>
+
+          <label className="block">
+            <span className="a-label">Message</span>
+            <textarea
+              className="a-textarea"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={12}
+              placeholder="Write your message…"
+            />
+            <p className="a-help">Line breaks are kept in the email.</p>
+          </label>
+
+          <button onClick={handleSend} disabled={!canSend} className="a-btn a-btn-primary h-11 w-full text-[15px]">
+            <Mail className="h-4 w-4" aria-hidden />
+            {sending
+              ? "Sending…"
+              : `Send to ${selectedRecipients.length} ${selectedRecipients.length === 1 ? "recipient" : "recipients"}`}
           </button>
-        </div>
+        </section>
 
-        {/* Subject */}
-        <div style={{ marginBottom: "20px" }}>
-          <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-            Subject Line
-          </label>
-          <input
-            type="text"
-            value={subject}
-            onChange={(e) => setSubject(e.target.value)}
-            placeholder="Your subject line"
-            style={{
-              width: "100%",
-              padding: "10px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              fontSize: "14px",
-            }}
-          />
-        </div>
-
-        {/* Message */}
-        <div style={{ marginBottom: "24px" }}>
-          <label style={{ display: "block", fontWeight: "600", marginBottom: "8px" }}>
-            Message
-          </label>
-          <textarea
-            value={message}
-            onChange={(e) => setMessage(e.target.value)}
-            rows={12}
-            placeholder="Write your message here..."
-            style={{
-              width: "100%",
-              padding: "12px",
-              border: "1px solid #d1d5db",
-              borderRadius: "6px",
-              fontSize: "14px",
-              fontFamily: "inherit",
-              resize: "vertical",
-            }}
-          />
-          <p style={{ fontSize: "12px", color: "#666", marginTop: "5px" }}>
-            Line breaks will be preserved in the email
-          </p>
-        </div>
-
-        {/* Email Preview */}
-        {subject && message && (
-          <div style={{ marginBottom: "24px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "12px" }}>
-              <label style={{ fontWeight: "600" }}>Email Preview</label>
-              <button
-                onClick={() => setShowPreview(!showPreview)}
-                style={{
-                  padding: "6px 12px",
-                  background: "#f3f4f6",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "13px",
-                  fontWeight: "500",
-                }}
-              >
-                {showPreview ? "Hide Preview" : "Show Preview"}
-              </button>
+        {/* Preview */}
+        <section className="lg:sticky lg:top-20">
+          <button className="a-btn mb-3 w-full lg:hidden" onClick={() => setShowPreview(!showPreview)} disabled={!subject || !message}>
+            {showPreview ? "Hide preview" : "Show preview"}
+          </button>
+          <div className={`a-card overflow-hidden ${showPreview ? "" : "hidden lg:block"}`}>
+            <div className="border-b border-[var(--a-line)] px-4 py-3">
+              <p className="a-section-label text-[var(--a-faint)]">Preview</p>
+              <p className="mt-0.5 truncate text-sm font-medium text-[var(--a-ink)]">{subject || "No subject yet"}</p>
             </div>
-
-            {showPreview && (
-              <div style={{ border: "1px solid #e5e7eb", borderRadius: "8px", overflow: "hidden" }}>
-                {/* HTML Preview */}
-                <div style={{ borderBottom: "1px solid #e5e7eb", background: "#f9fafb", padding: "8px 12px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#374151" }}>HTML Version</span>
-                </div>
+            {subject && message ? (
+              <>
                 <iframe
                   srcDoc={`<!DOCTYPE html>
 <html>
@@ -788,693 +620,225 @@ contact@desertcandleworks.com`;
   </div>
 </body>
 </html>`}
-                  style={{
-                    width: "100%",
-                    height: "400px",
-                    border: "none",
-                    display: "block",
-                  }}
-                  title="Email Preview"
+                  className="block h-[480px] w-full border-0 bg-white"
+                  title="Email preview"
                 />
-
-                {/* Plain Text Preview */}
-                <div style={{ borderTop: "1px solid #e5e7eb", background: "#f9fafb", padding: "8px 12px" }}>
-                  <span style={{ fontSize: "13px", fontWeight: "600", color: "#374151" }}>Plain Text Version</span>
-                </div>
-                <pre
-                  style={{
-                    padding: "16px",
-                    margin: 0,
-                    fontSize: "13px",
-                    color: "#374151",
-                    background: "#fff",
-                    whiteSpace: "pre-wrap",
-                    wordWrap: "break-word",
-                    fontFamily: "monospace",
-                  }}
-                >{`Desert Candle Works
+                <details className="border-t border-[var(--a-line)]">
+                  <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-[var(--a-muted)] hover:text-[var(--a-ink)]">
+                    Plain-text version
+                  </summary>
+                  <pre className="whitespace-pre-wrap break-words bg-[var(--a-canvas)] px-4 py-3 font-mono text-xs text-[var(--a-ink)]">{`Desert Candle Works
 
 ${message}
 
 © ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
 Scottsdale, AZ | www.desertcandleworks.com
 contact@desertcandleworks.com`}</pre>
-              </div>
+                </details>
+              </>
+            ) : (
+              <p className="px-4 py-16 text-center text-sm text-[var(--a-muted)]">Write a subject and message to see the email.</p>
             )}
           </div>
-        )}
-
-        {/* Send Button */}
-        <button
-          onClick={handleSend}
-          disabled={sending || selectedRecipients.length === 0 || !subject || !message}
-          style={{
-            width: "100%",
-            padding: "14px 24px",
-            background: sending || selectedRecipients.length === 0 || !subject || !message ? "#9ca3af" : "#1e40af",
-            color: "white",
-            border: "none",
-            borderRadius: "6px",
-            cursor: sending || selectedRecipients.length === 0 || !subject || !message ? "not-allowed" : "pointer",
-            fontSize: "16px",
-            fontWeight: "600",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            gap: "8px",
-          }}
-        >
-          <Mail style={{ width: "20px", height: "20px" }} />
-          {sending ? "Sending..." : `Send to ${selectedRecipients.length} Recipient${selectedRecipients.length !== 1 ? 's' : ''}`}
-        </button>
+        </section>
       </div>
 
-      {/* Recipient Selection Modal */}
+      {/* Recipient picker */}
       {showRecipientModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowRecipientModal(false)}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "12px",
-              width: "90%",
-              maxWidth: "600px",
-              maxHeight: "80vh",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div
-              style={{
-                padding: "20px 24px",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
-                Select Recipients
-              </h2>
-              <button
-                onClick={() => setShowRecipientModal(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
-              >
-                <X style={{ width: "24px", height: "24px" }} />
-              </button>
-            </div>
-
-            {/* Search */}
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e5e7eb" }}>
-              <div style={{ position: "relative" }}>
-                <Search
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: "18px",
-                    height: "18px",
-                    color: "#9ca3af",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by name or email..."
-                  style={{
-                    width: "100%",
-                    padding: "10px 10px 10px 40px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                  }}
-                />
-              </div>
-
-              <div style={{ marginTop: "12px", display: "flex", gap: "8px" }}>
-                <button
-                  onClick={selectAll}
-                  style={{
-                    padding: "6px 12px",
-                    background: "#f3f4f6",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                  }}
-                >
-                  Select All ({filteredRecipients.length})
-                </button>
-                <button
-                  onClick={clearAll}
-                  style={{
-                    padding: "6px 12px",
-                    background: "#f3f4f6",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    cursor: "pointer",
-                    fontSize: "13px",
-                  }}
-                >
-                  Clear All
-                </button>
-              </div>
-            </div>
-
-            {/* Recipients List */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-              {loadingRecipients ? (
-                <p style={{ textAlign: "center", color: "#666" }}>Loading recipients...</p>
-              ) : filteredRecipients.length === 0 ? (
-                <p style={{ textAlign: "center", color: "#666" }}>No recipients found</p>
-              ) : (
-                filteredRecipients.map(recipient => {
-                  const isSelected = selectedRecipients.find(r => r.email === recipient.email);
-                  return (
-                    <div
-                      key={recipient.email}
-                      onClick={() => toggleRecipient(recipient)}
-                      style={{
-                        padding: "12px",
-                        marginBottom: "8px",
-                        border: `2px solid ${isSelected ? "#1e40af" : "#e5e7eb"}`,
-                        borderRadius: "8px",
-                        cursor: "pointer",
-                        background: isSelected ? "#eff6ff" : "#fff",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                        <div
-                          style={{
-                            width: "20px",
-                            height: "20px",
-                            border: `2px solid ${isSelected ? "#1e40af" : "#d1d5db"}`,
-                            borderRadius: "4px",
-                            background: isSelected ? "#1e40af" : "#fff",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          {isSelected && (
-                            <span style={{ color: "white", fontSize: "14px" }}>✓</span>
-                          )}
-                        </div>
-
-                        <div
-                          style={{
-                            width: "32px",
-                            height: "32px",
-                            borderRadius: "50%",
-                            background: recipient.type === "user" ? "#dbeafe" : "#f3f4f6",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            flexShrink: 0,
-                          }}
-                        >
-                          <User style={{ width: "18px", height: "18px", color: recipient.type === "user" ? "#1e40af" : "#6b7280" }} />
-                        </div>
-
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontWeight: "600", fontSize: "14px" }}>
-                            {recipient.name}
-                          </div>
-                          <div style={{ fontSize: "13px", color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {recipient.email}
-                          </div>
-                          {recipient.lastOrderDate && (
-                            <div style={{ fontSize: "12px", color: "#9ca3af", marginTop: "2px" }}>
-                              Last order: {new Date(recipient.lastOrderDate).toLocaleDateString()}
-                              {recipient.orderId && ` (${recipient.orderId})`}
-                            </div>
-                          )}
-                        </div>
-
-                        {recipient.type === "user" && (
-                          <span
-                            style={{
-                              padding: "2px 8px",
-                              background: "#dbeafe",
-                              color: "#1e40af",
-                              borderRadius: "4px",
-                              fontSize: "11px",
-                              fontWeight: "600",
-                            }}
-                          >
-                            ACCOUNT
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <span style={{ fontSize: "14px", color: "#666" }}>
-                {selectedRecipients.length} recipient{selectedRecipients.length !== 1 ? 's' : ''} selected
-              </span>
-              <button
-                onClick={() => setShowRecipientModal(false)}
-                style={{
-                  padding: "10px 20px",
-                  background: "#1e40af",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
+        <Modal
+          title="Choose recipients"
+          onClose={() => setShowRecipientModal(false)}
+          footer={
+            <>
+              <span className="mr-auto text-sm text-[var(--a-muted)]">{selectedRecipients.length} selected</span>
+              <button onClick={() => setShowRecipientModal(false)} className="a-btn a-btn-primary">
                 Done
               </button>
+            </>
+          }
+        >
+          <div className="mb-3 flex flex-col gap-2 sm:flex-row">
+            <label className="relative block flex-1">
+              <span className="sr-only">Search recipients</span>
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+              <input
+                type="text"
+                className="a-input pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search name or email…"
+                autoFocus
+              />
+            </label>
+            <div className="flex gap-2">
+              <button onClick={selectAll} className="a-btn a-btn-sm h-10">
+                Select all ({filteredRecipients.length})
+              </button>
+              <button onClick={clearAll} className="a-btn a-btn-sm h-10">
+                Clear
+              </button>
             </div>
           </div>
-        </div>
+
+          {loadingRecipients ? (
+            <p className="py-10 text-center text-sm text-[var(--a-muted)]">Loading recipients…</p>
+          ) : filteredRecipients.length === 0 ? (
+            <p className="py-10 text-center text-sm text-[var(--a-muted)]">No recipients found.</p>
+          ) : (
+            <ul className="divide-y divide-[var(--a-line)] rounded-lg border border-[var(--a-line)]">
+              {filteredRecipients.map((recipient) => {
+                const isSelected = !!selectedRecipients.find((r) => r.email === recipient.email);
+                return (
+                  <li key={recipient.email}>
+                    <label className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${isSelected ? "bg-[var(--a-tint)]" : "hover:bg-[var(--a-canvas)]"}`}>
+                      <input type="checkbox" className="a-check" checked={isSelected} onChange={() => toggleRecipient(recipient)} />
+                      <span className="min-w-0 flex-1">
+                        <span className="flex items-center gap-2">
+                          <span className="truncate text-sm font-medium text-[var(--a-ink)]">{recipient.name}</span>
+                          {recipient.type === "user" && <Badge tone="blue">Account</Badge>}
+                        </span>
+                        <span className="block truncate text-xs text-[var(--a-muted)]">
+                          {recipient.email}
+                          {recipient.lastOrderDate && ` · last order ${new Date(recipient.lastOrderDate).toLocaleDateString()}`}
+                        </span>
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </Modal>
       )}
 
-      {/* Order Selection Modal */}
+      {/* Order picker */}
       {showOrderModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0, 0, 0, 0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowOrderModal(false)}
+        <Modal
+          size="lg"
+          title="Choose an order"
+          onClose={() => setShowOrderModal(false)}
+          footer={
+            <button onClick={() => setShowOrderModal(false)} className="a-btn">
+              Cancel
+            </button>
+          }
         >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "12px",
-              width: "90%",
-              maxWidth: "700px",
-              maxHeight: "80vh",
-              display: "flex",
-              flexDirection: "column",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div
-              style={{
-                padding: "20px 24px",
-                borderBottom: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
-            >
-              <h2 style={{ margin: 0, fontSize: "20px", fontWeight: "600" }}>
-                Select Order
-              </h2>
-              <button
-                onClick={() => setShowOrderModal(false)}
-                style={{
-                  background: "none",
-                  border: "none",
-                  cursor: "pointer",
-                  padding: "4px",
-                }}
-              >
-                <X style={{ width: "24px", height: "24px" }} />
-              </button>
-            </div>
+          <label className="relative mb-3 block">
+            <span className="sr-only">Search orders</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+            <input
+              type="text"
+              className="a-input pl-9"
+              value={orderSearchQuery}
+              onChange={(e) => setOrderSearchQuery(e.target.value)}
+              placeholder="Search order ID, name or email…"
+              autoFocus
+            />
+          </label>
 
-            {/* Search */}
-            <div style={{ padding: "16px 24px", borderBottom: "1px solid #e5e7eb" }}>
-              <div style={{ position: "relative" }}>
-                <Search
-                  style={{
-                    position: "absolute",
-                    left: "12px",
-                    top: "50%",
-                    transform: "translateY(-50%)",
-                    width: "18px",
-                    height: "18px",
-                    color: "#9ca3af",
-                    pointerEvents: "none",
-                  }}
-                />
-                <input
-                  type="text"
-                  value={orderSearchQuery}
-                  onChange={(e) => setOrderSearchQuery(e.target.value)}
-                  placeholder="Search by order ID, customer name, or email..."
-                  style={{
-                    width: "100%",
-                    padding: "10px 10px 10px 40px",
-                    border: "1px solid #d1d5db",
-                    borderRadius: "6px",
-                    fontSize: "14px",
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Orders List */}
-            <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px" }}>
-              {loadingOrders ? (
-                <p style={{ textAlign: "center", color: "#666" }}>Loading orders...</p>
-              ) : filteredOrders.length === 0 ? (
-                <p style={{ textAlign: "center", color: "#666" }}>No orders found</p>
-              ) : (
-                filteredOrders.map(order => (
-                  <div
-                    key={order.id}
+          {loadingOrders ? (
+            <p className="py-10 text-center text-sm text-[var(--a-muted)]">Loading orders…</p>
+          ) : filteredOrders.length === 0 ? (
+            <p className="py-10 text-center text-sm text-[var(--a-muted)]">No orders found.</p>
+          ) : (
+            <ul className="divide-y divide-[var(--a-line)] rounded-lg border border-[var(--a-line)]">
+              {filteredOrders.map((order) => (
+                <li key={order.id}>
+                  <button
+                    type="button"
                     onClick={() => selectOrder(order)}
-                    style={{
-                      padding: "14px",
-                      marginBottom: "8px",
-                      border: `2px solid ${selectedOrder?.id === order.id ? "#1e40af" : "#e5e7eb"}`,
-                      borderRadius: "8px",
-                      cursor: "pointer",
-                      background: selectedOrder?.id === order.id ? "#eff6ff" : "#fff",
-                      transition: "all 0.2s",
-                    }}
+                    className={`flex w-full items-center gap-3 px-3 py-2.5 text-left ${
+                      selectedOrder?.id === order.id ? "bg-[var(--a-tint)]" : "hover:bg-[var(--a-canvas)]"
+                    }`}
                   >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-                      <div
-                        style={{
-                          width: "40px",
-                          height: "40px",
-                          borderRadius: "8px",
-                          background: "#dbeafe",
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          flexShrink: 0,
-                        }}
-                      >
-                        <Package style={{ width: "20px", height: "20px", color: "#1e40af" }} />
-                      </div>
-
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: "600", fontSize: "15px", marginBottom: "4px" }}>
-                          Order #{order.id}
-                        </div>
-                        <div style={{ fontSize: "14px", color: "#374151", marginBottom: "4px" }}>
-                          {order.customerName}
-                        </div>
-                        <div style={{ fontSize: "13px", color: "#666", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", marginBottom: "6px" }}>
-                          {order.email}
-                        </div>
-                        <div style={{ display: "flex", gap: "12px", fontSize: "12px", color: "#9ca3af" }}>
-                          <span>{new Date(order.createdAt).toLocaleDateString()}</span>
-                          <span>·</span>
-                          <span>${(order.totalCents / 100).toFixed(2)}</span>
-                          <span>·</span>
-                          <span style={{
-                            padding: "2px 6px",
-                            background: order.status === "completed" ? "#d1fae5" : "#fee2e2",
-                            color: order.status === "completed" ? "#065f46" : "#991b1b",
-                            borderRadius: "4px",
-                            fontSize: "11px",
-                            fontWeight: "600",
-                            textTransform: "uppercase",
-                          }}>
-                            {order.status}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            <div
-              style={{
-                padding: "16px 24px",
-                borderTop: "1px solid #e5e7eb",
-                display: "flex",
-                justifyContent: "flex-end",
-                alignItems: "center",
-              }}
-            >
-              <button
-                onClick={() => setShowOrderModal(false)}
-                style={{
-                  padding: "10px 20px",
-                  background: "#f3f4f6",
-                  color: "#374151",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-[var(--a-ink)]">{order.customerName || order.email}</span>
+                      <span className="block truncate text-xs text-[var(--a-muted)]">
+                        {order.email} · {new Date(order.createdAt).toLocaleDateString()} · <span className="font-mono">{order.id}</span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block text-sm font-medium tabular-nums">{money(order.totalCents)}</span>
+                      <Badge tone={order.status === "completed" ? "green" : "red"}>{order.status}</Badge>
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Modal>
       )}
 
-      {/* Save Template Modal */}
+      {/* Save template */}
       {showTemplateModal && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setShowTemplateModal(false)}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "12px",
-              padding: "24px",
-              maxWidth: "500px",
-              width: "90%",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ marginBottom: "16px", fontSize: "20px" }}>Save as Template</h2>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
-                Template Name
-              </label>
-              <input
-                type="text"
-                value={templateName}
-                onChange={(e) => setTemplateName(e.target.value)}
-                placeholder="e.g., Welcome Email, Promo Announcement"
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <p style={{ fontSize: "14px", color: "#666" }}>
-                Subject: <strong>{subject}</strong>
-              </p>
-              <p style={{ fontSize: "14px", color: "#666", marginTop: "8px" }}>
-                Message length: {message.length} characters
-              </p>
-            </div>
-
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setShowTemplateModal(false)}
-                style={{
-                  padding: "10px 20px",
-                  background: "#f3f4f6",
-                  color: "#374151",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
+        <Modal
+          size="sm"
+          title="Save as template"
+          description="Saves the current subject and message for reuse."
+          onClose={() => setShowTemplateModal(false)}
+          footer={
+            <>
+              <button onClick={() => setShowTemplateModal(false)} className="a-btn">
                 Cancel
               </button>
-              <button
-                onClick={saveTemplate}
-                style={{
-                  padding: "10px 20px",
-                  background: "#1e40af",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
-                Save Template
+              <button onClick={saveTemplate} className="a-btn a-btn-primary">
+                Save template
               </button>
+            </>
+          }
+        >
+          <label className="block">
+            <span className="a-label">Template name</span>
+            <input
+              type="text"
+              className="a-input"
+              value={templateName}
+              onChange={(e) => setTemplateName(e.target.value)}
+              placeholder="e.g. Welcome email, Promo announcement"
+              autoFocus
+            />
+          </label>
+          <dl className="a-panel mt-4 space-y-1 text-sm">
+            <div className="flex gap-2">
+              <dt className="text-[var(--a-muted)]">Subject</dt>
+              <dd className="min-w-0 truncate font-medium">{subject}</dd>
             </div>
-          </div>
-        </div>
+            <div className="flex gap-2">
+              <dt className="text-[var(--a-muted)]">Message</dt>
+              <dd>{message.length} characters</dd>
+            </div>
+          </dl>
+        </Modal>
       )}
 
-      {/* Edit Template Modal */}
+      {/* Edit template */}
       {editingTemplate && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: "rgba(0,0,0,0.5)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-          onClick={() => setEditingTemplate(null)}
-        >
-          <div
-            style={{
-              background: "white",
-              borderRadius: "12px",
-              padding: "24px",
-              maxWidth: "600px",
-              width: "90%",
-              maxHeight: "80vh",
-              overflow: "auto",
-            }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h2 style={{ marginBottom: "16px", fontSize: "20px" }}>
-              Edit Template: {editingTemplate.name}
-            </h2>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
-                Subject
-              </label>
-              <input
-                type="text"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                }}
-              />
-            </div>
-
-            <div style={{ marginBottom: "16px" }}>
-              <label style={{ display: "block", fontWeight: "600", marginBottom: "8px", fontSize: "14px" }}>
-                Message
-              </label>
-              <textarea
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                rows={12}
-                style={{
-                  width: "100%",
-                  padding: "10px",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  fontSize: "14px",
-                  fontFamily: "monospace",
-                  resize: "vertical",
-                }}
-              />
-            </div>
-
-            <div style={{ display: "flex", gap: "12px", justifyContent: "flex-end" }}>
-              <button
-                onClick={() => setEditingTemplate(null)}
-                style={{
-                  padding: "10px 20px",
-                  background: "#f3f4f6",
-                  color: "#374151",
-                  border: "1px solid #d1d5db",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
+        <Modal
+          title={`Edit “${editingTemplate.name}”`}
+          description="Use [Order ID] and [Tracking Number] where those should be filled in."
+          onClose={() => setEditingTemplate(null)}
+          footer={
+            <>
+              <button onClick={() => setEditingTemplate(null)} className="a-btn">
                 Cancel
               </button>
-              <button
-                onClick={() => updateTemplate(editingTemplate.id)}
-                style={{
-                  padding: "10px 20px",
-                  background: "#1e40af",
-                  color: "white",
-                  border: "none",
-                  borderRadius: "6px",
-                  cursor: "pointer",
-                  fontSize: "14px",
-                  fontWeight: "600",
-                }}
-              >
-                Update Template
+              <button onClick={() => updateTemplate(editingTemplate.id)} className="a-btn a-btn-primary">
+                Save template
               </button>
-            </div>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <label className="block">
+              <span className="a-label">Subject</span>
+              <input type="text" className="a-input" value={subject} onChange={(e) => setSubject(e.target.value)} />
+            </label>
+            <label className="block">
+              <span className="a-label">Message</span>
+              <textarea className="a-textarea font-mono text-[13px]" value={message} onChange={(e) => setMessage(e.target.value)} rows={12} />
+            </label>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
