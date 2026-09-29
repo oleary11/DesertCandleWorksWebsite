@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, X } from "lucide-react";
 
 /** Dropdown menu anchored to a button. Closes on outside click and Escape. */
 export function Menu({
@@ -196,6 +196,57 @@ export function Stat({
       <p className="text-xs font-medium text-[var(--a-muted)]">{label}</p>
       <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-[var(--a-ink)]">{value}</p>
       {hint && <p className="mt-0.5 text-xs text-[var(--a-muted)]">{hint}</p>}
+    </div>
+  );
+}
+
+/** Centered dialog with header, scrollable body and optional footer. Escape and backdrop close it unless `busy`. */
+export function Modal({
+  title,
+  description,
+  onClose,
+  busy,
+  footer,
+  size = "md",
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  onClose: () => void;
+  busy?: boolean;
+  footer?: React.ReactNode;
+  size?: "sm" | "md" | "lg";
+  children: React.ReactNode;
+}) {
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && !busy) onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [busy, onClose]);
+
+  const width = size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : "max-w-xl";
+  return (
+    <div className="a-ui fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
+      <button type="button" aria-label="Close" className="a-fade-enter absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
+      <div className={`a-card a-fade-enter relative flex max-h-[92dvh] w-full ${width} flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]`}>
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
+          <div className="min-w-0">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">{title}</h2>
+            {description && <p className="mt-0.5 text-sm text-[var(--a-muted)]">{description}</p>}
+          </div>
+          <button type="button" className="a-icon-btn -mr-2 shrink-0" onClick={onClose} disabled={busy} aria-label="Close">
+            <X className="h-5 w-5" aria-hidden />
+          </button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+        {footer && (
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
+            {footer}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

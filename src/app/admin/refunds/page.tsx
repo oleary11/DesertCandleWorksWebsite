@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ArrowLeft, DollarSign, RefreshCw, Package, AlertCircle, CheckCircle, Clock } from "lucide-react";
+import { BarChart2, DollarSign, Package, Search, Undo2 } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Modal, Stat } from "../_components/ui";
 import Link from "next/link";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -187,372 +189,295 @@ export default function RefundsPage() {
     setRefundAmount("");
   }
 
-  function getStatusColor(status: RefundStatus) {
-    switch (status) {
-      case "completed":
-        return "text-emerald-600 bg-emerald-50";
-      case "processing":
-        return "text-blue-600 bg-blue-50";
-      case "failed":
-        return "text-rose-600 bg-rose-50";
-      case "pending":
-        return "text-amber-600 bg-amber-50";
-    }
+  const STATUS_TONE: Record<RefundStatus, "green" | "blue" | "red" | "amber"> = {
+    completed: "green",
+    processing: "blue",
+    failed: "red",
+    pending: "amber",
+  };
+
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  function closeModal() {
+    setShowCreateModal(false);
+    resetForm();
   }
 
-  function getStatusIcon(status: RefundStatus) {
-    switch (status) {
-      case "completed":
-        return <CheckCircle className="w-4 h-4" />;
-      case "processing":
-        return <Clock className="w-4 h-4 animate-spin" />;
-      case "failed":
-        return <AlertCircle className="w-4 h-4" />;
-      case "pending":
-        return <Clock className="w-4 h-4" />;
-    }
-  }
+  const completed = refunds.filter((r) => r.status === "completed");
+  const refundedTotal = completed.reduce((sum, r) => sum + r.amountCents, 0);
 
   return (
-    <div className="min-h-screen bg-neutral-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-2xl font-bold text-[var(--color-ink)]">Refund Management</h1>
-              <p className="text-sm text-[var(--color-muted)] mt-1">
-                Process refunds and manage returns
-              </p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="btn bg-[var(--color-accent)] text-white hover:opacity-90"
-            >
-              <RefreshCw className="w-4 h-4" />
-              Process Refund
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Refunds"
+        description="Refund an order and, if you like, put the items back in stock."
+        actions={
+          <>
+            <Link href="/admin/refunds-analytics" className="a-btn">
+              <BarChart2 className="h-4 w-4" aria-hidden />
+              Analytics
+            </Link>
+            <button onClick={() => setShowCreateModal(true)} className="a-btn a-btn-primary">
+              <Undo2 className="h-4 w-4" aria-hidden />
+              New refund
             </button>
-          </div>
-        </div>
+          </>
+        }
+      />
 
-        {/* Refunds List */}
-        {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
-            <CandleSpinner />
-            <p className="text-sm font-medium text-[var(--color-muted)]">Loading refunds…</p>
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--a-muted)]">Loading refunds…</p>
+        </div>
+      ) : refunds.length === 0 ? (
+        <div className="a-card flex flex-col items-center px-6 py-16 text-center">
+          <span className="a-icon-tile mb-3 h-11 w-11">
+            <Undo2 className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="font-medium text-[var(--a-ink)]">No refunds yet</p>
+          <p className="mt-1 text-sm text-[var(--a-muted)]">Refunds you process will show up here.</p>
+        </div>
+      ) : (
+        <>
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <Stat label="Refunds" value={refunds.length} hint={`${completed.length} completed`} />
+            <Stat label="Refunded" value={money(refundedTotal)} hint="Completed refunds" />
+            <Stat
+              className="col-span-2 sm:col-span-1"
+              label="Restocked"
+              value={completed.filter((r) => r.restoreInventory).length}
+              hint="Completed refunds that put items back"
+            />
           </div>
-        ) : refunds.length === 0 ? (
-          <div className="card p-12 text-center">
-            <RefreshCw className="w-12 h-12 text-[var(--color-muted)] mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-[var(--color-ink)] mb-2">No refunds yet</h3>
-            <p className="text-sm text-[var(--color-muted)]">
-              Processed refunds will appear here
-            </p>
-          </div>
-        ) : (
-          <div className="card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-neutral-50 border-b border-neutral-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Refund ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Order ID
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Customer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Reason
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Inventory
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-[var(--color-muted)] uppercase tracking-wider">
-                      Date
-                    </th>
+
+          {/* Desktop table */}
+          <div className="a-card hidden overflow-hidden md:block">
+            <table className="a-table">
+              <thead>
+                <tr>
+                  <th>Customer</th>
+                  <th>Reason</th>
+                  <th>Status</th>
+                  <th className="text-center">Restocked</th>
+                  <th>Date</th>
+                  <th className="text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {refunds.map((refund) => (
+                  <tr key={refund.id}>
+                    <td>
+                      <p className="font-medium text-[var(--a-ink)]">{refund.email}</p>
+                      <p
+                        className="mt-0.5 font-mono text-xs text-[var(--a-muted)]"
+                        title={`Refund ${refund.id}${refund.stripeRefundId ? ` · ${refund.stripeRefundId}` : ""}`}
+                      >
+                        Order {refund.orderId.slice(0, 14)}
+                      </p>
+                    </td>
+                    <td>
+                      <p>{REASON_LABELS[refund.reason]}</p>
+                      {refund.reasonNote && <p className="mt-0.5 max-w-xs text-xs text-[var(--a-muted)]">{refund.reasonNote}</p>}
+                    </td>
+                    <td>
+                      <Badge tone={STATUS_TONE[refund.status]}>{refund.status}</Badge>
+                    </td>
+                    <td className="text-center">
+                      {refund.restoreInventory ? (
+                        <Package className="inline h-4 w-4 text-[#1f6b3a]" aria-label="Inventory restored" />
+                      ) : (
+                        <span className="text-[var(--a-faint)]" aria-label="Not restocked">—</span>
+                      )}
+                    </td>
+                    <td className="whitespace-nowrap">
+                      <p>{new Date(refund.createdAt).toLocaleDateString()}</p>
+                      <p className="text-xs text-[var(--a-muted)]">
+                        {new Date(refund.createdAt).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}
+                      </p>
+                    </td>
+                    <td className="a-num font-semibold">{money(refund.amountCents)}</td>
                   </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-neutral-200">
-                  {refunds.map((refund) => (
-                    <tr key={refund.id} className="hover:bg-neutral-50">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-mono text-[var(--color-ink)]">
-                          {refund.id.slice(0, 8)}
-                        </div>
-                        {refund.stripeRefundId && (
-                          <div className="text-xs text-[var(--color-muted)] font-mono">
-                            {refund.stripeRefundId}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-mono text-[var(--color-ink)]">
-                          {refund.orderId.slice(0, 12)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-[var(--color-ink)]">{refund.email}</div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm font-semibold text-[var(--color-ink)]">
-                          ${(refund.amountCents / 100).toFixed(2)}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="text-sm text-[var(--color-ink)]">
-                          {REASON_LABELS[refund.reason]}
-                        </div>
-                        {refund.reasonNote && (
-                          <div className="text-xs text-[var(--color-muted)] mt-1">
-                            {refund.reasonNote}
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                            refund.status
-                          )}`}
-                        >
-                          {getStatusIcon(refund.status)}
-                          {refund.status}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {refund.restoreInventory ? (
-                          <span title="Inventory restored">
-                            <Package className="w-4 h-4 text-emerald-600 inline" />
-                          </span>
-                        ) : (
-                          <span className="text-[var(--color-muted)]">-</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-[var(--color-ink)]">
-                          {new Date(refund.createdAt).toLocaleDateString()}
-                        </div>
-                        <div className="text-xs text-[var(--color-muted)]">
-                          {new Date(refund.createdAt).toLocaleTimeString()}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-      </div>
 
-      {/* Create Refund Modal */}
+          {/* Mobile list */}
+          <ul className="a-card divide-y divide-[var(--a-line)] md:hidden">
+            {refunds.map((refund) => (
+              <li key={refund.id} className="flex items-start justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  <p className="truncate font-medium text-[var(--a-ink)]">{refund.email}</p>
+                  <p className="mt-0.5 text-sm text-[var(--a-muted)]">
+                    {REASON_LABELS[refund.reason]} · {new Date(refund.createdAt).toLocaleDateString()}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap gap-1">
+                    <Badge tone={STATUS_TONE[refund.status]}>{refund.status}</Badge>
+                    {refund.restoreInventory && <Badge>Restocked</Badge>}
+                  </div>
+                </div>
+                <span className="shrink-0 font-semibold tabular-nums">{money(refund.amountCents)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200">
-              <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">Process Refund</h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                  Issue a refund and optionally restore inventory
-                </p>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCreateModal(false);
-                  resetForm();
-                }}
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                disabled={processingRefund}
-              >
-                <span className="sr-only">Close</span>
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+        <Modal
+          title="New refund"
+          description="Look up the order, choose an amount, then confirm."
+          onClose={closeModal}
+          busy={processingRefund}
+          footer={
+            <>
+              <button type="button" onClick={closeModal} className="a-btn" disabled={processingRefund}>
+                Cancel
               </button>
+              <button type="submit" form="refund-form" className="a-btn a-btn-primary" disabled={processingRefund || !order}>
+                {processingRefund ? "Processing…" : order && refundAmount ? `Refund $${refundAmount}` : "Refund"}
+              </button>
+            </>
+          }
+        >
+          <form id="refund-form" onSubmit={handleCreateRefund} className="space-y-5">
+            <div>
+              <label htmlFor="refund-order-id" className="a-label">
+                Order ID or checkout session ID
+              </label>
+              <div className="flex gap-2">
+                <input
+                  id="refund-order-id"
+                  type="text"
+                  className="a-input flex-1 font-mono"
+                  placeholder="cs_live_… or pi_…"
+                  value={orderId}
+                  onChange={(e) => setOrderId(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void loadOrder();
+                    }
+                  }}
+                  required
+                />
+                <button type="button" onClick={loadOrder} disabled={loadingOrder || !orderId.trim()} className="a-btn">
+                  <Search className="h-4 w-4" aria-hidden />
+                  {loadingOrder ? "Looking…" : "Look up"}
+                </button>
+              </div>
             </div>
 
-            {/* Form */}
-            <form onSubmit={handleCreateRefund} className="flex flex-col flex-1 min-h-0">
-              <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6 min-h-0">
-                {/* Order ID */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-ink)] mb-2">
-                    Order ID / Checkout Session ID
-                  </label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      className="input flex-1"
-                      placeholder="cs_test_... or pi_..."
-                      value={orderId}
-                      onChange={(e) => setOrderId(e.target.value)}
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={loadOrder}
-                      disabled={loadingOrder || !orderId.trim()}
-                      className="btn bg-neutral-200 hover:bg-neutral-300"
-                    >
-                      {loadingOrder ? "Loading..." : "Load Order"}
-                    </button>
-                  </div>
+            {order && (
+              <div className="a-panel space-y-2 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[var(--a-muted)]">Customer</span>
+                  <span className="truncate font-medium">{order.email}</span>
                 </div>
-
-                {/* Order Details */}
-                {order && (
-                  <div className="bg-neutral-50 rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span className="text-sm text-[var(--color-muted)]">Customer:</span>
-                      <span className="text-sm font-medium text-[var(--color-ink)]">{order.email}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-[var(--color-muted)]">Order Total:</span>
-                      <span className="text-sm font-semibold text-[var(--color-ink)]">
-                        ${(order.totalCents / 100).toFixed(2)}
+                <div className="flex justify-between gap-4">
+                  <span className="text-[var(--a-muted)]">Order total</span>
+                  <span className="font-semibold tabular-nums">{money(order.totalCents)}</span>
+                </div>
+                <ul className="space-y-1 border-t border-[var(--a-line)] pt-2 text-xs text-[var(--a-muted)]">
+                  {order.items.map((item, idx) => (
+                    <li key={idx} className="flex justify-between gap-4">
+                      <span>
+                        {item.quantity} × {item.productName}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-sm text-[var(--color-muted)]">Items:</span>
-                      <span className="text-sm text-[var(--color-ink)]">{order.items.length} product(s)</span>
-                    </div>
-                    <div className="pt-2 border-t border-neutral-200">
-                      {order.items.map((item, idx) => (
-                        <div key={idx} className="text-xs text-[var(--color-muted)] mb-1">
-                          {item.quantity}x {item.productName} - ${(item.priceCents / 100).toFixed(2)}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                      <span className="tabular-nums">{money(item.priceCents)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
-                {/* Refund Amount */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-ink)] mb-2">
-                    Refund Amount (USD)
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                      <DollarSign className="w-4 h-4 text-[var(--color-muted)]" />
-                    </span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      className="input !pl-9"
-                      placeholder="0.00"
-                      value={refundAmount}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                          setRefundAmount(val);
-                        }
-                      }}
-                      onBlur={(e) => {
-                        const val = parseFloat(e.target.value);
-                        if (!isNaN(val) && order) {
-                          const max = order.totalCents / 100;
-                          setRefundAmount(Math.min(val, max).toFixed(2));
-                        }
-                      }}
-                      required
-                      disabled={!order}
-                    />
-                  </div>
-                  {order && (
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
-                      Maximum: ${(order.totalCents / 100).toFixed(2)}
-                    </p>
-                  )}
-                </div>
-
-                {/* Reason */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-ink)] mb-2">
-                    Refund Reason
-                  </label>
-                  <select
-                    className="input"
-                    value={reason}
-                    onChange={(e) => setReason(e.target.value as RefundReason)}
-                    required
-                  >
-                    {Object.entries(REASON_LABELS).map(([value, label]) => (
-                      <option key={value} value={value}>
-                        {label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Reason Note */}
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-ink)] mb-2">
-                    Additional Notes (Optional)
-                  </label>
-                  <textarea
-                    className="textarea"
-                    rows={3}
-                    placeholder="Additional details about the refund..."
-                    value={reasonNote}
-                    onChange={(e) => setReasonNote(e.target.value)}
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div>
+                <label htmlFor="refund-amount" className="a-label">
+                  Amount
+                </label>
+                <div className="relative">
+                  <DollarSign
+                    className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]"
+                    aria-hidden
                   />
-                </div>
-
-                {/* Restore Inventory */}
-                <div className="flex items-center gap-3">
                   <input
-                    type="checkbox"
-                    id="restoreInventory"
-                    checked={restoreInventory}
-                    onChange={(e) => setRestoreInventory(e.target.checked)}
-                    className="w-4 h-4 rounded border-neutral-300 text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                    id="refund-amount"
+                    type="text"
+                    inputMode="decimal"
+                    className="a-input pl-9 tabular-nums"
+                    placeholder="0.00"
+                    value={refundAmount}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setRefundAmount(val);
+                      }
+                    }}
+                    onBlur={(e) => {
+                      const val = parseFloat(e.target.value);
+                      if (!isNaN(val) && order) {
+                        const max = order.totalCents / 100;
+                        setRefundAmount(Math.min(val, max).toFixed(2));
+                      }
+                    }}
+                    required
+                    disabled={!order}
                   />
-                  <label htmlFor="restoreInventory" className="text-sm text-[var(--color-ink)]">
-                    Restore inventory (add items back to stock)
-                  </label>
                 </div>
+                <p className="a-help">{order ? `Up to ${money(order.totalCents)}` : "Look up an order first."}</p>
               </div>
 
-              {/* Footer */}
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowCreateModal(false);
-                    resetForm();
-                  }}
-                  className="btn bg-white border border-neutral-300 hover:bg-neutral-50"
-                  disabled={processingRefund}
+              <div>
+                <label htmlFor="refund-reason" className="a-label">
+                  Reason
+                </label>
+                <select
+                  id="refund-reason"
+                  className="a-select"
+                  value={reason}
+                  onChange={(e) => setReason(e.target.value as RefundReason)}
+                  required
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="btn bg-[var(--color-accent)] text-white hover:opacity-90"
-                  disabled={processingRefund || !order}
-                >
-                  {processingRefund ? "Processing..." : "Process Refund"}
-                </button>
+                  {Object.entries(REASON_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
               </div>
-            </form>
-          </div>
-        </div>
+            </div>
+
+            <div>
+              <label htmlFor="refund-note" className="a-label">
+                Notes <span className="font-normal text-[var(--a-muted)]">(optional)</span>
+              </label>
+              <textarea
+                id="refund-note"
+                className="a-textarea"
+                rows={3}
+                placeholder="Anything worth remembering about this refund"
+                value={reasonNote}
+                onChange={(e) => setReasonNote(e.target.value)}
+              />
+            </div>
+
+            <label className="flex cursor-pointer items-start gap-3 text-sm">
+              <input
+                type="checkbox"
+                className="a-check mt-0.5"
+                checked={restoreInventory}
+                onChange={(e) => setRestoreInventory(e.target.checked)}
+              />
+              <span>
+                <span className="font-medium text-[var(--a-ink)]">Put items back in stock</span>
+                <span className="block text-[var(--a-muted)]">Adds the refunded items back to inventory.</span>
+              </span>
+            </label>
+          </form>
+        </Modal>
       )}
     </div>
   );
