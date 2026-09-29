@@ -267,7 +267,8 @@ summary {
 [class*="product-card"] {
   border: 0 !important;
 }
-button, .btn, .btn-primary, .btn-ghost {
+/* Redesigned admin UI (.a-ui) draws its own button borders. */
+:is(button, .btn, .btn-primary, .btn-ghost):not(.a-ui *) {
   border-color: transparent !important;
 }
 .product-card__img { background: transparent !important; }

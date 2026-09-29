@@ -18,9 +18,16 @@ import {
   X,
   ArrowDown,
   ArrowUp,
+  AlertCircle,
+  Check,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp,
+  Info,
+  QrCode,
+  Upload,
 } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
-import { Badge, FilterSelect, Menu, MenuItem, MenuLabel } from "../_components/ui";
+import { Badge, FilterSelect, FormSection, Menu, MenuItem, MenuLabel } from "../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 import { useModal } from "@/hooks/useModal";
 import QRCode from "qrcode";
@@ -379,17 +386,17 @@ function ComboBox<TValue extends string>(props: {
 
   return (
     <div ref={rootRef} className={`w-full ${className}`}>
-      <label htmlFor={id} className="block text-xs mb-1">
+      <label htmlFor={id} className="a-label">
         {label}
       </label>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--a-muted)] pointer-events-none" />
 
         <input
           id={id}
           ref={inputRef}
-          className="input w-full !pl-10 !pr-10"
+          className="a-input !pl-10 !pr-10"
           placeholder={open ? placeholder : selected ? "" : placeholder}
           value={inputDisplayValue}
           onFocus={() => openAndFocus({ clearSearch: true })}
@@ -430,7 +437,7 @@ function ComboBox<TValue extends string>(props: {
         {open && query && (
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-neutral-100"
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-[var(--a-tint)]"
             onClick={() => {
               setQuery("");
               setActiveIndex(0);
@@ -438,7 +445,7 @@ function ComboBox<TValue extends string>(props: {
             }}
             aria-label="Clear search"
           >
-            <span className="text-[var(--color-muted)]">✕</span>
+            <span className="text-[var(--a-muted)]">✕</span>
           </button>
         )}
 
@@ -446,11 +453,11 @@ function ComboBox<TValue extends string>(props: {
           <div
             id={`${id}-listbox`}
             role="listbox"
-            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
+            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--a-line)] bg-white shadow-lg overflow-hidden"
           >
             <div className="max-h-72 overflow-y-auto overscroll-contain">
               {filtered.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                <div className="px-4 py-3 text-sm text-[var(--a-muted)]">
                   {emptyMessage}
                 </div>
               ) : (
@@ -479,7 +486,7 @@ function ComboBox<TValue extends string>(props: {
                     >
                       <div className="text-sm">{item.label}</div>
                       {item.sublabel && (
-                        <div className="text-xs text-[var(--color-muted)] mt-0.5">
+                        <div className="text-xs text-[var(--a-muted)] mt-0.5">
                           {item.sublabel}
                         </div>
                       )}
@@ -573,9 +580,9 @@ function HomeGoodsBottleOptionsForm(props: {
       {/* Basic Information (shared with candles: one posting, one set of images, no per-bottle photos) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <label className="block">
-          <div className="text-xs font-medium text-neutral-700 mb-2">Product Name</div>
+          <div className="a-label">Product Name</div>
           <input
-            className="input"
+            className="a-input"
             value={editing.name}
             onChange={(e) => {
               const name = e.target.value;
@@ -594,9 +601,9 @@ function HomeGoodsBottleOptionsForm(props: {
         </label>
 
         <label className="block">
-          <div className="text-xs font-medium text-neutral-700 mb-2">URL Slug</div>
+          <div className="a-label">URL Slug</div>
           <input
-            className="input"
+            className="a-input"
             value={editing.slug}
             disabled={isServerItem(editing.slug)}
             onChange={(e) => {
@@ -612,12 +619,12 @@ function HomeGoodsBottleOptionsForm(props: {
             }}
             placeholder="e.g. soap-dispenser"
           />
-          {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
+          {slugError && <p className="a-error">{slugError}</p>}
         </label>
 
         <label className="block">
-          <div className="text-xs font-medium text-neutral-700 mb-2">SKU</div>
-          <input className="input" value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} />
+          <div className="a-label">SKU</div>
+          <input className="a-input" value={editing.sku} onChange={(e) => setEditing({ ...editing, sku: e.target.value })} />
         </label>
 
         <label className="flex items-center gap-2 self-end pb-2">
@@ -626,13 +633,13 @@ function HomeGoodsBottleOptionsForm(props: {
             checked={editing.visibleOnWebsite !== false}
             onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
           />
-          <span className="text-sm">Show on Website</span>
+          <span>Show on website</span>
         </label>
 
         <label className="block md:col-span-2">
-          <div className="text-xs font-medium text-neutral-700 mb-2">Description</div>
+          <div className="a-label">Description</div>
           <textarea
-            className="textarea"
+            className="a-textarea"
             rows={4}
             value={editing.seoDescription}
             onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
@@ -642,19 +649,23 @@ function HomeGoodsBottleOptionsForm(props: {
       </div>
 
       {/* Images — one shared set for the whole listing, not per bottle */}
-      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
-        <h4 className="text-sm font-medium text-neutral-900 mb-3">Images</h4>
-        <input
-          type="file"
-          accept="image/*"
-          multiple
-          className="input"
-          onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
-        />
+      <div className="a-panel">
+        <h4 className="mb-3 text-sm font-semibold text-[var(--a-ink)]">Images</h4>
+        <label className="a-btn cursor-pointer focus-within:shadow-[var(--a-focus)]">
+          <Upload className="h-4 w-4" aria-hidden />
+          Add photos
+          <input
+            type="file"
+            accept="image/*"
+            multiple
+            className="sr-only"
+            onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
+          />
+        </label>
         {editing.images && editing.images.length > 0 && (
           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 mt-3">
             {editing.images.map((url, idx) => (
-              <div key={url + idx} className="relative aspect-square rounded-lg overflow-hidden border border-neutral-200">
+              <div key={url + idx} className="relative aspect-square rounded-lg overflow-hidden border border-[var(--a-line)]">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={url} alt="" className="w-full h-full object-cover" />
                 <button
@@ -672,19 +683,19 @@ function HomeGoodsBottleOptionsForm(props: {
       </div>
 
       {/* Bottle Options */}
-      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
+      <div className="a-panel">
         <div className="mb-3">
-          <h4 className="text-sm font-medium text-neutral-900">Bottle Options</h4>
-          <p className="text-xs text-neutral-600 mt-0.5">
+          <h4 className="text-sm font-semibold text-[var(--a-ink)]">Bottle Options</h4>
+          <p className="text-xs text-[var(--a-muted)] mt-0.5">
             Every eligible bottle from your Inventory is checked by default. Uncheck any you don&apos;t want to
             offer on this listing — unchecking removes it.
           </p>
         </div>
 
         <label className="block max-w-[10rem] mb-4">
-          <div className="text-xs font-medium text-neutral-700 mb-2">Default Price ($)</div>
+          <div className="a-label">Default Price ($)</div>
           <input
-            className="input"
+            className="a-input"
             type="number"
             step="0.01"
             min="0"
@@ -704,7 +715,7 @@ function HomeGoodsBottleOptionsForm(props: {
             Requires Unpoured
           </label>
         </div>
-        <p className="text-xs text-neutral-600 mb-3">
+        <p className="text-xs text-[var(--a-muted)] mb-3">
           {mode === "uncut"
             ? "Only whole, uncut bottles work for this listing (e.g. a soap dispenser needs an intact bottle)."
             : "Uncut, cut unpolished, or cut polished bottles all work for this listing (the common case)."}
@@ -712,7 +723,7 @@ function HomeGoodsBottleOptionsForm(props: {
 
         {eligibleInventory.length > 0 ? (
           <>
-            <div className="max-h-96 overflow-y-auto border border-neutral-200 rounded-xl divide-y divide-neutral-100 bg-white">
+            <div className="max-h-96 overflow-y-auto border border-[var(--a-line)] rounded-xl divide-y divide-[var(--a-line)] bg-white">
               {eligibleInventory.map((b) => {
                 const opt = bottleOptions.find((o) => o.bottleId === b.id);
                 const checked = !!opt;
@@ -733,24 +744,24 @@ function HomeGoodsBottleOptionsForm(props: {
                         }
                       }}
                     />
-                    <div className="w-9 h-9 rounded-md overflow-hidden bg-neutral-100 shrink-0 flex items-center justify-center">
+                    <div className="w-9 h-9 rounded-md overflow-hidden bg-[var(--a-tint)] shrink-0 flex items-center justify-center">
                       {b.imageUrl ? (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={b.imageUrl} alt="" className="w-full h-full object-contain" />
                       ) : (
-                        <span className="text-[9px] text-neutral-400">No photo</span>
+                        <span className="text-[9px] text-[var(--a-faint)]">No photo</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm truncate">{b.name}</div>
-                      <div className="text-xs text-neutral-500 truncate whitespace-nowrap overflow-hidden">
+                      <div className="text-xs text-[var(--a-muted)] truncate whitespace-nowrap overflow-hidden">
                         Uncut: {b.qtyUncut} · Cut Unpolished: {b.qtyCutUnpolished} · Cut Polished: {b.qtyCutPolished}
                         {!hasStock && <span className="text-amber-600 ml-1">(no stock yet)</span>}
                       </div>
                     </div>
                     {checked && (
                       <input
-                        className="input text-sm !w-24 shrink-0"
+                        className="a-input !w-24 shrink-0"
                         type="number"
                         step="0.01"
                         min="0"
@@ -769,10 +780,10 @@ function HomeGoodsBottleOptionsForm(props: {
                 );
               })}
             </div>
-            <p className="text-xs text-neutral-500 mt-2">{bottleOptions.length} bottle(s) selected</p>
+            <p className="text-xs text-[var(--a-muted)] mt-2">{bottleOptions.length} bottle(s) selected</p>
           </>
         ) : (
-          <div className="text-center py-4 text-sm text-neutral-500">
+          <div className="text-center py-4 text-sm text-[var(--a-muted)]">
             No bottles are marked usable for Home Goods yet — check the &quot;Home Goods&quot; column on the
             Inventory page.
           </div>
@@ -1024,14 +1035,14 @@ function HomeGoodsSquareSection(props: {
   return (
     <div className="mb-8">
       <div className="mb-8">
-        <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4">Stripe (Online)</h3>
+        <h3 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Stripe (Online)</h3>
         <label className="block">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs">Stripe Price ID</span>
+          <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span className="a-label mb-0">Stripe Price ID</span>
             {!editing.stripePriceId && (
               <button
                 type="button"
-                className="text-xs text-green-600 hover:text-green-700 font-medium"
+                className="a-link"
                 onClick={createStripeProduct}
               >
                 Create Stripe Product
@@ -1039,57 +1050,57 @@ function HomeGoodsSquareSection(props: {
             )}
           </div>
           <input
-            className="input"
+            className="a-input"
             value={editing.stripePriceId || ""}
             onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
             placeholder="Click 'Create Stripe Product' or paste manually"
           />
         </label>
-        <p className="mt-1 text-xs text-[var(--color-muted)]">
+        <p className="mt-1 text-xs text-[var(--a-muted)]">
           Creates one Stripe product with a separate price for every selected bottle option.
         </p>
       </div>
 
-      <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
-        <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <h3 className="text-sm font-semibold text-[var(--a-ink)] mb-4 flex items-center gap-2">
+        <svg className="h-4 w-4 text-[var(--a-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
         </svg>
         Square (POS)
       </h3>
       <label className="block">
-        <div className="flex items-center justify-between mb-1">
-          <span className="text-xs">Square Catalog ID</span>
+        <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+          <span className="a-label mb-0">Square Catalog ID</span>
           <div className="flex flex-wrap gap-2">
             {editing.squareCatalogId && (
-              <button type="button" className="text-xs text-purple-600 hover:text-purple-700 font-medium" onClick={syncStock}>
+              <button type="button" className="a-link" onClick={syncStock}>
                 Sync Stock to Square
               </button>
             )}
             {editing.squareCatalogId && (
-              <button type="button" className="text-xs text-blue-600 hover:text-blue-700 font-medium" onClick={syncDetails}>
+              <button type="button" className="a-link" onClick={syncDetails}>
                 Sync Details to Square
               </button>
             )}
             {editing.squareCatalogId && (
-              <button type="button" className="text-xs text-amber-600 hover:text-amber-700 font-medium" onClick={recreateWithCurrentBottles}>
+              <button type="button" className="a-link" onClick={recreateWithCurrentBottles}>
                 Re-create with Current Bottles
               </button>
             )}
             {!editing.squareCatalogId && (
-              <button type="button" className="text-xs text-purple-600 hover:text-purple-700 font-medium" onClick={createSquareProduct}>
+              <button type="button" className="a-link" onClick={createSquareProduct}>
                 Create Square Product
               </button>
             )}
           </div>
         </div>
         <input
-          className="input"
+          className="a-input"
           value={editing.squareCatalogId || ""}
           onChange={(e) => setEditing({ ...editing, squareCatalogId: e.target.value })}
           placeholder="Click 'Create Square Product' or paste manually"
         />
       </label>
-      <p className="mt-1 text-xs text-[var(--color-muted)]">
+      <p className="mt-1 text-xs text-[var(--a-muted)]">
         Each bottle option becomes its own Square item variation with its own price. Re-run &quot;Re-create with
         Current Bottles&quot; after adding or removing a bottle from this listing.
       </p>
@@ -2327,6 +2338,13 @@ export default function AdminProductsPage() {
     setError(null);
   }
 
+  function closeEditor() {
+    setEditing(null);
+    setSlugTouched(false);
+    setSlugError(null);
+    setError(null);
+  }
+
   function openNewProduct() {
     const p = emptyProduct();
     p.sku = nextSku; // default auto-increment
@@ -2816,65 +2834,44 @@ export default function AdminProductsPage() {
         )}
       </div>
 
-      {/* ---------- Edit/Create Modal (scrollable on mobile) ---------- */}
+      {/* ---------- Edit/Create slide-over ---------- */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          {/* backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setEditing(null);
-              setSlugTouched(false);
-              setSlugError(null);
-              setError(null);
-            }}
-          />
-          {/* panel */}
-          <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+        <div className="a-ui fixed inset-0 z-50 flex justify-end" role="dialog" aria-modal="true" aria-labelledby="product-editor-title">
+          <button type="button" aria-label="Close editor" className="a-fade-enter absolute inset-0 bg-black/30" onClick={closeEditor} />
+          <div className="a-sheet-enter relative flex h-full w-full max-w-4xl flex-col bg-[var(--a-surface)] shadow-2xl">
             {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
-              <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">{isServerItem(editing.slug) ? "Edit Product" : "New Product"}</h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                  {isServerItem(editing.slug) ? "Changes are staged until published" : "Configure product details and variants"}
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-8">
+              <div className="min-w-0">
+                <p className="a-section-label text-[var(--a-faint)]">
+                  {isServerItem(editing.slug) ? "Edit product" : "New product"}
                 </p>
+                <h2 id="product-editor-title" className="mt-0.5 truncate text-xl font-semibold tracking-tight text-[var(--a-ink)]">
+                  {editing.name.trim() || "Untitled product"}
+                </h2>
               </div>
-              <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                onClick={() => {
-                  setEditing(null);
-                  setSlugTouched(false);
-                  setSlugError(null);
-                  setError(null);
-                }}
-                aria-label="Close"
-              >
-                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+              <button className="a-icon-btn -mr-2 shrink-0" onClick={closeEditor} aria-label="Close">
+                <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
+            <div className="flex-1 overflow-y-auto px-5 py-6 sm:px-8">
               {error && (
-                <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-                  <svg className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <p className="text-sm text-red-800">{error}</p>
+                <div role="alert" className="mb-6 flex items-start gap-3 rounded-lg border border-red-200 bg-[#fdecea] p-4">
+                  <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#b42318]" aria-hidden />
+                  <p className="text-sm text-[#7a1a12]">{error}</p>
                 </div>
               )}
 
               {/* Category toggle — only meaningful for a brand-new draft; locked once published */}
-              <div className="mb-6">
-                <div className="text-xs font-medium text-neutral-700 mb-2">Product Category</div>
-                <div className="inline-flex rounded-xl border border-[var(--color-line)] p-1 bg-neutral-50">
+              <div className="mb-2">
+                <div className="a-label">Category</div>
+                <div className="inline-flex rounded-lg border border-[var(--a-line)] bg-[var(--a-canvas)] p-1" role="group" aria-label="Product category">
                   <button
                     type="button"
                     disabled={isServerItem(editing.slug)}
-                    className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
-                      !isHomeGoods ? "bg-white shadow-sm font-medium" : "text-neutral-500"
+                    className={`rounded-md px-4 py-1.5 text-sm transition-colors ${
+                      !isHomeGoods ? "bg-white font-medium text-[var(--a-ink)] shadow-sm" : "text-[var(--a-muted)] hover:text-[var(--a-ink)]"
                     } ${isServerItem(editing.slug) ? "cursor-not-allowed opacity-60" : ""}`}
                     onClick={() =>
                       setEditing({
@@ -2893,8 +2890,8 @@ export default function AdminProductsPage() {
                   <button
                     type="button"
                     disabled={isServerItem(editing.slug)}
-                    className={`px-4 py-1.5 text-sm rounded-lg transition-colors ${
-                      isHomeGoods ? "bg-white shadow-sm font-medium" : "text-neutral-500"
+                    className={`rounded-md px-4 py-1.5 text-sm transition-colors ${
+                      isHomeGoods ? "bg-white font-medium text-[var(--a-ink)] shadow-sm" : "text-[var(--a-muted)] hover:text-[var(--a-ink)]"
                     } ${isServerItem(editing.slug) ? "cursor-not-allowed opacity-60" : ""}`}
                     onClick={() =>
                       setEditing({
@@ -2913,12 +2910,12 @@ export default function AdminProductsPage() {
                   </button>
                 </div>
                 {isServerItem(editing.slug) && (
-                  <p className="text-xs text-[var(--color-muted)] mt-1">Category can&apos;t be changed after a product is published.</p>
+                  <p className="text-xs text-[var(--a-muted)] mt-1">Category can&apos;t be changed after a product is published.</p>
                 )}
               </div>
 
               {isHomeGoods ? (
-                <>
+                <div className="mt-6">
                   <HomeGoodsBottleOptionsForm
                     editing={editing}
                     setEditing={setEditing}
@@ -2942,23 +2939,16 @@ export default function AdminProductsPage() {
                     setSavingLabel={setSavingLabel}
                     load={load}
                   />
-                </>
+                </div>
               ) : (
               <>
-              {/* Basic Information Section */}
-              <div className="mb-8">
-                <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Basic Information
-                </h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormSection title="Details" description="What customers see on the shop.">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                   {/* Name */}
                   <label className="block">
-                    <div className="text-xs font-medium text-neutral-700 mb-2">Product Name</div>
+                    <div className="a-label">Product Name</div>
                     <input
-                      className="input"
+                      className="a-input"
                       value={editing.name}
                       onChange={(e) => {
                         const name = e.target.value;
@@ -2977,9 +2967,9 @@ export default function AdminProductsPage() {
 
                   {/* Slug */}
                   <label className="block">
-                    <div className="text-xs font-medium text-neutral-700 mb-2">URL Slug</div>
+                    <div className="a-label">URL Slug</div>
                     <input
-                      className="input"
+                      className="a-input"
                       value={editing.slug}
                       disabled={isServerItem(editing.slug)} // keep URLs stable once published
                       onChange={(e) => {
@@ -2995,13 +2985,13 @@ export default function AdminProductsPage() {
                       }}
                       placeholder="e.g. woodford-reserve-candle"
                     />
-                    {slugError && <p className="text-rose-600 text-xs mt-1">{slugError}</p>}
+                    {slugError && <p className="a-error">{slugError}</p>}
                   </label>
 
                   <label className="block">
-                    <div className="text-xs mb-1">Price</div>
+                    <div className="a-label">Price</div>
                     <input
-                      className="input"
+                      className="a-input"
                       type="text"
                       inputMode="decimal"
                       value={priceInputStr}
@@ -3030,41 +3020,19 @@ export default function AdminProductsPage() {
                     />
                   </label>
 
-                  {/* Weight */}
-                  <label className="block">
-                    <div className="text-xs mb-1">Candle Weight (ounces)</div>
-                    <input
-                      className="input"
-                      type="number"
-                      step="0.1"
-                      value={editing.weight?.value || ""}
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value);
-                        setEditing({
-                          ...editing,
-                          weight: isNaN(value) ? undefined : { value, units: "ounces" },
-                        });
-                      }}
-                      placeholder="e.g. 12 (jar + wax only)"
-                    />
-                    <div className="text-xs text-neutral-500 mt-1">
-                      Weight of jar + wax only. Packaging (~16oz) added automatically for shipping.
-                    </div>
-                  </label>
-
                   {/* SKU */}
                   <label className="block">
-                    <div className="text-xs mb-1">SKU</div>
+                    <div className="a-label">SKU</div>
                     <div className="flex gap-2">
                       <input
-                        className="input flex-1"
+                        className="a-input flex-1"
                         value={editing.sku}
                         onChange={(e) => setEditing({ ...editing, sku: e.target.value })}
                         placeholder="DCW-0001"
                       />
                       <button
                         type="button"
-                        className="btn"
+                        className="a-btn"
                         onClick={() =>
                           setEditing((prev) =>
                             prev
@@ -3084,10 +3052,10 @@ export default function AdminProductsPage() {
 
                   {/* Alcohol Type — NEW */}
                   <label className="block">
-                    <div className="text-xs mb-1">Alcohol Type</div>
+                    <div className="a-label">Alcohol Type</div>
                     <div className="flex gap-2">
                       <select
-                        className="input flex-1"
+                        className="a-select flex-1"
                         value={editing.alcoholType || ""}
                         onChange={async (e) => {
                           const v = e.target.value;
@@ -3129,34 +3097,119 @@ export default function AdminProductsPage() {
                     </div>
                   </label>
 
+                  {/* Weight */}
+                  <label className="block">
+                    <div className="a-label">Candle Weight (ounces)</div>
+                    <input
+                      className="a-input"
+                      type="number"
+                      step="0.1"
+                      value={editing.weight?.value || ""}
+                      onChange={(e) => {
+                        const value = parseFloat(e.target.value);
+                        setEditing({
+                          ...editing,
+                          weight: isNaN(value) ? undefined : { value, units: "ounces" },
+                        });
+                      }}
+                      placeholder="e.g. 12 (jar + wax only)"
+                    />
+                    <div className="a-help">
+                      Weight of jar + wax only. Packaging (~16oz) added automatically for shipping.
+                    </div>
+                  </label>
+
+                  {/* Container Selection */}
+                  <div className="block">
+                    <ComboBox
+                      id="edit-product-container"
+                      label="Container (for description)"
+                      placeholder="Search containers..."
+                      value={editing.containerId || ""}
+                      items={[
+                        { value: "", label: "— Select container —", sublabel: "Optional" },
+                        ...containers.map((c) => ({
+                          value: c.id,
+                          label: c.name,
+                          sublabel: `${c.capacityWaterOz} oz water • ${c.shape}`,
+                        })),
+                      ]}
+                      emptyMessage="No containers match your search."
+                      onChange={(val) => setEditing({ ...editing, containerId: val || undefined })}
+                    />
+                  </div>
+
+                  {/* Description */}
+                  <label className="block sm:col-span-2">
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <span className="a-label mb-0">Description</span>
+                      <button
+                        type="button"
+                        className="a-link"
+                        onClick={() => {
+                          const container = containers.find((c) => c.id === editing.containerId);
+                          const generatedDesc = generateDescription(editing.name, container, settings.waterToWaxRatio);
+                          setEditing({ ...editing, seoDescription: generatedDesc });
+                        }}
+                      >
+                        Auto-generate from name & container
+                      </button>
+                    </div>
+                    <textarea
+                      className="a-textarea"
+                      rows={4}
+                      value={editing.seoDescription}
+                      onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
+                      placeholder="Select a container and click 'Auto-generate' or type manually"
+                    />
+                  </label>
+                </div>
+                <div className="mt-5 flex flex-wrap gap-x-6 gap-y-3">
+                  {/* Visible on Website */}
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--a-ink)]">
+                    <input
+                      type="checkbox"
+                      className="a-check"
+                      checked={editing.visibleOnWebsite !== false}
+                      onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
+                    />
+                    <span>Show on website</span>
+                  </label>
+                  {/* Best Seller */}
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--a-ink)]">
+                    <input type="checkbox" className="a-check" checked={!!editing.bestSeller} onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })} />
+                    <span>Best seller</span>
+                  </label>
+                  {/* Young & Dumb */}
+                  <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--a-ink)]">
+                    <input type="checkbox" className="a-check" checked={!!editing.youngDumb} onChange={(e) => setEditing({ ...editing, youngDumb: e.target.checked })} />
+                    <span>Young &amp; Dumb</span>
+                  </label>
+                </div>
+              </FormSection>
+
+              <FormSection title="Photos" description="The first photo is the main one on the shop. Use the arrows to reorder.">
                   {/* Images - Multiple Upload */}
                   <div className="block sm:col-span-2">
-                    <div className="text-xs mb-1">Product Images</div>
-                    <div className="flex gap-2">
-                      <label className="btn cursor-pointer flex-1">
-                        + Add Images
+                    <div className="flex flex-wrap gap-2">
+                      <label className="a-btn cursor-pointer focus-within:shadow-[var(--a-focus)]">
+                        <Upload className="h-4 w-4" aria-hidden />
+                        Add photos
                         <input
                           type="file"
                           accept="image/*"
                           multiple
-                          className="hidden"
+                          className="sr-only"
                           onChange={(e) => handleImagePick(e, editing, (v) => setEditing(v))}
                         />
                       </label>
                       <button
                         type="button"
-                        className="btn bg-blue-600 text-white hover:bg-blue-700 flex items-center gap-2"
+                        className="a-btn"
                         onClick={startQRUpload}
                       >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z"
-                          />
-                        </svg>
-                        Upload from Phone
+                        <QrCode className="h-4 w-4" aria-hidden />
+                        Upload from phone
                       </button>
                     </div>
 
@@ -3164,60 +3217,499 @@ export default function AdminProductsPage() {
                     {editing.images && editing.images.length > 0 ? (
                       <div className="mt-3 space-y-2">
                         {editing.images.map((img, idx) => (
-                          <div key={idx} className="card p-3 flex items-center gap-3">
-                            <div className="relative w-20 h-20 flex-shrink-0 rounded-lg overflow-hidden bg-white">
-                              <Image src={img} alt={`Product image ${idx + 1}`} fill className="object-contain" />
+                          <div key={idx} className="flex items-center gap-3 rounded-lg border border-[var(--a-line)] bg-white p-2.5">
+                            <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md bg-[var(--a-tint)]">
+                              <Image src={img} alt={`Product image ${idx + 1}`} fill sizes="80px" className="object-contain" />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="text-xs text-[var(--color-muted)] truncate">{img}</div>
-                              {idx === 0 && <span className="text-xs font-medium text-green-600">Primary</span>}
+                              <div className="text-xs text-[var(--a-muted)] truncate">{img}</div>
+                              {idx === 0 && <span className="mt-1 inline-block"><Badge tone="green">Main photo</Badge></span>}
                             </div>
                             <div className="flex gap-1">
                               {idx > 0 && (
                                 <button
                                   type="button"
-                                  className="btn text-xs px-2 py-1"
+                                  className="a-icon-btn h-8 w-8"
                                   onClick={() => moveImageUp(idx, editing, (v) => setEditing(v))}
                                   title="Move up"
+                                  aria-label="Move photo up"
                                 >
-                                  ↑
+                                  <ChevronUp className="h-4 w-4" aria-hidden />
                                 </button>
                               )}
                               {editing.images && idx < editing.images.length - 1 && (
                                 <button
                                   type="button"
-                                  className="btn text-xs px-2 py-1"
+                                  className="a-icon-btn h-8 w-8"
                                   onClick={() => moveImageDown(idx, editing, (v) => setEditing(v))}
                                   title="Move down"
+                                  aria-label="Move photo down"
                                 >
-                                  ↓
+                                  <ChevronDownIcon className="h-4 w-4" aria-hidden />
                                 </button>
                               )}
                               <button
                                 type="button"
-                                className="btn text-xs px-2 py-1"
+                                className="a-icon-btn h-8 w-8"
                                 onClick={() => removeImage(idx, editing, (v) => setEditing(v))}
                                 title="Remove"
+                                aria-label="Remove photo"
                               >
-                                ✕
+                                <Trash2 className="h-4 w-4" aria-hidden />
                               </button>
                             </div>
                           </div>
                         ))}
                       </div>
                     ) : (
-                      <p className="mt-2 text-xs text-[var(--color-muted)]">No images yet. Click &quot;Add Images&quot; to upload.</p>
+                      <p className="mt-3 rounded-lg border border-dashed border-[var(--a-line-strong)] px-4 py-6 text-center text-sm text-[var(--a-muted)]">No photos yet. Add some from this computer or your phone.</p>
                     )}
                   </div>
+              </FormSection>
 
+              <FormSection title="Inventory & variants" description="Sizes and wicks combine with every available scent to make the variants below.">
+                <div className="mb-5 max-w-xs">
+                  {/* Base Stock */}
+                  <label className="block">
+                    <div className="a-label">Base stock</div>
+                    <input
+                      className="a-input"
+                      type="number"
+                      value={editing.stock}
+                      onChange={(e) => setEditing({ ...editing, stock: e.target.value === "" ? 0 : Number(e.target.value) })}
+                      onBlur={(e) => {
+                        const val = e.target.value === "" ? 0 : Number(e.target.value);
+                        setEditing({ ...editing, stock: Math.max(0, val) });
+                      }}
+                    />
+                    {editing.variantConfig && <p className="a-help">Variant stock is set per scent below.</p>}
+                  </label>
+                </div>
+                {(() => {
+                  // Auto-initialize variantConfig if it doesn't exist
+                  if (!editing.variantConfig) {
+                    setEditing({
+                      ...editing,
+                      variantConfig: {
+                        wickTypes: [{ id: "standard", name: "Standard Wick" }],
+                        variantData: {},
+                      },
+                    });
+                    return null;
+                  }
+
+                  const availableScents = globalScents.filter((scent) => {
+                    if (!scent.limited) return true;
+                    return scent.enabledProducts?.includes(editing.slug) ?? false;
+                  });
+                  const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
+
+                  return (
+                    <div className="space-y-6">
+                      {/* Size Configuration (Optional) */}
+                      <div className="a-panel">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-[var(--a-ink)]">Sizes (Optional)</h4>
+                            <p className="text-xs text-[var(--a-muted)] mt-0.5">Add multiple sizes with different prices</p>
+                          </div>
+                          <button
+                            type="button"
+                            className="a-btn a-btn-sm"
+                            onClick={() => {
+                              const newId = `size-${Date.now()}`;
+                              const sizes = editing.variantConfig?.sizes || [];
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  sizes: [...sizes, { id: newId, name: "New Size", ozs: 8, priceCents: Math.round(editing.price * 100) }],
+                                },
+                              });
+                            }}
+                          >
+                            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Size
+                          </button>
+                        </div>
+                        {editing.variantConfig?.sizes && editing.variantConfig.sizes.length > 0 ? (
+                          <div className="space-y-3">
+                            {editing.variantConfig.sizes.map((size, idx) => (
+                              <div key={size.id} className="rounded-lg border border-[var(--a-line)] bg-white p-3">
+                                <div className="grid grid-cols-1 gap-3">
+                                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                                    <div>
+                                      <label className="a-label">Size Name</label>
+                                      <input
+                                        className="a-input"
+                                        value={size.name}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, name: e.target.value };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              sizes: newSizes,
+                                            },
+                                          });
+                                        }}
+                                        placeholder="e.g., 8 oz"
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="a-label">Ounces</label>
+                                      <input
+                                        className="a-input"
+                                        type="number"
+                                        step="0.1"
+                                        value={size.ozs}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, ozs: parseFloat(e.target.value) || 0 };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              sizes: newSizes,
+                                            },
+                                          });
+                                        }}
+                                        placeholder="8"
+                                      />
+                                    </div>
+                                                                        <div>
+                                      <label className="a-label">Bottle / Container</label>
+                                      <select
+                                        className="a-select"
+                                        value={size.containerId || ""}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, containerId: e.target.value || undefined };
+                                          setEditing({ ...editing, variantConfig: { ...editing.variantConfig!, sizes: newSizes } });
+                                        }}
+                                      >
+                                        <option value="">Use product container{editing.containerId ? ` (${containers.find((c) => c.id === editing.containerId)?.name || editing.containerId})` : ""}</option>
+                                        {containers.map((container) => (
+                                          <option key={container.id} value={container.id}>{container.name}</option>
+                                        ))}
+                                      </select>
+                                    </div>
+<div>
+                                      <label className="a-label">Price ($)</label>
+                                      <input
+                                        className="a-input"
+                                        type="number"
+                                        step="0.01"
+                                        value={(size.priceCents / 100).toFixed(2)}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, priceCents: Math.round(parseFloat(e.target.value) * 100) || 0 };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              sizes: newSizes,
+                                            },
+                                          });
+                                        }}
+                                        placeholder="0.00"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
+                                    <div>
+                                      <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                                        <label className="a-label mb-0">Stripe Price ID (Optional)</label>
+                                        {!size.stripePriceId && (
+                                          <button
+                                            type="button"
+                                            className="a-link"
+                                            onClick={async () => {
+                                              // Validate required fields
+                                              if (!editing.name.trim()) {
+                                                await showAlert("Please enter a product name first", "Missing Information");
+                                                return;
+                                              }
+                                              if (!size.name.trim()) {
+                                                await showAlert("Please enter a size name first", "Missing Information");
+                                                return;
+                                              }
+                                              if (!size.priceCents || size.priceCents <= 0) {
+                                                await showAlert("Please enter a valid price for this size first", "Missing Information");
+                                                return;
+                                              }
+
+                                              try {
+                                                setSavingLabel("Creating Stripe product…");
+                                                setSaving(true);
+                                                const res = await fetch("/api/admin/create-stripe-product", {
+                                                  method: "POST",
+                                                  headers: { "Content-Type": "application/json" },
+                                                  body: JSON.stringify({
+                                                    name: `${editing.name} - ${size.name}`,
+                                                    price: size.priceCents / 100,
+                                                    description: editing.seoDescription,
+                                                    images: editing.images || [],
+                                                  }),
+                                                });
+
+                                                const data = (await res.json()) as { productId?: string; priceId?: string; error?: string; details?: string };
+
+                                                if (!res.ok) {
+                                                  throw new Error(data.details || data.error || "Failed to create Stripe product");
+                                                }
+
+                                                // Update the size with the returned price ID
+                                                const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                                newSizes[idx] = { ...size, stripePriceId: data.priceId };
+                                                setEditing({
+                                                  ...editing,
+                                                  variantConfig: {
+                                                    ...editing.variantConfig!,
+                                                    sizes: newSizes,
+                                                  },
+                                                });
+
+                                                setSaving(false);
+                                                await showAlert(
+                                                  `Stripe product created for ${size.name}!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
+                                                  "Success"
+                                                );
+                                              } catch (err) {
+                                                console.error("[Create Stripe Product for Size] Error:", err);
+                                                setSaving(false);
+                                                await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
+                                              }
+                                            }}
+                                          >
+                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                                            </svg>
+                                            Create
+                                          </button>
+                                        )}
+                                      </div>
+                                      <input
+                                        className="a-input font-mono"
+                                        value={size.stripePriceId || ""}
+                                        onChange={(e) => {
+                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
+                                          newSizes[idx] = { ...size, stripePriceId: e.target.value || undefined };
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              sizes: newSizes,
+                                            },
+                                          });
+                                        }}
+                                        placeholder="price_xxxxx (falls back to product's Stripe Price ID)"
+                                      />
+                                    </div>
+                                    <div className="flex items-end">
+                                      <button
+                                        type="button"
+                                        className="a-icon-btn a-icon-btn-danger"
+                                        onClick={() => {
+                                          setEditing({
+                                            ...editing,
+                                            variantConfig: {
+                                              ...editing.variantConfig!,
+                                              sizes: editing.variantConfig!.sizes!.filter((_, i) => i !== idx),
+                                            },
+                                          });
+                                        }}
+                                        title="Remove size"
+                                      >
+                                        <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-4 text-sm text-[var(--a-muted)]">
+                            No sizes configured. This product will use the base price.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Wick Types Configuration */}
+                      <div className="a-panel">
+                        <div className="flex items-center justify-between mb-3">
+                          <h4 className="text-sm font-semibold text-[var(--a-ink)]">Wick Types</h4>
+                          <button
+                            type="button"
+                            className="a-btn a-btn-sm"
+                            onClick={() => {
+                              const newId = `wick-${Date.now()}`;
+                              setEditing({
+                                ...editing,
+                                variantConfig: {
+                                  ...editing.variantConfig!,
+                                  wickTypes: [...editing.variantConfig!.wickTypes, { id: newId, name: "New Wick Type" }],
+                                },
+                              });
+                            }}
+                          >
+                            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Wick
+                          </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {editing.variantConfig.wickTypes.map((wick, idx) => (
+                            <div key={wick.id} className="flex items-center gap-2 rounded-lg border border-[var(--a-line)] bg-white p-2">
+                              <input
+                                className="a-input flex-1"
+                                value={wick.name}
+                                onChange={(e) => {
+                                  const newWicks = [...editing.variantConfig!.wickTypes];
+                                  newWicks[idx] = { ...wick, name: e.target.value };
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      wickTypes: newWicks,
+                                    },
+                                  });
+                                }}
+                                placeholder="e.g., Wood Wick"
+                              />
+                              <button
+                                type="button"
+                                className="a-icon-btn a-icon-btn-danger"
+                                onClick={() => {
+                                  setEditing({
+                                    ...editing,
+                                    variantConfig: {
+                                      ...editing.variantConfig!,
+                                      wickTypes: editing.variantConfig!.wickTypes.filter((_, i) => i !== idx),
+                                    },
+                                  });
+                                }}
+                                title="Remove wick type"
+                              >
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Scents info */}
+                      <p className="flex items-start gap-2 text-sm text-[var(--a-muted)]">
+                        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                        <span>
+                          Scents are shared across all products and become variants automatically.{" "}
+                          <Link href="/admin/scents" className="font-medium text-[var(--a-accent-ink)] hover:underline">
+                            Manage scents
+                          </Link>
+                        </span>
+                      </p>
+
+                      {/* Variant Stock Grid */}
+                      <div>
+                        <div className="flex items-center justify-between mb-4">
+                          <h4 className="text-sm font-semibold text-[var(--a-ink)]">Inventory ({variantsForDisplay.length} variants)</h4>
+                          <div className="text-xs text-[var(--a-muted)]">
+                            {editing.variantConfig.sizes && editing.variantConfig.sizes.length > 0
+                              ? `${editing.variantConfig.sizes.length} size × ${editing.variantConfig.wickTypes.length} wick × ${availableScents.length} scents`
+                              : `${editing.variantConfig.wickTypes.length} wick × ${availableScents.length} scents`
+                            }
+                          </div>
+                        </div>
+
+                        {availableScents.length === 0 ? (
+                          <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                            <svg className="w-8 h-8 text-amber-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                              />
+                            </svg>
+                            <p className="text-sm font-medium text-amber-900 mb-1">No scents available</p>
+                            <p className="text-xs text-amber-800">
+                              <a href="/admin/scents" className="underline font-medium">
+                                Add scents
+                              </a>{" "}
+                              to create product variants
+                            </p>
+                          </div>
+                        ) : (
+                          <div className="max-h-[420px] overflow-y-auto rounded-xl border border-[var(--a-line)] bg-[var(--a-canvas)]">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4">
+                              {variantsForDisplay.map((v) => (
+                                <div
+                                  key={v.id}
+                                  className="rounded-lg border border-[var(--a-line)] bg-white p-3 transition-colors focus-within:border-[var(--a-accent-ink)] hover:border-[var(--a-line-strong)]"
+                                >
+                                  {v.sizeName && (
+                                    <div className="mb-1 truncate text-xs font-semibold text-[var(--a-accent-ink)]">
+                                      {v.sizeName}
+                                    </div>
+                                  )}
+                                  <div className="text-xs font-medium text-[var(--a-ink)] mb-2 line-clamp-2" title={v.sizeName ? `${v.sizeName} / ${v.wickName} / ${v.scentName}` : `${v.wickName} / ${v.scentName}`}>
+                                    {v.scentName}
+                                  </div>
+                                  <div className="text-xs text-[var(--a-muted)] mb-2 truncate">{v.wickName}</div>
+                                  <input
+                                    className="a-input"
+                                    type="number"
+                                    min="0"
+                                    value={v.stock}
+                                    placeholder="Stock"
+                                    onChange={(e) => {
+                                      const newData = { ...editing.variantConfig!.variantData };
+                                      newData[v.id] = { stock: e.target.value === "" ? 0 : Number(e.target.value) };
+                                      setEditing({
+                                        ...editing,
+                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
+                                      });
+                                    }}
+                                    onBlur={(e) => {
+                                      const val = e.target.value === "" ? 0 : Number(e.target.value);
+                                      const newData = { ...editing.variantConfig!.variantData };
+                                      newData[v.id] = { stock: Math.max(0, val) };
+                                      setEditing({
+                                        ...editing,
+                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
+                                      });
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </FormSection>
+
+              <FormSection title="Sales channels" description="Stripe handles website checkout. Square handles in-person sales.">
+                <div className="space-y-5">
                   {/* Stripe Price ID */}
                   <label className="block sm:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs">Stripe Price ID</span>
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <span className="a-label mb-0">Stripe Price ID</span>
                       {!editing.stripePriceId && (
                         <button
                           type="button"
-                          className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                          className="a-link"
                           onClick={async () => {
                             // Validate required fields
                             if (!editing.name.trim()) {
@@ -3273,7 +3765,7 @@ export default function AdminProductsPage() {
                       )}
                     </div>
                     <input
-                      className="input"
+                      className="a-input"
                       value={editing.stripePriceId || ""}
                       onChange={(e) => setEditing({ ...editing, stripePriceId: e.target.value })}
                       placeholder="Click 'Create Stripe Product' or paste manually"
@@ -3282,13 +3774,13 @@ export default function AdminProductsPage() {
 
                   {/* Square Catalog ID */}
                   <label className="block sm:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs">Square Catalog ID</span>
+                    <div className="mb-1.5 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+                      <span className="a-label mb-0">Square Catalog ID</span>
                       <div className="flex gap-2">
                         {editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                            className="a-link"
                             onClick={async () => {
                               // Sync stock to Square (auto-map first if needed)
                               try {
@@ -3353,7 +3845,7 @@ export default function AdminProductsPage() {
                         {editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                            className="a-link"
                             onClick={async () => {
                               try {
                                 setSavingLabel("Syncing details to Square…");
@@ -3390,7 +3882,7 @@ export default function AdminProductsPage() {
                         {editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-orange-600 hover:text-orange-700 font-medium flex items-center gap-1"
+                            className="a-link"
                             onClick={async () => {
                               const confirmed = await showConfirm(
                                 `This will recreate "${editing.name}" on Square with all current website variants.\n\nUse this when you've added new scents or wick types that aren't on Square yet.\n\nContinue?`,
@@ -3480,7 +3972,7 @@ export default function AdminProductsPage() {
                         {!editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                            className="a-link"
                             onClick={async () => {
                               // Validate required fields
                               if (!editing.name.trim()) {
@@ -3589,7 +4081,7 @@ export default function AdminProductsPage() {
                         {editing.squareCatalogId && (
                           <button
                             type="button"
-                            className="text-xs text-amber-600 hover:text-amber-700 font-medium flex items-center gap-1"
+                            className="a-link"
                             onClick={async () => {
                               const confirmed = confirm(
                                 "This will re-create the Square product with the current configuration (including any new sizes). The old Square product will remain in your catalog. Continue?"
@@ -3702,571 +4194,39 @@ export default function AdminProductsPage() {
                       </div>
                     </div>
                     <input
-                      className="input"
+                      className="a-input"
                       value={editing.squareCatalogId || ""}
                       onChange={(e) => setEditing({ ...editing, squareCatalogId: e.target.value })}
                       placeholder="Click 'Create Square Product' or paste manually"
                     />
                   </label>
-
-                  {/* Container Selection */}
-                  <div className="block">
-                    <ComboBox
-                      id="edit-product-container"
-                      label="Container (for description)"
-                      placeholder="Search containers..."
-                      value={editing.containerId || ""}
-                      items={[
-                        { value: "", label: "— Select container —", sublabel: "Optional" },
-                        ...containers.map((c) => ({
-                          value: c.id,
-                          label: c.name,
-                          sublabel: `${c.capacityWaterOz} oz water • ${c.shape}`,
-                        })),
-                      ]}
-                      emptyMessage="No containers match your search."
-                      onChange={(val) => setEditing({ ...editing, containerId: val || undefined })}
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <label className="block sm:col-span-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs">Description</span>
-                      <button
-                        type="button"
-                        className="text-xs text-blue-600 hover:text-blue-700 font-medium"
-                        onClick={() => {
-                          const container = containers.find((c) => c.id === editing.containerId);
-                          const generatedDesc = generateDescription(editing.name, container, settings.waterToWaxRatio);
-                          setEditing({ ...editing, seoDescription: generatedDesc });
-                        }}
-                      >
-                        Auto-generate from name & container
-                      </button>
-                    </div>
-                    <textarea
-                      className="textarea"
-                      rows={4}
-                      value={editing.seoDescription}
-                      onChange={(e) => setEditing({ ...editing, seoDescription: e.target.value })}
-                      placeholder="Select a container and click 'Auto-generate' or type manually"
-                    />
-                  </label>
-
-                  {/* Visible on Website */}
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={editing.visibleOnWebsite !== false}
-                      onChange={(e) => setEditing({ ...editing, visibleOnWebsite: e.target.checked })}
-                    />
-                    <span className="text-sm">Show on Website</span>
-                  </label>
-
-                  {/* Best Seller */}
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={!!editing.bestSeller} onChange={(e) => setEditing({ ...editing, bestSeller: e.target.checked })} />
-                    <span className="text-sm">Best Seller</span>
-                  </label>
-
-                  {/* Young & Dumb */}
-                  <label className="flex items-center gap-2">
-                    <input type="checkbox" checked={!!editing.youngDumb} onChange={(e) => setEditing({ ...editing, youngDumb: e.target.checked })} />
-                    <span className="text-sm">Young & Dumb</span>
-                  </label>
-
-                  {/* Base Stock */}
-                  <label className="block">
-                    <div className="text-xs mb-1">
-                      Stock (base)
-                      {editing.variantConfig && (
-                        <span className="text-[var(--color-muted)] ml-1">
-                          • Variant stock managed separately below
-                        </span>
-                      )}
-                    </div>
-                    <input
-                      className="input"
-                      type="number"
-                      value={editing.stock}
-                      onChange={(e) => setEditing({ ...editing, stock: e.target.value === "" ? 0 : Number(e.target.value) })}
-                      onBlur={(e) => {
-                        const val = e.target.value === "" ? 0 : Number(e.target.value);
-                        setEditing({ ...editing, stock: Math.max(0, val) });
-                      }}
-                    />
-                  </label>
                 </div>
-              </div>
-
-              {/* ---------- Variants Section ---------- */}
-              <div className="mb-8">
-                <h3 className="text-sm font-semibold text-[var(--color-ink)] mb-4 flex items-center gap-2">
-                  <svg className="w-4 h-4 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"
-                    />
-                  </svg>
-                  Product Variants
-                </h3>
-
-                {(() => {
-                  // Auto-initialize variantConfig if it doesn't exist
-                  if (!editing.variantConfig) {
-                    setEditing({
-                      ...editing,
-                      variantConfig: {
-                        wickTypes: [{ id: "standard", name: "Standard Wick" }],
-                        variantData: {},
-                      },
-                    });
-                    return null;
-                  }
-
-                  const availableScents = globalScents.filter((scent) => {
-                    if (!scent.limited) return true;
-                    return scent.enabledProducts?.includes(editing.slug) ?? false;
-                  });
-                  const variantsForDisplay = generateVariantsForDisplay(editing, globalScents);
-
-                  return (
-                    <div className="space-y-6">
-                      {/* Size Configuration (Optional) */}
-                      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <div>
-                            <h4 className="text-sm font-medium text-neutral-900">Sizes (Optional)</h4>
-                            <p className="text-xs text-neutral-600 mt-0.5">Add multiple sizes with different prices</p>
-                          </div>
-                          <button
-                            type="button"
-                            className="btn btn-primary text-xs px-3 py-1.5"
-                            onClick={() => {
-                              const newId = `size-${Date.now()}`;
-                              const sizes = editing.variantConfig?.sizes || [];
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  sizes: [...sizes, { id: newId, name: "New Size", ozs: 8, priceCents: Math.round(editing.price * 100) }],
-                                },
-                              });
-                            }}
-                          >
-                            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Size
-                          </button>
-                        </div>
-                        {editing.variantConfig?.sizes && editing.variantConfig.sizes.length > 0 ? (
-                          <div className="space-y-3">
-                            {editing.variantConfig.sizes.map((size, idx) => (
-                              <div key={size.id} className="bg-white rounded-lg p-3 border border-neutral-200">
-                                <div className="grid grid-cols-1 gap-3">
-                                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-                                    <div>
-                                      <label className="text-xs text-neutral-600 block mb-1">Size Name</label>
-                                      <input
-                                        className="input text-sm w-full"
-                                        value={size.name}
-                                        onChange={(e) => {
-                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                          newSizes[idx] = { ...size, name: e.target.value };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              sizes: newSizes,
-                                            },
-                                          });
-                                        }}
-                                        placeholder="e.g., 8 oz"
-                                      />
-                                    </div>
-                                    <div>
-                                      <label className="text-xs text-neutral-600 block mb-1">Ounces</label>
-                                      <input
-                                        className="input text-sm w-full"
-                                        type="number"
-                                        step="0.1"
-                                        value={size.ozs}
-                                        onChange={(e) => {
-                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                          newSizes[idx] = { ...size, ozs: parseFloat(e.target.value) || 0 };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              sizes: newSizes,
-                                            },
-                                          });
-                                        }}
-                                        placeholder="8"
-                                      />
-                                    </div>
-                                                                        <div>
-                                      <label className="text-xs text-neutral-600 block mb-1">Bottle / Container</label>
-                                      <select
-                                        className="input text-sm w-full"
-                                        value={size.containerId || ""}
-                                        onChange={(e) => {
-                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                          newSizes[idx] = { ...size, containerId: e.target.value || undefined };
-                                          setEditing({ ...editing, variantConfig: { ...editing.variantConfig!, sizes: newSizes } });
-                                        }}
-                                      >
-                                        <option value="">Use product container{editing.containerId ? ` (${containers.find((c) => c.id === editing.containerId)?.name || editing.containerId})` : ""}</option>
-                                        {containers.map((container) => (
-                                          <option key={container.id} value={container.id}>{container.name}</option>
-                                        ))}
-                                      </select>
-                                    </div>
-<div>
-                                      <label className="text-xs text-neutral-600 block mb-1">Price ($)</label>
-                                      <input
-                                        className="input text-sm w-full"
-                                        type="number"
-                                        step="0.01"
-                                        value={(size.priceCents / 100).toFixed(2)}
-                                        onChange={(e) => {
-                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                          newSizes[idx] = { ...size, priceCents: Math.round(parseFloat(e.target.value) * 100) || 0 };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              sizes: newSizes,
-                                            },
-                                          });
-                                        }}
-                                        placeholder="0.00"
-                                      />
-                                    </div>
-                                  </div>
-                                  <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3 items-end">
-                                    <div>
-                                      <div className="flex items-center justify-between mb-1">
-                                        <label className="text-xs text-neutral-600">Stripe Price ID (Optional)</label>
-                                        {!size.stripePriceId && (
-                                          <button
-                                            type="button"
-                                            className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
-                                            onClick={async () => {
-                                              // Validate required fields
-                                              if (!editing.name.trim()) {
-                                                await showAlert("Please enter a product name first", "Missing Information");
-                                                return;
-                                              }
-                                              if (!size.name.trim()) {
-                                                await showAlert("Please enter a size name first", "Missing Information");
-                                                return;
-                                              }
-                                              if (!size.priceCents || size.priceCents <= 0) {
-                                                await showAlert("Please enter a valid price for this size first", "Missing Information");
-                                                return;
-                                              }
-
-                                              try {
-                                                setSavingLabel("Creating Stripe product…");
-                                                setSaving(true);
-                                                const res = await fetch("/api/admin/create-stripe-product", {
-                                                  method: "POST",
-                                                  headers: { "Content-Type": "application/json" },
-                                                  body: JSON.stringify({
-                                                    name: `${editing.name} - ${size.name}`,
-                                                    price: size.priceCents / 100,
-                                                    description: editing.seoDescription,
-                                                    images: editing.images || [],
-                                                  }),
-                                                });
-
-                                                const data = (await res.json()) as { productId?: string; priceId?: string; error?: string; details?: string };
-
-                                                if (!res.ok) {
-                                                  throw new Error(data.details || data.error || "Failed to create Stripe product");
-                                                }
-
-                                                // Update the size with the returned price ID
-                                                const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                                newSizes[idx] = { ...size, stripePriceId: data.priceId };
-                                                setEditing({
-                                                  ...editing,
-                                                  variantConfig: {
-                                                    ...editing.variantConfig!,
-                                                    sizes: newSizes,
-                                                  },
-                                                });
-
-                                                setSaving(false);
-                                                await showAlert(
-                                                  `Stripe product created for ${size.name}!\n\nProduct ID: ${data.productId}\nPrice ID: ${data.priceId}`,
-                                                  "Success"
-                                                );
-                                              } catch (err) {
-                                                console.error("[Create Stripe Product for Size] Error:", err);
-                                                setSaving(false);
-                                                await showAlert(err instanceof Error ? err.message : "Failed to create Stripe product", "Error");
-                                              }
-                                            }}
-                                          >
-                                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                                            </svg>
-                                            Create
-                                          </button>
-                                        )}
-                                      </div>
-                                      <input
-                                        className="input text-sm w-full font-mono"
-                                        value={size.stripePriceId || ""}
-                                        onChange={(e) => {
-                                          const newSizes = [...(editing.variantConfig?.sizes || [])];
-                                          newSizes[idx] = { ...size, stripePriceId: e.target.value || undefined };
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              sizes: newSizes,
-                                            },
-                                          });
-                                        }}
-                                        placeholder="price_xxxxx (falls back to product's Stripe Price ID)"
-                                      />
-                                    </div>
-                                    <div className="flex items-end">
-                                      <button
-                                        type="button"
-                                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors w-full"
-                                        onClick={() => {
-                                          setEditing({
-                                            ...editing,
-                                            variantConfig: {
-                                              ...editing.variantConfig!,
-                                              sizes: editing.variantConfig!.sizes!.filter((_, i) => i !== idx),
-                                            },
-                                          });
-                                        }}
-                                        title="Remove size"
-                                      >
-                                        <svg className="w-4 h-4 mx-auto" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                        </svg>
-                                      </button>
-                                    </div>
-                                  </div>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-4 text-sm text-neutral-500">
-                            No sizes configured. This product will use the base price.
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Wick Types Configuration */}
-                      <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
-                        <div className="flex items-center justify-between mb-3">
-                          <h4 className="text-sm font-medium text-neutral-900">Wick Types</h4>
-                          <button
-                            type="button"
-                            className="btn btn-primary text-xs px-3 py-1.5"
-                            onClick={() => {
-                              const newId = `wick-${Date.now()}`;
-                              setEditing({
-                                ...editing,
-                                variantConfig: {
-                                  ...editing.variantConfig!,
-                                  wickTypes: [...editing.variantConfig!.wickTypes, { id: newId, name: "New Wick Type" }],
-                                },
-                              });
-                            }}
-                          >
-                            <svg className="w-3 h-3 inline mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Wick
-                          </button>
-                        </div>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {editing.variantConfig.wickTypes.map((wick, idx) => (
-                            <div key={wick.id} className="flex items-center gap-2 bg-white rounded-lg p-3 border border-neutral-200">
-                              <input
-                                className="input text-sm flex-1"
-                                value={wick.name}
-                                onChange={(e) => {
-                                  const newWicks = [...editing.variantConfig!.wickTypes];
-                                  newWicks[idx] = { ...wick, name: e.target.value };
-                                  setEditing({
-                                    ...editing,
-                                    variantConfig: {
-                                      ...editing.variantConfig!,
-                                      wickTypes: newWicks,
-                                    },
-                                  });
-                                }}
-                                placeholder="e.g., Wood Wick"
-                              />
-                              <button
-                                type="button"
-                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                onClick={() => {
-                                  setEditing({
-                                    ...editing,
-                                    variantConfig: {
-                                      ...editing.variantConfig!,
-                                      wickTypes: editing.variantConfig!.wickTypes.filter((_, i) => i !== idx),
-                                    },
-                                  });
-                                }}
-                                title="Remove wick type"
-                              >
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Scents Info Banner */}
-                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-start gap-3">
-                        <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium text-blue-900 mb-1">Global Scents System</p>
-                          <p className="text-xs text-blue-800">
-                            Scents are managed globally and automatically appear as variants.{" "}
-                            <a href="/admin/scents" className="font-medium underline hover:text-blue-900">
-                              Manage scents →
-                            </a>
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Variant Stock Grid */}
-                      <div>
-                        <div className="flex items-center justify-between mb-4">
-                          <h4 className="text-sm font-medium text-neutral-900">Inventory ({variantsForDisplay.length} variants)</h4>
-                          <div className="text-xs text-neutral-500">
-                            {editing.variantConfig.sizes && editing.variantConfig.sizes.length > 0
-                              ? `${editing.variantConfig.sizes.length} size × ${editing.variantConfig.wickTypes.length} wick × ${availableScents.length} scents`
-                              : `${editing.variantConfig.wickTypes.length} wick × ${availableScents.length} scents`
-                            }
-                          </div>
-                        </div>
-
-                        {availableScents.length === 0 ? (
-                          <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-center">
-                            <svg className="w-8 h-8 text-amber-600 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                              />
-                            </svg>
-                            <p className="text-sm font-medium text-amber-900 mb-1">No scents available</p>
-                            <p className="text-xs text-amber-800">
-                              <a href="/admin/scents" className="underline font-medium">
-                                Add scents
-                              </a>{" "}
-                              to create product variants
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="max-h-[400px] overflow-y-auto border border-neutral-200 rounded-xl">
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 p-4">
-                              {variantsForDisplay.map((v) => (
-                                <div
-                                  key={v.id}
-                                  className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all"
-                                >
-                                  {v.sizeName && (
-                                    <div className="text-xs font-semibold text-[var(--color-accent)] mb-1 truncate">
-                                      {v.sizeName}
-                                    </div>
-                                  )}
-                                  <div className="text-xs font-medium text-neutral-900 mb-2 line-clamp-2" title={v.sizeName ? `${v.sizeName} / ${v.wickName} / ${v.scentName}` : `${v.wickName} / ${v.scentName}`}>
-                                    {v.scentName}
-                                  </div>
-                                  <div className="text-xs text-neutral-500 mb-2 truncate">{v.wickName}</div>
-                                  <input
-                                    className="input text-sm w-full"
-                                    type="number"
-                                    min="0"
-                                    value={v.stock}
-                                    placeholder="Stock"
-                                    onChange={(e) => {
-                                      const newData = { ...editing.variantConfig!.variantData };
-                                      newData[v.id] = { stock: e.target.value === "" ? 0 : Number(e.target.value) };
-                                      setEditing({
-                                        ...editing,
-                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
-                                      });
-                                    }}
-                                    onBlur={(e) => {
-                                      const val = e.target.value === "" ? 0 : Number(e.target.value);
-                                      const newData = { ...editing.variantConfig!.variantData };
-                                      newData[v.id] = { stock: Math.max(0, val) };
-                                      setEditing({
-                                        ...editing,
-                                        variantConfig: { ...editing.variantConfig!, variantData: newData },
-                                      });
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })()}
-              </div>
+              </FormSection>
               </>
               )}
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-              <button
-                className="btn text-sm px-4 py-2"
-                onClick={() => {
-                  setEditing(null);
-                  setSlugTouched(false);
-                  setSlugError(null);
-                  setError(null);
-                }}
-              >
-                <svg className="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-                Cancel
-              </button>
-
-              <button
-                className="btn btn-primary text-sm px-6 py-2"
-                onClick={() => {
-                  if (!editing) return;
-                  stageProduct(editing);
-                  setEditing(null);
-                }}
-              >
-                <svg className="w-4 h-4 inline mr-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                Save Draft
-              </button>
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-8">
+              <p className="hidden text-xs text-[var(--a-muted)] sm:block">
+                Saved as an unpublished change. Publish it from the product list.
+              </p>
+              <div className="ml-auto flex gap-2">
+                <button className="a-btn" onClick={closeEditor}>
+                  Cancel
+                </button>
+                <button
+                  className="a-btn a-btn-primary"
+                  onClick={() => {
+                    if (!editing) return;
+                    stageProduct(editing);
+                    setEditing(null);
+                  }}
+                >
+                  <Check className="h-4 w-4" aria-hidden />
+                  Save draft
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -4274,33 +4234,32 @@ export default function AdminProductsPage() {
 
       {/* QR Code Modal */}
       {showQRModal && qrDataURL && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          <div className="absolute inset-0" onClick={closeQRModal} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
-            {/* Header */}
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-[var(--color-ink)]">Scan to Upload</h2>
-              <button className="p-2 hover:bg-neutral-100 rounded-lg transition-colors" onClick={closeQRModal} aria-label="Close">
-                <svg className="w-5 h-5 text-neutral-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+        <div className="a-ui fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="qr-title">
+          <button type="button" aria-label="Close" className="a-fade-enter absolute inset-0 bg-black/40" onClick={closeQRModal} />
+          <div className="a-card a-fade-enter relative w-full max-w-sm p-6 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 id="qr-title" className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">Upload from your phone</h2>
+                <p className="mt-0.5 text-sm text-[var(--a-muted)]">Scan with your phone&apos;s camera, then pick photos.</p>
+              </div>
+              <button className="a-icon-btn -mr-2 -mt-1 shrink-0" onClick={closeQRModal} aria-label="Close">
+                <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
 
-            {/* QR Code */}
-            <div className="bg-white p-4 rounded-xl border-2 border-neutral-200 mb-4">
-              <img src={qrDataURL} alt="QR Code" className="w-full h-auto" />
+            <div className="mx-auto mb-4 w-full max-w-[240px] rounded-xl border border-[var(--a-line)] bg-white p-3">
+              {/* eslint-disable-next-line @next/next/no-img-element -- data: URL generated client-side */}
+              <img src={qrDataURL} alt="QR code for the phone upload page" className="h-auto w-full" />
             </div>
 
-            {/* Copy link (uses uploadToken so it's not unused) */}
             {uploadToken && origin && (
-              <div className="mb-4 p-3 rounded-xl border border-neutral-200 bg-neutral-50">
-                <div className="text-xs text-neutral-600 mb-2">Or open this link on your phone:</div>
+              <div className="mb-4">
+                <div className="a-label text-xs text-[var(--a-muted)]">Or open this link on your phone</div>
                 <div className="flex gap-2">
-                  <input className="input flex-1 text-xs" readOnly value={`${origin}/mobile-upload?token=${uploadToken}`} />
+                  <input className="a-input flex-1 text-xs" readOnly value={`${origin}/mobile-upload?token=${uploadToken}`} aria-label="Upload link" />
                   <button
                     type="button"
-                    className="btn text-xs"
+                    className="a-btn"
                     onClick={async () => {
                       const url = `${origin}/mobile-upload?token=${uploadToken}`;
                       try {
@@ -4317,47 +4276,21 @@ export default function AdminProductsPage() {
               </div>
             )}
 
-            {/* Instructions */}
-            <div className="space-y-3 mb-4">
-              <div className="flex items-start gap-3 text-sm">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-600 font-semibold text-xs">1</span>
-                </div>
-                <p className="text-neutral-700">Open your phone&apos;s camera app</p>
-              </div>
-              <div className="flex items-start gap-3 text-sm">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-600 font-semibold text-xs">2</span>
-                </div>
-                <p className="text-neutral-700">Point it at this QR code</p>
-              </div>
-              <div className="flex items-start gap-3 text-sm">
-                <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <span className="text-blue-600 font-semibold text-xs">3</span>
-                </div>
-                <p className="text-neutral-700">Select and upload photos from your phone</p>
-              </div>
-            </div>
-
-            {/* Upload Status */}
             {uploadedCount > 0 && (
-              <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg flex items-center gap-3">
-                <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
+              <div role="status" className="mb-4 flex items-center gap-3 rounded-lg border border-green-200 bg-[#e8f5ec] p-3">
+                <Check className="h-5 w-5 shrink-0 text-[#1f6b3a]" aria-hidden />
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-green-900">
-                    {uploadedCount} {uploadedCount === 1 ? "image" : "images"} uploaded
+                  <p className="text-sm font-medium text-[#1f4d2e]">
+                    {uploadedCount} {uploadedCount === 1 ? "photo" : "photos"} uploaded
                   </p>
-                  <p className="text-xs text-green-700">Images are being added to your product</p>
+                  <p className="text-xs text-[#1f6b3a]">They&apos;re being added to this product.</p>
                 </div>
               </div>
             )}
 
-            {/* Footer */}
-            <div className="flex items-center justify-between pt-4 border-t border-neutral-200">
-              <p className="text-xs text-neutral-500">Session expires in 5 minutes</p>
-              <button className="btn btn-primary text-sm" onClick={closeQRModal}>
+            <div className="flex items-center justify-between gap-3 border-t border-[var(--a-line)] pt-4">
+              <p className="text-xs text-[var(--a-muted)]">Link expires in 5 minutes</p>
+              <button className="a-btn a-btn-primary" onClick={closeQRModal}>
                 Done
               </button>
             </div>

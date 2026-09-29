@@ -153,6 +153,51 @@
 
   .a-check { width: 1rem; height: 1rem; accent-color: var(--a-ink); cursor: pointer; }
 
+  .a-textarea {
+    width: 100%;
+    min-height: 6rem;
+    padding: 0.625rem 0.75rem;
+    border-radius: var(--a-radius-sm);
+    border: 1px solid var(--a-line-strong);
+    background: var(--a-surface);
+    color: var(--a-ink);
+    font-size: 0.875rem;
+    line-height: 1.55;
+    transition: border-color 150ms, box-shadow 150ms;
+  }
+  .a-textarea:hover { border-color: var(--a-faint); }
+  .a-textarea:focus { outline: none; border-color: var(--a-accent-ink); box-shadow: var(--a-focus); }
+  .a-input:disabled { background: var(--a-canvas); color: var(--a-muted); cursor: not-allowed; }
+
+  .a-label {
+    display: block;
+    margin-bottom: 0.375rem;
+    color: var(--a-ink);
+    font-size: 0.8125rem;
+    font-weight: 500;
+  }
+  .a-help { margin-top: 0.375rem; color: var(--a-muted); font-size: 0.75rem; line-height: 1.45; }
+  .a-error { margin-top: 0.375rem; color: #b42318; font-size: 0.75rem; }
+
+  .a-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--a-accent-ink);
+    font-size: 0.75rem;
+    font-weight: 500;
+    cursor: pointer;
+  }
+  .a-link:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .a-link:disabled { opacity: 0.5; cursor: not-allowed; text-decoration: none; }
+
+  .a-panel {
+    border: 1px solid var(--a-line);
+    border-radius: var(--a-radius);
+    background: var(--a-canvas);
+    padding: 1rem;
+  }
+
   /* ---- Menus ---- */
   .a-menu-item {
     display: flex;
@@ -228,8 +273,13 @@
 @media (prefers-reduced-motion: no-preference) {
   .a-drawer-enter { animation: a-slide-in 200ms cubic-bezier(.22,.61,.36,1); }
   .a-fade-enter { animation: a-fade-in 150ms ease-out; }
+  .a-sheet-enter { animation: a-sheet-in 220ms cubic-bezier(.22,.61,.36,1); }
 }
 @keyframes a-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes a-sheet-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes a-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
 .a-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
+
+.a-ui input[type="checkbox"],
+.a-ui input[type="radio"] { accent-color: var(--a-ink); }

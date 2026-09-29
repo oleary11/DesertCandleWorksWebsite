@@ -123,3 +123,24 @@ export function Badge({
 }) {
   return <span className={`a-badge a-badge-${tone}`}>{children}</span>;
 }
+
+/** A titled block inside a form or editor, separated from the next by a hairline. */
+export function FormSection({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="border-b border-[var(--a-line)] py-7 last:border-b-0">
+      <div className="mb-4">
+        <h3 className="text-base font-semibold text-[var(--a-ink)]">{title}</h3>
+        {description && <p className="mt-0.5 text-sm text-[var(--a-muted)]">{description}</p>}
+      </div>
+      {children}
+    </section>
+  );
+}
