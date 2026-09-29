@@ -15,10 +15,13 @@ export const REEL_H = 1920;
 const INK = "#3f2a21";
 const CREAM = "#fbf6f0";
 
-type Font = { name: string; data: ArrayBuffer; weight: 400; style: "normal" };
+type Font = { name: string; data: ArrayBuffer; weight: 400 | 800; style: "normal" };
 let fontsPromise: Promise<Font[]> | null = null;
 
-/** Young Serif (the site's heading face) from Google Fonts. Without a browser UA Google serves TTF, which satori needs. */
+/**
+ * A font from Google Fonts: Young Serif (the site's heading face) for slides, Inter ExtraBold for
+ * memes. Without a browser UA Google serves TTF, which satori needs.
+ */
 async function loadGoogleFont(family: string): Promise<ArrayBuffer> {
   const css = await (await fetch(`https://fonts.googleapis.com/css2?family=${family.replace(/ /g, "+")}`)).text();
   const url = css.match(/src: url\((.+?)\) format/)?.[1];
@@ -32,8 +35,9 @@ function loadLocalFont(file: string): ArrayBuffer {
 }
 
 function getFonts(): Promise<Font[]> {
-  fontsPromise ??= loadGoogleFont("Young Serif").then((serif) => [
+  fontsPromise ??= Promise.all([loadGoogleFont("Young Serif"), loadGoogleFont("Inter:wght@800")]).then(([serif, inter]) => [
     { name: "Young Serif", data: serif, weight: 400, style: "normal" },
+    { name: "Inter", data: inter, weight: 800, style: "normal" },
     { name: "Megastina", data: loadLocalFont("Megastina.ttf"), weight: 400, style: "normal" },
   ]);
   fontsPromise.catch(() => (fontsPromise = null));
@@ -66,6 +70,19 @@ export async function detailCrop(buf: Buffer, width: number, height: number): Pr
   // The attention crop already centers the candle; cut the middle, nudged up so the flame and label stay in.
   return sharp(zoomed)
     .extract({ left: Math.round((zw - width) / 2), top: Math.round((zh - height) * 0.25), width, height })
+    .jpeg({ quality: 90, mozjpeg: true })
+    .toBuffer();
+}
+
+/**
+ * Fits a whole image (e.g. a generated meme with text near its edges) into the frame without
+ * cropping, padding with a color sampled from its corner so the bars blend in.
+ */
+export async function fitTo(buf: Buffer, width: number, height: number): Promise<Buffer> {
+  const { dominant } = await sharp(buf).extract({ left: 0, top: 0, width: 16, height: 16 }).stats();
+  return sharp(buf)
+    .resize({ width, height, fit: "contain", background: { r: dominant.r, g: dominant.g, b: dominant.b } })
+    .flatten({ background: { r: dominant.r, g: dominant.g, b: dominant.b } })
     .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer();
 }
@@ -148,6 +165,49 @@ function Slide({ photo, headline, body, variant }: { photo: string; headline: st
       </span>
     </div>
   );
+}
+
+function memeSize(text: string): number {
+  const words = text.trim().split(/\s+/).length;
+  return words <= 3 ? 104 : words <= 5 ? 90 : words <= 7 ? 80 : 68;
+}
+
+/**
+ * Classic photo meme, same layout as Platrly's: top text over a dark gradient, optional punchline
+ * at the bottom, real photo behind. Returns JPEG.
+ */
+export async function renderPhotoMeme(photoJpeg: Buffer, top: string, bottom: string | undefined): Promise<Buffer> {
+  const fonts = await getFonts();
+  const photo = `data:image/jpeg;base64,${photoJpeg.toString("base64")}`;
+  const text = (t: string) => (
+    <span style={{ display: "flex", fontFamily: "Inter", fontWeight: 800, fontSize: memeSize(t), lineHeight: 1.15, color: "#fff" }}>{t}</span>
+  );
+  const el = (
+    <div style={{ width: SLIDE_W, height: SLIDE_H, display: "flex", position: "relative", background: "#000" }}>
+      {/* eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text */}
+      <img src={photo} width={SLIDE_W} height={SLIDE_H} style={{ position: "absolute", top: 0, left: 0 }} />
+      <div
+        style={{
+          position: "absolute", top: 0, left: 0, right: 0, height: 520, display: "flex", alignItems: "flex-start",
+          padding: "64px 56px 0", backgroundImage: "linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)",
+        }}
+      >
+        {text(top)}
+      </div>
+      {bottom ? (
+        <div
+          style={{
+            position: "absolute", bottom: 0, left: 0, right: 0, height: 520, display: "flex", alignItems: "flex-end",
+            padding: "0 56px 88px", backgroundImage: "linear-gradient(to top, rgba(0,0,0,0.9), transparent)",
+          }}
+        >
+          {text(bottom)}
+        </div>
+      ) : null}
+    </div>
+  );
+  const png = new ImageResponse(el, { width: SLIDE_W, height: SLIDE_H, fonts });
+  return sharp(Buffer.from(await png.arrayBuffer())).jpeg({ quality: 90, mozjpeg: true }).toBuffer();
 }
 
 /** Renders one slideshow slide: the photo (already cropped to 4:5) with brand text laid over it. Returns JPEG. */

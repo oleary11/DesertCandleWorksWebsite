@@ -41,7 +41,7 @@ export type ReelPlan = {
 
 export type SlideshowPlan = { slides: SlidePlan[] };
 
-export type MemePlan = { memePrompt: string };
+export type MemePlan = { memePrompt?: string; punchline?: string; photoQuery?: string };
 
 export type SocialPost = {
   id: string;

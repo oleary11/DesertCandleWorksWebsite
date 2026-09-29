@@ -8,7 +8,21 @@ import {
   type BatchCounts,
   type PlannedPost,
 } from "./content";
-import { REEL_H, REEL_W, SLIDE_H, SLIDE_W, copyToBlob, cropTo, detailCrop, fetchImage, renderSlide, uploadToBlob } from "./render";
+import {
+  REEL_H,
+  REEL_W,
+  SLIDE_H,
+  SLIDE_W,
+  copyToBlob,
+  cropTo,
+  detailCrop,
+  fetchImage,
+  fitTo,
+  renderPhotoMeme,
+  renderSlide,
+  uploadToBlob,
+} from "./render";
+import { generateMemeImage, searchPexelsPhoto } from "./memes";
 import {
   createSocialPost,
   getSocialPost,
@@ -51,9 +65,6 @@ const SCENE_PROMPT = (setting: string) =>
 New setting: ${setting}
 
 Photorealistic editorial product photograph, full-frame camera, 50mm lens, natural light that matches on the candle and the scene, true-to-life color, soft realistic shadows, subtle film grain. The candle is the clear subject and in sharp focus. No people, no hands, no added text or logos, no other bottles.`;
-
-const MEME_STYLE =
-  "Crisp, shareable social media meme image. Render the caption text exactly as written, correctly spelled, in a bold clean meme font with strong contrast. No people, faces, hands or characters.";
 
 // ---------- Creating posts ----------
 
@@ -110,16 +121,25 @@ export async function createReel(productSlug: string, photoUrls: string[], motio
 
 async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
   if (planned.kind === "meme") {
-    const plan: MemePlan = { memePrompt: planned.memePrompt };
+    const plan: MemePlan = { memePrompt: planned.memePrompt, punchline: planned.punchline, photoQuery: planned.photoQuery };
     const post = await createSocialPost({ kind: "meme", hook: planned.hook, caption: planned.caption, hashtags: planned.hashtags, plan });
     try {
-      const job = await submitFalJob(post.id, "meme", FAL_MODELS.image, {
-        prompt: `${planned.memePrompt}\n\n${MEME_STYLE}`,
-        aspect_ratio: "4:5",
-        resolution: "2K",
-        output_format: "png",
-      });
-      return (await updateSocialPost(post.id, { jobs: [job], costCents: FAL_COST_CENTS.image })) ?? post;
+      // Made like Platrly's memes: a real reaction photo with top/bottom text, or an OpenAI image
+      // of a recognizable meme format. Both finish right here, no fal job to wait on.
+      let jpeg: Buffer;
+      const photoUrl = planned.photoQuery ? await searchPexelsPhoto(planned.photoQuery) : null;
+      if (photoUrl) {
+        jpeg = await renderPhotoMeme(await cropTo(await fetchImage(photoUrl), SLIDE_W, SLIDE_H), planned.hook, planned.punchline);
+      } else {
+        const prompt =
+          (planned.memePrompt ??
+            `Classic internet meme image with the top text "${planned.hook}"${planned.punchline ? ` and bottom text "${planned.punchline}"` : ""} in bold white meme lettering, over a funny, relatable scene about loving candles. No people, faces or characters.`) +
+          // Also enforced here in case the planner forgets: never show someone else's trademark.
+          "\nNo real brand names, logos or product labels anywhere; packaging is plain or generic.";
+        jpeg = await fitTo(await generateMemeImage(prompt), SLIDE_W, SLIDE_H);
+      }
+      const url = await uploadToBlob(`social/${post.id}/meme.jpg`, jpeg, "image/jpeg");
+      return (await updateSocialPost(post.id, { status: "pending_review", slides: [url], coverImageUrl: url })) ?? post;
     } catch (err) {
       return fail(post, err);
     }
@@ -161,9 +181,9 @@ async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
 /** Plans and starts a batch of collections, slideshows and memes. Scenes and memes finish asynchronously. */
 export async function createBatch(counts: BatchCounts): Promise<SocialPost[]> {
   const planned = await planBatch(counts, await recentHooks());
-  const posts: SocialPost[] = [];
-  for (const p of planned) posts.push(await startPlannedPost(p));
-  return posts;
+  // In parallel: memes are generated inline (up to a minute each), and the whole batch has to fit
+  // in one function run. startPlannedPost never throws; failures are saved on the post.
+  return Promise.all(planned.map((p) => startPlannedPost(p)));
 }
 
 // ---------- Advancing posts as jobs finish ----------
