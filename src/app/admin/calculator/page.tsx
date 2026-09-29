@@ -1434,7 +1434,7 @@ export default function CalculatorPage() {
                   value={containerSearch}
                   onChange={(e) => setContainerSearch(e.target.value)}
                   placeholder="Search containers…"
-                  className="input !pl-9 text-sm"
+                  className="a-input h-9 !pl-9"
                 />
               </div>
             </div>
@@ -2398,7 +2398,7 @@ export default function CalculatorPage() {
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--a-muted)]" />
                   <input
                     type="text"
-                    className="input w-full !pl-10"
+                    className="a-input !pl-9"
                     placeholder="Search products by name or SKU..."
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
