@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import NavBar from "../components/NavBar";
+import StorefrontOnly from "@/components/StorefrontOnly";
 import { Providers } from "@/components/Providers";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 
@@ -262,28 +263,32 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="min-h-dvh w-full overflow-x-clip bg-[var(--color-bg)] text-[var(--color-ink)] antialiased flex flex-col">
         <AnalyticsTracker />
         <Providers>
-          <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
-            <NavBar />
-          </header>
+          <StorefrontOnly>
+            <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
+              <NavBar />
+            </header>
+          </StorefrontOnly>
 
           <main className="w-full flex-1">{children}</main>
 
-          <footer className="w-full border-t border-[var(--color-line)] mt-auto">
-            <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-[var(--color-muted)] text-center">
-              © {new Date().getFullYear()} Desert Candle Works ·{" "}
-              <a className="underline hover:text-[var(--color-ink)] transition" href="/faq">FAQ</a>
-              {" · "}
-              <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
-              {" · "}
-              <a className="underline hover:text-[var(--color-ink)] transition" href="/privacy">Privacy</a>
-              {" · "}
-              <a className="underline hover:text-[var(--color-ink)] transition" href="https://desertcandleworks.faire.com" target="_blank" rel="noopener noreferrer">Wholesale</a>
-              {" · "}
-              <span>Scottsdale, AZ</span>
-              {" · "}
-              <a className="underline hover:text-[var(--color-ink)] transition" href="mailto:contact@desertcandleworks.com">contact@desertcandleworks.com</a>
-            </div>
-          </footer>
+          <StorefrontOnly>
+            <footer className="w-full border-t border-[var(--color-line)] mt-auto">
+              <div className="mx-auto max-w-6xl px-6 py-8 text-sm text-[var(--color-muted)] text-center">
+                © {new Date().getFullYear()} Desert Candle Works ·{" "}
+                <a className="underline hover:text-[var(--color-ink)] transition" href="/faq">FAQ</a>
+                {" · "}
+                <a className="underline hover:text-[var(--color-ink)] transition" href="/policies">Policies</a>
+                {" · "}
+                <a className="underline hover:text-[var(--color-ink)] transition" href="/privacy">Privacy</a>
+                {" · "}
+                <a className="underline hover:text-[var(--color-ink)] transition" href="https://desertcandleworks.faire.com" target="_blank" rel="noopener noreferrer">Wholesale</a>
+                {" · "}
+                <span>Scottsdale, AZ</span>
+                {" · "}
+                <a className="underline hover:text-[var(--color-ink)] transition" href="mailto:contact@desertcandleworks.com">contact@desertcandleworks.com</a>
+              </div>
+            </footer>
+          </StorefrontOnly>
         </Providers>
       </body>
     </html>

@@ -44,3 +44,6 @@ next-env.d.ts
 .env*.local
 .aider*
 design-refs/
+
+# redesign mockups and screenshots
+design-refs/

@@ -1,0 +1,132 @@
+/* =========================================
+   ADMIN DESIGN TOKENS
+   Scoped to the admin shell. Light only (the site forces light mode).
+   ========================================= */
+.admin {
+  --a-canvas: #faf8f5;
+  --a-surface: #ffffff;
+  --a-ink: #2f2a25;
+  --a-muted: #6f665e;
+  --a-faint: #9a9189;
+  --a-line: #e9e4de;
+  --a-line-strong: #d9d2ca;
+  --a-tint: #f4eee6;          /* icon squares, subtle fills */
+  --a-accent: #d9a66c;        /* sand: active indicators only */
+  --a-accent-ink: #8a5a26;    /* sand dark enough for text and focus rings on light */
+
+  --a-sidebar: #2a2521;
+  --a-sidebar-ink: #efe9e2;
+  --a-sidebar-muted: #a89f96;
+  --a-sidebar-hover: rgb(255 255 255 / 0.06);
+  --a-sidebar-active: rgb(255 255 255 / 0.1);
+  --a-sidebar-line: rgb(255 255 255 / 0.08);
+
+  --a-radius: 12px;
+  --a-radius-sm: 8px;
+  --a-shadow: 0 1px 2px rgb(47 42 37 / 0.04);
+  --a-shadow-hover: 0 4px 16px rgb(47 42 37 / 0.08);
+  --a-focus: 0 0 0 3px color-mix(in oklab, var(--a-accent) 45%, transparent);
+
+  background: var(--a-canvas);
+  color: var(--a-ink);
+  font-family: var(--font-admin), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-feature-settings: "cv11", "ss01";
+}
+
+/* The storefront's unlayered base rules (link color, heading sizes, paragraph
+   leading) beat Tailwind utilities. Redesigned admin UI opts out with .a-ui so
+   its own classes apply; pages not yet redesigned keep their current look. */
+.a-ui a:not(.btn-cta),
+.a-ui a:not(.btn-cta):hover {
+  color: revert-layer;
+  text-decoration: none;
+}
+.a-ui h1,
+.a-ui h2,
+.a-ui h3 {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  letter-spacing: revert-layer;
+}
+.a-ui p {
+  line-height: revert-layer;
+}
+
+@layer components {
+  .a-card {
+    background: var(--a-surface);
+    border: 1px solid var(--a-line);
+    border-radius: var(--a-radius);
+    box-shadow: var(--a-shadow);
+  }
+
+  .a-icon-tile {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: var(--a-radius-sm);
+    background: var(--a-tint);
+    color: var(--a-ink);
+  }
+
+  .a-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-height: 2.5rem;
+    padding: 0 1rem;
+    border-radius: var(--a-radius-sm);
+    border: 1px solid var(--a-line-strong);
+    background: var(--a-surface);
+    color: var(--a-ink);
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: background-color 150ms, border-color 150ms, box-shadow 150ms;
+  }
+  .a-btn:hover { background: var(--a-canvas); border-color: var(--a-faint); }
+  .a-btn:focus-visible { outline: none; box-shadow: var(--a-focus); }
+  .a-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  .a-btn-primary {
+    background: var(--a-ink);
+    border-color: var(--a-ink);
+    color: #fff;
+  }
+  .a-btn-primary:hover { background: #453d36; border-color: #453d36; }
+
+  .a-kbd {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.125rem 0.375rem;
+    border-radius: 5px;
+    border: 1px solid var(--a-line);
+    background: var(--a-canvas);
+    color: var(--a-muted);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    line-height: 1.2;
+  }
+
+  .a-section-label {
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .a-drawer-enter { animation: a-slide-in 200ms cubic-bezier(.22,.61,.36,1); }
+  .a-fade-enter { animation: a-fade-in 150ms ease-out; }
+}
+@keyframes a-slide-in { from { transform: translateX(-100%); } to { transform: none; } }
+@keyframes a-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+.a-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
