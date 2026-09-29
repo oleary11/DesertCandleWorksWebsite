@@ -234,7 +234,7 @@ export default function TestOrderPage() {
                           onChange={(e) => updateItem(index, "productSlug", e.target.value)}
                           required
                         >
-                          <option value="">Select product...</option>
+                          <option value="">Select product…</option>
                           {products.map((p) => (
                             <option key={p.slug} value={p.slug}>
                               {p.name} (${p.price.toFixed(2)})
@@ -252,7 +252,7 @@ export default function TestOrderPage() {
                             value={item.variantId}
                             onChange={(e) => updateItem(index, "variantId", e.target.value)}
                           >
-                            <option value="">Select variant...</option>
+                            <option value="">Select variant…</option>
                             {product.variantConfig?.wickTypes.map((wick) => (
                               <option key={wick.id} value={wick.id}>
                                 {wick.name}
@@ -366,7 +366,7 @@ export default function TestOrderPage() {
             className="a-btn a-btn-primary"
             disabled={loading || items.length === 0}
           >
-            {loading ? "Creating..." : "Create Test Order"}
+            {loading ? "Creating…" : "Create Test Order"}
           </button>
         </div>
       </form>

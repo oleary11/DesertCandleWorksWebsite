@@ -146,7 +146,7 @@ export default function SettingsPage() {
               className="w-full p-3 border border-[var(--a-line)] rounded-lg font-mono text-sm resize-y min-h-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={descriptionTemplate}
               onChange={(e) => setDescriptionTemplate(e.target.value)}
-              placeholder="Enter description template..."
+              placeholder="Enter description template…"
             />
             <p className="text-xs text-[var(--a-muted)] mt-2">
               Line breaks in the template will be preserved in the generated description.
@@ -177,7 +177,7 @@ export default function SettingsPage() {
               disabled={!hasChanges || saving}
             >
               <Save className="w-4 h-4" />
-              {saving ? "Saving..." : "Save Template"}
+              {saving ? "Saving…" : "Save Template"}
             </button>
           </div>
         </div>

@@ -48,7 +48,6 @@ export function Menu({
       <button
         type="button"
         className={`a-btn ${primary ? "a-btn-primary" : ""}`}
-        aria-haspopup={panel ? "dialog" : "menu"}
         aria-expanded={open}
         disabled={disabled}
         onClick={() => onOpenChange(!open)}
@@ -58,7 +57,7 @@ export function Menu({
       </button>
       {open && (
         <div
-          role={panel ? "dialog" : "menu"}
+          role={panel ? "dialog" : undefined}
           className={`a-card a-fade-enter z-40 ${panel ? "p-4 sm:w-80" : "p-1.5"} shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 sm:absolute sm:top-full sm:mt-1.5 sm:min-w-72 ${align === "right" ? "sm:right-0" : "sm:left-0"}`}
         >
           {children}
@@ -79,7 +78,7 @@ export function MenuItem({
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon?: React.ReactNode; hint?: React.ReactNode }) {
   return (
-    <button type="button" role="menuitem" className="a-menu-item" {...props}>
+    <button type="button" className="a-menu-item" {...props}>
       {icon && <span className="text-[var(--a-muted)]">{icon}</span>}
       <span className="min-w-0 flex-1">
         <span className="block">{children}</span>
@@ -250,7 +249,7 @@ export function Modal({
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">{children}</div>
         {footer && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
             {footer}

@@ -58,7 +58,7 @@ export default function SlideCarousel({ slides }: { slides: string[] }) {
                 key={i}
                 aria-label={`Slide ${i + 1}`}
                 onClick={() => go(i)}
-                className={`h-2 rounded-full transition-all ${i === index ? "w-5 bg-white" : "w-2 bg-white/60"}`}
+                className={`h-2 rounded-full transition-colors ${i === index ? "w-5 bg-white" : "w-2 bg-white/60"}`}
               />
             ))}
           </div>

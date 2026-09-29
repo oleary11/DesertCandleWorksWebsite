@@ -400,7 +400,7 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
               className="a-btn a-btn-primary"
               disabled={submitting}
             >
-              {submitting ? "Creating..." : "Create Admin"}
+              {submitting ? "Creating…" : "Create Admin"}
             </button>
           </div>
         </form>

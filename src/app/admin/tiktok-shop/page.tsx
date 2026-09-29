@@ -193,7 +193,7 @@ export default function TikTokShopPage() {
                   className="a-btn a-btn-primary"
                 >
                   <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
-                  {syncing ? "Syncing..." : "Sync All Products"}
+                  {syncing ? "Syncing…" : "Sync All Products"}
                 </button>
                 <button
                   onClick={handleDisconnect}

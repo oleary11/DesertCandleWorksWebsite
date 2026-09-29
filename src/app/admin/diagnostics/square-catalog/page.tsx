@@ -274,14 +274,14 @@ export default function SquareCatalogDiagnosticsPage() {
               disabled={clearingAll || creatingAll}
               className="a-btn bg-amber-600 text-white hover:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {clearingAll ? "Clearing..." : "Step 2: Clear Database IDs"}
+              {clearingAll ? "Clearing…" : "Step 2: Clear Database IDs"}
             </button>
             <button
               onClick={handleCreateAll}
               disabled={creatingAll || clearingAll}
               className="a-btn a-btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {creatingAll ? "Creating..." : "Step 3: Create All Square Products"}
+              {creatingAll ? "Creating…" : "Step 3: Create All Square Products"}
             </button>
           </div>
           {clearAllResult && (
@@ -330,7 +330,7 @@ export default function SquareCatalogDiagnosticsPage() {
               disabled={autoMapping || mappingData.summary.missingMapping === 0}
               className="a-btn bg-purple-600 text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm"
             >
-              {autoMapping ? "Auto-Mapping..." : `Auto-Map ${mappingData.summary.missingMapping} Products`}
+              {autoMapping ? "Auto-Mapping…" : `Auto-Map ${mappingData.summary.missingMapping} Products`}
             </button>
           </div>
 

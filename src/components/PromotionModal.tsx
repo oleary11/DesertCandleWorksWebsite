@@ -614,7 +614,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                     <input
                       type="text"
                       className="a-input !pl-9"
-                      placeholder="Search users by name or email..."
+                      placeholder="Search users by name or email…"
                       value={userSearch}
                       onChange={(e) => setUserSearch(e.target.value)}
                     />

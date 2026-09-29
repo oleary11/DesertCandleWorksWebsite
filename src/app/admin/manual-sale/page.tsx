@@ -97,7 +97,7 @@ function ComboBox<TValue extends string>(props: {
   const {
     id,
     label,
-    placeholder = "Search...",
+    placeholder = "Search…",
     value,
     items,
     onChange,
@@ -498,7 +498,7 @@ export default function ManualSalePage() {
     return [
       {
         value: "",
-        label: "Select product...",
+        label: "Select product…",
         sublabel: "Choose a product to add",
       },
       ...products.map((p) => {

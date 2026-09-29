@@ -651,7 +651,7 @@ export default function TestShipStationPage() {
               disabled={loadingRates || !shippingAddress.name || testProducts.length === 0 || !testProducts[0].sku}
               className="a-btn a-btn-primary mb-4"
             >
-              {loadingRates ? "Validating & Getting Rates..." : "Get Shipping Rates"}
+              {loadingRates ? "Validating & Getting Rates…" : "Get Shipping Rates"}
             </button>
 
             {ratesError && (
@@ -711,7 +711,7 @@ export default function TestShipStationPage() {
           {/* Submit */}
           <div className="flex justify-end gap-3">
             <button type="submit" className="a-btn" disabled={submitting || !selectedRate}>
-              {submitting ? "Creating Order..." : "Create Test Order"}
+              {submitting ? "Creating Order…" : "Create Test Order"}
             </button>
           </div>
         </form>

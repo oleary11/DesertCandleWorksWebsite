@@ -72,7 +72,7 @@ export default function CommandPalette({ open, onClose }: { open: boolean; onClo
     <div className="a-ui fixed inset-0 z-[60] flex items-start justify-center px-4 pt-[12vh]" role="dialog" aria-modal="true" aria-label="Jump to a page">
       <button type="button" aria-label="Close" className="a-fade-enter absolute inset-0 bg-black/30" onClick={onClose} />
       <div className="a-card a-fade-enter relative w-full max-w-lg overflow-hidden shadow-2xl">
-        <div className="flex items-center gap-3 border-b border-[var(--a-line)] px-4">
+        <div className="flex items-center gap-3 border-b border-[var(--a-line)] px-4 focus-within:shadow-[inset_0_-2px_0_var(--a-accent)]">
           <Search className="h-4 w-4 shrink-0 text-[var(--a-faint)]" aria-hidden />
           <input
             ref={inputRef}

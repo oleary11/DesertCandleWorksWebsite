@@ -319,7 +319,7 @@ function ComboBox<TValue extends string>(props: {
   const {
     id,
     label,
-    placeholder = "Search...",
+    placeholder = "Search…",
     value,
     items,
     onChange,
@@ -2440,7 +2440,7 @@ export default function AdminProductsPage() {
               <MenuItem icon={<RefreshCw className="h-4 w-4" />} hint="Home Goods prices and bottle options" disabled={saving} onClick={() => void syncStripeHomeGoods()}>
                 Sync prices + variations
               </MenuItem>
-              <Link href="/admin/stripe-product-sync" role="menuitem" className="a-menu-item" onClick={() => setSyncMenuOpen(false)}>
+              <Link href="/admin/stripe-product-sync" className="a-menu-item" onClick={() => setSyncMenuOpen(false)}>
                 <ImageIcon className="h-4 w-4 text-[var(--a-muted)]" aria-hidden />
                 Sync images
               </Link>
@@ -3124,7 +3124,7 @@ export default function AdminProductsPage() {
                     <ComboBox
                       id="edit-product-container"
                       label="Container (for description)"
-                      placeholder="Search containers..."
+                      placeholder="Search containers…"
                       value={editing.containerId || ""}
                       items={[
                         { value: "", label: "— Select container —", sublabel: "Optional" },

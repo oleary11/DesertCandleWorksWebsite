@@ -112,6 +112,14 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   return (
     <div className="admin min-h-dvh">
+      <div className="a-ui">
+        <a
+          href="#admin-content"
+          className="sr-only z-[70] rounded-lg bg-[var(--a-ink)] px-4 py-2 text-sm font-medium text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3"
+        >
+          Skip to content
+        </a>
+      </div>
       <aside className="a-ui fixed inset-y-0 left-0 z-40 hidden w-64 bg-[var(--a-sidebar)] lg:block">
         <SidebarContent pathname={pathname} />
       </aside>
@@ -172,7 +180,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
           </div>
         </header>
 
-        <div id="admin-content">{children}</div>
+        <div id="admin-content" tabIndex={-1} className="focus:outline-none">{children}</div>
       </div>
 
       <CommandPalette open={paletteOpen} onClose={closePalette} />

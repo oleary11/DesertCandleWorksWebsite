@@ -237,7 +237,7 @@ export default function StripeProductSyncPage() {
                   disabled={syncingAll}
                   className="a-btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                 >
-                  {syncingAll ? "Syncing..." : `Sync All (${productsNeedingSync.length})`}
+                  {syncingAll ? "Syncing…" : `Sync All (${productsNeedingSync.length})`}
                 </button>
               )}
             </div>
@@ -340,7 +340,7 @@ export default function StripeProductSyncPage() {
                           disabled={syncing === product.slug || !product.stripePriceId}
                           className="a-btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                         >
-                          {syncing === product.slug ? "Syncing..." : product.stripePriceId ? "Sync" : "No Stripe Price"}
+                          {syncing === product.slug ? "Syncing…" : product.stripePriceId ? "Sync" : "No Stripe Price"}
                         </button>
                       </td>
                     </tr>

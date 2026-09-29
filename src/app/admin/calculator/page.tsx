@@ -192,7 +192,7 @@ function ComboBox<TValue extends string>(props: {
   const {
     id,
     label,
-    placeholder = "Search...",
+    placeholder = "Search…",
     value,
     items,
     onChange,
@@ -2145,7 +2145,7 @@ export default function CalculatorPage() {
                 <ComboBox
                   id="product-container-combobox"
                   label="Container (for description)"
-                  placeholder="Search containers..."
+                  placeholder="Search containers…"
                   value={newProduct.containerId || ""}
                   items={[
                     { value: "", label: "— Select container —", sublabel: "Optional" },
@@ -2330,7 +2330,7 @@ export default function CalculatorPage() {
                     newProduct.price <= 0
                   }
                 >
-                  {savingProduct ? "Creating..." : "Create Product"}
+                  {savingProduct ? "Creating…" : "Create Product"}
                 </button>
               </div>
             </div>
@@ -2399,7 +2399,7 @@ export default function CalculatorPage() {
                   <input
                     type="text"
                     className="a-input !pl-9"
-                    placeholder="Search products by name or SKU..."
+                    placeholder="Search products by name or SKU…"
                     value={productSearch}
                     onChange={(e) => setProductSearch(e.target.value)}
                     inputMode="search"
