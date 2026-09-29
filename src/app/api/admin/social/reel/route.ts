@@ -6,7 +6,7 @@ import { createReel } from "@/lib/social/pipeline";
 export const runtime = "nodejs";
 export const maxDuration = 120;
 
-// POST /api/admin/social/reel  body: { productSlug, photoUrls: string[] (1-2), notes? }
+// POST /api/admin/social/reel  body: { productSlug, photoUrls: [url], notes? }
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!isFalConfigured()) return NextResponse.json({ error: "FAL_KEY is not configured" }, { status: 500 });

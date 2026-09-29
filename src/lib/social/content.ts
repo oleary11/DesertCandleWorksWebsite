@@ -284,7 +284,7 @@ export async function writeReelCopy(
   notes: string | undefined,
   hooksToAvoid: string[]
 ): Promise<{ hook: string; caption: string; hashtags: string[] }> {
-  const prompt = `Write the copy for a 10 second product reel of this candle. The video is slow, cinematic footage of the real candle (flame flicker, light across the glass), no talking.
+  const prompt = `Write the copy for a 10 second product reel of this candle. The video is slow, cinematic footage of the real, unlit candle (a push-in, a slight orbit, a close-up on the label), no talking.
 
 Product: ${product.name}
 About: ${product.description}

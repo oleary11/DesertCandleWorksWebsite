@@ -4,8 +4,8 @@ import type { FalJob } from "./types";
 // fal.ai hosts every model the generator uses behind one queue API.
 // Env: FAL_KEY. Prices are per fal's model pages (Sept 2026).
 export const FAL_MODELS = {
-  // Image-to-video. Held labels and glass closest to the source photo in independent product-ad tests.
-  video: "fal-ai/kling-video/v3/pro/image-to-video",
+  // Image-to-video. Picked after testing in the fal sandbox on real DCW product photos.
+  video: "fal-ai/kling-video/v3/turbo/pro/image-to-video",
   // Product-preserving scene edits and meme images.
   imageEdit: "fal-ai/nano-banana-pro/edit",
   image: "fal-ai/nano-banana-pro",
@@ -15,7 +15,7 @@ export const FAL_MODELS = {
 
 // Cents, used for the running cost shown in admin.
 export const FAL_COST_CENTS = {
-  videoPerSecond: 11.2,
+  videoPerSecond: 14,
   image: 15,
 };
 

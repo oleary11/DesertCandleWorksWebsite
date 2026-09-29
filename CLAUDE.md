@@ -115,7 +115,7 @@ The codebase uses a **two-tier product data system**:
 ### Social Media Generator (`/admin/social`, `src/lib/social/`)
 
 Generates posts, holds them for review, then posts them to Instagram, TikTok and Facebook.
-- **Reels** (started by hand, ~2/week): admin picks a product + 1-2 photos → cropped to 9:16 → two 5s Kling v3 Pro clips on fal.ai → fal ffmpeg merge → copied to Blob. ~$1.12 each.
+- **Reels** (started by hand, ~2/week): admin picks a product + 1 photo → cropped to 9:16 → one 10s Kling v3 Turbo Pro clip on fal.ai (`reelPrompt` in `pipeline.ts`; candle stays unlit, wax solid) → copied to Blob. ~$1.40 each.
 - **Slideshows / memes** (weekly cron batch, 8 + 4): OpenAI plans copy (`content.ts`); "scene" slides use Nano Banana Pro edit to place the real product in a new setting; slides rendered with `next/og` in brand fonts (`render.tsx`), JPEG for Instagram.
 - Generation is a state machine in `pipeline.ts` (`advancePost`): fal jobs finish via `/api/social/fal-webhook`, the admin page's 15s poll, or the publish cron. Posts go `generating → rendering → pending_review → approved (queue) → publishing → published`.
 - Posting (`publish.ts`): TikTok + Facebook via Zernio (TikTok gets a trending Commercial Music Library track); Instagram via Graph API. Set `META_PAGE_ACCESS_TOKEN` (Facebook Login) to also attach trending Instagram audio to reels; the Instagram Login token can't.

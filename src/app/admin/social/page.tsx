@@ -77,7 +77,7 @@ const STATUS_LABEL: Record<Status, string> = {
 };
 
 // Mirrors the fal prices in src/lib/social/fal.ts, for the estimates shown before generating.
-const REEL_COST = 1.12;
+const REEL_COST = 1.4;
 const SCENE_COST = 0.15;
 
 function money(cents: number) {
@@ -465,7 +465,7 @@ function NewReel({ onCreated }: { onCreated: () => void }) {
   const product = products?.find((p) => p.slug === slug);
 
   function toggle(url: string) {
-    setPicked((cur) => (cur.includes(url) ? cur.filter((u) => u !== url) : cur.length >= 2 ? [cur[1], url] : [...cur, url]));
+    setPicked((cur) => (cur[0] === url ? [] : [url]));
   }
 
   async function submit() {
@@ -493,8 +493,8 @@ function NewReel({ onCreated }: { onCreated: () => void }) {
       <div>
         <h2 className="text-lg font-semibold">New reel</h2>
         <p className="text-sm text-[var(--color-muted)]">
-          10 seconds: two 5 second shots of the real candle with gentle motion (flame flicker, a slow push-in). Pick one photo, or two for two
-          different shots. About ${REEL_COST.toFixed(2)} and a few minutes to generate.
+          One 10 second cinematic shot from a single photo: a slow push-in, a slight orbit, and a close-up on the label. The candle stays
+          unlit and unchanged. About ${REEL_COST.toFixed(2)} and a few minutes to generate.
         </p>
       </div>
 
@@ -519,7 +519,7 @@ function NewReel({ onCreated }: { onCreated: () => void }) {
 
       {product && (
         <div>
-          <p className="text-sm font-medium mb-2">Photos {picked.length ? `(${picked.length}/2 picked)` : ""}</p>
+          <p className="text-sm font-medium mb-2">Photo</p>
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
             {product.photos.map((ph) => {
               const n = picked.indexOf(ph.url);
@@ -535,8 +535,8 @@ function NewReel({ onCreated }: { onCreated: () => void }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={ph.url} alt="" className="w-full h-full object-cover" />
                   {n >= 0 && (
-                    <span className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-ink)] text-xs font-semibold text-white">
-                      {n + 1}
+                    <span className="absolute top-1 right-1 flex h-6 w-6 items-center justify-center rounded-full bg-[var(--color-ink)] text-white">
+                      <Check className="h-4 w-4" />
                     </span>
                   )}
                 </button>
@@ -544,7 +544,7 @@ function NewReel({ onCreated }: { onCreated: () => void }) {
             })}
           </div>
           <p className="mt-2 text-xs text-[var(--color-muted)]">
-            Use real photos with a lit flame and a crisp label. Photos are cropped to 9:16 around the candle.
+            Pick a sharp, well lit photo with the label facing the camera. It&apos;s cropped to 9:16 around the candle.
           </p>
         </div>
       )}

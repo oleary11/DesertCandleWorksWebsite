@@ -18,19 +18,34 @@ import {
   updateSocialPostIfUnchanged,
   type SocialPostPatch,
 } from "./store";
-import type { FalJob, MemePlan, ReelPlan, SlideshowPlan, SocialPost } from "./types";
+import type { MemePlan, ReelPlan, SlideshowPlan, SocialPost } from "./types";
 
-const REEL_CLIP_SECONDS = 5;
+const REEL_SECONDS = 10;
 
-// Kling reads the photo as the first frame, so these only describe motion. Restrained motion keeps
-// the label and glass stable, which is what makes it read as real footage rather than AI.
-const CLIP_MOTION = [
-  "Locked-off tripod shot. Soft natural light slowly drifts across the glass and the room, like a cloud passing the sun, and the reflections on the bottle shift gently. If a flame is already visible it flickers softly; do not add one. Everything else stays perfectly still.",
-  "Very slow, smooth dolly push-in toward the candle, like a high-end commercial. Reflections on the glass move naturally with the camera. If a flame is already visible it flickers softly; do not add one. Calm, steady, cinematic.",
-];
+// The reel prompt, tuned in the fal sandbox. Kling uses the photo as the first frame, so this only
+// describes camera motion and what must never change. Liquor-bottle candles tempt video models to
+// add a flame and animate the wax like a drink, so both are ruled out explicitly.
+function reelPrompt(productName: string, category: string, notes?: string): string {
+  const name = productName.replace(/\s+candle$/i, "");
+  const style = /whisk|bourbon|rye|scotch/i.test(category)
+    ? "premium whiskey-advertisement"
+    : /wine|prosecco|champagne|ros/i.test(category)
+      ? "premium wine-advertisement"
+      : category && !/other|home/i.test(category)
+        ? `premium ${category.toLowerCase()}-advertisement`
+        : "premium lifestyle-advertisement";
 
-const CLIP_NEGATIVE =
-  "changing label, warped text, morphing bottle, melting glass, distorted shape, extra objects, people, hands, fast motion, camera shake, blur, low quality, cartoon, CGI, oversaturated";
+  return `Create a premium cinematic product reel from this image of a ${name} candle. Keep the candle jar, label, logo, typography, wax, and all product details completely unchanged and perfectly legible throughout the video.
+Start with a slow, elegant camera push-in toward the candle with subtle natural parallax in the foreground props. Soft warm ambient light plays gently across the glass. The background should remain softly blurred with gentle ambient motion, creating a cozy luxury lifestyle atmosphere.
+Halfway through, introduce a subtle 10 to 15 degree camera orbit around the product while keeping the candle centered and dominant in frame. Finish with a smooth close-up hero shot focused on the ${name} label.
+Warm golden-hour lighting, shallow depth of field, soft shadows, realistic reflections, ${style} aesthetic, high-end commercial product photography, smooth stabilized camera motion, natural motion only, no dramatic transformations.
+Vertical 9:16 social media reel, photorealistic, polished commercial quality.${notes ? `\n${notes}` : ""}
+The candle is NOT lit and stays unlit for the entire video. Do not add, ignite or show any flame, fire, spark, ember, glow or smoke on the wick or anywhere else. The wick stays exactly as it is in the image. The wax is solid and never moves, ripples or flows.
+Important: do not alter, rewrite, distort, animate, or replace any text or branding on the product. Do not change the candle shape, label design, colors, background objects, or composition. No new objects, no hands, no people, no floating particles, no text overlays, no morphing or warping.`;
+}
+
+const REEL_NEGATIVE =
+  "flame, fire, lit candle, burning wick, candle light, smoke, sparks, glow on wick, liquid, pouring, sloshing, ripples in wax, drink, beverage, morphing, warping, changing text, distorted label, extra objects, hands, people, blur, low quality";
 
 const SCENE_PROMPT = (setting: string) =>
   `Use the candle from the reference photo exactly as it is: same bottle shape, glass color, label artwork, every letter of the label text, wax and wick. Keep every color on the candle identical to the reference, including the exact color of the label printing, even where it is faint or low contrast. Do not redraw, restyle, re-letter, recolor, resize or change the candle in any way. Only change what is around it.
@@ -50,50 +65,44 @@ async function fail(post: SocialPost, err: unknown): Promise<SocialPost> {
   return (await updateSocialPost(post.id, { status: "failed", error })) ?? post;
 }
 
-/** Starts a reel for a product the admin picked, from one or two of its photos. */
+/** Starts a reel: one 10 second clip animated from one photo of the product the admin picked. */
 export async function createReel(productSlug: string, photoUrls: string[], motionNotes?: string): Promise<SocialPost> {
   const product = (await listSocialProducts()).find((p) => p.slug === productSlug);
   if (!product) throw new Error("Product not found or has no social photos");
-  if (!photoUrls.length) throw new Error("Pick at least one photo");
+  const source = photoUrls[0];
+  if (!source) throw new Error("Pick a photo");
 
-  const sources = photoUrls.slice(0, 2);
   const post = await createSocialPost({ kind: "reel", productSlug, hook: product.name });
 
   try {
     // Kling takes its aspect ratio from the first frame, and Reels need 9:16.
-    const startFrames = await Promise.all(
-      sources.map(async (url, i) =>
-        uploadToBlob(`social/${post.id}/start-${i}.jpg`, await cropTo(await fetchImage(url), REEL_W, REEL_H), "image/jpeg")
-      )
+    const startFrame = await uploadToBlob(
+      `social/${post.id}/start-0.jpg`,
+      await cropTo(await fetchImage(source), REEL_W, REEL_H),
+      "image/jpeg"
     );
-    // One photo: both clips use it with different motion. Two: one clip each.
-    const frames = [startFrames[0], startFrames[1] ?? startFrames[0]];
-    const prompts = CLIP_MOTION.map((m) => (motionNotes ? `${m} ${motionNotes}` : m));
+    const prompt = reelPrompt(product.name, product.category, motionNotes);
 
     const copy = isOpenAIConfigured()
       ? await writeReelCopy(product, motionNotes, await recentHooks())
       : { hook: product.name, caption: "", hashtags: [] };
 
-    const jobs: FalJob[] = await Promise.all(
-      frames.map((frame, i) =>
-        submitFalJob(post.id, `clip-${i}`, FAL_MODELS.video, {
-          start_image_url: frame,
-          prompt: prompts[i],
-          negative_prompt: CLIP_NEGATIVE,
-          duration: String(REEL_CLIP_SECONDS),
-          generate_audio: false,
-        })
-      )
-    );
+    const job = await submitFalJob(post.id, "clip-0", FAL_MODELS.video, {
+      start_image_url: startFrame,
+      prompt,
+      negative_prompt: REEL_NEGATIVE,
+      duration: String(REEL_SECONDS),
+      generate_audio: false,
+    });
 
-    const plan: ReelPlan = { sourceImages: sources, startFrames, prompts, motionNotes };
+    const plan: ReelPlan = { sourceImages: [source], startFrames: [startFrame], prompts: [prompt], motionNotes };
     return (
       (await updateSocialPost(post.id, {
         ...copy,
         plan,
-        jobs,
-        coverImageUrl: startFrames[0],
-        costCents: Math.round(frames.length * REEL_CLIP_SECONDS * FAL_COST_CENTS.videoPerSecond),
+        jobs: [job],
+        coverImageUrl: startFrame,
+        costCents: Math.round(REEL_SECONDS * FAL_COST_CENTS.videoPerSecond),
       })) ?? post
     );
   } catch (err) {
@@ -210,9 +219,14 @@ export async function advancePost(id: string): Promise<SocialPost> {
 
   try {
     if (post.kind === "reel") {
+      const clips = post.jobs.filter((j) => j.key.startsWith("clip-")).sort((a, b) => a.key.localeCompare(b.key));
+      // Reels are a single clip now: store it as is. (Older two-clip reels get merged first.)
+      if (clips.length === 1) {
+        const videoUrl = await copyToBlob(clips[0].outputUrl!, `social/${post.id}/reel.mp4`, "video/mp4");
+        return (await updateSocialPost(post.id, { status: "pending_review", videoUrl, error: null })) ?? post;
+      }
       const merge = post.jobs.find((j) => j.key === "merge");
       if (!merge) {
-        const clips = post.jobs.filter((j) => j.key.startsWith("clip-")).sort((a, b) => a.key.localeCompare(b.key));
         const job = await submitFalJob(post.id, "merge", FAL_MODELS.merge, {
           video_urls: clips.map((c) => c.outputUrl),
           resolution: { width: REEL_W, height: REEL_H },
