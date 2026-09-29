@@ -17,12 +17,11 @@ import {
   cropTo,
   detailCrop,
   fetchImage,
-  fitTo,
   renderPhotoMeme,
   renderSlide,
   uploadToBlob,
 } from "./render";
-import { generateMemeImage, searchPexelsPhoto } from "./memes";
+import { findMemePhoto, isStockPhotoConfigured } from "./memes";
 import {
   createSocialPost,
   getSocialPost,
@@ -121,23 +120,14 @@ export async function createReel(productSlug: string, photoUrls: string[], motio
 
 async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
   if (planned.kind === "meme") {
-    const plan: MemePlan = { memePrompt: planned.memePrompt, punchline: planned.punchline, photoQuery: planned.photoQuery };
+    const plan: MemePlan = { punchline: planned.punchline, photoQuery: planned.photoQuery };
     const post = await createSocialPost({ kind: "meme", hook: planned.hook, caption: planned.caption, hashtags: planned.hashtags, plan });
     try {
-      // Made like Platrly's memes: a real reaction photo with top/bottom text, or an OpenAI image
-      // of a recognizable meme format. Both finish right here, no fal job to wait on.
-      let jpeg: Buffer;
-      const photoUrl = planned.photoQuery ? await searchPexelsPhoto(planned.photoQuery) : null;
-      if (photoUrl) {
-        jpeg = await renderPhotoMeme(await cropTo(await fetchImage(photoUrl), SLIDE_W, SLIDE_H), planned.hook, planned.punchline);
-      } else {
-        const prompt =
-          (planned.memePrompt ??
-            `Classic internet meme image with the top text "${planned.hook}"${planned.punchline ? ` and bottom text "${planned.punchline}"` : ""} in bold white meme lettering, over a funny, relatable scene about loving candles. No people, faces or characters.`) +
-          // Also enforced here in case the planner forgets: never show someone else's trademark.
-          "\nNo real brand names, logos or product labels anywhere; packaging is plain or generic.";
-        jpeg = await fitTo(await generateMemeImage(prompt), SLIDE_W, SLIDE_H);
-      }
+      // Like Platrly's person memes: a real stock photo with classic top/bottom text. Never AI.
+      if (!isStockPhotoConfigured()) throw new Error("Memes need a stock photo key: set PEXELS_API_KEY or UNSPLASH_ACCESS_KEY");
+      const photoUrl = await findMemePhoto(planned.photoQuery);
+      if (!photoUrl) throw new Error(`No stock photo found for "${planned.photoQuery}"`);
+      const jpeg = await renderPhotoMeme(await cropTo(await fetchImage(photoUrl), SLIDE_W, SLIDE_H), planned.hook, planned.punchline);
       const url = await uploadToBlob(`social/${post.id}/meme.jpg`, jpeg, "image/jpeg");
       return (await updateSocialPost(post.id, { status: "pending_review", slides: [url], coverImageUrl: url })) ?? post;
     } catch (err) {

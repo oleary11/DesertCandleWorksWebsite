@@ -1,7 +1,7 @@
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import type { Product } from "@/lib/products";
 import { listExcludedImages } from "./store";
-import { fetchTrendingFormats, isPexelsConfigured } from "./memes";
+import { fetchTrendingFormats } from "./memes";
 import type { SlidePlan } from "./types";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -104,12 +104,11 @@ export type PlannedSlideshow = {
 };
 export type PlannedMeme = {
   kind: "meme";
-  hook: string; // the meme's top text / joke
+  hook: string; // top text
+  punchline?: string; // bottom text
+  photoQuery: string; // stock photo search for the image under the text
   caption: string;
   hashtags: string[];
-  memePrompt?: string; // format meme: full OpenAI image prompt (no people)
-  punchline?: string; // photo meme: bottom text
-  photoQuery?: string; // photo meme: stock photo search for the reaction shot
 };
 export type PlannedPost = PlannedSlideshow | PlannedMeme;
 
@@ -122,8 +121,6 @@ type RawPost = {
   caption?: string;
   hashtags?: string[];
   slides?: RawSlide[];
-  meme_prompt?: string;
-  meme_has_person?: boolean;
   punchline?: string;
   photo_query?: string;
 };
@@ -173,8 +170,6 @@ export async function planBatch(counts: BatchCounts, hooksToAvoid: string[]): Pr
   }));
   const themes = [...COLLECTION_THEMES].sort(() => Math.random() - 0.5).slice(0, collections);
   const trending = memes ? await fetchTrendingFormats() : [];
-  // Reaction-photo memes need a stock photo source; without one, every meme is a format meme.
-  const photoMemes = isPexelsConfigured();
 
   const productLines = assignments
     .map(
@@ -214,9 +209,11 @@ ${productLines || "(none)"}
 MEMES (${memes})
 - A SINGLE image, not a slideshow. Meme-native, the kind people send to a friend: relatable candle-person life (buying too many candles, saving the good candle for a special occasion, "just one more", sniffing every candle in the store, candle math, lighting a candle so the house looks clean, the candle outliving the relationship). About one in three can nod to candles made from old liquor bottles (your ex's tequila, the bottle from that night out). Keep the rest general.
 - Voice: unpolished and internet-native, never ad copy. Meme text is often all lowercase. Formats like "POV:", "nobody: / me:", "Day X of", "me at 2am:" are welcome.
-- Two ways to make one. Pick whichever fits the joke:
-  1. Format meme: meme_prompt is a detailed OpenAI image generation prompt describing a recognizable meme visual format (two panel reaction meme, expanding brain, drake-style approve/reject with objects, distracted-boyfriend style with objects, "this is fine", starter pack, tier list, any currently viral format), what each element represents, what text labels appear (spelled exactly), and why it lands for candle lovers. 2 to 3 sentences. NEVER include people, human faces or characters: use candles, objects, food, animals (cats and dogs are great), rooms or abstract visuals. End every meme_prompt with: "No real brand names, logos or product labels anywhere; packaging is plain or generic."
-  2. Photo meme${photoMemes ? "" : " (NOT AVAILABLE right now, always use a format meme)"}: only when the joke genuinely needs a real human reaction (a face, a person doing something). Set meme_has_person to true, skip meme_prompt, and give the hook as the top text, punchline as the bottom text (max 8 words each), and photo_query as a 2 to 4 word stock photo search for the reaction shot (e.g. "woman shocked face", "man side eye").
+- Every meme is a REAL stock photo with classic bold top and bottom text. Nothing is AI generated, so the photo has to exist on Unsplash or Pexels:
+  - hook: the top text, the setup (max 10 words).
+  - punchline: the bottom text, the payoff (max 8 words). Can be empty when the top text carries the joke alone.
+  - photo_query: a 2 to 4 word stock photo search for the image under the text. Plain, common subjects photographers actually upload: reaction faces ("woman shocked face", "man side eye", "woman laughing hysterically", "tired woman couch"), pets ("cat judging", "dog tilted head"), or everyday scenes ("candles bathtub", "messy living room", "shopping cart aisle"). Never a brand, product name or celebrity.
+  - The joke has to work with ANY photo matching the query, so the text does the heavy lifting.
 ${trending.length ? `- Currently circulating internet formats (this week's top posts; use the format energy and structure, not the content):\n${trending.map((t) => `  - "${t}"`).join("\n")}\n` : ""}
 EVERY POST
 - hook: max 9 words, the line that stops the scroll. Every hook starts differently.
@@ -226,8 +223,7 @@ EVERY POST
 Return JSON: {"posts":[
   {"kind":"collection","hook":"...","product_slugs":["..."],"caption":"...","hashtags":["..."]},
   {"kind":"slideshow","product_slug":"...","hook":"...","slides":[{"source":"photo"|"scene","photo_index":0,"scene_prompt":"...","headline":"...","body":"..."}],"caption":"...","hashtags":["..."]},
-  {"kind":"meme","hook":"...","meme_prompt":"...","caption":"...","hashtags":["..."]},
-  {"kind":"meme","meme_has_person":true,"hook":"top text","punchline":"bottom text","photo_query":"...","caption":"...","hashtags":["..."]}
+  {"kind":"meme","hook":"top text","punchline":"bottom text","photo_query":"...","caption":"...","hashtags":["..."]}
 ]}
 Collections first, then slideshows in assignment order, then memes.`;
 
@@ -241,11 +237,15 @@ Collections first, then slideshows in assignment order, then memes.`;
     const hashtags = (raw.hashtags ?? []).map((h) => h.replace(/^#/, "").toLowerCase().replace(/\s+/g, "")).slice(0, 12);
 
     if (raw.kind === "meme") {
-      const base = { kind: "meme" as const, hook: raw.hook ?? "", caption: raw.caption ?? "", hashtags };
-      if (raw.meme_has_person && raw.photo_query && raw.hook && photoMemes) {
-        planned.push({ ...base, punchline: raw.punchline || undefined, photoQuery: raw.photo_query });
-      } else if (raw.meme_prompt) {
-        planned.push({ ...base, memePrompt: raw.meme_prompt });
+      if (raw.hook && raw.photo_query) {
+        planned.push({
+          kind: "meme",
+          hook: raw.hook,
+          punchline: raw.punchline || undefined,
+          photoQuery: raw.photo_query,
+          caption: raw.caption ?? "",
+          hashtags,
+        });
       }
       continue;
     }

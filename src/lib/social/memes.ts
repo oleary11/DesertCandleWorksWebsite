@@ -1,46 +1,54 @@
-// Memes, made the same way as Platrly's: OpenAI image generation for format memes, or a real
-// stock photo with classic top/bottom text when the joke needs a real person.
+// Memes, made the way Platrly makes its person memes: a real stock photo with classic bold
+// top/bottom text. No AI-generated images.
+//
+// Photos come from Unsplash first, then Pexels. Env: PEXELS_API_KEY and/or UNSPLASH_ACCESS_KEY.
 
-const OPENAI_BASE = "https://api.openai.com/v1";
+const UNSPLASH_BASE = "https://api.unsplash.com";
 const PEXELS_BASE = "https://api.pexels.com/v1";
 
-// Same image model Platrly uses for its memes.
-const MEME_IMAGE_MODEL = "gpt-image-2.5-flare";
-
-/** Generates a meme image with OpenAI and returns it as a PNG buffer (portrait 1024x1536). */
-export async function generateMemeImage(prompt: string): Promise<Buffer> {
-  const key = process.env.OPENAI_API_KEY;
-  if (!key) throw new Error("OPENAI_API_KEY not configured");
-
-  const res = await fetch(`${OPENAI_BASE}/images/generations`, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MEME_IMAGE_MODEL, prompt, n: 1, size: "1024x1536", quality: "high" }),
-  });
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(`OpenAI image error: ${data?.error?.message ?? res.status}`);
-
-  const b64: string | undefined = data.data?.[0]?.b64_json;
-  if (!b64) throw new Error("OpenAI returned no image data");
-  return Buffer.from(b64, "base64");
+export function isStockPhotoConfigured(): boolean {
+  return !!(process.env.UNSPLASH_ACCESS_KEY || process.env.PEXELS_API_KEY);
 }
 
-export function isPexelsConfigured(): boolean {
-  return !!process.env.PEXELS_API_KEY;
+function pick<T>(items: T[]): T | undefined {
+  return items.length ? items[Math.floor(Math.random() * items.length)] : undefined;
 }
 
-/** A random portrait stock photo for the query, or null if nothing matched. */
-export async function searchPexelsPhoto(query: string): Promise<string | null> {
+async function searchUnsplash(query: string): Promise<string | null> {
+  const key = process.env.UNSPLASH_ACCESS_KEY;
+  if (!key) return null;
+  try {
+    const res = await fetch(
+      `${UNSPLASH_BASE}/search/photos?query=${encodeURIComponent(query)}&per_page=10&orientation=portrait&content_filter=high`,
+      { headers: { Authorization: `Client-ID ${key}` } }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { results?: Array<{ urls: { regular: string } }> };
+    return pick(data.results ?? [])?.urls.regular ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function searchPexels(query: string): Promise<string | null> {
   const key = process.env.PEXELS_API_KEY;
   if (!key) return null;
-  const res = await fetch(
-    `${PEXELS_BASE}/search?query=${encodeURIComponent(query)}&per_page=20&orientation=portrait&size=large`,
-    { headers: { Authorization: key } }
-  );
-  if (!res.ok) return null;
-  const data = (await res.json()) as { photos?: Array<{ src: { portrait: string } }> };
-  const photos = data.photos ?? [];
-  return photos.length ? photos[Math.floor(Math.random() * photos.length)].src.portrait : null;
+  try {
+    const res = await fetch(
+      `${PEXELS_BASE}/search?query=${encodeURIComponent(query)}&per_page=20&orientation=portrait&size=large`,
+      { headers: { Authorization: key } }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { photos?: Array<{ src: { portrait: string } }> };
+    return pick(data.photos ?? [])?.src.portrait ?? null;
+  } catch {
+    return null;
+  }
+}
+
+/** A real portrait stock photo for the query: Unsplash first, Pexels as the fallback. */
+export async function findMemePhoto(query: string): Promise<string | null> {
+  return (await searchUnsplash(query)) ?? (await searchPexels(query));
 }
 
 const NSFW_WORDS = ["sex", "porn", "nude", "naked", "nsfw", "fuck", "shit", "ass", "dick", "cock", "pussy", "boob", "tit", "horny", "cum", "boner", "orgasm", "fetish"];
