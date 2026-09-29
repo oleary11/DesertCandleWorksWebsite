@@ -21,6 +21,17 @@
   --a-sidebar-active: rgb(255 255 255 / 0.1);
   --a-sidebar-line: rgb(255 255 255 / 0.08);
 
+  /* Charts: categorical slots in fixed order (validated reference palette; the
+     first three pass all-pairs CVD checks), plus one warm hue for single-series magnitude. */
+  --a-viz-1: #2a78d6;
+  --a-viz-2: #eb6834;
+  --a-viz-3: #1baf7a;
+  --a-viz-4: #eda100;
+  --a-viz-single: #9a6b44;
+  --a-viz-track: #efeae4;
+  --a-good: #1f6b3a;
+  --a-bad: #b42318;
+
   --a-radius: 12px;
   --a-radius-sm: 8px;
   --a-shadow: 0 1px 2px rgb(47 42 37 / 0.04);

@@ -190,17 +190,21 @@ export function Stat({
   label,
   value,
   hint,
+  tone,
   className = "",
 }: {
   label: string;
   value: React.ReactNode;
   hint?: React.ReactNode;
+  /** Colors the value for signed amounts like profit. */
+  tone?: "good" | "bad";
   className?: string;
 }) {
+  const valueColor = tone === "good" ? "text-[var(--a-good)]" : tone === "bad" ? "text-[var(--a-bad)]" : "text-[var(--a-ink)]";
   return (
     <div className={`a-card px-4 py-3.5 ${className}`}>
       <p className="text-xs font-medium text-[var(--a-muted)]">{label}</p>
-      <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-[var(--a-ink)]">{value}</p>
+      <p className={`mt-1 text-2xl font-semibold tracking-tight tabular-nums ${valueColor}`}>{value}</p>
       {hint && <p className="mt-0.5 text-xs text-[var(--a-muted)]">{hint}</p>}
     </div>
   );
@@ -313,5 +317,166 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
         className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-[18px]" : "translate-x-0.5"}`}
       />
     </button>
+  );
+}
+
+/** Titled card section. */
+export function Panel({
+  title,
+  description,
+  actions,
+  className = "",
+  children,
+}: {
+  title: string;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className={`a-card p-5 sm:p-6 ${className}`}>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-[var(--a-ink)]">{title}</h2>
+          {description && <p className="mt-0.5 text-sm text-[var(--a-muted)]">{description}</p>}
+        </div>
+        {actions && <div className="flex flex-wrap items-center gap-2">{actions}</div>}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const VIZ_SLOTS = ["var(--a-viz-1)", "var(--a-viz-2)", "var(--a-viz-3)", "var(--a-viz-4)"];
+
+/**
+ * How a total splits into parts: one stacked bar plus a legend with values.
+ * Up to four parts; colors follow the item order, never the size.
+ */
+export function Composition({
+  items,
+  format,
+}: {
+  items: { label: string; value: number }[];
+  format: (value: number) => string;
+}) {
+  const total = items.reduce((sum, i) => sum + Math.max(0, i.value), 0);
+  return (
+    <div>
+      <div className="flex h-2.5 w-full gap-[2px] overflow-hidden rounded-full bg-[var(--a-viz-track)]" role="img" aria-label={items.map((i) => `${i.label} ${format(i.value)}`).join(", ")}>
+        {total > 0 &&
+          items.map((item, idx) =>
+            item.value > 0 ? (
+              <div
+                key={item.label}
+                className="h-full first:rounded-l-full last:rounded-r-full"
+                style={{ width: `${(item.value / total) * 100}%`, background: VIZ_SLOTS[idx % VIZ_SLOTS.length] }}
+                title={`${item.label}: ${format(item.value)} (${((item.value / total) * 100).toFixed(1)}%)`}
+              />
+            ) : null
+          )}
+      </div>
+      <dl className="mt-3 space-y-1.5 text-sm">
+        {items.map((item, idx) => (
+          <div key={item.label} className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: VIZ_SLOTS[idx % VIZ_SLOTS.length] }} aria-hidden />
+            <dt className="flex-1 text-[var(--a-muted)]">{item.label}</dt>
+            <dd className="tabular-nums text-[var(--a-ink)]">{format(item.value)}</dd>
+            <dd className="w-12 text-right text-xs tabular-nums text-[var(--a-faint)]">
+              {total > 0 ? `${((Math.max(0, item.value) / total) * 100).toFixed(0)}%` : "—"}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+/** Ranked horizontal bars for a single measure (one hue). */
+export function RankedBars({
+  items,
+  format,
+  limit = 10,
+}: {
+  items: { label: string; value: number; sub?: string }[];
+  format: (value: number) => string;
+  limit?: number;
+}) {
+  const sorted = [...items].sort((a, b) => b.value - a.value).slice(0, limit);
+  const max = Math.max(...sorted.map((i) => i.value), 0);
+  if (sorted.length === 0) return <p className="py-6 text-center text-sm text-[var(--a-muted)]">No data for this period.</p>;
+  return (
+    <ol className="space-y-3">
+      {sorted.map((item) => (
+        <li key={item.label} className="group" title={`${item.label}: ${format(item.value)}${item.sub ? ` · ${item.sub}` : ""}`}>
+          <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+            <span className="min-w-0 truncate text-[var(--a-ink)]">{item.label}</span>
+            <span className="shrink-0 tabular-nums">
+              <span className="font-medium text-[var(--a-ink)]">{format(item.value)}</span>
+              {item.sub && <span className="ml-2 text-xs text-[var(--a-muted)]">{item.sub}</span>}
+            </span>
+          </div>
+          <div className="h-1.5 w-full rounded-full bg-[var(--a-viz-track)]">
+            <div
+              className="h-full rounded-full bg-[var(--a-viz-single)] transition-opacity group-hover:opacity-80"
+              style={{ width: `${max > 0 ? Math.max(2, (item.value / max) * 100) : 0}%` }}
+            />
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+/** Date preset dropdown, with start/end pickers when "custom" is chosen. */
+export function DateRange<T extends string>({
+  preset,
+  presets,
+  onPreset,
+  customStart,
+  customEnd,
+  onCustomStart,
+  onCustomEnd,
+  onApply,
+}: {
+  preset: T;
+  presets: { value: T; label: string }[];
+  onPreset: (preset: T) => void;
+  customStart: string;
+  customEnd: string;
+  onCustomStart: (v: string) => void;
+  onCustomEnd: (v: string) => void;
+  onApply: () => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="block">
+        <span className="sr-only">Date range</span>
+        <select className="a-select min-w-44" value={preset} onChange={(e) => onPreset(e.target.value as T)}>
+          {presets.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {preset === "custom" && (
+        <>
+          <label className="block">
+            <span className="sr-only">Start date</span>
+            <input type="date" className="a-input" value={customStart} onChange={(e) => onCustomStart(e.target.value)} />
+          </label>
+          <span className="pb-2.5 text-sm text-[var(--a-muted)]">to</span>
+          <label className="block">
+            <span className="sr-only">End date</span>
+            <input type="date" className="a-input" value={customEnd} onChange={(e) => onCustomEnd(e.target.value)} />
+          </label>
+          <button type="button" className="a-btn a-btn-primary" onClick={onApply} disabled={!customStart || !customEnd}>
+            Apply
+          </button>
+        </>
+      )}
+    </div>
   );
 }
