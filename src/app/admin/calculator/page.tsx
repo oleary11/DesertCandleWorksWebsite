@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import Link from "next/link";
-import { ArrowLeft, Search } from "lucide-react";
+import { Layers, Package, Plus, Search, X } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Tabs } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -261,17 +262,17 @@ function ComboBox<TValue extends string>(props: {
 
   return (
     <div ref={rootRef} className={`w-full ${className}`}>
-      <label htmlFor={id} className="block text-sm font-medium mb-2">
+      <label htmlFor={id} className="a-label">
         {label}
       </label>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" />
 
         <input
           id={id}
           ref={inputRef}
-          className="input w-full !pl-10 !pr-10" // key fix: important padding
+          className="a-input !pl-9 !pr-10" // key fix: important padding
           placeholder={open ? placeholder : selected ? "" : placeholder}
           value={inputDisplayValue}
           onFocus={() => openAndFocus({ clearSearch: true })}
@@ -313,7 +314,7 @@ function ComboBox<TValue extends string>(props: {
         {open && query && (
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-neutral-100"
+            className="a-icon-btn absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
             onClick={() => {
               setQuery("");
               setActiveIndex(0);
@@ -321,7 +322,7 @@ function ComboBox<TValue extends string>(props: {
             }}
             aria-label="Clear search"
           >
-            <span className="text-[var(--color-muted)]">✕</span>
+            <span className="text-[var(--a-muted)]">✕</span>
           </button>
         )}
 
@@ -329,17 +330,17 @@ function ComboBox<TValue extends string>(props: {
           <div
             id={`${id}-listbox`}
             role="listbox"
-            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
+            className="a-card absolute z-30 mt-1.5 w-full overflow-hidden shadow-lg"
           >
             <div className="max-h-72 overflow-y-auto overscroll-contain">
               {filtered.length === 0 && !alwaysShowItem ? (
-                <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                <div className="px-4 py-3 text-sm text-[var(--a-muted)]">
                   {emptyMessage}
                 </div>
               ) : (
                 <>
                   {filtered.length === 0 && alwaysShowItem && (
-                    <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                    <div className="px-4 py-3 text-sm text-[var(--a-muted)]">
                       {emptyMessage}
                     </div>
                   )}
@@ -359,8 +360,7 @@ function ComboBox<TValue extends string>(props: {
                           "w-full text-left px-4 py-3",
                           "transition-colors",
                           item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                          isActive ? "bg-amber-50" : "bg-white",
-                          "hover:bg-amber-50",
+                          isActive ? "bg-[var(--a-tint)]" : "bg-white",
                         ].join(" ")}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => commitSelection(idx)}
@@ -371,7 +371,7 @@ function ComboBox<TValue extends string>(props: {
                               {item.label}
                             </div>
                             {item.sublabel ? (
-                              <div className="text-xs text-[var(--color-muted)] truncate mt-0.5">
+                              <div className="text-xs text-[var(--a-muted)] truncate mt-0.5">
                                 {item.sublabel}
                               </div>
                             ) : null}
@@ -393,7 +393,7 @@ function ComboBox<TValue extends string>(props: {
                       role="option"
                       className={[
                         "w-full text-left px-4 py-3",
-                        "border-t-2 border-[var(--color-line)]",
+                        "border-t-2 border-[var(--a-line)]",
                         "transition-colors cursor-pointer",
                         "bg-blue-50 hover:bg-blue-100",
                         "font-medium text-blue-700",
@@ -425,7 +425,7 @@ function ComboBox<TValue extends string>(props: {
         )}
       </div>
 
-      <p className="text-xs text-[var(--color-muted)] mt-2">
+      <p className="text-xs text-[var(--a-muted)] mt-2">
         Type to filter, then tap an option.
       </p>
     </div>
@@ -993,66 +993,263 @@ export default function CalculatorPage() {
       <div className="min-h-screen flex items-center justify-center bg-neutral-50">
         <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Saving overlay */}
       {(savingContainer || savingWick) && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[200px]">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+          <div role="status" className="a-card flex min-w-[220px] flex-col items-center gap-4 px-10 py-8 shadow-2xl">
             <CandleSpinner />
-            <p className="text-sm font-medium text-[var(--color-ink)]">
-              {savingWick ? "Saving wick…" : "Saving container…"}
-            </p>
+            <p className="text-sm font-medium text-[var(--a-ink)]">{savingWick ? "Saving wick…" : "Saving container…"}</p>
           </div>
         </div>
       )}
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="btn">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Cost Calculator</h1>
-        </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--color-line)] pb-2">
-        {(["calculator", "containers", "wicks", "settings"] as const).map((tab) => (
-          <button
-            key={tab}
-            className={`btn ${activeTab === tab ? "btn-primary" : ""}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab === "calculator" && "Calculator"}
-            {tab === "containers" && "Containers"}
-            {tab === "wicks" && "Wick Types"}
-            {tab === "settings" && "Settings"}
-          </button>
-        ))}
-      </div>
+      <PageHeader title="Cost calculator" description="Work out wax, fragrance and material cost for a candle, then turn it into a product." />
+
+      <Tabs
+        label="Calculator sections"
+        value={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { value: "calculator", label: "Calculator" },
+          { value: "containers", label: "Containers" },
+          { value: "wicks", label: "Wick types" },
+          { value: "settings", label: "Settings" },
+        ]}
+      />
 
       {/* Calculator Tab */}
       {activeTab === "calculator" && (
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-          {/* Batch Sidebar */}
-          <div className="lg:col-span-1">
-            <div className="card p-4 sticky top-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold">Current Batch</h3>
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
+          {/* Inputs */}
+          <section className="a-card space-y-6 p-5 sm:p-6">
+            <ComboBox
+              id="container-combobox"
+              label="Container"
+              placeholder="Search containers…"
+              value={selectedContainerId}
+              items={containerItems}
+              emptyMessage="No containers match your search."
+              alwaysShowItem={addContainerItem}
+              onChange={(val) => {
+                setWickCounts({});
+                if (val === "__add__") {
+                  setActiveTab("containers");
+                  setSelectedContainerId("");
+                  return;
+                }
+                setSelectedContainerId(val);
+              }}
+            />
+
+            {!selectedContainerId && (
+              <label className="block max-w-xs">
+                <span className="a-label">Water capacity (oz)</span>
+                <input
+                  type="number"
+                  className="a-input tabular-nums"
+                  value={customWaterOz || ""}
+                  onChange={(e) => setCustomWaterOz(e.target.value === "" ? 0 : Number(e.target.value))}
+                  onFocus={(e) => e.target.select()}
+                  step="0.1"
+                  placeholder="0"
+                  inputMode="decimal"
+                />
+                <p className="a-help">Or pick a container above.</p>
+              </label>
+            )}
+
+            <div>
+              <ComboBox
+                id="scent-combobox"
+                label="Scent"
+                placeholder="Search scents…"
+                value={selectedScentId}
+                items={[{ value: "", label: "Select a scent…", sublabel: "Required to calculate" }, ...scentItems]}
+                emptyMessage="No scents match your search."
+                onChange={(val) => setSelectedScentId(val)}
+              />
+
+              {selectedScent && (
+                <div className="mt-3">
+                  <p className="text-sm text-[var(--a-muted)]">
+                    ${scentCostPerOz.toFixed(2)} per oz
+                    {selectedScent.costPerOz !== undefined && !selectedScent.composition ? " · direct cost" : ""}
+                  </p>
+
+                  {selectedScent.composition && selectedScent.composition.length > 0 && (
+                    <div className="a-panel mt-2">
+                      <p className="a-section-label mb-2 text-[var(--a-faint)]">
+                        {waterOz > 0 ? `Blend at ${(settings.defaultFragranceLoad * 100).toFixed(1)}% fragrance load` : "Blend"}
+                      </p>
+                      <dl className="space-y-1.5 text-sm">
+                        {selectedScent.composition.map((comp, idx) => {
+                          const baseOil = baseOils.find((o) => o.id === comp.baseOilId);
+                          const baseOilOz = waterOz * settings.waterToWaxRatio * settings.defaultFragranceLoad * (comp.percentage / 100);
+                          return (
+                            <div key={idx} className="flex items-center justify-between gap-3">
+                              <dt className="flex-1 text-[var(--a-ink)]">{baseOil?.name || comp.baseOilId}</dt>
+                              <dd className="text-xs tabular-nums text-[var(--a-muted)]">{comp.percentage}%</dd>
+                              {waterOz > 0 && <dd className="w-20 text-right font-medium tabular-nums">{baseOilOz.toFixed(3)} oz</dd>}
+                            </div>
+                          );
+                        })}
+                      </dl>
+                      {waterOz > 0 ? (
+                        <dl className="mt-2 space-y-1 border-t border-[var(--a-line)] pt-2 text-xs">
+                          <div className="flex justify-between">
+                            <dt className="text-[var(--a-muted)]">Total fragrance</dt>
+                            <dd className="font-medium tabular-nums">
+                              {(waterOz * settings.waterToWaxRatio * settings.defaultFragranceLoad).toFixed(3)} oz
+                            </dd>
+                          </div>
+                          <div className="flex justify-between">
+                            <dt className="text-[var(--a-muted)]">Total wax</dt>
+                            <dd className="font-medium tabular-nums">{(waterOz * settings.waterToWaxRatio).toFixed(2)} oz</dd>
+                          </div>
+                        </dl>
+                      ) : (
+                        <p className="a-help">Pick a container to see exact ounces.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <fieldset>
+              <legend className="a-label">Wicks</legend>
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {wicks.map((w) => (
+                  <label key={w.id} className="block">
+                    <span className="mb-1 block truncate text-xs text-[var(--a-muted)]">{w.name}</span>
+                    <input
+                      type="number"
+                      className="a-input tabular-nums"
+                      value={wickCounts[w.id] || 0}
+                      onChange={(e) => setWickCounts({ ...wickCounts, [w.id]: Number(e.target.value) })}
+                      min="0"
+                      step="1"
+                      inputMode="numeric"
+                    />
+                  </label>
+                ))}
+              </div>
+              {totalWickCost > 0 && <p className="a-help">Wicks total ${totalWickCost.toFixed(2)}</p>}
+            </fieldset>
+          </section>
+
+          {/* Results + batch */}
+          <div className="space-y-6 lg:sticky lg:top-20">
+            <section className="a-card p-5" aria-live="polite">
+              <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Result</h2>
+              {results ? (
+                <>
+                  <p className="text-xs font-medium text-[var(--a-muted)]">Material cost</p>
+                  <p className="text-3xl font-semibold tracking-tight tabular-nums">${results.totalMaterialCost.toFixed(2)}</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-center">
+                    {[
+                      { label: "Wax", value: `${results.waxOz.toFixed(2)} oz` },
+                      { label: "Fragrance", value: `${results.fragranceOz.toFixed(2)} oz` },
+                      { label: "Per oz wax", value: `$${results.costPerWaxOz.toFixed(2)}` },
+                    ].map((m) => (
+                      <div key={m.label} className="rounded-lg bg-[var(--a-canvas)] px-2 py-2">
+                        <p className="text-[11px] text-[var(--a-muted)]">{m.label}</p>
+                        <p className="text-sm font-semibold tabular-nums">{m.value}</p>
+                      </div>
+                    ))}
+                  </div>
+
+                  <dl className="mt-4 space-y-1.5 border-t border-[var(--a-line)] pt-3 text-sm">
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--a-muted)]">
+                        Wax <span className="text-xs">({results.waxOz.toFixed(2)} oz × ${settings.waxCostPerOz.toFixed(3)})</span>
+                      </dt>
+                      <dd className="tabular-nums">${results.waxCost.toFixed(2)}</dd>
+                    </div>
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-[var(--a-muted)]">
+                        Fragrance <span className="text-xs">({results.fragranceOz.toFixed(2)} oz × ${scentCostPerOz.toFixed(2)})</span>
+                      </dt>
+                      <dd className="tabular-nums">${results.fragranceCost.toFixed(2)}</dd>
+                    </div>
+                    {selectedScent?.composition && selectedScent.composition.length > 0 && (
+                      <div className="space-y-1 border-l-2 border-[var(--a-line)] pl-3 text-xs text-[var(--a-muted)]">
+                        {selectedScent.composition.map((comp) => {
+                          const baseOil = baseOils.find((oil) => oil.id === comp.baseOilId);
+                          return baseOil ? (
+                            <div key={comp.baseOilId} className="flex justify-between">
+                              <span>
+                                {baseOil.name} ({comp.percentage}%)
+                              </span>
+                              <span className="tabular-nums">{(results.fragranceOz * (comp.percentage / 100)).toFixed(2)} oz</span>
+                            </div>
+                          ) : null;
+                        })}
+                      </div>
+                    )}
+                    {results.wickCost > 0 && (
+                      <div className="flex justify-between">
+                        <dt className="text-[var(--a-muted)]">Wicks</dt>
+                        <dd className="tabular-nums">${results.wickCost.toFixed(2)}</dd>
+                      </div>
+                    )}
+                    {results.containerCost > 0 && (
+                      <div className="flex justify-between">
+                        <dt className="text-[var(--a-muted)]">Container</dt>
+                        <dd className="tabular-nums">${results.containerCost.toFixed(2)}</dd>
+                      </div>
+                    )}
+                  </dl>
+
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    <button className="a-btn a-btn-primary" onClick={openProductModal} disabled={!selectedScent || loading}>
+                      <Package className="h-4 w-4" aria-hidden />
+                      New product
+                    </button>
+                    <button
+                      className="a-btn"
+                      onClick={() => {
+                        setAddToBatchAfterCreate(true); // Reset to default (checked)
+                        setShowExistingProductModal(true);
+                      }}
+                      disabled={!selectedScent || loading}
+                    >
+                      <Plus className="h-4 w-4" aria-hidden />
+                      Add to existing
+                    </button>
+                    <button className="a-btn col-span-2" onClick={addToBatch} disabled={!selectedScent || loading}>
+                      <Layers className="h-4 w-4" aria-hidden />
+                      Add to batch
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <p className="rounded-lg border border-dashed border-[var(--a-line-strong)] px-4 py-8 text-center text-sm text-[var(--a-muted)]">
+                  Pick a container (or enter water capacity) and a scent to see the cost.
+                </p>
+              )}
+            </section>
+
+            <section className="a-card p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="text-base font-semibold text-[var(--a-ink)]">
+                  Batch {batchItems.length > 0 && <span className="font-normal text-[var(--a-muted)]">· {batchItems.length}</span>}
+                </h2>
                 {batchItems.length > 0 && (
                   <button
                     onClick={(e) => {
                       e.preventDefault();
                       void clearBatch();
                     }}
-                    className="text-xs text-rose-600 hover:text-rose-700"
+                    className="text-xs font-medium text-[var(--a-bad)] hover:underline"
                     type="button"
                   >
                     Clear
@@ -1061,405 +1258,67 @@ export default function CalculatorPage() {
               </div>
 
               {batchItems.length === 0 ? (
-                <div className="text-sm text-[var(--color-muted)] text-center py-8">
-                  No items in batch yet. Calculate a candle and add it to batch.
-                </div>
+                <p className="py-4 text-center text-sm text-[var(--a-muted)]">Add candles to plan a pour and see total wax and oils.</p>
               ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2 max-h-64 overflow-y-auto">
+                <>
+                  <ul className="max-h-64 space-y-1.5 overflow-y-auto">
                     {batchItems.map((item, idx) => (
-                      <div
-                        key={idx}
-                        className="bg-[var(--color-background)] p-2 rounded text-xs"
-                      >
-                        <div className="flex items-start justify-between gap-1">
-                          <div className="flex-1 min-w-0">
-                            <div className="font-medium truncate">{item.containerName}</div>
-                            <div className="text-[var(--color-muted)] truncate">
-                              {item.scentName}
-                            </div>
-                            {Object.entries(item.wickCounts).some(([, c]) => c > 0) && (
-                              <div className="text-[var(--color-muted)] truncate">
-                                {Object.entries(item.wickCounts)
-                                  .filter(([, count]) => count > 0)
-                                  .map(([wickId, count]) => {
-                                    const wick = wicks.find((w) => w.id === wickId);
-                                    const label = wick?.name || wickId;
-                                    return count === 1 ? label : `${label} ×${count}`;
-                                  })
-                                  .join(", ")}
-                              </div>
-                            )}
-                          </div>
-                          <button
-                            onClick={() => removeBatchItem(idx)}
-                            className="text-rose-600 hover:text-rose-700 flex-shrink-0"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="border-t border-[var(--color-line)] pt-3">
-                    <div className="text-sm font-semibold mb-2">Batch Totals</div>
-                    <div className="space-y-1 text-xs">
-                      <div className="flex justify-between">
-                        <span>Candles:</span>
-                        <span className="font-medium">{batchItems.length}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Wax:</span>
-                        <span className="font-medium">{batchTotals.waxOz.toFixed(2)} oz</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>Total Fragrance:</span>
-                        <span className="font-medium">
-                          {batchTotals.fragranceOz.toFixed(2)} oz
-                        </span>
-                      </div>
-
-                      {Object.keys(batchBaseOilTotals).length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-[var(--color-line)]">
-                          <div className="font-medium mb-1">Base Oils Needed:</div>
-                          {Object.entries(batchBaseOilTotals).map(([oilId, oz]) => {
-                            const oil = baseOils.find((o) => o.id === oilId);
-                            return oil ? (
-                              <div
-                                key={oilId}
-                                className="flex justify-between text-[var(--color-muted)]"
-                              >
-                                <span>{oil.name}:</span>
-                                <span>{oz.toFixed(2)} oz</span>
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
-
-                      <div className="flex justify-between border-t border-[var(--color-line)] pt-1 mt-1 font-semibold">
-                        <span>Total Cost:</span>
-                        <span>${batchTotals.totalCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Main Calculator */}
-          <div className="lg:col-span-3 space-y-6">
-            <div className="card p-6">
-              <h2 className="text-xl font-semibold mb-4">Cost Calculator</h2>
-
-              {/* Container ComboBox */}
-              <div className="mb-6">
-                <ComboBox
-                  id="container-combobox"
-                  label="Container"
-                  placeholder="Search containers..."
-                  value={selectedContainerId}
-                  items={containerItems}
-                  emptyMessage="No containers match your search."
-                  alwaysShowItem={addContainerItem}
-                  onChange={(val) => {
-                    setWickCounts({});
-                    if (val === "__add__") {
-                      setActiveTab("containers");
-                      setSelectedContainerId("");
-                      return;
-                    }
-                    setSelectedContainerId(val);
-                  }}
-                />
-              </div>
-
-              {/* Custom Water Oz (if no container selected) */}
-              {!selectedContainerId && (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium mb-2">Water Capacity (oz)</label>
-                  <input
-                    type="number"
-                    className="input"
-                    value={customWaterOz || ""}
-                    onChange={(e) =>
-                      setCustomWaterOz(e.target.value === "" ? 0 : Number(e.target.value))
-                    }
-                    onFocus={(e) => e.target.select()}
-                    step="0.1"
-                    placeholder="0"
-                    inputMode="decimal"
-                  />
-                </div>
-              )}
-
-              {/* Scent ComboBox */}
-              <div className="mb-6">
-                <ComboBox
-                  id="scent-combobox"
-                  label="Scent"
-                  placeholder="Search scents..."
-                  value={selectedScentId}
-                  items={[
-                    { value: "", label: "Select a scent…", sublabel: "Required to calculate" },
-                    ...scentItems,
-                  ]}
-                  emptyMessage="No scents match your search."
-                  onChange={(val) => setSelectedScentId(val)}
-                />
-
-                {selectedScent && (
-                  <div className="mt-3">
-                    <p className="text-sm text-[var(--color-muted)]">
-                      Scent cost: ${scentCostPerOz.toFixed(2)}/oz
-                    </p>
-
-                    {selectedScent.composition &&
-                      selectedScent.composition.length > 0 &&
-                      waterOz > 0 && (
-                        <div className="mt-2 p-3 bg-[var(--color-background)] rounded-lg border border-[var(--color-line)]">
-                          <div className="text-xs font-medium text-[var(--color-muted)] mb-2">
-                            Base Oil Recipe ({(settings.defaultFragranceLoad * 100).toFixed(1)}%
-                            fragrance load):
-                          </div>
-                          <div className="space-y-1.5">
-                            {selectedScent.composition.map((comp, idx) => {
-                              const baseOil = baseOils.find((o) => o.id === comp.baseOilId);
-                              const waxOzCalc = waterOz * settings.waterToWaxRatio;
-                              const totalFragranceOz = waxOzCalc * settings.defaultFragranceLoad;
-                              const baseOilOz = totalFragranceOz * (comp.percentage / 100);
-
-                              return (
-                                <div key={idx} className="flex justify-between items-center text-sm">
-                                  <span className="flex-1">
-                                    {baseOil?.name || comp.baseOilId}
-                                  </span>
-                                  <div className="flex items-center gap-3">
-                                    <span className="text-[var(--color-muted)] text-xs">
-                                      {comp.percentage}%
-                                    </span>
-                                    <span className="font-medium min-w-[4rem] text-right">
-                                      {baseOilOz.toFixed(3)} oz
-                                    </span>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-[var(--color-line)] space-y-1">
-                            <div className="flex justify-between text-xs font-medium">
-                              <span>Total Fragrance:</span>
-                              <span>
-                                {(
-                                  waterOz *
-                                  settings.waterToWaxRatio *
-                                  settings.defaultFragranceLoad
-                                ).toFixed(3)}{" "}
-                                oz
-                              </span>
-                            </div>
-                            <div className="flex justify-between text-xs font-medium">
-                              <span>Total Wax:</span>
-                              <span>{(waterOz * settings.waterToWaxRatio).toFixed(2)} oz</span>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                    {selectedScent.composition &&
-                      selectedScent.composition.length > 0 &&
-                      waterOz === 0 && (
-                        <div className="mt-2 p-3 bg-[var(--color-background)] rounded-lg border border-[var(--color-line)]">
-                          <div className="text-xs font-medium text-[var(--color-muted)] mb-2">
-                            Base Oil Composition:
-                          </div>
-                          <div className="space-y-1">
-                            {selectedScent.composition.map((comp, idx) => {
-                              const baseOil = baseOils.find((o) => o.id === comp.baseOilId);
-                              return (
-                                <div key={idx} className="flex justify-between text-sm">
-                                  <span>{baseOil?.name || comp.baseOilId}</span>
-                                  <span className="font-medium">{comp.percentage}%</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                          <div className="mt-2 pt-2 border-t border-[var(--color-line)] flex justify-between text-xs">
-                            <span className="font-medium">Total:</span>
-                            <span className="font-medium">
-                              {selectedScent.composition.reduce((sum, c) => sum + c.percentage, 0)}%
-                            </span>
-                          </div>
-                          <p className="text-xs text-[var(--color-muted)] mt-2 italic">
-                            Select container to see exact ounces needed
+                      <li key={idx} className="flex items-start gap-2 rounded-lg bg-[var(--a-canvas)] px-2.5 py-2 text-xs">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate font-medium text-[var(--a-ink)]">{item.containerName}</p>
+                          <p className="truncate text-[var(--a-muted)]">
+                            {item.scentName}
+                            {Object.entries(item.wickCounts).some(([, c]) => c > 0) &&
+                              ` · ${Object.entries(item.wickCounts)
+                                .filter(([, count]) => count > 0)
+                                .map(([wickId, count]) => {
+                                  const label = wicks.find((w) => w.id === wickId)?.name || wickId;
+                                  return count === 1 ? label : `${label} ×${count}`;
+                                })
+                                .join(", ")}`}
                           </p>
                         </div>
-                      )}
+                        <button
+                          onClick={() => removeBatchItem(idx)}
+                          className="a-icon-btn h-6 w-6 shrink-0"
+                          aria-label={`Remove ${item.containerName} from batch`}
+                        >
+                          <X className="h-3.5 w-3.5" aria-hidden />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
 
-                    {selectedScent.costPerOz !== undefined &&
-                      !selectedScent.composition && (
-                        <p className="text-xs text-[var(--color-muted)] mt-1 italic">
-                          Using direct cost (no composition)
-                        </p>
-                      )}
-                  </div>
-                )}
-              </div>
-
-              {/* Wick Selection */}
-              <div className="mb-6">
-                <label className="block text-sm font-medium mb-2">Wicks</label>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {wicks.map((w) => (
-                    <div key={w.id}>
-                      <label className="block">
-                        <div className="text-xs font-medium mb-1">{w.name}</div>
-                        <input
-                          type="number"
-                          className="input text-sm w-full"
-                          value={wickCounts[w.id] || 0}
-                          onChange={(e) =>
-                            setWickCounts({ ...wickCounts, [w.id]: Number(e.target.value) })
-                          }
-                          min="0"
-                          step="1"
-                          inputMode="numeric"
-                        />
-                      </label>
+                  <dl className="mt-3 space-y-1 border-t border-[var(--a-line)] pt-3 text-sm">
+                    <div className="flex justify-between">
+                      <dt className="text-[var(--a-muted)]">Wax</dt>
+                      <dd className="tabular-nums">{batchTotals.waxOz.toFixed(2)} oz</dd>
                     </div>
-                  ))}
-                </div>
-                {totalWickCost > 0 && (
-                  <p className="text-sm text-[var(--color-muted)] mt-2">
-                    Total wick cost: ${totalWickCost.toFixed(2)}
-                  </p>
-                )}
-              </div>
-
-              {/* Results */}
-              {results ? (
-                <div className="mt-6 border-t border-[var(--color-line)] pt-6">
-                  <h3 className="text-lg font-semibold mb-4">Results</h3>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
-                    <div>
-                      <div className="text-sm text-[var(--color-muted)]">Wax needed</div>
-                      <div className="text-lg font-semibold">{results.waxOz.toFixed(2)} oz</div>
+                    <div className="flex justify-between">
+                      <dt className="text-[var(--a-muted)]">Fragrance</dt>
+                      <dd className="tabular-nums">{batchTotals.fragranceOz.toFixed(2)} oz</dd>
                     </div>
-                    <div>
-                      <div className="text-sm text-[var(--color-muted)]">Fragrance needed</div>
-                      <div className="text-lg font-semibold">
-                        {results.fragranceOz.toFixed(2)} oz
+                    {Object.keys(batchBaseOilTotals).length > 0 && (
+                      <div className="space-y-0.5 border-l-2 border-[var(--a-line)] pl-3 text-xs text-[var(--a-muted)]">
+                        {Object.entries(batchBaseOilTotals).map(([oilId, oz]) => {
+                          const oil = baseOils.find((o) => o.id === oilId);
+                          return oil ? (
+                            <div key={oilId} className="flex justify-between">
+                              <span>{oil.name}</span>
+                              <span className="tabular-nums">{oz.toFixed(2)} oz</span>
+                            </div>
+                          ) : null;
+                        })}
                       </div>
+                    )}
+                    <div className="flex justify-between border-t border-[var(--a-line)] pt-1.5 font-semibold">
+                      <dt>Total cost</dt>
+                      <dd className="tabular-nums">${batchTotals.totalCost.toFixed(2)}</dd>
                     </div>
-                    <div>
-                      <div className="text-sm text-[var(--color-muted)]">Total cost</div>
-                      <div className="text-lg font-semibold">
-                        ${results.totalMaterialCost.toFixed(2)}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-sm text-[var(--color-muted)]">Cost/oz wax</div>
-                      <div className="text-lg font-semibold">${results.costPerWaxOz.toFixed(2)}</div>
-                    </div>
-                  </div>
-
-                  <div className="bg-[var(--color-background)] p-4 rounded-lg">
-                    <h4 className="text-sm font-semibold mb-2">Cost Breakdown</h4>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span>
-                          Wax ({results.waxOz.toFixed(2)} oz × $
-                          {settings.waxCostPerOz.toFixed(3)}/oz)
-                        </span>
-                        <span className="font-medium">${results.waxCost.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span>
-                          Fragrance ({results.fragranceOz.toFixed(2)} oz × $
-                          {scentCostPerOz.toFixed(2)}/oz)
-                        </span>
-                        <span className="font-medium">${results.fragranceCost.toFixed(2)}</span>
-                      </div>
-
-                      {selectedScent?.composition && selectedScent.composition.length > 0 && (
-                        <div className="ml-4 space-y-1 text-xs text-[var(--color-muted)] border-l-2 border-[var(--color-line)] pl-2 mt-1">
-                          {selectedScent.composition.map((comp) => {
-                            const baseOil = baseOils.find((oil) => oil.id === comp.baseOilId);
-                            const oilOz = results.fragranceOz * (comp.percentage / 100);
-                            return baseOil ? (
-                              <div key={comp.baseOilId} className="flex justify-between">
-                                <span>
-                                  ↳ {baseOil.name} ({comp.percentage}%)
-                                </span>
-                                <span>{oilOz.toFixed(2)} oz</span>
-                              </div>
-                            ) : null;
-                          })}
-                        </div>
-                      )}
-
-                      {results.wickCost > 0 && (
-                        <div className="flex justify-between">
-                          <span>Wicks</span>
-                          <span className="font-medium">${results.wickCost.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      {results.containerCost > 0 && (
-                        <div className="flex justify-between">
-                          <span>Container</span>
-                          <span className="font-medium">${results.containerCost.toFixed(2)}</span>
-                        </div>
-                      )}
-
-                      <div className="flex justify-between border-t border-[var(--color-line)] pt-1 mt-1">
-                        <span className="font-semibold">Total</span>
-                        <span className="font-semibold">${results.totalMaterialCost.toFixed(2)}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="mt-6 space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        className="btn btn-primary"
-                        onClick={openProductModal}
-                        disabled={!selectedScent || loading}
-                      >
-                        📦 New Product
-                      </button>
-                      <button
-                        className="btn"
-                        onClick={() => {
-                          setAddToBatchAfterCreate(true); // Reset to default (checked)
-                          setShowExistingProductModal(true);
-                        }}
-                        disabled={!selectedScent || loading}
-                      >
-                        ➕ Add to Existing
-                      </button>
-                    </div>
-                    <button
-                      className="btn w-full bg-blue-50 hover:bg-blue-100 border-blue-200"
-                      onClick={addToBatch}
-                      disabled={!selectedScent || loading}
-                    >
-                      📋 Add to Batch
-                    </button>
-                    <p className="text-xs text-[var(--color-muted)] text-center">
-                      Create new product, add to existing, or batch multiple candles
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="mt-6 p-4 bg-[var(--color-background)] rounded-lg text-center text-[var(--color-muted)]">
-                  Select a container (or enter water capacity) and scent to see results
-                </div>
+                  </dl>
+                </>
               )}
-            </div>
+            </section>
           </div>
         </div>
       )}
@@ -1467,22 +1326,22 @@ export default function CalculatorPage() {
       {/* Containers Tab */}
       {activeTab === "containers" && (
         <div className="space-y-6">
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold mb-4">Add Container</h2>
+          <div className="a-card p-5 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Add Container</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <label className="block">
-                <div className="text-sm font-medium mb-2">Container Name</div>
+                <div className="a-label">Container Name</div>
                 <input
-                  className="input"
+                  className="a-input"
                   placeholder="e.g., 8oz Amber Jar"
                   value={newContainer.name}
                   onChange={(e) => setNewContainer({ ...newContainer, name: e.target.value })}
                 />
               </label>
               <label className="block">
-                <div className="text-sm font-medium mb-2">Water Capacity (oz)</div>
+                <div className="a-label">Water Capacity (oz)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   type="number"
                   placeholder="e.g., 7.5"
                   value={newContainer.capacityWaterOz || ""}
@@ -1495,14 +1354,14 @@ export default function CalculatorPage() {
                   onFocus={(e) => e.target.select()}
                   step="0.1"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   Fill jar to pour level and measure water weight in oz
                 </p>
               </label>
               <label className="block">
-                <div className="text-sm font-medium mb-2">Shape</div>
+                <div className="a-label">Shape</div>
                 <select
-                  className="input"
+                  className="a-select"
                   value={newContainer.shape}
                   onChange={(e) => setNewContainer({ ...newContainer, shape: e.target.value })}
                 >
@@ -1515,9 +1374,9 @@ export default function CalculatorPage() {
                 </select>
               </label>
               <label className="block">
-                <div className="text-sm font-medium mb-2">Cost per Unit ($)</div>
+                <div className="a-label">Cost per Unit ($)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   type="number"
                   placeholder="e.g., 2.50"
                   value={newContainer.costPerUnit || ""}
@@ -1530,14 +1389,14 @@ export default function CalculatorPage() {
                   onFocus={(e) => e.target.select()}
                   step="0.01"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   How much each container costs you
                 </p>
               </label>
               <label className="block sm:col-span-2">
-                <div className="text-sm font-medium mb-2">Supplier (optional)</div>
+                <div className="a-label">Supplier (optional)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   placeholder="e.g., Candle Science"
                   value={newContainer.supplier || ""}
                   onChange={(e) => setNewContainer({ ...newContainer, supplier: e.target.value })}
@@ -1545,7 +1404,7 @@ export default function CalculatorPage() {
               </label>
             </div>
             <button
-              className="btn btn-primary"
+              className="a-btn a-btn-primary"
               onClick={async () => {
                 if (!newContainer.name || !newContainer.capacityWaterOz) {
                   await showAlert("Please fill in name and capacity", "Validation Error");
@@ -1565,11 +1424,11 @@ export default function CalculatorPage() {
             </button>
           </div>
 
-          <div className="card p-6">
+          <div className="a-card p-5 sm:p-6">
             <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <h2 className="text-xl font-semibold">Existing Containers</h2>
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">Existing Containers</h2>
               <div className="relative w-56">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" />
                 <input
                   type="text"
                   value={containerSearch}
@@ -1585,20 +1444,20 @@ export default function CalculatorPage() {
                 .map((c) => (
                   <div key={c.id}>
                     {editingContainer?.id === c.id ? (
-                      <div className="p-3 border border-[var(--color-line)] rounded bg-[var(--color-surface-2)]">
+                      <div className="a-panel p-3">
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Name</div>
+                            <div className="a-label">Name</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               value={editingContainer.name}
                               onChange={(e) => setEditingContainer({ ...editingContainer, name: e.target.value })}
                             />
                           </label>
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Capacity (water oz)</div>
+                            <div className="a-label">Capacity (water oz)</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               type="number"
                               step="0.1"
                               value={editingContainer.capacityWaterOz || ""}
@@ -1607,17 +1466,17 @@ export default function CalculatorPage() {
                             />
                           </label>
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Shape</div>
+                            <div className="a-label">Shape</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               value={editingContainer.shape}
                               onChange={(e) => setEditingContainer({ ...editingContainer, shape: e.target.value })}
                             />
                           </label>
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Cost per Unit ($)</div>
+                            <div className="a-label">Cost per Unit ($)</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               type="number"
                               step="0.01"
                               value={editingContainer.costPerUnit || ""}
@@ -1626,18 +1485,18 @@ export default function CalculatorPage() {
                             />
                           </label>
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Supplier</div>
+                            <div className="a-label">Supplier</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               placeholder="Optional"
                               value={editingContainer.supplier || ""}
                               onChange={(e) => setEditingContainer({ ...editingContainer, supplier: e.target.value || undefined })}
                             />
                           </label>
                           <label className="block">
-                            <div className="text-xs font-medium mb-1">Notes</div>
+                            <div className="a-label">Notes</div>
                             <input
-                              className="input text-sm"
+                              className="a-input"
                               placeholder="Optional"
                               value={editingContainer.notes || ""}
                               onChange={(e) => setEditingContainer({ ...editingContainer, notes: e.target.value || undefined })}
@@ -1646,29 +1505,29 @@ export default function CalculatorPage() {
                         </div>
                         <div className="flex gap-2">
                           <button
-                            className="btn btn-primary text-sm"
+                            className="a-btn a-btn-primary a-btn-sm"
                             onClick={() => void saveContainer(editingContainer)}
                           >
                             Save
                           </button>
-                          <button className="btn text-sm" onClick={() => setEditingContainer(null)}>
+                          <button className="a-btn a-btn-sm" onClick={() => setEditingContainer(null)}>
                             Cancel
                           </button>
                         </div>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between gap-4 p-3 border border-[var(--color-line)] rounded">
+                      <div className="flex items-center justify-between gap-4 p-3 border border-[var(--a-line)] rounded">
                         <div className="flex items-center gap-3 min-w-0">
-                          <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded border border-[var(--color-line)] bg-[var(--color-surface-2)]">
+                          <div className="relative w-14 h-14 shrink-0 overflow-hidden rounded border border-[var(--a-line)] bg-[var(--a-canvas)]">
                             {c.imageUrl ? (
                               <Image src={c.imageUrl} alt={c.name} fill sizes="56px" className="object-cover" />
                             ) : (
-                              <div className="h-full grid place-items-center text-[10px] text-[var(--color-muted)]">No image</div>
+                              <div className="h-full grid place-items-center text-[10px] text-[var(--a-muted)]">No image</div>
                             )}
                           </div>
                           <div className="min-w-0">
                             <div className="font-medium truncate">{c.name}</div>
-                            <div className="text-sm text-[var(--color-muted)]">
+                            <div className="text-sm text-[var(--a-muted)]">
                               {c.capacityWaterOz}oz • {c.shape} • ${c.costPerUnit.toFixed(2)}
                               {c.supplier && ` • ${c.supplier}`}
                             </div>
@@ -1676,9 +1535,9 @@ export default function CalculatorPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <label className="flex items-center gap-2">
-                            <span className="text-sm text-[var(--color-muted)] whitespace-nowrap">Water oz</span>
+                            <span className="text-sm text-[var(--a-muted)] whitespace-nowrap">Water oz</span>
                             <input
-                              className="input !w-24 text-sm [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                              className="a-input h-9 !w-24 tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                               type="number"
                               min="0"
                               step="0.01"
@@ -1692,10 +1551,10 @@ export default function CalculatorPage() {
                               onFocus={(e) => e.target.select()}
                             />
                           </label>
-                          <button className="btn text-sm" onClick={() => setEditingContainer(c)}>
+                          <button className="a-btn a-btn-sm" onClick={() => setEditingContainer(c)}>
                             Details
                           </button>
-                          <button className="btn text-sm !text-red-600 hover:!bg-red-50" onClick={() => void deleteContainer(c.id)}>
+                          <button className="a-btn a-btn-sm text-[var(--a-bad)] hover:bg-[#fdecea]" onClick={() => void deleteContainer(c.id)}>
                             Delete
                           </button>
                         </div>
@@ -1704,12 +1563,12 @@ export default function CalculatorPage() {
                   </div>
                 ))}
               {dirtyInlineContainers.length > 0 && (
-                <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-lg border border-[var(--color-line)] bg-[var(--color-surface)] p-3 shadow-lg">
+                <div className="sticky bottom-4 z-20 flex items-center justify-between gap-4 rounded-xl border border-amber-200 bg-[#fdf6e7] p-3 shadow-lg">
                   <span className="text-sm font-medium">
                     {dirtyInlineContainers.length} unsaved {dirtyInlineContainers.length === 1 ? "change" : "changes"}
                   </span>
                   <button
-                    className="btn btn-primary text-sm"
+                    className="a-btn a-btn-primary a-btn-sm"
                     disabled={savingContainer}
                     onClick={() => void saveInlineContainerOzChanges()}
                   >
@@ -1718,10 +1577,10 @@ export default function CalculatorPage() {
                 </div>
               )}
               {containers.length === 0 && (
-                <p className="text-[var(--color-muted)]">No containers yet</p>
+                <p className="text-[var(--a-muted)]">No containers yet</p>
               )}
               {containers.length > 0 && containerSearch && containers.filter((c) => c.name.toLowerCase().includes(containerSearch.toLowerCase())).length === 0 && (
-                <p className="text-[var(--color-muted)]">No containers match &ldquo;{containerSearch}&rdquo;</p>
+                <p className="text-[var(--a-muted)]">No containers match &ldquo;{containerSearch}&rdquo;</p>
               )}
             </div>
           </div>
@@ -1731,22 +1590,22 @@ export default function CalculatorPage() {
       {/* Wicks Tab */}
       {activeTab === "wicks" && (
         <div className="space-y-6">
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold mb-4">Add Wick Type</h2>
+          <div className="a-card p-5 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Add Wick Type</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
               <label className="block">
-                <div className="text-sm font-medium mb-2">Wick Type Name</div>
+                <div className="a-label">Wick Type Name</div>
                 <input
-                  className="input"
+                  className="a-input"
                   placeholder="e.g., Wood 30mm"
                   value={newWick.name}
                   onChange={(e) => setNewWick({ ...newWick, name: e.target.value })}
                 />
               </label>
               <label className="block">
-                <div className="text-sm font-medium mb-2">Cost per Wick ($)</div>
+                <div className="a-label">Cost per Wick ($)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   type="number"
                   placeholder="e.g., 1.47"
                   value={newWick.costPerWick || ""}
@@ -1759,25 +1618,25 @@ export default function CalculatorPage() {
                   onFocus={(e) => e.target.select()}
                   step="0.01"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   Include your share of shipping costs
                 </p>
               </label>
               <label className="block sm:col-span-2">
-                <div className="text-sm font-medium mb-2">Appear As (for variants)</div>
+                <div className="a-label">Appear As (for variants)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   placeholder="e.g., Standard, Wavy Wood Wick"
                   value={newWick.appearAs || ""}
                   onChange={(e) => setNewWick({ ...newWick, appearAs: e.target.value })}
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   How this wick type displays in product variant names
                 </p>
               </label>
             </div>
             <button
-              className="btn btn-primary"
+              className="a-btn a-btn-primary"
               onClick={async () => {
                 if (!newWick.name || newWick.costPerWick === undefined) {
                   await showAlert("Please fill in name and cost", "Validation Error");
@@ -1795,18 +1654,18 @@ export default function CalculatorPage() {
             </button>
           </div>
 
-          <div className="card p-6">
-            <h2 className="text-xl font-semibold mb-4">Existing Wick Types</h2>
+          <div className="a-card p-5 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Existing Wick Types</h2>
             <div className="space-y-3">
               {wicks.map((w) => (
                 <div key={w.id}>
                   {editingWick?.id === w.id ? (
-                    <div className="p-3 border border-[var(--color-line)] rounded bg-[var(--color-background)]">
+                    <div className="a-panel p-3">
                       <div className="space-y-3">
                         <label className="block">
-                          <div className="text-xs font-medium mb-1">Name</div>
+                          <div className="a-label">Name</div>
                           <input
-                            className="input text-sm"
+                            className="a-input"
                             value={editingWick.name}
                             onChange={(e) =>
                               setEditingWick({ ...editingWick, name: e.target.value })
@@ -1814,9 +1673,9 @@ export default function CalculatorPage() {
                           />
                         </label>
                         <label className="block">
-                          <div className="text-xs font-medium mb-1">Cost per Wick ($)</div>
+                          <div className="a-label">Cost per Wick ($)</div>
                           <input
-                            className="input text-sm"
+                            className="a-input"
                             type="number"
                             step="0.01"
                             value={editingWick.costPerWick || ""}
@@ -1830,9 +1689,9 @@ export default function CalculatorPage() {
                           />
                         </label>
                         <label className="block">
-                          <div className="text-xs font-medium mb-1">Appear As</div>
+                          <div className="a-label">Appear As</div>
                           <input
-                            className="input text-sm"
+                            className="a-input"
                             placeholder="e.g., Standard, Wavy Wood Wick"
                             value={editingWick.appearAs || ""}
                             onChange={(e) =>
@@ -1842,7 +1701,7 @@ export default function CalculatorPage() {
                         </label>
                         <div className="flex gap-2">
                           <button
-                            className="btn btn-primary text-sm"
+                            className="a-btn a-btn-primary a-btn-sm"
                             onClick={() => {
                               if (
                                 editingWick.id &&
@@ -1855,17 +1714,17 @@ export default function CalculatorPage() {
                           >
                             Save
                           </button>
-                          <button className="btn text-sm" onClick={() => setEditingWick(null)}>
+                          <button className="a-btn a-btn-sm" onClick={() => setEditingWick(null)}>
                             Cancel
                           </button>
                         </div>
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center justify-between p-3 border border-[var(--color-line)] rounded">
+                    <div className="flex items-center justify-between p-3 border border-[var(--a-line)] rounded">
                       <div>
                         <div className="font-medium">{w.name}</div>
-                        <div className="text-sm text-[var(--color-muted)]">
+                        <div className="text-sm text-[var(--a-muted)]">
                           ${w.costPerWick.toFixed(2)}/wick
                           {w.appearAs ? (
                             <span className="ml-2">
@@ -1880,10 +1739,10 @@ export default function CalculatorPage() {
                         </div>
                       </div>
                       <div className="flex gap-2">
-                        <button className="btn text-sm" onClick={() => setEditingWick(w)}>
+                        <button className="a-btn a-btn-sm" onClick={() => setEditingWick(w)}>
                           Edit
                         </button>
-                        <button className="btn text-sm" onClick={() => void deleteWick(w.id)}>
+                        <button className="a-btn a-btn-sm" onClick={() => void deleteWick(w.id)}>
                           Delete
                         </button>
                       </div>
@@ -1891,7 +1750,7 @@ export default function CalculatorPage() {
                   )}
                 </div>
               ))}
-              {wicks.length === 0 && <p className="text-[var(--color-muted)]">No wick types yet</p>}
+              {wicks.length === 0 && <p className="text-[var(--a-muted)]">No wick types yet</p>}
             </div>
           </div>
         </div>
@@ -1899,13 +1758,13 @@ export default function CalculatorPage() {
 
       {/* Settings Tab */}
       {activeTab === "settings" && (
-        <div className="card p-6">
-          <h2 className="text-xl font-semibold mb-4">Calculator Settings</h2>
+        <div className="a-card p-5 sm:p-6">
+          <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Calculator Settings</h2>
           <div className="space-y-4 max-w-md">
             <div>
-              <label className="block text-sm font-medium mb-2">Wax Cost per Oz ($)</label>
+              <label className="a-label">Wax Cost per Oz ($)</label>
               <input
-                className="input"
+                className="a-input"
                 type="number"
                 value={settings.waxCostPerOz || ""}
                 onChange={(e) =>
@@ -1919,16 +1778,16 @@ export default function CalculatorPage() {
                 placeholder="0.219"
                 inputMode="decimal"
               />
-              <p className="text-xs text-[var(--color-muted)] mt-1">
+              <p className="a-help">
                 Current: ${settings.waxCostPerOz.toFixed(3)}/oz (≈ $
                 {(settings.waxCostPerOz * 720).toFixed(2)} for 45 lbs)
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Water to Wax Ratio</label>
+              <label className="a-label">Water to Wax Ratio</label>
               <input
-                className="input"
+                className="a-input"
                 type="number"
                 value={settings.waterToWaxRatio || ""}
                 onChange={(e) =>
@@ -1942,15 +1801,15 @@ export default function CalculatorPage() {
                 placeholder="0.9"
                 inputMode="decimal"
               />
-              <p className="text-xs text-[var(--color-muted)] mt-1">
+              <p className="a-help">
                 1 oz water = {settings.waterToWaxRatio.toFixed(2)} oz wax (typically 0.9)
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium mb-2">Default Fragrance Load (%)</label>
+              <label className="a-label">Default Fragrance Load (%)</label>
               <input
-                className="input"
+                className="a-input"
                 type="number"
                 value={settings.defaultFragranceLoad ? settings.defaultFragranceLoad * 100 : ""}
                 onChange={(e) =>
@@ -1966,12 +1825,12 @@ export default function CalculatorPage() {
                 placeholder="8"
                 inputMode="numeric"
               />
-              <p className="text-xs text-[var(--color-muted)] mt-1">
+              <p className="a-help">
                 {(settings.defaultFragranceLoad * 100).toFixed(1)}% fragrance by weight of wax
               </p>
             </div>
 
-            <button className="btn btn-primary" onClick={() => void saveSettings()}>
+            <button className="a-btn a-btn-primary" onClick={() => void saveSettings()}>
               Save Settings
             </button>
           </div>
@@ -1980,7 +1839,7 @@ export default function CalculatorPage() {
 
       {/* Product Creation Modal */}
       {showProductModal && newProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="a-ui fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
           <div
             className="absolute inset-0"
             onClick={() => {
@@ -1989,18 +1848,18 @@ export default function CalculatorPage() {
             }}
           />
 
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+          <div className="a-card relative flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+                <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">
                   Create Product from Calculation
                 </h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                <p className="text-sm text-[var(--a-muted)] mt-0.5">
                   Product details auto-filled from cost calculation
                 </p>
               </div>
               <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                className="a-icon-btn -mr-2 shrink-0"
                 onClick={() => {
                   setShowProductModal(false);
                   setNewProduct(null);
@@ -2014,9 +1873,9 @@ export default function CalculatorPage() {
 
             <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 min-h-0">
               <label className="block">
-                <div className="text-sm font-medium mb-2">Product Name</div>
+                <div className="a-label">Product Name</div>
                 <input
-                  className="input"
+                  className="a-input"
                   value={newProduct.name}
                   onChange={(e) => {
                     const name = e.target.value;
@@ -2033,23 +1892,23 @@ export default function CalculatorPage() {
               </label>
 
               <label className="block">
-                <div className="text-sm font-medium mb-2">Slug (URL)</div>
+                <div className="a-label">Slug (URL)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   value={newProduct.slug}
                   onChange={(e) => setNewProduct({ ...newProduct, slug: e.target.value })}
                   placeholder="e.g., woodford-reserve-candle"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   Lowercase letters, numbers, and hyphens only (auto-updates from name)
                 </p>
               </label>
 
               <div className="grid grid-cols-2 gap-4">
                 <label className="block">
-                  <div className="text-sm font-medium mb-2">SKU</div>
+                  <div className="a-label">SKU</div>
                   <input
-                    className="input"
+                    className="a-input"
                     value={newProduct.sku}
                     onChange={(e) => setNewProduct({ ...newProduct, sku: e.target.value })}
                     placeholder="DCW-0001"
@@ -2057,9 +1916,9 @@ export default function CalculatorPage() {
                 </label>
 
                 <label className="block">
-                  <div className="text-sm font-medium mb-2">Retail Price ($) *</div>
+                  <div className="a-label">Retail Price ($) *</div>
                   <input
-                    className="input"
+                    className="a-input"
                     type="number"
                     step="0.01"
                     min="0.01"
@@ -2079,9 +1938,9 @@ export default function CalculatorPage() {
               </div>
 
               <label className="block">
-                <div className="text-sm font-medium mb-2">Candle Weight (ounces)</div>
+                <div className="a-label">Candle Weight (ounces)</div>
                 <input
-                  className="input"
+                  className="a-input"
                   type="number"
                   step="0.1"
                   value={newProduct.weight?.value || ""}
@@ -2094,12 +1953,12 @@ export default function CalculatorPage() {
                   }}
                   placeholder="e.g. 12 (jar + wax only)"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   Weight of jar + wax only. Packaging (~16oz) added automatically for shipping.
                 </p>
               </label>
 
-              <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="rounded-lg border border-green-200 bg-[#e8f5ec] p-3">
                 <div className="text-sm font-medium text-green-900">
                   Material Cost: ${newProduct.materialCost?.toFixed(2) || "0.00"}
                 </div>
@@ -2112,8 +1971,8 @@ export default function CalculatorPage() {
               </div>
 
               <div className="block">
-                <div className="text-sm font-medium mb-2">Product Images</div>
-                <label className="btn cursor-pointer w-full">
+                <div className="a-label">Product Images</div>
+                <label className="a-btn w-full cursor-pointer focus-within:shadow-[var(--a-focus)]">
                   + Add Images
                   <input type="file" accept="image/*" multiple className="hidden" onChange={handleImageUpload} />
                 </label>
@@ -2123,12 +1982,12 @@ export default function CalculatorPage() {
                     {newProduct.images.map((img, idx) => (
                       <div
                         key={idx}
-                        className="relative aspect-square rounded-lg overflow-hidden bg-white border border-[var(--color-line)]"
+                        className="relative aspect-square rounded-lg overflow-hidden bg-white border border-[var(--a-line)]"
                       >
                         <Image src={img} alt={`Product ${idx + 1}`} fill className="object-contain" />
                         <button
                           type="button"
-                          className="absolute top-1 right-1 btn text-xs px-2 py-1 bg-rose-500 text-white"
+                          className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-black/60 text-xs text-white hover:bg-black/80"
                           onClick={() => removeProductImage(idx)}
                         >
                           ✕
@@ -2150,7 +2009,7 @@ export default function CalculatorPage() {
                   {!newProduct.stripePriceId && (
                     <button
                       type="button"
-                      className="text-xs text-green-600 hover:text-green-700 font-medium flex items-center gap-1"
+                      className="a-link"
                       onClick={async () => {
                         if (!newProduct.name || !newProduct.name.trim()) {
                           await showAlert("Please enter a product name first", "Validation Error");
@@ -2197,7 +2056,7 @@ export default function CalculatorPage() {
                         }
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="a-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Create Stripe Product
@@ -2205,7 +2064,7 @@ export default function CalculatorPage() {
                   )}
                 </div>
                 <input
-                  className="input"
+                  className="a-input"
                   value={newProduct.stripePriceId || ""}
                   onChange={(e) => setNewProduct({ ...newProduct, stripePriceId: e.target.value })}
                   placeholder="Click 'Create Stripe Product' or paste manually"
@@ -2218,7 +2077,7 @@ export default function CalculatorPage() {
                   {!newProduct.squareCatalogId && (
                     <button
                       type="button"
-                      className="text-xs text-purple-600 hover:text-purple-700 font-medium flex items-center gap-1"
+                      className="a-link"
                       onClick={async () => {
                         if (!newProduct.name || !newProduct.name.trim()) {
                           await showAlert("Please enter a product name first", "Validation Error");
@@ -2265,7 +2124,7 @@ export default function CalculatorPage() {
                         }
                       }}
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="a-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Create Square Product
@@ -2273,7 +2132,7 @@ export default function CalculatorPage() {
                   )}
                 </div>
                 <input
-                  className="input"
+                  className="a-input"
                   value={newProduct.squareCatalogId || ""}
                   onChange={(e) =>
                     setNewProduct({ ...newProduct, squareCatalogId: e.target.value || undefined })
@@ -2308,7 +2167,7 @@ export default function CalculatorPage() {
                   <span className="text-sm font-medium">SEO Description</span>
                   <button
                     type="button"
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    className="a-link"
                     onClick={() => {
                       if (!newProduct.name) return;
                       const container = containers.find((c) => c.id === newProduct.containerId);
@@ -2330,7 +2189,7 @@ export default function CalculatorPage() {
                   </button>
                 </div>
                 <textarea
-                  className="textarea"
+                  className="a-textarea"
                   rows={3}
                   value={newProduct.seoDescription}
                   onChange={(e) => setNewProduct({ ...newProduct, seoDescription: e.target.value })}
@@ -2339,9 +2198,9 @@ export default function CalculatorPage() {
               </label>
 
               <label className="block">
-                <div className="text-sm font-medium mb-2">Alcohol Type</div>
+                <div className="a-label">Alcohol Type</div>
                 <select
-                  className="input"
+                  className="a-select"
                   value={newProduct.alcoholType || "Other"}
                   onChange={(e) => setNewProduct({ ...newProduct, alcoholType: e.target.value })}
                 >
@@ -2389,9 +2248,9 @@ export default function CalculatorPage() {
               </div>
 
               <label className="block">
-                <div className="text-sm font-medium mb-2">Initial Stock Quantity</div>
+                <div className="a-label">Initial Stock Quantity</div>
                 <input
-                  className="input"
+                  className="a-input"
                   type="number"
                   min="0"
                   step="1"
@@ -2417,31 +2276,31 @@ export default function CalculatorPage() {
                   placeholder="1"
                   inputMode="numeric"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
+                <p className="a-help">
                   How many units you have in stock for each variant
                 </p>
               </label>
 
               {newProduct.variantConfig && (
-                <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <div className="text-sm font-medium text-blue-900 mb-1">Variants Configured</div>
-                  <div className="text-xs text-blue-700">
+                <div className="a-panel p-3">
+                  <div className="mb-1 text-sm font-medium text-[var(--a-ink)]">Variants Configured</div>
+                  <div className="text-xs text-[var(--a-muted)]">
                     This product will have variants for:{" "}
                     {newProduct.variantConfig.wickTypes.map((w) => w.name).join(", ")}
                   </div>
-                  <div className="text-xs text-blue-700 mt-1">
+                  <div className="text-xs text-[var(--a-muted)] mt-1">
                     Scent: {scents.find((s) => s.id === selectedScentId)?.name}
                   </div>
-                  <div className="text-xs text-blue-700 mt-1">
+                  <div className="text-xs text-[var(--a-muted)] mt-1">
                     Stock per variant: {initialStock} unit{initialStock !== 1 ? "s" : ""}
                   </div>
                 </div>
               )}
             </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
               <button
-                className="btn hover:bg-white transition-colors"
+                className="a-btn"
                 onClick={() => {
                   setShowProductModal(false);
                   setNewProduct(null);
@@ -2456,12 +2315,12 @@ export default function CalculatorPage() {
                     type="checkbox"
                     checked={addToBatchAfterCreate}
                     onChange={(e) => setAddToBatchAfterCreate(e.target.checked)}
-                    className="w-4 h-4"
+                    className="a-check"
                   />
                   <span>Add to batch after creating</span>
                 </label>
                 <button
-                  className="btn btn-primary"
+                  className="a-btn a-btn-primary"
                   onClick={() => void saveProduct()}
                   disabled={
                     savingProduct ||
@@ -2481,7 +2340,7 @@ export default function CalculatorPage() {
 
       {/* Add to Existing Product Modal */}
       {showExistingProductModal && results && selectedScent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="a-ui fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
           <div
             className="absolute inset-0"
             onClick={() => {
@@ -2490,18 +2349,18 @@ export default function CalculatorPage() {
             }}
           />
 
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+          <div className="a-card relative flex max-h-[92dvh] w-full max-w-3xl flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]">
+            <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
               <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
+                <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">
                   Add to Existing Product
                 </h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
+                <p className="text-sm text-[var(--a-muted)] mt-0.5">
                   Select a product to add this scent/wick combination
                 </p>
               </div>
               <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+                className="a-icon-btn -mr-2 shrink-0"
                 onClick={() => {
                   setShowExistingProductModal(false);
                   setProductSearch("");
@@ -2516,7 +2375,7 @@ export default function CalculatorPage() {
             <div className="flex-1 overflow-y-auto px-6 py-6 min-h-0">
               <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-sm">
                 <div className="font-medium text-blue-900">Adding:</div>
-                <div className="text-blue-700">
+                <div className="text-[var(--a-muted)]">
                   Scent: {selectedScent.name}
                   {Object.entries(wickCounts).some(([_, count]) => count > 0) && (
                     <div className="mt-1">
@@ -2536,7 +2395,7 @@ export default function CalculatorPage() {
 
               <div className="mb-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--a-muted)]" />
                   <input
                     type="text"
                     className="input w-full !pl-10"
@@ -2558,7 +2417,7 @@ export default function CalculatorPage() {
 
                   if (filteredProducts.length === 0) {
                     return (
-                      <div className="text-center py-8 text-[var(--color-muted)]">
+                      <div className="text-center py-8 text-[var(--a-muted)]">
                         {allProducts.length === 0
                           ? "No products found. Create a new product first."
                           : "No products match your search."}
@@ -2680,24 +2539,24 @@ export default function CalculatorPage() {
                           await showAlert(`Failed: ${error.error || "Unknown error"}`, "Error");
                         }
                       }}
-                      className="w-full text-left p-4 border-2 border-[var(--color-line)] rounded-xl hover:border-[var(--color-accent)] hover:bg-amber-50/30 transition-all duration-200 cursor-pointer shadow-sm hover:shadow-md group"
+                      className="group w-full cursor-pointer rounded-xl border border-[var(--a-line)] p-4 text-left transition-colors hover:border-[var(--a-ink)] hover:bg-[var(--a-canvas)]"
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex-1">
                           <div className="font-semibold text-base group-hover:text-[var(--color-accent)] transition-colors">
                             {product.name}
                           </div>
-                          <div className="text-sm text-[var(--color-muted)] mt-1">
+                          <div className="text-sm text-[var(--a-muted)] mt-1">
                             SKU: {product.sku} | Price: ${product.price.toFixed(2)}
                           </div>
                           {product.variantConfig && (
-                            <div className="text-xs text-[var(--color-muted)] mt-1">
+                            <div className="a-help">
                               Wicks: {product.variantConfig.wickTypes.map((w) => w.name).join(", ")}
                             </div>
                           )}
                         </div>
                         <div className="ml-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="h-5 w-5 text-[var(--a-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                           </svg>
                         </div>
@@ -2708,13 +2567,13 @@ export default function CalculatorPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+            <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input
                   type="checkbox"
                   checked={addToBatchAfterCreate}
                   onChange={(e) => setAddToBatchAfterCreate(e.target.checked)}
-                  className="w-4 h-4"
+                  className="a-check"
                 />
                 <span>Add to batch after adding variant</span>
               </label>
@@ -2724,7 +2583,7 @@ export default function CalculatorPage() {
                   setProductSearch("");
                   setAddToBatchAfterCreate(true); // Reset to default
                 }}
-                className="btn hover:bg-white transition-colors"
+                className="a-btn"
               >
                 Cancel
               </button>
@@ -2735,7 +2594,7 @@ export default function CalculatorPage() {
 
       {/* Size Selector Modal (for products with multiple sizes) */}
       {selectedProductForSize && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+        <div className="a-ui fixed inset-0 z-[60] flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
           <div
             className="absolute inset-0"
             onClick={() => {
@@ -2744,9 +2603,9 @@ export default function CalculatorPage() {
             }}
           />
 
-          <div className="relative w-full max-w-md rounded-2xl bg-white shadow-2xl p-6">
-            <h3 className="text-lg font-semibold mb-4">Select Size</h3>
-            <p className="text-sm text-[var(--color-muted)] mb-4">
+          <div className="a-card relative w-full max-w-md rounded-b-none p-6 shadow-2xl sm:rounded-b-[var(--a-radius)]">
+            <h3 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Select Size</h3>
+            <p className="text-sm text-[var(--a-muted)] mb-4">
               {selectedProductForSize.name} has multiple sizes. Please select which size to add stock to:
             </p>
 
@@ -2758,7 +2617,7 @@ export default function CalculatorPage() {
                   className={`w-full px-4 py-3 rounded-lg border-2 text-left transition ${
                     selectedSizeId === size.id
                       ? "border-[var(--color-accent)] bg-[var(--color-accent)] text-[var(--color-accent-ink)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-accent)]"
+                      : "border-[var(--a-line)] hover:border-[var(--color-accent)]"
                   }`}
                 >
                   <div className="font-semibold">{size.name}</div>
@@ -2773,7 +2632,7 @@ export default function CalculatorPage() {
                   setSelectedProductForSize(null);
                   setSelectedSizeId("");
                 }}
-                className="flex-1 btn hover:bg-white"
+                className="a-btn flex-1"
               >
                 Cancel
               </button>
@@ -2888,7 +2747,7 @@ export default function CalculatorPage() {
                   }
                 }}
                 disabled={!selectedSizeId}
-                className="flex-1 btn btn-primary"
+                className="a-btn a-btn-primary flex-1"
               >
                 Add to Product
               </button>
