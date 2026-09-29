@@ -453,7 +453,7 @@ export function DateRange<T extends string>({
     <div className="flex flex-wrap items-end gap-2">
       <label className="block">
         <span className="sr-only">Date range</span>
-        <select className="a-select min-w-44" value={preset} onChange={(e) => onPreset(e.target.value as T)}>
+        <select className="a-select min-w-44 text-[var(--a-ink)]" value={preset} onChange={(e) => onPreset(e.target.value as T)}>
           {presets.map((p) => (
             <option key={p.value} value={p.value}>
               {p.label}

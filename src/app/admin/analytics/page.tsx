@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, DollarSign, Package, ShoppingCart, Calendar, Truck, Receipt } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Composition, DateRange, Panel, RankedBars, Stat } from "../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type Order = {
@@ -282,582 +284,212 @@ export default function AdminAnalyticsPage() {
     return change > 0 ? `+${formatted}%` : `-${formatted}%`;
   }
 
-  if (loading) {
+  const money = (cents: number) =>
+    `${cents < 0 ? "−" : ""}$${(Math.abs(cents) / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  if (loading && !analytics) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading analytics…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading analytics…</p>
       </div>
     );
   }
 
   if (error || !analytics) {
     return (
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-rose-600">{error}</p>
-          <Link href="/admin/analytics-overview" className="btn mt-4">
-            Back to Overview
-          </Link>
+      <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <PageHeader title="Sales analytics" />
+        <div role="alert" className="a-card px-6 py-12 text-center text-sm text-[#b42318]">
+          {error || "Couldn't load analytics."}
         </div>
       </div>
     );
   }
 
+  const comparison = analytics.comparison;
+  function delta(current: number, previous: number | undefined) {
+    if (!comparison || previous === undefined) return undefined;
+    const change = calculatePercentageChange(current, previous);
+    return (
+      <span className={change >= 0 ? "text-[var(--a-good)]" : "text-[var(--a-bad)]"}>
+        {formatPercentageChange(change)} vs previous
+      </span>
+    );
+  }
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin/analytics-overview"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Overview
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Sales analytics"
+        description="What sold, where it sold, and what it earned."
+        actions={
+          <Link href="/admin/analytics-overview" className="a-btn">
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+            Business overview
           </Link>
-          <h1 className="text-3xl font-bold">Sales Analytics</h1>
-          <p className="text-[var(--color-muted)] mt-1">
-            Overview of your business performance and profitability
-          </p>
+        }
+      />
+
+      <div className="mb-6 flex flex-wrap items-center gap-x-4 gap-y-2">
+        <DateRange
+          preset={datePreset}
+          presets={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "This week" },
+            { value: "month", label: "This month" },
+            { value: "lastMonth", label: "Last month" },
+            { value: "ytd", label: "Year to date" },
+            { value: "allTime", label: "All time" },
+            { value: "custom", label: "Custom range…" },
+          ]}
+          onPreset={(p) => (p === "custom" ? setDatePreset("custom") : handlePresetChange(p))}
+          customStart={customStartDate}
+          customEnd={customEndDate}
+          onCustomStart={setCustomStartDate}
+          onCustomEnd={setCustomEndDate}
+          onApply={() => {
+            if (customStartDate && customEndDate) {
+              setStartDate(customStartDate);
+              setEndDate(customEndDate);
+              loadAnalytics(customStartDate, customEndDate);
+            }
+          }}
+        />
+        {datePreset !== "allTime" && (
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-[var(--a-ink)]">
+            <input type="checkbox" className="a-check" checked={showComparison} onChange={(e) => setShowComparison(e.target.checked)} />
+            Compare to previous period
+          </label>
+        )}
+        {loading && (
+          <span role="status" className="text-sm text-[var(--a-muted)]">
+            Updating…
+          </span>
+        )}
+      </div>
+
+      <div className={`transition-opacity ${loading ? "opacity-60" : ""}`}>
+        {/* Key numbers */}
+        <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Revenue" value={money(analytics.totalRevenue)} hint={delta(analytics.totalRevenue, comparison?.revenue) ?? "Products, shipping and tax"} />
+          <Stat label="Net revenue" value={money(analytics.netRevenue)} hint={delta(analytics.netRevenue, comparison?.netRevenue) ?? "After Stripe and Square fees"} />
+          <Stat label="Orders" value={analytics.totalOrders} hint={delta(analytics.totalOrders, comparison?.orders) ?? `${analytics.totalUnits} units sold`} />
+          <Stat
+            label="Average order"
+            value={money(analytics.averageOrderValue)}
+            hint={delta(analytics.averageOrderValue, comparison?.averageOrderValue) ?? `${money(analytics.stripeFees)} in fees`}
+          />
         </div>
 
-        {/* Date Range Controls */}
-        <div className="card p-6 bg-white mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-[var(--color-muted)]" />
-            <h2 className="text-lg font-semibold">Date Range</h2>
-          </div>
-
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <button
-              className={`btn ${datePreset === "today" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("today")}
-            >
-              Today
-            </button>
-            <button
-              className={`btn ${datePreset === "week" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("week")}
-            >
-              This Week
-            </button>
-            <button
-              className={`btn ${datePreset === "month" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("month")}
-            >
-              This Month
-            </button>
-            <button
-              className={`btn ${datePreset === "lastMonth" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("lastMonth")}
-            >
-              Last Month
-            </button>
-            <button
-              className={`btn ${datePreset === "ytd" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("ytd")}
-            >
-              Year to Date
-            </button>
-            <button
-              className={`btn ${datePreset === "allTime" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("allTime")}
-            >
-              All Time
-            </button>
-            <button
-              className={`btn ${datePreset === "custom" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => setDatePreset("custom")}
-            >
-              Custom Range
-            </button>
-          </div>
-
-          {/* Custom Date Pickers */}
-          {datePreset === "custom" && (
-            <div className="flex flex-wrap items-end gap-4 mb-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">End Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                />
-              </div>
-              <button
-                className="btn bg-[var(--color-accent)] text-white px-6"
-                onClick={() => {
-                  if (customStartDate && customEndDate) {
-                    setStartDate(customStartDate);
-                    setEndDate(customEndDate);
-                    loadAnalytics(customStartDate, customEndDate);
-                  }
-                }}
-                disabled={!customStartDate || !customEndDate}
-              >
-                Go
-              </button>
-            </div>
-          )}
-
-          {/* Comparison Toggle */}
-          {datePreset !== "allTime" && (
-            <label className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={showComparison}
-                onChange={(e) => setShowComparison(e.target.checked)}
-                className="w-4 h-4"
-              />
-              <span className="text-sm">
-                Show comparison to previous period
-                {datePreset === "month" && " (vs last month)"}
-                {datePreset === "week" && " (vs last week)"}
-                {datePreset === "ytd" && " (vs last year)"}
-                {datePreset === "today" && " (vs yesterday)"}
-                {datePreset === "lastMonth" && " (vs two months ago)"}
-              </span>
-            </label>
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="Revenue mix">
+            <Composition
+              format={money}
+              items={[
+                { label: "Products", value: analytics.totalProductRevenue ?? 0 },
+                { label: "Shipping", value: analytics.totalShippingRevenue ?? 0 },
+                { label: "Tax collected", value: analytics.totalTaxCollected ?? 0 },
+              ]}
+            />
+          </Panel>
+          {analytics.paymentSourceSales && analytics.paymentSourceSales.length > 0 && (
+            <Panel title="By payment source">
+              <Composition format={money} items={analytics.paymentSourceSales.slice(0, 4).map((s) => ({ label: `${s.source} · ${s.orders} orders`, value: s.revenue }))} />
+            </Panel>
           )}
         </div>
 
-        {/* Key Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Gross Revenue Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Gross Revenue</span>
-            </div>
-            <p className="text-3xl font-bold">${(analytics.totalRevenue / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              Products: ${((analytics.totalProductRevenue ?? 0) / 100).toFixed(2)}<br/>
-              Shipping: ${((analytics.totalShippingRevenue ?? 0) / 100).toFixed(2)} | Tax: ${((analytics.totalTaxCollected ?? 0) / 100).toFixed(2)}
-            </p>
-            {analytics.comparison && (
-              <div className="mt-2">
-                <span
-                  className={`text-sm font-medium ${
-                    calculatePercentageChange(analytics.totalRevenue, analytics.comparison.revenue) >= 0
-                      ? "text-green-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {formatPercentageChange(
-                    calculatePercentageChange(analytics.totalRevenue, analytics.comparison.revenue)
-                  )}{" "}
-                  vs previous period
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Net Revenue Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-emerald-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-emerald-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Net Revenue</span>
-            </div>
-            <p className="text-3xl font-bold">${(analytics.netRevenue / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">After Stripe + Square fees</p>
-            {analytics.comparison && (
-              <div className="mt-2">
-                <span
-                  className={`text-sm font-medium ${
-                    calculatePercentageChange(analytics.netRevenue, analytics.comparison.netRevenue) >= 0
-                      ? "text-green-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {formatPercentageChange(
-                    calculatePercentageChange(analytics.netRevenue, analytics.comparison.netRevenue)
-                  )}{" "}
-                  vs previous period
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Orders Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <ShoppingCart className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Orders</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.totalOrders}</p>
-            {analytics.comparison && (
-              <div className="mt-2">
-                <span
-                  className={`text-sm font-medium ${
-                    calculatePercentageChange(analytics.totalOrders, analytics.comparison.orders) >= 0
-                      ? "text-green-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {formatPercentageChange(
-                    calculatePercentageChange(analytics.totalOrders, analytics.comparison.orders)
-                  )}{" "}
-                  vs previous period
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Units Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Units Sold</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.totalUnits}</p>
-            {analytics.comparison && (
-              <div className="mt-2">
-                <span
-                  className={`text-sm font-medium ${
-                    calculatePercentageChange(analytics.totalUnits, analytics.comparison.units) >= 0
-                      ? "text-green-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {formatPercentageChange(
-                    calculatePercentageChange(analytics.totalUnits, analytics.comparison.units)
-                  )}{" "}
-                  vs previous period
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* AOV Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-amber-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Avg Order Value</span>
-            </div>
-            <p className="text-3xl font-bold">${(analytics.averageOrderValue / 100).toFixed(2)}</p>
-            {analytics.comparison && (
-              <div className="mt-2">
-                <span
-                  className={`text-sm font-medium ${
-                    calculatePercentageChange(analytics.averageOrderValue, analytics.comparison.averageOrderValue) >= 0
-                      ? "text-green-600"
-                      : "text-rose-600"
-                  }`}
-                >
-                  {formatPercentageChange(
-                    calculatePercentageChange(analytics.averageOrderValue, analytics.comparison.averageOrderValue)
-                  )}{" "}
-                  vs previous period
-                </span>
-              </div>
-            )}
-          </div>
-
-          {/* Total Shipping Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-sky-100 flex items-center justify-center">
-                <Truck className="w-5 h-5 text-sky-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Shipping Collected</span>
-            </div>
-            <p className="text-3xl font-bold">${((analytics.totalShippingRevenue ?? 0) / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Total shipping revenue</p>
-          </div>
-
-          {/* Total Tax Card */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-indigo-100 flex items-center justify-center">
-                <Receipt className="w-5 h-5 text-indigo-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Tax Collected</span>
-            </div>
-            <p className="text-3xl font-bold">${((analytics.totalTaxCollected ?? 0) / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Total sales tax collected</p>
-          </div>
+        <div className="mb-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Panel title="Alcohol types" description="By revenue">
+            <RankedBars format={money} items={analytics.alcoholTypeSales.map((t) => ({ label: t.name, value: t.revenue, sub: `${t.units} sold` }))} />
+          </Panel>
+          {analytics.scentSales && analytics.scentSales.length > 0 && (
+            <Panel title="Scents" description="By revenue">
+              <RankedBars format={money} items={analytics.scentSales.map((s) => ({ label: s.name, value: s.revenue, sub: `${s.units} sold` }))} />
+            </Panel>
+          )}
+          {analytics.wickTypeSales && analytics.wickTypeSales.length > 0 && (
+            <Panel title="Wick types" description="By revenue">
+              <RankedBars format={money} items={analytics.wickTypeSales.map((w) => ({ label: w.name, value: w.revenue, sub: `${w.units} sold` }))} />
+            </Panel>
+          )}
         </div>
 
-        {/* Sales By Product */}
-        <div className="card p-6 bg-white mb-8">
-          <h2 className="text-xl font-bold mb-4">Sales By Product</h2>
-          <p className="text-sm text-[var(--color-muted)] mb-4">
-            Revenue breakdown by product including tax collected and shipping costs (allocated proportionally)
-          </p>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+        {/* Products */}
+        <Panel className="mb-6" title="Sales by product" description="Shipping and tax are split across products in proportion to price.">
+          <div className="-mx-5 overflow-x-auto sm:-mx-6">
+            <table className="a-table">
               <thead>
-                <tr className="border-b border-[var(--color-line)]">
-                  <th className="text-left py-3 text-sm font-semibold">Product</th>
-                  <th className="text-left py-3 text-sm font-semibold">Alcohol Type</th>
-                  <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
-                  <th className="text-right py-3 text-sm font-semibold">Gross Revenue</th>
-                  <th className="text-right py-3 text-sm font-semibold">Net Revenue</th>
-                  <th className="text-right py-3 text-sm font-semibold">Shipping</th>
-                  <th className="text-right py-3 text-sm font-semibold">Tax Collected</th>
+                <tr>
+                  <th>Product</th>
+                  <th className="text-right">Units</th>
+                  <th className="text-right">Revenue</th>
+                  <th className="text-right">Net</th>
+                  <th className="text-right">Shipping</th>
+                  <th className="text-right">Tax</th>
                 </tr>
               </thead>
               <tbody>
-                {analytics.productSales.map((product) => {
-                  const netRevenue = product.revenue - product.stripeFees;
-                  return (
-                    <tr key={product.slug} className="border-b border-[var(--color-line)]">
-                      <td className="py-3 text-sm">{product.name}</td>
-                      <td className="py-3 text-sm text-[var(--color-muted)]">
-                        {product.alcoholType || "N/A"}
-                      </td>
-                      <td className="py-3 text-sm text-right font-medium">{product.units}</td>
-                      <td className="py-3 text-sm text-right font-medium">
-                        ${(product.revenue / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right font-medium text-green-600">
-                        ${(netRevenue / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                        ${((product.shippingCost ?? 0) / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right text-blue-600">
-                        ${((product.taxAmount ?? 0) / 100).toFixed(2)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Sales by Alcohol Type */}
-        <div className="card p-6 bg-white mb-8">
-          <h2 className="text-xl font-bold mb-4">Sales by Alcohol Type</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-[var(--color-line)]">
-                  <th className="text-left py-3 text-sm font-semibold">Alcohol Type</th>
-                  <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
-                  <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                  <th className="text-right py-3 text-sm font-semibold">% of Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {analytics.alcoholTypeSales.map((type) => (
-                  <tr key={type.name} className="border-b border-[var(--color-line)]">
-                    <td className="py-3 text-sm font-medium">{type.name}</td>
-                    <td className="py-3 text-sm text-right">{type.units}</td>
-                    <td className="py-3 text-sm text-right font-medium">
-                      ${(type.revenue / 100).toFixed(2)}
+                {analytics.productSales.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="py-10 text-center text-sm text-[var(--a-muted)]">
+                      No sales in this period.
                     </td>
-                    <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                      {((type.revenue / analytics.totalRevenue) * 100).toFixed(1)}%
+                  </tr>
+                )}
+                {analytics.productSales.map((product) => (
+                  <tr key={product.slug}>
+                    <td>
+                      <p className="font-medium text-[var(--a-ink)]">{product.name}</p>
+                      <p className="text-xs text-[var(--a-muted)]">{product.alcoholType || "No type"}</p>
                     </td>
+                    <td className="a-num">{product.units}</td>
+                    <td className="a-num font-medium">{money(product.revenue)}</td>
+                    <td className="a-num">{money(product.revenue - product.stripeFees)}</td>
+                    <td className="a-num text-[var(--a-muted)]">{money(product.shippingCost ?? 0)}</td>
+                    <td className="a-num text-[var(--a-muted)]">{money(product.taxAmount ?? 0)}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Panel>
 
-        {/* Payment Source Analytics */}
-        {analytics.paymentSourceSales && analytics.paymentSourceSales.length > 0 && (
-          <div className="card p-6 bg-white mb-8">
-            <h2 className="text-xl font-bold mb-4">Revenue by Payment Source</h2>
-            <p className="text-sm text-[var(--color-muted)] mb-4">
-              Breakdown of revenue by payment method (Stripe, Square, Manual sales)
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-[var(--color-line)]">
-                    <th className="text-left py-3 text-sm font-semibold">Payment Source</th>
-                    <th className="text-right py-3 text-sm font-semibold">Orders</th>
-                    <th className="text-right py-3 text-sm font-semibold">Units Sold</th>
-                    <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                    <th className="text-right py-3 text-sm font-semibold">Avg Order Value</th>
-                    <th className="text-right py-3 text-sm font-semibold">% of Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {analytics.paymentSourceSales.map((source) => {
-                    const percentage = analytics.totalRevenue > 0
-                      ? (source.revenue / analytics.totalRevenue) * 100
-                      : 0;
-                    const avgOrderValue = source.orders > 0 ? source.revenue / source.orders : 0;
-
-                    return (
-                      <tr key={source.source} className="border-b border-[var(--color-line)]">
-                        <td className="py-3 text-sm font-medium">{source.source}</td>
-                        <td className="py-3 text-sm text-right">{source.orders}</td>
-                        <td className="py-3 text-sm text-right">{source.units}</td>
-                        <td className="py-3 text-sm text-right font-medium text-green-600">
-                          ${(source.revenue / 100).toFixed(2)}
-                        </td>
-                        <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                          ${(avgOrderValue / 100).toFixed(2)}
-                        </td>
-                        <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                          {percentage.toFixed(1)}%
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* Scent and Wick Analytics */}
-        {((analytics.scentSales && analytics.scentSales.length > 0) ||
-          (analytics.wickTypeSales && analytics.wickTypeSales.length > 0)) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-            {/* Scent Sales */}
-            {analytics.scentSales && analytics.scentSales.length > 0 && (
-              <div className="card p-6 bg-white">
-                <h2 className="text-xl font-bold mb-4">Sales by Scent</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[var(--color-line)]">
-                        <th className="text-left py-3 text-sm font-semibold">Scent</th>
-                        <th className="text-right py-3 text-sm font-semibold">Units</th>
-                        <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {analytics.scentSales.map((scent, idx) => (
-                        <tr key={idx} className="border-b border-[var(--color-line)]">
-                          <td className="py-3 text-sm font-medium">{scent.name}</td>
-                          <td className="py-3 text-sm text-right">{scent.units}</td>
-                          <td className="py-3 text-sm text-right font-medium text-blue-600">
-                            ${(scent.revenue / 100).toFixed(2)}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-
-            {/* Wick Type Sales */}
-            {analytics.wickTypeSales && analytics.wickTypeSales.length > 0 && (
-              <div className="card p-6 bg-white">
-                <h2 className="text-xl font-bold mb-4">Sales by Wick Type</h2>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-[var(--color-line)]">
-                        <th className="text-left py-3 text-sm font-semibold">Wick Type</th>
-                        <th className="text-right py-3 text-sm font-semibold">Units</th>
-                        <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                        <th className="text-right py-3 text-sm font-semibold">% of Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {analytics.wickTypeSales.map((wick, idx) => {
-                        const totalWickRevenue = analytics.wickTypeSales?.reduce((sum, w) => sum + w.revenue, 0) || 0;
-                        const percentage = totalWickRevenue > 0 ? (wick.revenue / totalWickRevenue) * 100 : 0;
-
-                        return (
-                          <tr key={idx} className="border-b border-[var(--color-line)]">
-                            <td className="py-3 text-sm font-medium">{wick.name}</td>
-                            <td className="py-3 text-sm text-right">{wick.units}</td>
-                            <td className="py-3 text-sm text-right font-medium text-blue-600">
-                              ${(wick.revenue / 100).toFixed(2)}
-                            </td>
-                            <td className="py-3 text-sm text-right text-[var(--color-muted)]">
-                              {percentage.toFixed(1)}%
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Profit Margins */}
+        {/* Margins */}
         {analytics.profitMargins.length > 0 && (
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">Profit Margins</h2>
-            <p className="text-sm text-[var(--color-muted)] mb-4">
-              Products with cost data configured (includes Stripe + Square fees)
-            </p>
-            <div className="overflow-x-auto">
-              <table className="w-full">
+          <Panel title="Profit margins" description="Products with material costs set. Includes Stripe and Square fees.">
+            <div className="-mx-5 overflow-x-auto sm:-mx-6">
+              <table className="a-table">
                 <thead>
-                  <tr className="border-b border-[var(--color-line)]">
-                    <th className="text-left py-3 text-sm font-semibold">Product</th>
-                    <th className="text-right py-3 text-sm font-semibold">Revenue</th>
-                    <th className="text-right py-3 text-sm font-semibold">Material Cost</th>
-                    <th className="text-right py-3 text-sm font-semibold">Payment Fees</th>
-                    <th className="text-right py-3 text-sm font-semibold">Net Profit</th>
-                    <th className="text-right py-3 text-sm font-semibold">Margin</th>
+                  <tr>
+                    <th>Product</th>
+                    <th className="text-right">Revenue</th>
+                    <th className="text-right">Materials</th>
+                    <th className="text-right">Fees</th>
+                    <th className="text-right">Profit</th>
+                    <th className="text-right">Margin</th>
                   </tr>
                 </thead>
                 <tbody>
                   {analytics.profitMargins.map((product) => (
-                    <tr key={product.slug} className="border-b border-[var(--color-line)]">
-                      <td className="py-3 text-sm">{product.name}</td>
-                      <td className="py-3 text-sm text-right">
-                        ${(product.revenue / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right text-rose-600">
-                        -${(product.cost / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right text-amber-600">
-                        -${(product.stripeFees / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right font-medium text-green-600">
-                        ${(product.profit / 100).toFixed(2)}
-                      </td>
-                      <td className="py-3 text-sm text-right font-bold">
-                        <span
-                          className={
-                            product.marginPercent > 50
-                              ? "text-green-600"
-                              : product.marginPercent > 30
-                              ? "text-amber-600"
-                              : "text-rose-600"
-                          }
-                        >
+                    <tr key={product.slug}>
+                      <td className="font-medium text-[var(--a-ink)]">{product.name}</td>
+                      <td className="a-num">{money(product.revenue)}</td>
+                      <td className="a-num text-[var(--a-muted)]">−{money(product.cost)}</td>
+                      <td className="a-num text-[var(--a-muted)]">−{money(product.stripeFees)}</td>
+                      <td className="a-num font-medium">{money(product.profit)}</td>
+                      <td className="a-num">
+                        <Badge tone={product.marginPercent > 50 ? "green" : product.marginPercent > 30 ? "amber" : "red"}>
                           {product.marginPercent.toFixed(1)}%
-                        </span>
+                        </Badge>
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-          </div>
+          </Panel>
         )}
       </div>
     </div>
