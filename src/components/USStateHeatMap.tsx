@@ -37,13 +37,13 @@ const STATE_NAMES: Record<string, string> = {
 
 // Teal color scale from 0 visitors → many visitors
 function getColor(visitors: number, max: number): string {
-  if (visitors === 0 || max === 0) return "#e5e7eb"; // gray-200
+  if (visitors === 0 || max === 0) return "#efeae4"; // empty
   const ratio = visitors / max;
-  if (ratio < 0.15) return "#ccfbf1"; // teal-100
-  if (ratio < 0.35) return "#5eead4"; // teal-300
-  if (ratio < 0.60) return "#14b8a6"; // teal-500
-  if (ratio < 0.85) return "#0d9488"; // teal-600
-  return "#0f766e";                   // teal-700
+  if (ratio < 0.15) return "#f1e6da";
+  if (ratio < 0.35) return "#dcc1a4";
+  if (ratio < 0.60) return "#bf9670";
+  if (ratio < 0.85) return "#9a6b44";
+  return "#6e4a2c";
 }
 
 type Tooltip = {
@@ -120,7 +120,7 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
                   onMouseLeave={() => setTooltip(null)}
                   style={{
                     default: { outline: "none" },
-                    hover: { outline: "none", fill: "#0d9488", cursor: "default" },
+                    hover: { outline: "none", fill: "#4f3520", cursor: "default" },
                     pressed: { outline: "none" },
                   }}
                 />
@@ -145,7 +145,7 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
             {tooltip.visitors === 1 ? "visitor" : "visitors"}
           </span>
           {stateTimes[tooltip.abbr] > 0 && (
-            <span className="text-teal-300 ml-1.5">
+            <span className="text-[#e8cfb4] ml-1.5">
               · avg {fmtSec(stateTimes[tooltip.abbr])}
             </span>
           )}
@@ -156,7 +156,7 @@ export default function USStateHeatMap({ regions, stateTimes = {} }: Props) {
       <div className="flex items-center gap-2 mt-1 text-xs text-[var(--color-muted)]">
         <span>0</span>
         <div className="flex gap-px">
-          {["#e5e7eb", "#ccfbf1", "#5eead4", "#14b8a6", "#0d9488", "#0f766e"].map((c) => (
+          {["#efeae4", "#f1e6da", "#dcc1a4", "#bf9670", "#9a6b44", "#6e4a2c"].map((c) => (
             <div
               key={c}
               className="w-6 h-3 rounded-sm"

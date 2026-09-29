@@ -1,19 +1,8 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import Link from "next/link";
-import {
-  ArrowLeft,
-  Globe,
-  MapPin,
-  Eye,
-  Users,
-  TrendingUp,
-  ShoppingCart,
-  Clock,
-  FileText,
-  Package,
-} from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Panel, RankedBars, Segmented, Stat } from "../_components/ui";
 import USStateHeatMap from "@/components/USStateHeatMap";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -101,436 +90,163 @@ export default function TrafficAnalyticsPage() {
     fetchData(days, humanOnly);
   }, [days, humanOnly, fetchData]);
 
-  const maxHourViews = data
-    ? Math.max(...data.byHour.map((h) => h.views), 1)
-    : 1;
-  const maxDayViews = data
-    ? Math.max(...data.byDayOfWeek.map((d) => d.views), 1)
-    : 1;
+  const maxHourViews = data ? Math.max(...data.byHour.map((h) => h.views), 1) : 1;
+  const peakHour = data?.byHour.reduce((best, h) => (h.views > best.views ? h : best), { hour: 0, views: 0 });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Link
-          href="/admin"
-          className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader title="Traffic" description="First-party visitor tracking. No third-party services." />
+
+      <div className="mb-6 flex flex-wrap items-center gap-2">
+        <Segmented
+          label="Time range"
+          value={String(days) as "1" | "7" | "30" | "90"}
+          onChange={(v) => setDays(Number(v) as DayPreset)}
+          options={[
+            { value: "1", label: "Today" },
+            { value: "7", label: "7 days" },
+            { value: "30", label: "30 days" },
+            { value: "90", label: "90 days" },
+          ]}
+        />
+        <label
+          className="flex cursor-pointer items-center gap-2 text-sm text-[var(--a-ink)]"
+          title="Hides sessions with less than 3 seconds on page (bot drive-bys)"
         >
-          <ArrowLeft className="w-4 h-4" />
-          Back to Dashboard
-        </Link>
+          <input type="checkbox" className="a-check" checked={humanOnly} onChange={(e) => setHumanOnly(e.target.checked)} />
+          Engaged visitors only
+        </label>
+        {loading && data && (
+          <span role="status" className="text-sm text-[var(--a-muted)]">
+            Updating…
+          </span>
+        )}
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-[var(--color-ink)]">
-            Traffic Analytics
-          </h1>
-          <p className="text-sm text-[var(--color-muted)] mt-1">
-            First-party visitor tracking — no third-party services
-          </p>
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-2 flex-wrap items-center">
-          {([1, 7, 30, 90] as DayPreset[]).map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition ${
-                days === d
-                  ? "bg-teal-600 text-white"
-                  : "bg-white border border-[var(--color-line)] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-              }`}
-            >
-              {d === 1 ? "Today" : d === 7 ? "7 days" : d === 30 ? "30 days" : "90 days"}
-            </button>
-          ))}
-          <div className="w-px h-5 bg-[var(--color-line)]" />
-          <button
-            onClick={() => setHumanOnly((prev) => !prev)}
-            title="Engaged only: hides sessions with less than 3 seconds on page (filters bot drive-bys)"
-            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition flex items-center gap-1.5 ${
-              humanOnly
-                ? "bg-amber-500 text-white"
-                : "bg-white border border-[var(--color-line)] text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-            }`}
-          >
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-            </svg>
-            {humanOnly ? "Humans only" : "All traffic"}
-          </button>
-        </div>
-      </div>
-
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
+      {loading && !data ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-muted)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-muted)]">Loading…</p>
         </div>
       ) : !data ? (
-        <div className="card p-8 text-center text-[var(--color-muted)]">
-          Failed to load traffic data. Please try again.
+        <div role="alert" className="a-card px-6 py-12 text-center text-sm text-[var(--a-muted)]">
+          Couldn&apos;t load traffic data. Refresh to try again.
         </div>
       ) : (
-        <div className="space-y-6">
-          {/* KPI Summary Row */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-teal-100 flex items-center justify-center">
-                  <Users className="w-5 h-5 text-teal-600" />
-                </div>
-                <span className="text-sm text-[var(--color-muted)]">
-                  Unique Visitors
-                </span>
-              </div>
-              <p className="text-2xl font-bold">
-                {data.summary.uniqueSessions.toLocaleString()}
-              </p>
-            </div>
-
-            <div className="card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                </div>
-                <span className="text-sm text-[var(--color-muted)]">
-                  Page Views
-                </span>
-              </div>
-              <p className="text-2xl font-bold">
-                {data.summary.totalPageViews.toLocaleString()}
-              </p>
-            </div>
-
-            <div className="card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-purple-100 flex items-center justify-center">
-                  <TrendingUp className="w-5 h-5 text-purple-600" />
-                </div>
-                <span className="text-sm text-[var(--color-muted)]">
-                  Pages / Session
-                </span>
-              </div>
-              <p className="text-2xl font-bold">
-                {data.summary.avgPagesPerSession}
-              </p>
-            </div>
-
-            <div className="card p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="w-9 h-9 rounded-lg bg-amber-100 flex items-center justify-center">
-                  <Clock className="w-5 h-5 text-amber-600" />
-                </div>
-                <span className="text-sm text-[var(--color-muted)]">
-                  Avg Time on Page
-                </span>
-              </div>
-              <p className="text-2xl font-bold">
-                {formatDuration(data.summary.avgPageSeconds)}
-              </p>
-            </div>
+        <div className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <Stat label="Visitors" value={data.summary.uniqueSessions.toLocaleString()} hint="Unique sessions" />
+            <Stat label="Page views" value={data.summary.totalPageViews.toLocaleString()} />
+            <Stat label="Pages per visit" value={data.summary.avgPagesPerSession} />
+            <Stat label="Time on page" value={formatDuration(data.summary.avgPageSeconds)} hint="Average" />
           </div>
 
-          {/* Top Pages + Top Products */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Pages */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Top Pages</h2>
-              </div>
-              {data.topPages.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)]">
-                  No page view data yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {data.topPages.map((page) => (
-                    <div key={page.path}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span
-                          className="text-[var(--color-ink)] truncate max-w-[75%] font-mono text-xs"
-                          title={page.path}
-                        >
-                          {page.path}
-                        </span>
-                        <span className="text-[var(--color-muted)] shrink-0 ml-2">
-                          {page.views.toLocaleString()} ({page.percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-[var(--color-line)] rounded-full h-1.5">
-                        <div
-                          className="bg-teal-500 h-1.5 rounded-full"
-                          style={{ width: `${page.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Top Products */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Package className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Top Viewed Products</h2>
-              </div>
-              {data.topProducts.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)]">
-                  No product view data yet.
-                </p>
-              ) : (
-                <div className="space-y-3">
-                  {data.topProducts.map((product, idx) => (
-                    <div
-                      key={product.slug}
-                      className="flex items-center gap-3 text-sm"
-                    >
-                      <span className="w-5 h-5 rounded-full bg-teal-100 text-teal-700 flex items-center justify-center text-xs font-bold shrink-0">
-                        {idx + 1}
-                      </span>
-                      <span className="flex-1 text-[var(--color-ink)] truncate">
-                        {product.slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase())}
-                      </span>
-                      <span className="text-[var(--color-muted)] shrink-0">
-                        {product.views.toLocaleString()} views
-                      </span>
-                      {product.avgSeconds > 0 && (
-                        <span className="text-teal-600 shrink-0 text-xs tabular-nums">
-                          {formatDuration(product.avgSeconds)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Panel title="Top pages" description="By views">
+              <RankedBars
+                format={(v) => v.toLocaleString()}
+                items={data.topPages.map((p) => ({ label: p.path, value: p.views, sub: `${p.percentage}%` }))}
+              />
+            </Panel>
+            <Panel title="Most viewed products" description="Views · average time on page">
+              <RankedBars
+                format={(v) => v.toLocaleString()}
+                items={data.topProducts.map((p) => ({
+                  label: p.slug.replace(/-/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),
+                  value: p.views,
+                  sub: p.avgSeconds > 0 ? formatDuration(p.avgSeconds) : undefined,
+                }))}
+              />
+            </Panel>
           </div>
 
-          {/* Hourly & Day-of-Week */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Visits by Hour */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Clock className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Visits by Hour of Day</h2>
-              </div>
-              <div className="flex items-end gap-1 h-32">
-                {data.byHour.map(({ hour, views }) => {
-                  const heightPct =
-                    maxHourViews > 0
-                      ? Math.round((views / maxHourViews) * 100)
-                      : 0;
-                  return (
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Panel
+              title="Visits by hour"
+              description={peakHour && peakHour.views > 0 ? `Busiest around ${formatHour(peakHour.hour)}` : "Your local time"}
+            >
+              <div className="flex h-36 items-end gap-[2px]" role="img" aria-label="Page views by hour of day">
+                {data.byHour.map(({ hour, views }) => (
+                  <div key={hour} className="group relative flex h-full flex-1 items-end" title={`${formatHour(hour)}: ${views} views`}>
                     <div
-                      key={hour}
-                      className="flex-1 flex flex-col items-center gap-0.5 group"
-                      title={`${formatHour(hour)}: ${views} views`}
-                    >
-                      <div className="w-full flex items-end justify-center h-28">
-                        <div
-                          className="w-full bg-teal-400 group-hover:bg-teal-500 rounded-t-sm transition-colors"
-                          style={{ height: `${heightPct}%`, minHeight: views > 0 ? 2 : 0 }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
+                      className="w-full rounded-t-[4px] bg-[var(--a-viz-single)] transition-opacity group-hover:opacity-75"
+                      style={{ height: `${(views / maxHourViews) * 100}%`, minHeight: views > 0 ? 2 : 0 }}
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="flex justify-between text-xs text-[var(--color-muted)] mt-1">
+              <div className="mt-2 flex justify-between border-t border-[var(--a-line)] pt-1.5 text-xs text-[var(--a-muted)]">
                 <span>12 AM</span>
                 <span>6 AM</span>
                 <span>12 PM</span>
                 <span>6 PM</span>
                 <span>11 PM</span>
               </div>
-            </div>
+            </Panel>
 
-            {/* Visits by Day of Week */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <TrendingUp className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Visits by Day of Week</h2>
-              </div>
-              <div className="space-y-2">
-                {data.byDayOfWeek.map(({ label, views }) => {
-                  const pct =
-                    maxDayViews > 0
-                      ? Math.round((views / maxDayViews) * 100)
-                      : 0;
-                  return (
-                    <div key={label} className="flex items-center gap-3 text-sm">
-                      <span className="w-8 text-[var(--color-muted)] shrink-0">
-                        {label}
-                      </span>
-                      <div className="flex-1 bg-[var(--color-line)] rounded-full h-2">
-                        <div
-                          className="bg-teal-400 h-2 rounded-full"
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                      <span className="w-12 text-right text-[var(--color-muted)] shrink-0">
-                        {views.toLocaleString()}
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            <Panel title="Visits by day of week">
+              <RankedBars
+                limit={7}
+                sort={false}
+                format={(v) => v.toLocaleString()}
+                items={data.byDayOfWeek.map((d) => ({ label: d.label, value: d.views }))}
+              />
+            </Panel>
           </div>
 
-          {/* Geography */}
-          {/* US State Heatmap — full width */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-4">
-              <MapPin className="w-5 h-5 text-[var(--color-muted)]" />
-              <h2 className="font-semibold">Visitors by US State</h2>
-              <span className="ml-auto text-xs text-[var(--color-muted)]">
-                Unique visitors
-              </span>
-            </div>
+          <Panel title="Visitors by US state" description="Unique visitors">
             {data.topRegions.length === 0 ? (
-              <p className="text-sm text-[var(--color-muted)]">
-                No US state data yet. Geo data requires Vercel deployment.
-              </p>
+              <p className="py-6 text-center text-sm text-[var(--a-muted)]">No state data yet. Location data only comes through on the live site.</p>
             ) : (
               <USStateHeatMap regions={data.topRegions} stateTimes={data.stateTimes} />
             )}
-          </div>
+          </Panel>
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Countries */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Globe className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Top Countries</h2>
-              </div>
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+            <Panel title="Top countries" description="By views">
               {data.topCountries.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)]">
-                  No geographic data yet. Geo data requires Vercel deployment.
-                </p>
+                <p className="py-6 text-center text-sm text-[var(--a-muted)]">No location data yet.</p>
               ) : (
-                <div className="space-y-3">
-                  {data.topCountries.map((row) => (
-                    <div key={row.country}>
-                      <div className="flex justify-between text-sm mb-1">
-                        <span className="text-[var(--color-ink)]">
-                          {COUNTRY_NAMES[row.country] ?? row.country}
-                        </span>
-                        <span className="text-[var(--color-muted)]">
-                          {row.views.toLocaleString()} ({row.percentage}%)
-                        </span>
-                      </div>
-                      <div className="w-full bg-[var(--color-line)] rounded-full h-1.5">
-                        <div
-                          className="bg-blue-400 h-1.5 rounded-full"
-                          style={{ width: `${row.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <RankedBars
+                  format={(v) => v.toLocaleString()}
+                  items={data.topCountries.map((c) => ({ label: COUNTRY_NAMES[c.country] ?? c.country, value: c.views, sub: `${c.percentage}%` }))}
+                />
               )}
-            </div>
-
-            {/* Top US Cities */}
-            <div className="card p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <MapPin className="w-5 h-5 text-[var(--color-muted)]" />
-                <h2 className="font-semibold">Top US Cities</h2>
-                <span className="ml-auto text-xs text-[var(--color-muted)]">
-                  Unique visitors
-                </span>
-              </div>
+            </Panel>
+            <Panel title="Top US cities" description="Unique visitors · average time on page">
               {data.topCities.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)]">
-                  No city data yet. Geo data requires Vercel deployment.
-                </p>
+                <p className="py-6 text-center text-sm text-[var(--a-muted)]">No city data yet.</p>
               ) : (
-                <div className="space-y-2">
-                  {data.topCities.map((row) => (
-                    <div
-                      key={`${row.city}-${row.region}`}
-                      className="flex items-center gap-2 text-sm"
-                    >
-                      <span className="flex-1 text-[var(--color-ink)] truncate">
-                        {row.city}
-                        {row.region && (
-                          <span className="text-[var(--color-muted)] ml-1">
-                            {row.region}
-                          </span>
-                        )}
-                      </span>
-                      <span className="text-[var(--color-muted)] shrink-0">
-                        {row.visitors.toLocaleString()} {row.visitors === 1 ? "visitor" : "visitors"}
-                      </span>
-                      {row.avgSeconds > 0 && (
-                        <span className="text-teal-600 shrink-0 text-xs tabular-nums">
-                          {formatDuration(row.avgSeconds)}
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <RankedBars
+                  format={(v) => v.toLocaleString()}
+                  items={data.topCities.map((c) => ({
+                    label: c.region ? `${c.city}, ${c.region}` : c.city,
+                    value: c.visitors,
+                    sub: c.avgSeconds > 0 ? formatDuration(c.avgSeconds) : undefined,
+                  }))}
+                />
               )}
-            </div>
+            </Panel>
           </div>
 
-          {/* Cart Abandonment */}
-          <div className="card p-6">
-            <div className="flex items-center gap-2 mb-5">
-              <ShoppingCart className="w-5 h-5 text-[var(--color-muted)]" />
-              <h2 className="font-semibold">Cart Abandonment</h2>
-              <span className="ml-auto text-xs text-[var(--color-muted)]">
-                Sessions in last {days} {days === 1 ? "day" : "days"}
-              </span>
+          <Panel title="Cart abandonment" description={`Sessions in the last ${days} ${days === 1 ? "day" : "days"}`}>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {[
+                { label: "Added to cart", value: data.cartEvents.addToCartSessions.toLocaleString() },
+                { label: "Started checkout", value: data.cartEvents.checkoutStartedSessions.toLocaleString() },
+                { label: "Abandoned", value: data.cartEvents.abandonedSessions.toLocaleString() },
+                { label: "Abandonment rate", value: `${data.cartEvents.abandonmentRate}%` },
+              ].map((s) => (
+                <div key={s.label} className="a-panel">
+                  <p className="text-xs font-medium text-[var(--a-muted)]">{s.label}</p>
+                  <p className="mt-1 text-2xl font-semibold tabular-nums text-[var(--a-ink)]">{s.value}</p>
+                </div>
+              ))}
             </div>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center p-4 bg-[var(--color-bg)] rounded-xl border border-[var(--color-line)]">
-                <p className="text-2xl font-bold">
-                  {data.cartEvents.addToCartSessions.toLocaleString()}
-                </p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Added to Cart
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-bg)] rounded-xl border border-[var(--color-line)]">
-                <p className="text-2xl font-bold">
-                  {data.cartEvents.checkoutStartedSessions.toLocaleString()}
-                </p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Started Checkout
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-bg)] rounded-xl border border-[var(--color-line)]">
-                <p className="text-2xl font-bold text-rose-600">
-                  {data.cartEvents.abandonedSessions.toLocaleString()}
-                </p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Abandoned
-                </p>
-              </div>
-              <div className="text-center p-4 bg-[var(--color-bg)] rounded-xl border border-[var(--color-line)]">
-                <p className={`text-2xl font-bold ${data.cartEvents.abandonmentRate > 70 ? "text-rose-600" : data.cartEvents.abandonmentRate > 40 ? "text-amber-600" : "text-green-600"}`}>
-                  {data.cartEvents.abandonmentRate}%
-                </p>
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Abandonment Rate
-                </p>
-              </div>
-            </div>
-
             {data.cartEvents.addToCartSessions === 0 && (
-              <p className="text-sm text-[var(--color-muted)] text-center mt-4">
-                No cart event data yet. Data will populate once customers interact with the store.
-              </p>
+              <p className="mt-4 text-center text-sm text-[var(--a-muted)]">No cart activity yet in this period.</p>
             )}
-          </div>
+          </Panel>
         </div>
       )}
     </div>

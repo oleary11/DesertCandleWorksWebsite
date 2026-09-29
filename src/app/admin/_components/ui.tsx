@@ -398,12 +398,15 @@ export function RankedBars({
   items,
   format,
   limit = 10,
+  sort = true,
 }: {
   items: { label: string; value: number; sub?: string }[];
   format: (value: number) => string;
   limit?: number;
+  /** Largest first. Turn off for naturally ordered data like weekdays. */
+  sort?: boolean;
 }) {
-  const sorted = [...items].sort((a, b) => b.value - a.value).slice(0, limit);
+  const sorted = (sort ? [...items].sort((a, b) => b.value - a.value) : items).slice(0, limit);
   const max = Math.max(...sorted.map((i) => i.value), 0);
   if (sorted.length === 0) return <p className="py-6 text-center text-sm text-[var(--a-muted)]">No data for this period.</p>;
   return (
