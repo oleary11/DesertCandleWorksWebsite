@@ -144,3 +144,58 @@ export function FormSection({
     </section>
   );
 }
+
+/** Pill-style single choice (e.g. status tabs). */
+export function Segmented<T extends string>({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: T;
+  onChange: (value: T) => void;
+  options: { value: T; label: React.ReactNode }[];
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex rounded-lg border border-[var(--a-line)] bg-[var(--a-canvas)] p-1">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            aria-pressed={active}
+            onClick={() => onChange(o.value)}
+            className={`inline-flex h-8 items-center gap-1.5 whitespace-nowrap rounded-md px-3 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--a-accent)] ${
+              active ? "bg-white font-medium text-[var(--a-ink)] shadow-sm" : "text-[var(--a-muted)] hover:text-[var(--a-ink)]"
+            }`}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Small summary number with a label. */
+export function Stat({
+  label,
+  value,
+  hint,
+  className = "",
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div className={`a-card px-4 py-3.5 ${className}`}>
+      <p className="text-xs font-medium text-[var(--a-muted)]">{label}</p>
+      <p className="mt-1 text-2xl font-semibold tracking-tight tabular-nums text-[var(--a-ink)]">{value}</p>
+      {hint && <p className="mt-0.5 text-xs text-[var(--a-muted)]">{hint}</p>}
+    </div>
+  );
+}

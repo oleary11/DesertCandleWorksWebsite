@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Package, DollarSign, User, Calendar, FileText, Trash2 } from "lucide-react";
+import { Check, ChevronDown, Copy, CreditCard, FileText, Globe, Search, Store, Trash2, Truck } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, FilterSelect, Segmented, Stat } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -403,32 +404,39 @@ export default function AdminOrdersPage() {
     return true;
   });
 
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  function channelOf(order: Order): { label: string; icon: typeof Globe } {
+    if (isManualSale(order.id)) return { label: "Manual sale", icon: Store };
+    if (isSquareSale(order.id)) return { label: "Square POS", icon: CreditCard };
+    return { label: "Website", icon: Globe };
+  }
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading orders…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading orders…</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="min-h-screen p-6">
-        <div className="max-w-7xl mx-auto">
-          <p className="text-rose-600">{error}</p>
-          <Link href="/admin" className="btn mt-4">
-            Back to Admin
-          </Link>
+      <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <PageHeader title="Orders" />
+        <div role="alert" className="a-card flex items-center justify-between gap-4 p-5">
+          <p className="text-sm text-[#b42318]">{error}</p>
+          <button className="a-btn a-btn-sm" onClick={() => { setError(""); setLoading(true); void loadOrders(); }}>
+            Try again
+          </button>
         </div>
       </div>
     );
   }
 
   const completedOrders = filteredOrders.filter((o) => o.status === "completed");
-  const pendingOrders = filteredOrders.filter((o) => o.status === "pending");
 
   // Calculate total revenue excluding refunded amounts
   const totalRevenue = completedOrders.reduce((sum, o) => {
@@ -436,540 +444,375 @@ export default function AdminOrdersPage() {
     return sum + (o.totalCents - refundedAmount);
   }, 0);
 
+  const filtersActive = searchQuery.trim() !== "" || statusFilter !== "all" || datePreset !== "allTime";
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Orders"
+        description="Website, Square and in-person sales in one place."
+        actions={
+          <button onClick={checkAllDeliveries} disabled={checkingDeliveries} className="a-btn">
+            <Truck className="h-4 w-4" aria-hidden />
+            {checkingDeliveries ? "Checking…" : "Check deliveries"}
+          </button>
+        }
+      />
+
+      {/* Summary */}
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Stat label="Orders" value={filteredOrders.length} hint={filtersActive ? `of ${orders.length} total` : "All time"} />
+        <Stat label="Completed" value={completedOrders.length} hint={`${filteredOrders.length - completedOrders.length} pending`} />
+        <Stat className="col-span-2 sm:col-span-1" label="Revenue" value={money(totalRevenue)} hint="Completed orders, after refunds" />
+      </div>
+
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-center">
+        <label className="relative block flex-1">
+          <span className="sr-only">Search orders</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+          <input
+            type="text"
+            placeholder="Search order ID, email or product…"
+            className="a-input pl-9"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <Segmented
+            label="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: <>All <span className="text-[var(--a-faint)]">{orders.length}</span></> },
+              { value: "completed", label: <>Completed <span className="text-[var(--a-faint)]">{orders.filter((o) => o.status === "completed").length}</span></> },
+              { value: "pending", label: <>Pending <span className="text-[var(--a-faint)]">{orders.filter((o) => o.status === "pending").length}</span></> },
+            ]}
+          />
+          <div className="w-40">
+            <FilterSelect
+              label="Date range"
+              value={datePreset === "allTime" ? "all" : datePreset}
+              onChange={(p) => {
+                const preset = p === "all" ? "allTime" : p;
+                if (preset === "custom") setDatePreset("custom");
+                else handlePresetChange(preset);
+              }}
+              options={[
+                { value: "all", label: "All time" },
+                { value: "today", label: "Today" },
+                { value: "week", label: "This week" },
+                { value: "month", label: "This month" },
+                { value: "lastMonth", label: "Last month" },
+                { value: "ytd", label: "Year to date" },
+                { value: "custom", label: "Custom range…" },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+
+      {datePreset === "custom" && (
+        <div className="a-card mb-4 flex flex-wrap items-end gap-3 p-4">
+          <label className="block">
+            <span className="a-label">Start date</span>
+            <input type="date" className="a-input" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} />
+          </label>
+          <label className="block">
+            <span className="a-label">End date</span>
+            <input type="date" className="a-input" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} />
+          </label>
+          <button
+            className="a-btn a-btn-primary"
+            disabled={!customDateFrom || !customDateTo}
+            onClick={() => { if (customDateFrom && customDateTo) { setDateFrom(customDateFrom); setDateTo(customDateTo); } }}
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">All Orders</h1>
-              <p className="text-[var(--color-muted)] mt-1">
-                View all orders including Stripe and manual sales
-              </p>
-            </div>
-            <button
-              onClick={checkAllDeliveries}
-              disabled={checkingDeliveries}
-              className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {checkingDeliveries ? "Checking..." : "🔄 Check All Deliveries"}
-            </button>
-          </div>
+            Apply
+          </button>
         </div>
+      )}
 
-        {/* Stats Summary */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Orders</span>
-            </div>
-            <p className="text-3xl font-bold">{orders.length}</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Completed</span>
-            </div>
-            <p className="text-3xl font-bold">{completedOrders.length}</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Revenue</span>
-            </div>
-            <p className="text-3xl font-bold">${(totalRevenue / 100).toFixed(2)}</p>
-          </div>
+      {/* Orders list */}
+      {filteredOrders.length === 0 ? (
+        <div className="a-card px-6 py-16 text-center">
+          <p className="font-medium text-[var(--a-ink)]">{filtersActive ? "No orders match" : "No orders yet"}</p>
+          {filtersActive && <p className="mt-1 text-sm text-[var(--a-muted)]">Try a different search, status or date range.</p>}
         </div>
+      ) : (
+        <ul className="a-card divide-y divide-[var(--a-line)] overflow-hidden">
+          {filteredOrders.map((order) => {
+            const expanded = expandedOrderId === order.id;
+            const refunded = refundMap.get(order.id) || 0;
+            const channel = channelOf(order);
+            const ChannelIcon = channel.icon;
+            const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+            const fee = isManualSale(order.id) ? 0 : isSquareSale(order.id) ? calculateSquareFee(order.totalCents) : calculateStripeFee(order.totalCents);
 
-        {/* Search and Filter */}
-        <div className="card p-6 bg-white mb-6 space-y-4">
-          <div className="flex flex-col md:flex-row gap-4">
-            {/* Search */}
-            <div className="flex-1">
-              <input
-                type="text"
-                placeholder="Search by order ID, email, or product..."
-                className="input w-full"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-
-            {/* Status Filter */}
-            <div className="flex gap-2 flex-wrap">
-              <button
-                onClick={() => setStatusFilter("all")}
-                className={`btn ${statusFilter === "all" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              >
-                All ({orders.length})
-              </button>
-              <button
-                onClick={() => setStatusFilter("completed")}
-                className={`btn ${statusFilter === "completed" ? "bg-green-600 text-white" : ""}`}
-              >
-                Completed ({orders.filter((o) => o.status === "completed").length})
-              </button>
-              <button
-                onClick={() => setStatusFilter("pending")}
-                className={`btn ${statusFilter === "pending" ? "bg-amber-600 text-white" : ""}`}
-              >
-                Pending ({orders.filter((o) => o.status === "pending").length})
-              </button>
-            </div>
-          </div>
-
-          {/* Date Range */}
-          <div>
-            <div className="flex items-center gap-2 mb-3">
-              <Calendar className="w-4 h-4 text-[var(--color-muted)]" />
-              <span className="text-sm font-semibold">Date Range</span>
-            </div>
-            <div className="flex flex-wrap gap-2 mb-3">
-              {(["allTime", "today", "week", "month", "lastMonth", "ytd", "custom"] as const).map((p) => (
+            return (
+              <li key={order.id} className={expanded ? "bg-[color-mix(in_oklab,var(--a-canvas)_60%,white)]" : undefined}>
+                {/* Summary row */}
                 <button
-                  key={p}
-                  className={`btn ${datePreset === p ? "bg-[var(--color-accent)] text-white" : ""}`}
-                  onClick={() => p === "custom" ? setDatePreset("custom") : handlePresetChange(p)}
+                  type="button"
+                  onClick={() => toggleOrderExpansion(order.id)}
+                  aria-expanded={expanded}
+                  className="flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-[var(--a-canvas)] focus-visible:bg-[var(--a-canvas)] focus-visible:outline-none sm:px-5"
                 >
-                  {{ allTime: "All Time", today: "Today", week: "This Week", month: "This Month", lastMonth: "Last Month", ytd: "Year to Date", custom: "Custom Range" }[p]}
+                  <span className="a-icon-tile hidden h-9 w-9 sm:inline-flex" title={channel.label}>
+                    <ChannelIcon className="h-4 w-4" strokeWidth={1.75} aria-hidden />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="truncate font-medium text-[var(--a-ink)]">
+                        {order.shippingAddress?.name || order.email || "Walk-in customer"}
+                      </span>
+                      {order.status === "pending" && <Badge tone="amber">Pending</Badge>}
+                      {refunded > 0 && <Badge tone="red">{refunded >= order.totalCents ? "Refunded" : "Part refunded"}</Badge>}
+                      {order.shippingStatus === "delivered" && <Badge tone="green">Delivered</Badge>}
+                      {order.shippingStatus === "shipped" && <Badge tone="blue">Shipped</Badge>}
+                      {order.isLocalPickup && <Badge tone="amber">Local pickup</Badge>}
+                    </span>
+                    <span className="mt-0.5 block truncate text-sm text-[var(--a-muted)]">
+                      {channel.label} · {formatDate(order.createdAt)} · {itemCount} {itemCount === 1 ? "item" : "items"}
+                    </span>
+                  </span>
+                  <span className="shrink-0 text-right">
+                    <span className="block font-semibold tabular-nums text-[var(--a-ink)]">{money(order.totalCents)}</span>
+                    {refunded > 0 && <span className="block text-xs tabular-nums text-[#b42318]">−{money(refunded)}</span>}
+                  </span>
+                  <ChevronDown
+                    className={`h-4 w-4 shrink-0 text-[var(--a-faint)] transition-transform ${expanded ? "rotate-180" : ""}`}
+                    aria-hidden
+                  />
                 </button>
-              ))}
-            </div>
-            {datePreset === "custom" && (
-              <div className="flex flex-wrap items-end gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Start Date</label>
-                  <input type="date" className="input" value={customDateFrom} onChange={(e) => setCustomDateFrom(e.target.value)} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">End Date</label>
-                  <input type="date" className="input" value={customDateTo} onChange={(e) => setCustomDateTo(e.target.value)} />
-                </div>
-                <button
-                  className="btn bg-[var(--color-accent)] text-white px-6"
-                  onClick={() => { if (customDateFrom && customDateTo) { setDateFrom(customDateFrom); setDateTo(customDateTo); } }}
-                >
-                  Apply
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Orders List */}
-        {filteredOrders.length === 0 ? (
-          <div className="card p-8 bg-white text-center">
-            <p className="text-[var(--color-muted)]">
-              {searchQuery || statusFilter !== "all" ? "No orders match your filters" : "No orders found"}
-            </p>
-          </div>
-        ) : (
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">
-              Order History ({filteredOrders.length} {filteredOrders.length === 1 ? "order" : "orders"})
-            </h2>
-            <div className="space-y-4">
-              {filteredOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="border border-[var(--color-line)] rounded-lg overflow-hidden"
-                >
-                  {/* Order Header */}
-                  <div className="p-4 bg-neutral-50">
-                    <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-2">
-                          <span
-                            className={`badge text-xs ${
-                              order.status === "completed"
-                                ? "bg-green-100 text-green-700"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {order.status}
-                          </span>
-                          {refundMap.get(order.id) && (
-                            <span className="badge text-xs bg-red-100 text-red-700">
-                              {refundMap.get(order.id) === order.totalCents ? "Fully Refunded" : "Partially Refunded"}
-                            </span>
-                          )}
-                          {isManualSale(order.id) && (
-                            <span className="badge text-xs bg-blue-100 text-blue-700">
-                              Manual Sale
-                            </span>
-                          )}
-                          {isSquareSale(order.id) && (
-                            <span className="badge text-xs bg-purple-100 text-purple-700">
-                              Square POS
-                            </span>
-                          )}
-                          {order.isLocalPickup && (
-                            <span className="badge text-xs bg-orange-100 text-orange-700">
-                              🏪 Local Pickup (Scottsdale)
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Order ID with Copy Button */}
-                        <div className="flex items-center gap-2 mb-2">
-                          <span className="font-mono text-xs text-[var(--color-muted)] break-all">
-                            {order.id}
-                          </span>
-                          <button
-                            onClick={(e) => copyOrderId(order.id, e)}
-                            className="btn btn-sm px-2 py-1 text-xs flex-shrink-0"
-                            title="Copy Order ID"
-                          >
-                            {copiedId === order.id ? "Copied!" : "Copy"}
-                          </button>
-                        </div>
-
-                        <div className="flex items-center gap-4 text-sm text-[var(--color-muted)]">
-                          <span className="flex items-center gap-1">
-                            <User className="w-3 h-3" />
-                            {order.email}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {formatDate(order.createdAt)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-xl font-bold">
-                          ${(order.totalCents / 100).toFixed(2)}
-                        </div>
-                        {refundMap.get(order.id) && (
-                          <div className="text-xs text-red-600">
-                            Refunded: -${(refundMap.get(order.id)! / 100).toFixed(2)}
-                          </div>
-                        )}
-                        {!isManualSale(order.id) && (
-                          <div className="text-xs text-amber-600">
-                            {isSquareSale(order.id) ? (
-                              <>Square fee: -${(calculateSquareFee(order.totalCents) / 100).toFixed(2)}</>
-                            ) : (
-                              <>Stripe fee: -${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}</>
-                            )}
-                          </div>
-                        )}
-                        <div className="text-sm text-[var(--color-muted)]">
-                          {order.items.reduce((sum, item) => sum + item.quantity, 0)} items
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex flex-wrap gap-2 mt-3">
-                      <button
-                        onClick={() => toggleOrderExpansion(order.id)}
-                        className="flex-1 btn btn-sm text-sm"
-                      >
-                        {expandedOrderId === order.id ? "Hide Details" : "Show Details"}
+                {/* Details */}
+                {expanded && (
+                  <div className="border-t border-[var(--a-line)] px-4 pb-5 pt-4 sm:px-5">
+                    {/* ID + actions */}
+                    <div className="mb-5 flex flex-wrap items-center gap-2">
+                      <span className="mr-auto break-all font-mono text-xs text-[var(--a-muted)]">{order.id}</span>
+                      <button onClick={(e) => copyOrderId(order.id, e)} className="a-btn a-btn-sm">
+                        {copiedId === order.id ? <Check className="h-3.5 w-3.5" aria-hidden /> : <Copy className="h-3.5 w-3.5" aria-hidden />}
+                        {copiedId === order.id ? "Copied" : "Copy ID"}
                       </button>
-                      <button
-                        onClick={(e) => viewInvoice(order, e)}
-                        className="btn btn-sm text-sm inline-flex items-center gap-1"
-                        title="View Invoice"
-                      >
-                        <FileText className="w-3 h-3" />
+                      <button onClick={(e) => viewInvoice(order, e)} className="a-btn a-btn-sm">
+                        <FileText className="h-3.5 w-3.5" aria-hidden />
                         Invoice
                       </button>
                       <button
                         onClick={(e) => deleteOrderHandler(order.id, e)}
-                        className="btn btn-sm text-sm inline-flex items-center gap-1 text-red-600 hover:bg-red-50"
-                        title="Delete Order"
+                        className="a-icon-btn a-icon-btn-danger h-8 w-8"
+                        aria-label="Delete order"
+                        title="Delete order"
                       >
-                        <Trash2 className="w-3 h-3" />
-                        Delete
+                        <Trash2 className="h-4 w-4" aria-hidden />
                       </button>
                     </div>
-                  </div>
 
-                  {/* Order Details (Expanded) */}
-                  {expandedOrderId === order.id && (
-                    <div className="p-4 border-t border-[var(--color-line)]">
-                      <h3 className="font-bold mb-2">Order Items:</h3>
-                      <div className="space-y-2">
-                        {order.items.map((item, idx) => {
-                          const variantInfo = parseVariantInfo(item.variantId);
-                          return (
-                            <div
-                              key={idx}
-                              className="flex justify-between items-start text-sm"
-                            >
-                              <div className="flex-1">
-                                <div>
-                                  <span className="font-medium">{item.productName}</span>
-                                  <span className="text-[var(--color-muted)]"> x{item.quantity}</span>
-                                </div>
-                                {variantInfo && (
-                                  <div className="text-xs text-[var(--color-muted)] mt-1 flex gap-3">
-                                    <span className="inline-flex items-center gap-1">
-                                      <span className="font-medium">Wick:</span> {variantInfo.wick}
-                                    </span>
-                                    <span className="inline-flex items-center gap-1">
-                                      <span className="font-medium">Scent:</span> {variantInfo.scent}
-                                    </span>
+                    <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+                      {/* Left: items + money */}
+                      <div className="space-y-5">
+                        <section>
+                          <h3 className="a-section-label mb-2 text-[var(--a-faint)]">Items</h3>
+                          <ul className="space-y-2">
+                            {order.items.map((item, idx) => {
+                              const variantInfo = parseVariantInfo(item.variantId);
+                              return (
+                                <li key={idx} className="flex items-start justify-between gap-4 text-sm">
+                                  <div className="min-w-0">
+                                    <p className="text-[var(--a-ink)]">
+                                      <span className="font-medium">{item.productName}</span>
+                                      <span className="text-[var(--a-muted)]"> × {item.quantity}</span>
+                                    </p>
+                                    {variantInfo && (
+                                      <p className="mt-0.5 text-xs text-[var(--a-muted)]">
+                                        {variantInfo.scent} · {variantInfo.wick}
+                                      </p>
+                                    )}
                                   </div>
-                                )}
-                              </div>
-                              <span className="font-medium flex-shrink-0 ml-4">
-                                ${(item.priceCents / 100).toFixed(2)}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
+                                  <span className="shrink-0 tabular-nums">{money(item.priceCents)}</span>
+                                </li>
+                              );
+                            })}
+                          </ul>
+                        </section>
 
-                      {/* Financial Breakdown */}
-                      <div className="mt-4 pt-4 border-t border-[var(--color-line)] space-y-2 text-sm">
-                        <div className="flex justify-between">
-                          <span className="text-[var(--color-muted)]">Product Subtotal:</span>
-                          <span className="font-medium">${((order.productSubtotalCents ?? order.totalCents) / 100).toFixed(2)}</span>
-                        </div>
-                        {(() => {
-                          const shippingCost = getShippingCost(order);
-                          return shippingCost > 0 && (
+                        <section>
+                          <h3 className="a-section-label mb-2 text-[var(--a-faint)]">Payment</h3>
+                          <dl className="space-y-1.5 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-[var(--color-muted)]">Shipping:</span>
-                              <span className="font-medium">${(shippingCost / 100).toFixed(2)}</span>
+                              <dt className="text-[var(--a-muted)]">Products</dt>
+                              <dd className="tabular-nums">{money(order.productSubtotalCents ?? order.totalCents)}</dd>
                             </div>
-                          );
-                        })()}
-                        {order.taxCents !== undefined && order.taxCents > 0 && (
-                          <div className="flex justify-between">
-                            <span className="text-[var(--color-muted)]">Tax:</span>
-                            <span className="font-medium">${(order.taxCents / 100).toFixed(2)}</span>
-                          </div>
-                        )}
-                        {order.discountCents !== undefined && order.discountCents > 0 && (
-                          <div className="flex justify-between text-rose-600">
-                            <span>Discount:</span>
-                            <span className="font-medium">-${(order.discountCents / 100).toFixed(2)}</span>
-                          </div>
-                        )}
-                        <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold">
-                          <span>Order Total:</span>
-                          <span>${(order.totalCents / 100).toFixed(2)}</span>
-                        </div>
-                        {!isManualSale(order.id) && !isSquareSale(order.id) && (
-                          <>
-                            <div className="flex justify-between text-amber-600">
-                              <span>Stripe Fee (2.9% + $0.30):</span>
-                              <span className="font-medium">-${(calculateStripeFee(order.totalCents) / 100).toFixed(2)}</span>
+                            {getShippingCost(order) > 0 && (
+                              <div className="flex justify-between">
+                                <dt className="text-[var(--a-muted)]">Shipping</dt>
+                                <dd className="tabular-nums">{money(getShippingCost(order))}</dd>
+                              </div>
+                            )}
+                            {order.taxCents !== undefined && order.taxCents > 0 && (
+                              <div className="flex justify-between">
+                                <dt className="text-[var(--a-muted)]">Tax</dt>
+                                <dd className="tabular-nums">{money(order.taxCents)}</dd>
+                              </div>
+                            )}
+                            {order.discountCents !== undefined && order.discountCents > 0 && (
+                              <div className="flex justify-between">
+                                <dt className="text-[var(--a-muted)]">Discount</dt>
+                                <dd className="tabular-nums text-[#b42318]">−{money(order.discountCents)}</dd>
+                              </div>
+                            )}
+                            <div className="flex justify-between border-t border-[var(--a-line)] pt-1.5 font-semibold">
+                              <dt>Order total</dt>
+                              <dd className="tabular-nums">{money(order.totalCents)}</dd>
                             </div>
-                            <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
-                              <span>Net Revenue:</span>
-                              <span>${((order.totalCents - calculateStripeFee(order.totalCents)) / 100).toFixed(2)}</span>
+                            {fee > 0 && (
+                              <div className="flex justify-between">
+                                <dt className="text-[var(--a-muted)]">
+                                  {isSquareSale(order.id) ? "Square fee (2.6% + $0.10)" : "Stripe fee (2.9% + $0.30)"}
+                                </dt>
+                                <dd className="tabular-nums text-[var(--a-muted)]">−{money(fee)}</dd>
+                              </div>
+                            )}
+                            <div className="flex justify-between border-t border-[var(--a-line)] pt-1.5 font-semibold text-[#1f6b3a]">
+                              <dt>Net revenue{fee === 0 ? " (no fees)" : ""}</dt>
+                              <dd className="tabular-nums">{money(order.totalCents - fee)}</dd>
                             </div>
-                          </>
-                        )}
-                        {isSquareSale(order.id) && (
-                          <>
-                            <div className="flex justify-between text-purple-600">
-                              <span>Square Fee (2.6% + $0.10):</span>
-                              <span className="font-medium">-${((Math.round(order.totalCents * 0.026) + 10) / 100).toFixed(2)}</span>
-                            </div>
-                            <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
-                              <span>Net Revenue:</span>
-                              <span>${((order.totalCents - Math.round(order.totalCents * 0.026) - 10) / 100).toFixed(2)}</span>
-                            </div>
-                          </>
-                        )}
-                        {isManualSale(order.id) && (
-                          <div className="flex justify-between pt-2 border-t border-[var(--color-line)] font-bold text-green-600">
-                            <span>Net Revenue (No Fees):</span>
-                            <span>${(order.totalCents / 100).toFixed(2)}</span>
-                          </div>
-                        )}
+                            {refunded > 0 && (
+                              <div className="flex justify-between">
+                                <dt className="text-[var(--a-muted)]">Refunded</dt>
+                                <dd className="tabular-nums text-[#b42318]">−{money(refunded)}</dd>
+                              </div>
+                            )}
+                          </dl>
+                          {order.paymentMethod && (
+                            <p className="mt-3 text-sm text-[var(--a-muted)]">
+                              Paid by <span className="capitalize text-[var(--a-ink)]">{order.paymentMethod}</span>
+                            </p>
+                          )}
+                        </section>
                       </div>
 
-                      {/* Shipping Address */}
-                      {order.shippingAddress && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-                          <h4 className="font-bold mb-2 text-sm">Shipping Address:</h4>
-                          {order.shippingMethod && (
-                            <div className={`text-sm mb-2 ${order.isLocalPickup ? "text-orange-700 font-semibold" : "text-[var(--color-muted)]"}`}>
-                              Method: {order.shippingMethod}
-                              {order.isLocalPickup && " — customer will NOT receive a shipment"}
-                            </div>
-                          )}
-                          <div className="text-sm space-y-1">
-                            {order.shippingAddress.name && (
-                              <div className="font-medium">{order.shippingAddress.name}</div>
-                            )}
-                            {order.shippingAddress.line1 && (
-                              <div>{order.shippingAddress.line1}</div>
-                            )}
-                            {order.shippingAddress.line2 && (
-                              <div>{order.shippingAddress.line2}</div>
-                            )}
-                            {(order.shippingAddress.city || order.shippingAddress.state || order.shippingAddress.postalCode) && (
-                              <div>
-                                {order.shippingAddress.city && `${order.shippingAddress.city}, `}
-                                {order.shippingAddress.state && `${order.shippingAddress.state} `}
-                                {order.shippingAddress.postalCode}
-                              </div>
-                            )}
-                            {order.shippingAddress.country && (
-                              <div>{order.shippingAddress.country}</div>
-                            )}
-                            {order.phone && (
-                              <div className="mt-2">
-                                <span className="text-[var(--color-muted)] font-medium">Phone: </span>
-                                <span>{order.phone}</span>
-                              </div>
-                            )}
+                      {/* Right: customer + shipping */}
+                      <div className="space-y-5">
+                        <section>
+                          <h3 className="a-section-label mb-2 text-[var(--a-faint)]">Customer</h3>
+                          <div className="space-y-0.5 text-sm">
+                            {order.shippingAddress?.name && <p className="font-medium">{order.shippingAddress.name}</p>}
+                            {order.email && <p className="text-[var(--a-muted)]">{order.email}{order.isGuest ? " · guest" : ""}</p>}
+                            {order.phone && <p className="text-[var(--a-muted)]">{order.phone}</p>}
                           </div>
-                        </div>
-                      )}
+                          {order.shippingAddress && (
+                            <address className="mt-3 space-y-0.5 text-sm not-italic">
+                              {order.shippingAddress.line1 && <p>{order.shippingAddress.line1}</p>}
+                              {order.shippingAddress.line2 && <p>{order.shippingAddress.line2}</p>}
+                              {(order.shippingAddress.city || order.shippingAddress.state || order.shippingAddress.postalCode) && (
+                                <p>
+                                  {order.shippingAddress.city && `${order.shippingAddress.city}, `}
+                                  {order.shippingAddress.state && `${order.shippingAddress.state} `}
+                                  {order.shippingAddress.postalCode}
+                                </p>
+                              )}
+                              {order.shippingAddress.country && <p>{order.shippingAddress.country}</p>}
+                            </address>
+                          )}
+                          {order.shippingMethod && (
+                            <p className={`mt-3 text-sm ${order.isLocalPickup ? "font-medium text-[#8a5a06]" : "text-[var(--a-muted)]"}`}>
+                              {order.shippingMethod}
+                              {order.isLocalPickup && " · customer will not receive a shipment"}
+                            </p>
+                          )}
+                        </section>
 
-                      {/* Shipping Management */}
-                      <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-                        <h4 className="font-bold mb-3 text-sm">Shipping Status:</h4>
-
-                        {/* Current Tracking Info */}
-                        {order.trackingNumber && (
-                          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                            <div className="text-sm space-y-2">
-                              <div>
-                                <span className="font-medium text-blue-900">Tracking Number: </span>
+                        <section>
+                          <h3 className="a-section-label mb-2 text-[var(--a-faint)]">Shipping</h3>
+                          {order.trackingNumber && (
+                            <div className="a-panel mb-3 space-y-1 p-3 text-sm">
+                              <p className="flex flex-wrap items-center gap-2">
                                 <a
                                   href={`https://tools.usps.com/go/TrackConfirmAction?tLabels=${order.trackingNumber}`}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-blue-600 hover:underline font-mono"
+                                  className="font-mono text-[var(--a-accent-ink)] hover:underline"
                                 >
                                   {order.trackingNumber}
                                 </a>
-                              </div>
-                              <div>
-                                <span className="font-medium text-blue-900">Status: </span>
-                                <span className={`badge text-xs ${
-                                  order.shippingStatus === "delivered"
-                                    ? "bg-green-100 text-green-700"
-                                    : order.shippingStatus === "shipped"
-                                    ? "bg-blue-100 text-blue-700"
-                                    : "bg-gray-100 text-gray-700"
-                                }`}>
+                                <Badge tone={order.shippingStatus === "delivered" ? "green" : order.shippingStatus === "shipped" ? "blue" : "neutral"}>
                                   {order.shippingStatus || "pending"}
-                                </span>
-                              </div>
-                              {order.shippedAt && (
-                                <div className="text-xs text-blue-700">
-                                  Shipped: {formatDate(order.shippedAt)}
-                                </div>
-                              )}
-                              {order.deliveredAt && (
-                                <div className="text-xs text-green-700">
-                                  Delivered: {formatDate(order.deliveredAt)}
-                                </div>
-                              )}
+                                </Badge>
+                              </p>
+                              {order.shippedAt && <p className="text-xs text-[var(--a-muted)]">Shipped {formatDate(order.shippedAt)}</p>}
+                              {order.deliveredAt && <p className="text-xs text-[var(--a-muted)]">Delivered {formatDate(order.deliveredAt)}</p>}
                             </div>
-                          </div>
-                        )}
+                          )}
 
-                        {/* Update Shipping Form */}
-                        {!isManualSale(order.id) && order.status === "completed" && (
-                          <div className="space-y-3">
+                          {!isManualSale(order.id) && order.status === "completed" && (
                             <div>
-                              <label className="block text-sm font-medium mb-1">
-                                USPS Tracking Number:
+                              <label className="block">
+                                <span className="a-label">USPS tracking number</span>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. 9400100000000000000000"
+                                  className="a-input font-mono"
+                                  value={trackingInput[order.id] || order.trackingNumber || ""}
+                                  onChange={(e) =>
+                                    setTrackingInput({
+                                      ...trackingInput,
+                                      [order.id]: e.target.value,
+                                    })
+                                  }
+                                  disabled={updatingShipping === order.id}
+                                />
                               </label>
-                              <input
-                                type="text"
-                                placeholder="e.g., 9400100000000000000000"
-                                className="input w-full"
-                                value={trackingInput[order.id] || order.trackingNumber || ""}
-                                onChange={(e) =>
-                                  setTrackingInput({
-                                    ...trackingInput,
-                                    [order.id]: e.target.value,
-                                  })
-                                }
-                                disabled={updatingShipping === order.id}
-                              />
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <button
+                                  onClick={() => updateShippingStatus(order.id, "shipped")}
+                                  disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
+                                  className="a-btn a-btn-primary a-btn-sm"
+                                >
+                                  <Truck className="h-3.5 w-3.5" aria-hidden />
+                                  {updatingShipping === order.id ? "Updating…" : "Mark shipped"}
+                                </button>
+                                <button
+                                  onClick={() => updateShippingStatus(order.id, "delivered")}
+                                  disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
+                                  className="a-btn a-btn-sm"
+                                >
+                                  <Check className="h-3.5 w-3.5" aria-hidden />
+                                  Mark delivered
+                                </button>
+                              </div>
+                              <p className="a-help">Both buttons email the customer.</p>
                             </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => updateShippingStatus(order.id, "shipped")}
-                                disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
-                                className="btn btn-sm bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {updatingShipping === order.id ? "Updating..." : "📦 Mark as Shipped & Email"}
-                              </button>
-                              <button
-                                onClick={() => updateShippingStatus(order.id, "delivered")}
-                                disabled={updatingShipping === order.id || !trackingInput[order.id]?.trim()}
-                                className="btn btn-sm bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                              >
-                                {updatingShipping === order.id ? "Updating..." : "✅ Mark as Delivered & Email"}
-                              </button>
-                            </div>
-                            <p className="text-xs text-[var(--color-muted)]">
-                              Clicking these buttons will update the order status and automatically send a tracking/delivery email to the customer.
+                          )}
+
+                          {isManualSale(order.id) && (
+                            <p className="text-sm text-[var(--a-muted)]">No shipping tracking for manual sales.</p>
+                          )}
+                        </section>
+
+                        {order.notes && (
+                          <section>
+                            <h3 className="a-section-label mb-2 text-[var(--a-faint)]">Notes</h3>
+                            <p className="whitespace-pre-wrap rounded-lg border border-amber-200 bg-[#fdf6e7] p-3 text-sm text-[var(--a-ink)] [overflow-wrap:anywhere]">
+                              {order.notes}
                             </p>
-                          </div>
+                          </section>
                         )}
 
-                        {isManualSale(order.id) && (
-                          <p className="text-sm text-[var(--color-muted)] italic">
-                            Shipping tracking not available for manual sales
-                          </p>
+                        {order.completedAt && (
+                          <p className="text-xs text-[var(--a-muted)]">Completed {formatDate(order.completedAt)}</p>
                         )}
                       </div>
-
-                      {/* Payment Method & Notes */}
-                      {(order.paymentMethod || order.notes) && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-line)] space-y-3">
-                          {order.paymentMethod && (
-                            <div className="text-sm">
-                              <span className="text-[var(--color-muted)] font-medium">Payment Method: </span>
-                              <span className="text-[var(--color-ink)] capitalize">{order.paymentMethod}</span>
-                            </div>
-                          )}
-                          {order.notes && (
-                            <div className="text-sm">
-                              <div className="text-[var(--color-muted)] font-medium mb-1">Notes:</div>
-                              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-[var(--color-ink)] whitespace-pre-wrap">
-                                {order.notes}
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      )}
-
-                      {order.completedAt && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-line)] text-sm text-[var(--color-muted)]">
-                          Completed: {formatDate(order.completedAt)}
-                        </div>
-                      )}
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
     </div>
   );
 }
