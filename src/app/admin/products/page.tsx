@@ -3,7 +3,24 @@
 import { useEffect, useMemo, useState, useRef, useCallback, type ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowLeft, Search, Pencil, Trash2, X } from "lucide-react";
+import {
+  Download,
+  FileSpreadsheet,
+  ImageIcon,
+  ImageOff,
+  Pencil,
+  Plus,
+  RefreshCw,
+  Search,
+  Star,
+  Trash2,
+  Video,
+  X,
+  ArrowDown,
+  ArrowUp,
+} from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, FilterSelect, Menu, MenuItem, MenuLabel } from "../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 import { useModal } from "@/hooks/useModal";
 import QRCode from "qrcode";
@@ -1101,8 +1118,7 @@ export default function AdminProductsPage() {
   const [saving, setSaving] = useState(false);
   const [savingLabel, setSavingLabel] = useState<string>("Working…");
   const [imageSyncProgress, setImageSyncProgress] = useState<{ current: number; total: number } | null>(null);
-  const [squareSyncOpen, setSquareSyncOpen] = useState(false);
-  const [stripeSyncOpen, setStripeSyncOpen] = useState(false);
+  const [syncMenuOpen, setSyncMenuOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -1353,24 +1369,24 @@ export default function AdminProductsPage() {
     className?: string;
   }) {
     if (column === "none") {
-      return (
-        <th className={`py-3 text-xs font-semibold text-neutral-600 uppercase tracking-wide ${className}`}>
-          {children}
-        </th>
-      );
+      return <th className={className}>{children}</th>;
     }
 
     const isActive = sortBy === column;
-    const arrow = isActive ? (sortDirection === "asc" ? " ↑" : " ↓") : "";
+    const Arrow = sortDirection === "asc" ? ArrowUp : ArrowDown;
 
     return (
-      <th className={`py-3 ${className}`}>
+      <th
+        className={className}
+        aria-sort={isActive ? (sortDirection === "asc" ? "ascending" : "descending") : undefined}
+      >
         <button
-          className="w-full text-xs font-semibold text-neutral-600 uppercase tracking-wide hover:text-[var(--color-accent)] transition-colors whitespace-nowrap"
+          type="button"
+          className={`inline-flex items-center gap-1 whitespace-nowrap transition-colors hover:text-[var(--a-ink)] ${isActive ? "text-[var(--a-ink)]" : ""}`}
           onClick={() => handleSort(column)}
         >
           {children}
-          {arrow}
+          {isActive && <Arrow className="h-3 w-3" aria-hidden />}
         </button>
       </th>
     );
@@ -1957,82 +1973,9 @@ export default function AdminProductsPage() {
     return computeNextSku(allSkus);
   }, [items, staged]);
 
-  /* ---------- UI ---------- */
-  return (
-    <div className="mx-auto max-w-[1800px] p-4 sm:p-6">
-      {/* Full-screen loading overlay — shown during any long-running operation */}
-      {saving && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[200px]">
-            {/* Candle animation */}
-            <CandleSpinner />
-
-            <p className="text-sm font-medium text-[var(--color-ink)]">
-              {imageSyncProgress
-                ? `Syncing images… ${imageSyncProgress.current} / ${imageSyncProgress.total}`
-                : savingLabel}
-            </p>
-          </div>
-        </div>
-      )}
-
-      {/* Top bar + Actions */}
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <div className="flex items-center gap-3 w-full sm:w-auto sm:mr-auto">
-          <Link href="/admin" className="btn">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Products</h1>
-        </div>
-          <div className="relative">
-            <button
-              className="btn flex items-center gap-1"
-              disabled={filtered.length === 0}
-              onClick={() => setExportOpen((o) => !o)}
-            >
-              Export ({filtered.length})
-              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {exportOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-44">
-                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Export format</p>
-                <button
-                  className="btn !bg-green-50 !text-green-800 hover:!bg-green-100 w-full text-sm flex items-center gap-2"
-                  onClick={() => { setExportOpen(false); exportToCSV(); }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                  CSV
-                </button>
-                <button
-                  className="btn !bg-pink-50 !text-pink-800 hover:!bg-pink-100 w-full text-sm flex items-center gap-2"
-                  onClick={() => { setExportOpen(false); exportToTikTok(); }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 4v16M17 4v16M3 8h4m10 0h4M3 12h18M3 16h4m10 0h4M4 20h16a1 1 0 001-1V5a1 1 0 00-1-1H4a1 1 0 00-1 1v14a1 1 0 001 1z" /></svg>
-                  TikTok Shop
-                </button>
-              </div>
-            )}
-          </div>
-          <div className="relative">
-            <button
-              className="btn flex items-center gap-1"
-              disabled={saving}
-              onClick={() => setStripeSyncOpen((open) => !open)}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {saving ? "Syncing..." : "Stripe Sync"}
-              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {stripeSyncOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-56">
-                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Stripe Sync</p>
-                <button
-                  className="btn !bg-green-50 !text-green-800 hover:!bg-green-100 w-full text-sm flex items-center gap-2"
-                  disabled={saving}
-                  onClick={async () => {
-                    setStripeSyncOpen(false);
+  /* ---------- Sync actions ---------- */
+  async function syncStripeHomeGoods() {
+                    setSyncMenuOpen(false);
                     const homeGoods = merged.filter((product) =>
                       product.productType === "home_goods" && product.stripePriceId && product.bottleOptions?.length,
                     );
@@ -2069,40 +2012,10 @@ export default function AdminProductsPage() {
                     } finally {
                       setSaving(false);
                     }
-                  }}
-                >
-                  Sync Prices + Variations
-                </button>
-                <Link
-                  href="/admin/stripe-product-sync"
-                  className="btn !bg-blue-50 !text-blue-800 hover:!bg-blue-100 w-full text-sm flex items-center gap-2"
-                  onClick={() => setStripeSyncOpen(false)}
-                >
-                  Sync Images
-                </Link>
-              </div>
-            )}
-          </div>
-          <div className="relative">
-            <button
-              className="btn flex items-center gap-1"
-              disabled={saving}
-              onClick={() => setSquareSyncOpen((o) => !o)}
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
-              {saving ? "Syncing..." : "Square Sync"}
-              <svg className="w-3 h-3 ml-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-            {squareSyncOpen && (
-              <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-[var(--color-line)] rounded-xl shadow-lg p-2 flex flex-col gap-1 min-w-52">
-                <p className="text-xs text-[var(--color-muted)] px-2 pb-1 font-medium">Square Sync</p>
-                <button
-                  className="btn !bg-purple-50 !text-purple-800 hover:!bg-purple-100 w-full text-sm flex items-center gap-2"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSquareSyncOpen(false);
+  }
+
+  async function syncAllToSquare() {
+                    setSyncMenuOpen(false);
                     if (saving) return;
 
               // Debug: Log all products with Square info
@@ -2286,18 +2199,10 @@ export default function AdminProductsPage() {
                 setSaving(false);
                 await showAlert(err instanceof Error ? err.message : "Failed to sync all products to Square", "Error");
               }
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                  </svg>
-                  {saving ? "Syncing..." : "Sync Stock + Details"}
-                </button>
-                <button
-                  className="btn !bg-teal-50 !text-teal-800 hover:!bg-teal-100 w-full text-sm flex items-center gap-2"
-                  disabled={saving}
-                  onClick={async () => {
-                    setSquareSyncOpen(false);
+  }
+
+  async function syncImagesToSquare() {
+                    setSyncMenuOpen(false);
                     const confirmed = await showConfirm(
                 "Sync images for all Square products? This uploads product photos to Square in batches of 5. It may take several minutes.",
                 "Sync Images to Square"
@@ -2389,84 +2294,210 @@ export default function AdminProductsPage() {
                 setImageSyncProgress(null);
                 await showAlert(err instanceof Error ? err.message : "Failed to sync images to Square", "Error");
               }
-                  }}
-                >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                  {imageSyncProgress
-                    ? `Syncing ${imageSyncProgress.current}/${imageSyncProgress.total}...`
-                    : "Sync Images"}
-                </button>
-              </div>
-            )}
-          </div>
-          <button
-            className="btn !bg-green-100 !text-green-800 hover:!bg-green-200 w-full sm:w-auto"
-            onClick={() => {
-              const p = emptyProduct();
-              p.sku = nextSku; // default auto-increment
-              setEditing(p);
-              setSlugTouched(false);
-              setSlugError(null);
-              setError(null);
-            }}
-          >
-            + New product
-          </button>
-          {Object.keys(staged).length > 0 && (
-            <>
-              <button className="btn" onClick={() => setStaged({})} disabled={saving}>
-                Discard all
-              </button>
-              <button className="btn btn-primary" onClick={publishAll} disabled={saving}>
-                {saving ? "Publishing…" : `Publish all (${Object.keys(staged).length})`}
-              </button>
-            </>
-          )}
+  }
+
+  /* ---------- List helpers ---------- */
+  const stagedCount = Object.keys(staged).length;
+  const filtersActive =
+    filter !== "" ||
+    visibleFilter !== "all" ||
+    typeFilter.length > 0 ||
+    scentFilter.length > 0 ||
+    stockFilter !== "all" ||
+    bestFilter !== "all" ||
+    statusFilter !== "all" ||
+    sortBy !== "none";
+
+  function clearFilters() {
+    setFilter("");
+    setVisibleFilter("all");
+    setTypeFilter([]);
+    setScentFilter([]);
+    setStockFilter("all");
+    setBestFilter("all");
+    setStatusFilter("all");
+    setSortBy("none");
+    setSortDirection("asc");
+  }
+
+  function openEditor(p: Product) {
+    setEditing(p);
+    setSlugTouched(true);
+    setSlugError(null);
+    setError(null);
+  }
+
+  function openNewProduct() {
+    const p = emptyProduct();
+    p.sku = nextSku; // default auto-increment
+    setEditing(p);
+    setSlugTouched(false);
+    setSlugError(null);
+    setError(null);
+  }
+
+  function productThumb(p: Product) {
+    const img = p.images?.[0] ?? p.image;
+    return (
+      <div className="relative h-12 w-12 shrink-0 overflow-hidden rounded-lg bg-[var(--a-tint)]">
+        {img ? (
+          <Image src={img} alt="" fill sizes="48px" className="object-contain p-0.5" />
+        ) : (
+          <ImageOff className="absolute inset-0 m-auto h-5 w-5 text-[var(--a-faint)]" strokeWidth={1.5} aria-hidden />
+        )}
       </div>
+    );
+  }
 
-      <div className="space-y-4">
-        {/* Search */}
-        <input
-          className="input w-full"
-          placeholder="Search by name, slug, or SKU…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-        />
+  function productBadges(p: Product) {
+    const isDraft = hasDraft(p.slug);
+    const hidden = p.visibleOnWebsite === false;
+    if (!isDraft && !hidden && !p.bestSeller) return null;
+    return (
+      <span className="flex flex-wrap gap-1">
+        {isDraft && <Badge tone="amber">Unpublished</Badge>}
+        {hidden && <Badge>Hidden</Badge>}
+        {p.bestSeller && (
+          <Badge tone="amber">
+            <Star className="h-3 w-3 fill-current" aria-hidden />
+            Best seller
+          </Badge>
+        )}
+      </span>
+    );
+  }
 
-        {/* Filters */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-3">
-          {/* Visible Filter */}
-          <div>
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Visibility</label>
-            <select
-              className="input w-full text-sm"
-              value={visibleFilter}
-              onChange={(e) => setVisibleFilter(e.target.value as typeof visibleFilter)}
-            >
-              <option value="all">All</option>
-              <option value="visible">Visible</option>
-              <option value="hidden">Hidden</option>
-            </select>
+  /* ---------- UI ---------- */
+  return (
+    <div className="a-ui mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
+      {/* Full-screen loading overlay — shown during any long-running operation */}
+      {saving && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+          <div role="status" aria-live="polite" className="a-card flex min-w-[220px] flex-col items-center gap-4 px-10 py-8 shadow-2xl">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--a-ink)]">
+              {imageSyncProgress
+                ? `Syncing images… ${imageSyncProgress.current} / ${imageSyncProgress.total}`
+                : savingLabel}
+            </p>
           </div>
+        </div>
+      )}
 
-          {/* Type Filter - Multi-select */}
-          <div className="relative type-filter-dropdown">
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Type</label>
+      <PageHeader
+        title="Products"
+        description={loading ? "Loading…" : `${merged.length} products · ${totalStock} in stock${filtersActive ? " (filtered)" : ""}`}
+        actions={
+          <>
+            <Menu
+              label={<><Download className="h-4 w-4" aria-hidden />Export</>}
+              open={exportOpen}
+              onOpenChange={setExportOpen}
+              align="left"
+              disabled={filtered.length === 0}
+            >
+              <MenuLabel>{filtered.length} products</MenuLabel>
+              <MenuItem icon={<FileSpreadsheet className="h-4 w-4" />} onClick={() => { setExportOpen(false); exportToCSV(); }}>
+                CSV spreadsheet
+              </MenuItem>
+              <MenuItem icon={<Video className="h-4 w-4" />} onClick={() => { setExportOpen(false); exportToTikTok(); }}>
+                TikTok Shop template
+              </MenuItem>
+            </Menu>
+
+            <Menu
+              label={<><RefreshCw className="h-4 w-4" aria-hidden />Sync</>}
+              open={syncMenuOpen}
+              onOpenChange={setSyncMenuOpen}
+              disabled={saving}
+            >
+              <MenuLabel>Square</MenuLabel>
+              <MenuItem icon={<RefreshCw className="h-4 w-4" />} hint="Inventory, names and descriptions" disabled={saving} onClick={() => void syncAllToSquare()}>
+                Sync stock + details
+              </MenuItem>
+              <MenuItem icon={<ImageIcon className="h-4 w-4" />} hint="Uploads photos in batches of 5" disabled={saving} onClick={() => void syncImagesToSquare()}>
+                Sync images
+              </MenuItem>
+              <MenuLabel>Stripe</MenuLabel>
+              <MenuItem icon={<RefreshCw className="h-4 w-4" />} hint="Home Goods prices and bottle options" disabled={saving} onClick={() => void syncStripeHomeGoods()}>
+                Sync prices + variations
+              </MenuItem>
+              <Link href="/admin/stripe-product-sync" role="menuitem" className="a-menu-item" onClick={() => setSyncMenuOpen(false)}>
+                <ImageIcon className="h-4 w-4 text-[var(--a-muted)]" aria-hidden />
+                Sync images
+              </Link>
+            </Menu>
+
+            <button className="a-btn a-btn-primary" onClick={openNewProduct}>
+              <Plus className="h-4 w-4" aria-hidden />
+              <span className="sm:hidden">New</span>
+              <span className="hidden sm:inline">New product</span>
+            </button>
+          </>
+        }
+      />
+
+      {/* Unpublished changes */}
+      {stagedCount > 0 && (
+        <div className="sticky top-16 z-20 mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-[#fdf6e7] px-4 py-3 shadow-sm">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-amber-500" aria-hidden />
+          <p className="min-w-0 flex-1 text-sm text-[#6b4a0b]">
+            <span className="font-semibold">
+              {stagedCount} unpublished {stagedCount === 1 ? "change" : "changes"}.
+            </span>{" "}
+            They won&apos;t show on the site until you publish.
+          </p>
+          <div className="flex gap-2">
+            <button className="a-btn a-btn-sm" onClick={() => setStaged({})} disabled={saving}>
+              Discard all
+            </button>
+            <button className="a-btn a-btn-primary a-btn-sm" onClick={publishAll} disabled={saving}>
+              {saving ? "Publishing…" : "Publish all"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Search + filters */}
+      <div className="mb-4 flex flex-col gap-2 xl:flex-row xl:items-center">
+        <label className="relative block xl:w-80 xl:shrink-0">
+          <span className="sr-only">Search products</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+          <input
+            className="a-input pl-9"
+            placeholder="Search name, slug or SKU…"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+          />
+        </label>
+
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6 xl:flex-1">
+          <FilterSelect
+            label="Visibility"
+            value={visibleFilter}
+            onChange={setVisibleFilter}
+            options={[
+              { value: "all", label: "Visibility" },
+              { value: "visible", label: "Visible" },
+              { value: "hidden", label: "Hidden" },
+            ]}
+          />
+
+          {/* Type filter (multi-select) */}
+          <div className="type-filter-dropdown relative">
             <button
               type="button"
-              className="input w-full text-sm text-left flex items-center justify-between !border-[var(--color-line)]"
+              aria-haspopup="listbox"
+              aria-expanded={typeDropdownOpen}
+              className={`a-select text-left ${typeFilter.length ? "a-select-active" : ""}`}
               onClick={() => setTypeDropdownOpen(!typeDropdownOpen)}
             >
-              <span>
-                {typeFilter.length === 0 ? "All Types" : typeFilter.length === 1 ? typeFilter[0] : `${typeFilter.length} selected`}
+              <span className="block truncate">
+                {typeFilter.length === 0 ? "Type" : typeFilter.length === 1 ? typeFilter[0] : `${typeFilter.length} types`}
               </span>
-              <span className="ml-2">▼</span>
             </button>
             {typeDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-[var(--color-line)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                {/* Get unique types from active alcohol types */}
+              <div className="a-card absolute z-30 mt-1.5 max-h-72 w-full min-w-48 overflow-y-auto p-1.5 shadow-lg">
                 {(() => {
                   const uniqueTypes = new Set<string>();
                   alcoholTypes.forEach((type) => uniqueTypes.add(type.name));
@@ -2478,9 +2509,10 @@ export default function AdminProductsPage() {
                   return Array.from(uniqueTypes)
                     .sort()
                     .map((typeName) => (
-                      <label key={typeName} className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer">
+                      <label key={typeName} className="a-menu-item font-normal">
                         <input
                           type="checkbox"
+                          className="a-check"
                           checked={typeFilter.includes(typeName)}
                           onChange={(e) => {
                             if (e.target.checked) {
@@ -2489,9 +2521,8 @@ export default function AdminProductsPage() {
                               setTypeFilter(typeFilter.filter((t) => t !== typeName));
                             }
                           }}
-                          className="w-4 h-4"
                         />
-                        <span className="text-sm">{typeName}</span>
+                        {typeName}
                       </label>
                     ));
                 })()}
@@ -2499,30 +2530,33 @@ export default function AdminProductsPage() {
             )}
           </div>
 
-          {/* Scent Filter - Multi-select */}
-          <div className="relative scent-filter-dropdown">
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Scent</label>
+          {/* Scent filter (multi-select) */}
+          <div className="scent-filter-dropdown relative">
             <button
               type="button"
-              className="input w-full text-sm text-left flex items-center justify-between !border-[var(--color-line)]"
+              aria-haspopup="listbox"
+              aria-expanded={scentDropdownOpen}
+              className={`a-select text-left ${scentFilter.length ? "a-select-active" : ""}`}
               onClick={() => setScentDropdownOpen(!scentDropdownOpen)}
             >
-              <span>
-                {scentFilter.length === 0 ? "All Scents" : scentFilter.length === 1
-                  ? (globalScents.find((s) => s.id === scentFilter[0])?.name ?? scentFilter[0])
-                  : `${scentFilter.length} selected`}
+              <span className="block truncate">
+                {scentFilter.length === 0
+                  ? "Scent"
+                  : scentFilter.length === 1
+                    ? (globalScents.find((s) => s.id === scentFilter[0])?.name ?? scentFilter[0])
+                    : `${scentFilter.length} scents`}
               </span>
-              <span className="ml-2">▼</span>
             </button>
             {scentDropdownOpen && (
-              <div className="absolute z-10 mt-1 w-full bg-white border border-[var(--color-line)] rounded-lg shadow-lg max-h-60 overflow-y-auto">
+              <div className="a-card absolute z-30 mt-1.5 max-h-72 w-full min-w-56 overflow-y-auto p-1.5 shadow-lg">
                 {globalScents
                   .slice()
                   .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name))
                   .map((scent) => (
-                    <label key={scent.id} className="flex items-center gap-2 px-3 py-2 hover:bg-neutral-50 cursor-pointer">
+                    <label key={scent.id} className="a-menu-item font-normal">
                       <input
                         type="checkbox"
+                        className="a-check"
                         checked={scentFilter.includes(scent.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -2531,318 +2565,253 @@ export default function AdminProductsPage() {
                             setScentFilter(scentFilter.filter((id) => id !== scent.id));
                           }
                         }}
-                        className="w-4 h-4"
                       />
-                      <span className="text-sm">{scent.name}</span>
-                      {scent.limited && <span className="text-xs text-amber-600 ml-auto">Limited</span>}
+                      <span className="flex-1">{scent.name}</span>
+                      {scent.limited && <Badge tone="amber">Limited</Badge>}
                     </label>
                   ))}
               </div>
             )}
           </div>
 
-          {/* Stock Filter */}
-          <div>
-            <label className={`block text-xs font-medium mb-1 ${scentFilter.length > 0 ? "text-[var(--color-muted)] opacity-40" : "text-[var(--color-muted)]"}`}>
-              Stock{scentFilter.length > 0 && " (in-stock only)"}
-            </label>
-            <select
-              className="input w-full text-sm"
-              value={scentFilter.length > 0 ? "in-stock" : stockFilter}
-              disabled={scentFilter.length > 0}
-              onChange={(e) => setStockFilter(e.target.value as typeof stockFilter)}
-              style={scentFilter.length > 0 ? { opacity: 0.45, cursor: "not-allowed" } : undefined}
-            >
-              <option value="all">All</option>
-              <option value="in-stock">In Stock</option>
-              <option value="out-of-stock">Out of Stock</option>
-            </select>
-          </div>
-
-          {/* Best Seller Filter */}
-          <div>
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Best Seller</label>
-            <select className="input w-full text-sm" value={bestFilter} onChange={(e) => setBestFilter(e.target.value as typeof bestFilter)}>
-              <option value="all">All</option>
-              <option value="best">Best Sellers</option>
-              <option value="not-best">Not Best Sellers</option>
-            </select>
-          </div>
-
-          {/* Status Filter */}
-          <div>
-            <label className="block text-xs font-medium mb-1 text-[var(--color-muted)]">Status</label>
-            <select className="input w-full text-sm" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}>
-              <option value="all">All</option>
-              <option value="published">Published</option>
-              <option value="draft">Draft</option>
-            </select>
-          </div>
-
-          {/* Clear Filters */}
-          <div className="col-span-2 sm:col-span-1 flex items-end">
-            <button
-              title="Clear all filters"
-              className="btn w-full sm:w-9 sm:h-9 !bg-red-400 !text-white hover:!bg-red-500 flex items-center justify-center gap-2 sm:!p-0 sm:!min-h-0"
-              onClick={() => {
-                setFilter("");
-                setVisibleFilter("all");
-                setTypeFilter([]);
-                setScentFilter([]);
-                setStockFilter("all");
-                setBestFilter("all");
-                setStatusFilter("all");
-                setSortBy("none");
-                setSortDirection("asc");
-              }}
-            >
-              <X className="w-4 h-4" />
-              <span className="sm:hidden">Clear Filters</span>
-            </button>
-          </div>
+          <FilterSelect
+            label={scentFilter.length > 0 ? "Stock (in stock only while filtering by scent)" : "Stock"}
+            value={scentFilter.length > 0 ? "in-stock" : stockFilter}
+            onChange={setStockFilter}
+            disabled={scentFilter.length > 0}
+            options={[
+              { value: "all", label: "Stock" },
+              { value: "in-stock", label: "In stock" },
+              { value: "out-of-stock", label: "Out of stock" },
+            ]}
+          />
+          <FilterSelect
+            label="Best seller"
+            value={bestFilter}
+            onChange={setBestFilter}
+            options={[
+              { value: "all", label: "Best seller" },
+              { value: "best", label: "Best sellers" },
+              { value: "not-best", label: "Not best sellers" },
+            ]}
+          />
+          <FilterSelect
+            label="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "Status" },
+              { value: "published", label: "Published" },
+              { value: "draft", label: "Unpublished" },
+            ]}
+          />
         </div>
+
+        {filtersActive && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex h-10 items-center gap-1.5 self-start rounded-lg px-3 text-sm font-medium text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)] xl:self-auto"
+          >
+            <X className="h-4 w-4" aria-hidden />
+            Clear
+          </button>
+        )}
       </div>
 
       {/* Content */}
-      <div className="mt-6">
+      <div>
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <div className="flex flex-col items-center justify-center gap-4 py-16">
             <CandleSpinner />
-            <p className="text-sm font-medium text-[var(--color-muted)]">Loading products…</p>
+            <p className="text-sm font-medium text-[var(--a-muted)]">Loading products…</p>
           </div>
         ) : filtered.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-[var(--color-muted)]">No products found</p>
+          <div className="a-card flex flex-col items-center gap-3 px-6 py-16 text-center">
+            <p className="font-medium text-[var(--a-ink)]">No products match</p>
+            <p className="text-sm text-[var(--a-muted)]">Try a different search or clear the filters.</p>
+            {filtersActive && (
+              <button className="a-btn a-btn-sm mt-1" onClick={clearFilters}>
+                Clear filters
+              </button>
+            )}
           </div>
         ) : (
           <>
             {/* Desktop table */}
-            <div className="hidden lg:block">
-              <div className="overflow-hidden rounded-xl border border-[var(--color-line)] bg-white shadow-sm">
-                <table className="w-full">
-                  <thead className="bg-gradient-to-r from-neutral-50 to-neutral-100 border-b border-[var(--color-line)]">
-                    <tr>
-                      <SortableHeader column="none" className="w-20 text-center border-r border-[var(--color-line)]">
-                        Visible
-                      </SortableHeader>
-                      <SortableHeader column="none" className="w-24 text-center border-r border-[var(--color-line)]">
-                        Image
-                      </SortableHeader>
-                      <SortableHeader column="name" className="text-center border-r border-[var(--color-line)]">
-                        Name
-                      </SortableHeader>
-                      <SortableHeader column="price" className="w-28 text-center border-r border-[var(--color-line)]">
-                        Price
-                      </SortableHeader>
-                      <SortableHeader column="cost" className="w-36 text-center border-r border-[var(--color-line)]">
-                        Cost
-                      </SortableHeader>
-                      <SortableHeader column="none" className="w-36 text-center border-r border-[var(--color-line)]">
-                        Type
-                      </SortableHeader>
-                      <SortableHeader column="stock" className="w-28 text-center border-r border-[var(--color-line)]">
-                        Stock ({totalStock})
-                      </SortableHeader>
-                      <SortableHeader column="best" className="w-20 text-center border-r border-[var(--color-line)]">
-                        Best
-                      </SortableHeader>
-                      <SortableHeader column="none" className="w-28 text-center">
-                        Actions
-                      </SortableHeader>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--color-line)]">
-                    {filtered.map((p) => {
-                      const isDraft = hasDraft(p.slug);
-                      const profitMargin =
-                        p.materialCost && p.price > 0 ? (((p.price - p.materialCost) / p.price) * 100).toFixed(0) : null;
+            <div className="a-card hidden overflow-hidden lg:block">
+              <table className="a-table">
+                <thead>
+                  <tr>
+                    <SortableHeader column="none" className="w-16 text-center">Visible</SortableHeader>
+                    <SortableHeader column="name">Product</SortableHeader>
+                    <SortableHeader column="price" className="w-28 text-right">Price</SortableHeader>
+                    <SortableHeader column="cost" className="w-36 text-right">Cost</SortableHeader>
+                    <SortableHeader column="none" className="w-36">Type</SortableHeader>
+                    <SortableHeader column="stock" className="w-24 text-right">Stock</SortableHeader>
+                    <SortableHeader column="best" className="w-16 text-center">Best</SortableHeader>
+                    <th className="w-44">
+                      <span className="sr-only">Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((p) => {
+                    const isDraft = hasDraft(p.slug);
+                    const profitMargin =
+                      p.materialCost && p.price > 0 ? (((p.price - p.materialCost) / p.price) * 100).toFixed(0) : null;
+                    const stock = getTotalStock(p);
 
-                      return (
-                        <tr key={p.slug} className="group hover:bg-neutral-50/50 transition-colors">
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            <input
-                              type="checkbox"
-                              checked={p.visibleOnWebsite !== false}
-                              onChange={(e) => {
-                                const updated = { ...p, visibleOnWebsite: e.target.checked };
-                                stageProduct(updated);
-                              }}
-                              className="w-4 h-4 text-[var(--color-accent)] rounded border-neutral-300 focus:ring-2 focus:ring-[var(--color-accent)]"
-                              title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
-                            />
-                          </td>
-                          <td className="py-5 border-r border-[var(--color-line)]">
-                            <div className="flex justify-center">
-                              {(() => {
-                                const img = p.images?.[0] ?? p.image;
-                                return img ? (
-                                  <div className="relative w-16 h-16 rounded-lg overflow-hidden bg-neutral-100">
-                                    <Image src={img} alt={p.name} fill sizes="64px" className="object-contain p-1" />
-                                  </div>
-                                ) : (
-                                  <div className="w-16 h-16 rounded-lg bg-neutral-100 flex items-center justify-center">
-                                    <svg className="w-8 h-8 text-neutral-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={1.5}
-                                        d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                      />
-                                    </svg>
-                                  </div>
-                                );
-                              })()}
-                            </div>
-                          </td>
-                          <td className="py-5 px-4 text-center border-r border-[var(--color-line)]">
-                            <div className="font-medium text-[var(--color-ink)] text-sm">{p.name}</div>
-                            <div className="text-xs text-[var(--color-muted)] mt-1">{p.slug}</div>
-                          </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            <div className="font-semibold text-[var(--color-ink)] text-sm">${p.price.toFixed(2)}</div>
-                          </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            {p.materialCost ? (
-                              <div>
-                                <div className="font-medium text-[var(--color-ink)] text-sm">${p.materialCost.toFixed(2)}</div>
-                                {profitMargin && <div className="text-xs text-green-600 font-medium mt-0.5">+{profitMargin}%</div>}
-                              </div>
-                            ) : (
-                              <span className="text-[var(--color-muted)]">—</span>
-                            )}
-                          </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            <span className="inline-flex items-center px-3 py-1 rounded-md text-xs font-medium bg-neutral-100 text-neutral-700">
-                              {p.alcoholType ?? "Other"}
-                            </span>
-                          </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            <div className="font-semibold text-[var(--color-ink)] text-sm">{getTotalStock(p)}</div>
-                          </td>
-                          <td className="py-5 text-center border-r border-[var(--color-line)]">
-                            {p.bestSeller ? (
-                              <span className="text-amber-500" title="Best Seller">
-                                <svg className="w-5 h-5 inline" fill="currentColor" viewBox="0 0 20 20">
-                                  <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                                </svg>
+                    return (
+                      <tr key={p.slug} className={isDraft ? "bg-[#fffaf0]" : undefined}>
+                        <td className="text-center">
+                          <input
+                            type="checkbox"
+                            className="a-check"
+                            checked={p.visibleOnWebsite !== false}
+                            onChange={(e) => stageProduct({ ...p, visibleOnWebsite: e.target.checked })}
+                            aria-label={`Show ${p.name} on the shop`}
+                            title={p.visibleOnWebsite !== false ? "Visible on shop" : "Hidden from shop"}
+                          />
+                        </td>
+                        <td>
+                          <button
+                            type="button"
+                            onClick={() => openEditor(p)}
+                            className="group flex w-full items-center gap-3 text-left focus-visible:outline-none"
+                          >
+                            {productThumb(p)}
+                            <span className="min-w-0 flex-1">
+                              <span className="block truncate font-medium text-[var(--a-ink)] group-hover:underline group-focus-visible:underline">
+                                {p.name}
                               </span>
-                            ) : (
-                              <span className="text-neutral-300">—</span>
+                              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--a-muted)]">
+                                <span className="truncate">{p.sku || p.slug}</span>
+                                {productBadges(p)}
+                              </span>
+                            </span>
+                          </button>
+                        </td>
+                        <td className="a-num font-medium">${p.price.toFixed(2)}</td>
+                        <td className="a-num">
+                          {p.materialCost ? (
+                            <>
+                              <span className="block">${p.materialCost.toFixed(2)}</span>
+                              {profitMargin && <span className="block whitespace-nowrap text-xs font-medium text-[#1f6b3a]">{profitMargin}% margin</span>}
+                            </>
+                          ) : (
+                            <span className="text-[var(--a-faint)]">—</span>
+                          )}
+                        </td>
+                        <td>
+                          <Badge>{p.alcoholType ?? "Other"}</Badge>
+                        </td>
+                        <td className={`a-num font-medium ${stock === 0 ? "text-[var(--a-faint)]" : ""}`}>{stock}</td>
+                        <td className="text-center">
+                          <button
+                            type="button"
+                            onClick={() => stageProduct({ ...p, bestSeller: !p.bestSeller })}
+                            className="a-icon-btn"
+                            aria-pressed={!!p.bestSeller}
+                            aria-label={p.bestSeller ? `Unmark ${p.name} as best seller` : `Mark ${p.name} as best seller`}
+                            title={p.bestSeller ? "Best seller" : "Mark as best seller"}
+                          >
+                            <Star
+                              className={`h-4 w-4 ${p.bestSeller ? "fill-amber-400 text-amber-500" : "text-[var(--a-line-strong)]"}`}
+                              aria-hidden
+                            />
+                          </button>
+                        </td>
+                        <td>
+                          <div className="flex items-center justify-end gap-1">
+                            {isDraft && (
+                              <>
+                                <button className="a-btn a-btn-sm" onClick={() => discardDraft(p.slug)}>
+                                  Discard
+                                </button>
+                                <button className="a-btn a-btn-primary a-btn-sm" disabled={saving} onClick={() => publishOne(p.slug)}>
+                                  {saving ? "…" : "Publish"}
+                                </button>
+                              </>
                             )}
-                          </td>
-                          <td className="py-5 px-2 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                title="Edit"
-                                className="btn w-9 h-9 !p-0 !min-h-0 flex items-center justify-center"
-                                onClick={() => {
-                                  setEditing(p);
-                                  setSlugTouched(true);
-                                  setSlugError(null);
-                                  setError(null);
-                                }}
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-
-                              {isDraft && (
-                                <>
-                                  <button className="btn btn-primary text-xs !px-2 !py-1 !min-h-0 h-9" disabled={saving} onClick={() => publishOne(p.slug)}>
-                                    {saving ? "…" : "Publish"}
-                                  </button>
-                                  <button className="btn text-xs !px-2 !py-1 !min-h-0 h-9" onClick={() => discardDraft(p.slug)}>
-                                    Discard
-                                  </button>
-                                </>
-                              )}
-
-                              <button
-                                title="Delete"
-                                className="btn w-9 h-9 !p-0 !min-h-0 flex items-center justify-center !text-red-600 hover:!bg-red-50"
-                                onClick={() => void deleteProduct(p.slug)}
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
+                            <button className="a-icon-btn" title="Edit" aria-label={`Edit ${p.name}`} onClick={() => openEditor(p)}>
+                              <Pencil className="h-4 w-4" aria-hidden />
+                            </button>
+                            <button
+                              className="a-icon-btn a-icon-btn-danger"
+                              title="Delete"
+                              aria-label={`Delete ${p.name}`}
+                              onClick={() => void deleteProduct(p.slug)}
+                            >
+                              <Trash2 className="h-4 w-4" aria-hidden />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
 
             {/* Mobile/Tablet card list */}
-            <div className="lg:hidden space-y-3">
+            <ul className="space-y-2 lg:hidden">
               {filtered.map((p) => {
                 const isDraft = hasDraft(p.slug);
+                const stock = getTotalStock(p);
                 return (
-                  <div key={p.slug} className="card p-4">
-                    <div className="flex items-start gap-3 mb-3">
-                      <input
-                        type="checkbox"
-                        checked={p.visibleOnWebsite !== false}
-                        onChange={(e) => {
-                          const updated = { ...p, visibleOnWebsite: e.target.checked };
-                          stageProduct(updated);
-                        }}
-                        className="mt-1 w-4 h-4 text-[var(--color-accent)] rounded"
-                        title={p.visibleOnWebsite !== false ? "Visible" : "Hidden"}
-                      />
-                      <div className="relative h-16 w-16 flex-shrink-0 rounded-xl overflow-hidden bg-neutral-100">
-                        {(() => {
-                          const img = p.images?.[0] ?? p.image;
-                          return img ? <Image src={img} alt="" fill sizes="64px" className="object-contain" /> : null;
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-semibold text-[var(--color-ink)] truncate">{p.name}</h3>
-                          {p.bestSeller && <span className="text-amber-500">★</span>}
-                        </div>
-                        <div className="text-xs text-[var(--color-muted)]">{p.slug}</div>
-                        <div className="flex items-center gap-3 mt-2 text-sm">
-                          <span className="font-semibold">${p.price.toFixed(2)}</span>
-                          <span className="text-[var(--color-muted)]">·</span>
-                          <span>Stock: {getTotalStock(p)}</span>
-                          {isDraft && <span className="badge">Draft</span>}
-                        </div>
-                      </div>
+                  <li key={p.slug} className={`a-card p-3 ${isDraft ? "border-amber-200 bg-[#fffaf0]" : ""}`}>
+                    <div className="flex items-start gap-3">
+                      <button type="button" onClick={() => openEditor(p)} className="flex min-w-0 flex-1 items-start gap-3 text-left">
+                        {productThumb(p)}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate font-medium text-[var(--a-ink)]">{p.name}</span>
+                          <span className="mt-0.5 block text-sm text-[var(--a-muted)]">
+                            <span className="font-medium text-[var(--a-ink)]">${p.price.toFixed(2)}</span>
+                            {" · "}
+                            <span>{stock === 0 ? "Out of stock" : `${stock} in stock`}</span>
+                          </span>
+                          <span className="mt-1.5 block">{productBadges(p)}</span>
+                        </span>
+                      </button>
+                      <label className="flex shrink-0 flex-col items-center gap-1 pt-0.5 text-[11px] text-[var(--a-muted)]">
+                        <input
+                          type="checkbox"
+                          className="a-check"
+                          checked={p.visibleOnWebsite !== false}
+                          onChange={(e) => stageProduct({ ...p, visibleOnWebsite: e.target.checked })}
+                        />
+                        Visible
+                      </label>
                     </div>
 
-                    <div className="flex flex-wrap gap-2 pt-3 border-t border-[var(--color-line)]">
-                      <button
-                        className="btn text-xs px-3 py-2 flex-1"
-                        onClick={() => {
-                          setEditing(p);
-                          setSlugTouched(true);
-                          setSlugError(null);
-                          setError(null);
-                        }}
-                      >
+                    <div className="mt-3 flex gap-2 border-t border-[var(--a-line)] pt-3">
+                      <button className="a-btn a-btn-sm flex-1" onClick={() => openEditor(p)}>
+                        <Pencil className="h-3.5 w-3.5" aria-hidden />
                         Edit
                       </button>
-
                       {isDraft && (
                         <>
-                          <button className="btn btn-primary text-xs px-3 py-2" disabled={saving} onClick={() => publishOne(p.slug)}>
-                            {saving ? "…" : "Publish"}
-                          </button>
-                          <button className="btn text-xs px-3 py-2" onClick={() => discardDraft(p.slug)}>
+                          <button className="a-btn a-btn-sm" onClick={() => discardDraft(p.slug)}>
                             Discard
+                          </button>
+                          <button className="a-btn a-btn-primary a-btn-sm" disabled={saving} onClick={() => publishOne(p.slug)}>
+                            {saving ? "…" : "Publish"}
                           </button>
                         </>
                       )}
-
-                      <button className="btn text-xs px-3 py-2 text-red-600" onClick={() => void deleteProduct(p.slug)}>
-                        Delete
+                      <button
+                        className="a-icon-btn a-icon-btn-danger h-8 w-8"
+                        aria-label={`Delete ${p.name}`}
+                        onClick={() => void deleteProduct(p.slug)}
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
                       </button>
                     </div>
-                  </div>
+                  </li>
                 );
               })}
-            </div>
+            </ul>
           </>
         )}
       </div>
