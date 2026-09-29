@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, Upload, DollarSign, Package, Calendar, FileText, X, Edit2, Check, FileSpreadsheet, Search } from "lucide-react";
+import { BarChart2, Check, ChevronRight, FileSpreadsheet, FileText, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, FormSection, Modal, Stat } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -511,709 +513,507 @@ export default function AdminPurchasesPage() {
   const totalSpent = filteredPurchases.reduce((sum, p) => sum + p.totalCents, 0);
   const totalItems = filteredPurchases.reduce((sum, p) => sum + p.items.reduce((s, i) => s + Math.floor(i.quantity), 0), 0);
 
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+  const filtersActive = filterVendor !== "all" || filterCategory !== "all" || searchQuery.trim() !== "";
+
+  function closeModal() {
+    setShowModal(false);
+    resetForm();
+    setEditingId(null);
+  }
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Cost of goods"
+        description="Purchases and receipts, with shipping and tax spread across items to get the true cost per unit."
+        actions={
+          <>
+            <Link href="/admin/purchases/analytics" className="a-btn">
+              <BarChart2 className="h-4 w-4" aria-hidden />
+              Analytics
+            </Link>
+            <label className="a-btn cursor-pointer focus-within:shadow-[var(--a-focus)]">
+              <FileSpreadsheet className="h-4 w-4" aria-hidden />
+              {uploadingCSV ? "Uploading…" : "Upload CSV"}
+              <input type="file" className="sr-only" accept=".csv" onChange={handleCSVUpload} disabled={uploadingCSV} />
+            </label>
+            <button onClick={openNewPurchaseModal} className="a-btn a-btn-primary">
+              <Plus className="h-4 w-4" aria-hidden />
+              Add purchase
+            </button>
+          </>
+        }
+      />
+
+      <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <Stat label="Spent" value={money(totalSpent)} hint={`${filteredPurchases.length} purchases${filtersActive ? " (filtered)" : ""}`} />
+        <Stat label="Items" value={totalItems.toLocaleString()} hint="Units bought" />
+        <Stat
+          className="col-span-2 sm:col-span-1"
+          label="Average purchase"
+          value={filteredPurchases.length > 0 ? money(totalSpent / filteredPurchases.length) : "—"}
+        />
+      </div>
+
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label className="relative block flex-1">
+          <span className="sr-only">Search purchases</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+          <input
+            type="text"
+            className="a-input pl-9"
+            placeholder="Search vendors, items, notes…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+        </label>
+        <div className="grid grid-cols-2 gap-2 sm:flex">
+          <label className="block sm:w-44">
+            <span className="sr-only">Vendor</span>
+            <select
+              className={`a-select ${filterVendor !== "all" ? "a-select-active" : ""}`}
+              value={filterVendor}
+              onChange={(e) => setFilterVendor(e.target.value)}
+            >
+              <option value="all">All vendors</option>
+              {vendors.map((vendor) => (
+                <option key={vendor} value={vendor}>
+                  {vendor}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block sm:w-44">
+            <span className="sr-only">Category</span>
+            <select
+              className={`a-select ${filterCategory !== "all" ? "a-select-active" : ""}`}
+              value={filterCategory}
+              onChange={(e) => setFilterCategory(e.target.value)}
+            >
+              <option value="all">All categories</option>
+              {CATEGORIES.map((cat) => (
+                <option key={cat} value={cat}>
+                  {capitalize(cat)}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
+        {filtersActive && (
+          <button
+            onClick={() => {
+              setFilterVendor("all");
+              setFilterCategory("all");
+              setSearchQuery("");
+            }}
+            className="inline-flex h-10 items-center gap-1.5 self-start rounded-lg px-3 text-sm font-medium text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)] sm:self-auto"
           >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Cost of Goods Tracking</h1>
-              <p className="text-[var(--color-muted)] mt-1">
-                Track purchases, calculate fully-loaded costs, and manage receipts
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <label className="btn border border-[var(--color-line)] cursor-pointer flex items-center gap-2">
-                <FileSpreadsheet className="w-4 h-4" />
-                {uploadingCSV ? "Uploading..." : "Upload CSV"}
-                <input
-                  type="file"
-                  className="hidden"
-                  accept=".csv"
-                  onChange={handleCSVUpload}
-                  disabled={uploadingCSV}
-                />
-              </label>
-              <button
-                onClick={openNewPurchaseModal}
-                className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Add Purchase
-              </button>
-            </div>
-          </div>
+            <X className="h-4 w-4" aria-hidden />
+            Clear
+          </button>
+        )}
+      </div>
+
+      {/* Purchases */}
+      {loading ? (
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
+          <CandleSpinner />
+          <p className="text-sm font-medium text-[var(--a-muted)]">Loading purchases…</p>
         </div>
-
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Spent</span>
-            </div>
-            <p className="text-3xl font-bold">${(totalSpent / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">{filteredPurchases.length} purchases</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Items</span>
-            </div>
-            <p className="text-3xl font-bold">{totalItems}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Across all purchases</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Avg Purchase</span>
-            </div>
-            <p className="text-3xl font-bold">
-              ${filteredPurchases.length > 0 ? (totalSpent / filteredPurchases.length / 100).toFixed(2) : "0.00"}
-            </p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Per purchase order</p>
-          </div>
+      ) : filteredPurchases.length === 0 ? (
+        <div className="a-card px-6 py-16 text-center">
+          <p className="font-medium text-[var(--a-ink)]">{filtersActive ? "No purchases match" : "No purchases yet"}</p>
+          <p className="mt-1 text-sm text-[var(--a-muted)]">
+            {filtersActive ? "Try a different search or filter." : "Add a purchase or upload a CSV to get started."}
+          </p>
         </div>
+      ) : (
+        <ul className="a-card divide-y divide-[var(--a-line)]">
+          {filteredPurchases.map((purchase) => {
+            const allocations = calculateAllocations(purchase.items, purchase.shippingCents, purchase.taxCents);
+            const units = purchase.items.reduce((sum, item) => sum + Math.floor(item.quantity), 0);
 
+            return (
+              <li key={purchase.id}>
+                <details className="group">
+                  <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-3.5 hover:bg-[var(--a-canvas)] sm:px-5 [&::-webkit-details-marker]:hidden">
+                    <ChevronRight className="h-4 w-4 shrink-0 text-[var(--a-faint)] transition-transform group-open:rotate-90" aria-hidden />
+                    <span className="min-w-0 flex-1">
+                      <span className="flex flex-wrap items-center gap-2">
+                        <span className="truncate font-medium text-[var(--a-ink)]">{purchase.vendorName}</span>
+                        {purchase.receiptImageUrl && <Badge>Receipt</Badge>}
+                      </span>
+                      <span className="mt-0.5 block truncate text-sm text-[var(--a-muted)]">
+                        {formatDate(purchase.purchaseDate)} · {purchase.items.length} {purchase.items.length === 1 ? "item" : "items"} · {units} {units === 1 ? "unit" : "units"}
+                      </span>
+                    </span>
+                    <span className="shrink-0 text-right">
+                      <span className="block font-semibold tabular-nums text-[var(--a-ink)]">{money(purchase.totalCents)}</span>
+                      {purchase.shippingCents + purchase.taxCents > 0 && (
+                        <span className="block text-xs tabular-nums text-[var(--a-muted)]">
+                          incl. {money(purchase.shippingCents + purchase.taxCents)} ship + tax
+                        </span>
+                      )}
+                    </span>
+                  </summary>
 
-        {/* Search and Filters */}
-        <div className="card p-4 bg-white mb-6">
-          <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[250px]">
-              <label className="block text-xs font-medium mb-1">Search</label>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-[var(--color-muted)]" />
-                <input
-                  type="text"
-                  className="input text-sm !pl-11 w-full"
-                  placeholder="Search vendors, items, notes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1">Filter by Vendor</label>
-              <select
-                className="input text-sm"
-                value={filterVendor}
-                onChange={(e) => setFilterVendor(e.target.value)}
-              >
-                <option value="all">All Vendors</option>
-                {vendors.map((vendor) => (
-                  <option key={vendor} value={vendor}>
-                    {vendor}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-medium mb-1">Filter by Category</label>
-              <select
-                className="input text-sm"
-                value={filterCategory}
-                onChange={(e) => setFilterCategory(e.target.value)}
-              >
-                <option value="all">All Categories</option>
-                {CATEGORIES.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {(filterVendor !== "all" || filterCategory !== "all" || searchQuery.trim()) && (
-              <div className="flex items-end">
-                <button
-                  onClick={() => {
-                    setFilterVendor("all");
-                    setFilterCategory("all");
-                    setSearchQuery("");
-                  }}
-                  className="btn text-sm border border-[var(--color-line)]"
-                >
-                  Clear All
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Purchases List */}
-        <div className="card p-6 bg-white">
-          <h2 className="text-xl font-bold mb-4">Purchases</h2>
-
-          {loading && (
-            <div className="flex flex-col items-center justify-center py-12 gap-4">
-              <CandleSpinner />
-              <p className="text-sm font-medium text-[var(--color-muted)]">Loading purchases…</p>
-            </div>
-          )}
-
-          {!loading && filteredPurchases.length === 0 && (
-            <div className="text-center py-8 text-[var(--color-muted)]">
-              No purchases found. Add your first purchase to get started.
-            </div>
-          )}
-
-          {!loading && filteredPurchases.length > 0 && (
-            <div className="space-y-4">
-              {filteredPurchases.map((purchase) => {
-                const allocations = calculateAllocations(purchase.items, purchase.shippingCents, purchase.taxCents);
-
-                return (
-                  <div key={purchase.id} className="border border-[var(--color-line)] rounded-lg p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-1">
-                          <h3 className="font-semibold text-lg">{purchase.vendorName}</h3>
-                          <span className="text-sm text-[var(--color-muted)]">
-                            {formatDate(purchase.purchaseDate)}
-                          </span>
-                        </div>
-                        <p className="text-2xl font-bold text-green-600">
-                          ${(purchase.totalCents / 100).toFixed(2)}
-                        </p>
-                        <p className="text-xs text-[var(--color-muted)] mt-1">
-                          {purchase.items.length} item{purchase.items.length !== 1 ? "s" : ""}
-                          {purchase.receiptImageUrl && " • Has receipt"}
-                        </p>
-                      </div>
-
-                      <div className="flex gap-2">
+                  <div className="border-t border-[var(--a-line)] bg-[color-mix(in_oklab,var(--a-canvas)_60%,white)] px-4 pb-4 pt-3 sm:px-5">
+                    <div className="mb-3 flex flex-wrap items-center gap-2">
+                      {purchase.notes && <p className="mr-auto text-sm italic text-[var(--a-muted)]">{purchase.notes}</p>}
+                      <div className="ml-auto flex gap-1">
                         {purchase.receiptImageUrl && (
-                          <a
-                            href={purchase.receiptImageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="p-2 hover:bg-neutral-100 rounded"
-                            title="View receipt"
-                          >
-                            <FileText className="w-4 h-4" />
+                          <a href={purchase.receiptImageUrl} target="_blank" rel="noopener noreferrer" className="a-btn a-btn-sm">
+                            <FileText className="h-3.5 w-3.5" aria-hidden />
+                            Receipt
                           </a>
                         )}
-                        <button
-                          onClick={() => editPurchase(purchase)}
-                          className="p-2 hover:bg-neutral-100 rounded"
-                          title="Edit"
-                        >
-                          <Edit2 className="w-4 h-4" />
+                        <button onClick={() => editPurchase(purchase)} className="a-btn a-btn-sm">
+                          <Pencil className="h-3.5 w-3.5" aria-hidden />
+                          Edit
                         </button>
                         <button
                           onClick={() => void deletePurchase(purchase.id, purchase.vendorName)}
-                          className="p-2 hover:bg-rose-50 text-rose-600 rounded"
+                          className="a-icon-btn a-icon-btn-danger h-8 w-8"
+                          aria-label={`Delete purchase from ${purchase.vendorName}`}
                           title="Delete"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden />
                         </button>
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-3 text-sm">
-                      <div>
-                        <span className="text-[var(--color-muted)]">Subtotal:</span>
-                        <p className="font-medium">${(purchase.subtotalCents / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--color-muted)]">Shipping:</span>
-                        <p className="font-medium">${(purchase.shippingCents / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--color-muted)]">Tax:</span>
-                        <p className="font-medium">${(purchase.taxCents / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-[var(--color-muted)]">Items:</span>
-                        <p className="font-medium">
-                          {purchase.items.reduce((sum, item) => sum + Math.floor(item.quantity), 0)} units
-                        </p>
-                      </div>
+                    <div className="overflow-x-auto rounded-lg border border-[var(--a-line)] bg-white">
+                      <table className="a-table a-table-dense">
+                        <thead>
+                          <tr>
+                            <th>Item</th>
+                            <th className="text-right">Qty × cost</th>
+                            <th className="text-right">Shipping</th>
+                            <th className="text-right">Tax</th>
+                            <th className="text-right">Landed total</th>
+                            <th className="text-right">Per unit</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {allocations.map((item, idx) => (
+                            <tr key={idx}>
+                              <td>
+                                <p className="font-medium text-[var(--a-ink)]">{item.name}</p>
+                                <p className="text-xs text-[var(--a-muted)]">
+                                  {capitalize(item.category)}
+                                  {item.notes ? ` · ${item.notes}` : ""}
+                                </p>
+                              </td>
+                              <td className="a-num whitespace-nowrap text-[var(--a-muted)]">
+                                {item.quantity} × {money(item.unitCostCents)}
+                              </td>
+                              <td className="a-num">{money(item.allocatedShippingCents)}</td>
+                              <td className="a-num">{money(item.allocatedTaxCents)}</td>
+                              <td className="a-num">{money(item.fullyLoadedCostCents)}</td>
+                              <td className="a-num font-semibold text-[var(--a-ink)]">{money(item.costPerUnitCents)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
-
-                    {purchase.notes && (
-                      <div className="mb-3 text-sm text-[var(--color-muted)] italic">
-                        {purchase.notes}
-                      </div>
-                    )}
-
-                    <details className="text-sm">
-                      <summary className="cursor-pointer text-[var(--color-accent)] hover:underline">
-                        View Items & Allocations
-                      </summary>
-                      <div className="mt-3 space-y-2">
-                        {allocations.map((item, idx) => (
-                          <div key={idx} className="bg-neutral-50 rounded p-3">
-                            <div className="flex items-start justify-between mb-2">
-                              <div className="flex-1">
-                                <p className="font-medium">{item.name}</p>
-                                <p className="text-xs text-[var(--color-muted)]">
-                                  {item.quantity} × ${(item.unitCostCents / 100).toFixed(2)} • {item.category}
-                                </p>
-                                {item.notes && (
-                                  <p className="text-xs text-[var(--color-muted)] italic mt-1">{item.notes}</p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="font-bold text-green-600">
-                                  ${(item.costPerUnitCents / 100).toFixed(2)}/unit
-                                </p>
-                                <p className="text-xs text-[var(--color-muted)]">
-                                  fully loaded
-                                </p>
-                              </div>
-                            </div>
-                            <div className="grid grid-cols-4 gap-2 text-xs text-[var(--color-muted)]">
-                              <div>
-                                <span className="font-medium">Base:</span> ${(item.totalCostCents / 100).toFixed(2)}
-                              </div>
-                              <div>
-                                <span className="font-medium">Shipping:</span> ${(item.allocatedShippingCents / 100).toFixed(2)}
-                              </div>
-                              <div>
-                                <span className="font-medium">Tax:</span> ${(item.allocatedTaxCents / 100).toFixed(2)}
-                              </div>
-                              <div className="text-right">
-                                <span className="font-medium">Total:</span> ${(item.fullyLoadedCostCents / 100).toFixed(2)}
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
                   </div>
-                );
-              })}
+                </details>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {/* Add / edit purchase */}
+      {showModal && (
+        <Modal
+          size="lg"
+          title={editingId ? "Edit purchase" : "New purchase"}
+          description="Shipping and tax are spread across items by cost."
+          onClose={closeModal}
+          footer={
+            <>
+              <p className="mr-auto text-sm">
+                Total <span className="font-semibold tabular-nums">{money(total)}</span>
+              </p>
+              <button onClick={closeModal} className="a-btn">
+                Cancel
+              </button>
+              <button onClick={savePurchase} className="a-btn a-btn-primary">
+                <Check className="h-4 w-4" aria-hidden />
+                {editingId ? "Save purchase" : "Add purchase"}
+              </button>
+            </>
+          }
+        >
+          <FormSection title="Details">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="a-label">Vendor</span>
+                <input
+                  type="text"
+                  className="a-input"
+                  value={vendorName}
+                  onChange={(e) => setVendorName(e.target.value)}
+                  placeholder="e.g. CandleScience, Amazon"
+                />
+              </label>
+              <label className="block">
+                <span className="a-label">Purchase date</span>
+                <input type="date" className="a-input" value={purchaseDate} onChange={(e) => setPurchaseDate(e.target.value)} />
+              </label>
             </div>
-          )}
-        </div>
+          </FormSection>
 
-        {/* Add/Edit Modal */}
-        {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0"
-              onClick={() => {
-                setShowModal(false);
-                resetForm();
-                setEditingId(null);
-              }}
-            />
-
-            {/* Modal */}
-            <div className="relative w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-              {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
-                <div>
-                  <h2 className="text-xl font-semibold text-[var(--color-ink)]">
-                    {editingId ? "Edit Purchase" : "New Purchase"}
-                  </h2>
-                  <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                    Track item costs with proportional shipping and tax allocation
-                  </p>
-                </div>
-                <button
-                  className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                    setEditingId(null);
-                  }}
-                >
-                  <X className="w-5 h-5" />
-                </button>
+          <FormSection title="Items">
+            {items.length === 0 && (
+              <div className="rounded-lg border border-dashed border-[var(--a-line-strong)] px-4 py-8 text-center text-sm text-[var(--a-muted)]">
+                No items yet.
               </div>
+            )}
 
-              {/* Scrollable Content */}
-              <div className="flex-1 overflow-y-auto px-6 py-6">
-                {/* ---------- Basic Information Section ---------- */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-2 mb-4">
-                    <DollarSign className="w-5 h-5 text-[var(--color-accent)]" />
-                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Basic Information</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Vendor Name *</label>
+            <ol className="space-y-3">
+              {items.map((item, index) => (
+                <li key={index} className="rounded-xl border border-[var(--a-line)] p-4">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-[2fr_1fr_1fr_1.3fr_auto]">
+                    <label className="col-span-2 block md:col-span-1">
+                      <span className="a-label">Item</span>
                       <input
                         type="text"
-                        className="input w-full"
-                        value={vendorName}
-                        onChange={(e) => setVendorName(e.target.value)}
-                        placeholder="e.g., CandleScience, Amazon"
+                        className="a-input"
+                        value={item.name}
+                        onChange={(e) => updateItem(index, "name", e.target.value)}
+                        placeholder="e.g. Soy wax 464"
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Purchase Date *</label>
+                    </label>
+                    <label className="block">
+                      <span className="a-label">Qty</span>
                       <input
-                        type="date"
-                        className="input w-full"
-                        value={purchaseDate}
-                        onChange={(e) => setPurchaseDate(e.target.value)}
+                        type="number"
+                        className="a-input tabular-nums"
+                        value={item.quantity}
+                        onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 0)}
+                        min="0"
+                        step="1"
                       />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ---------- Items Section ---------- */}
-                <div className="mb-8">
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center gap-2">
-                      <Package className="w-5 h-5 text-[var(--color-accent)]" />
-                      <h3 className="text-base font-semibold text-[var(--color-ink)]">Purchase Items</h3>
-                    </div>
-                    <button
-                      onClick={addItem}
-                      className="btn btn-primary text-sm flex items-center gap-1"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Item
-                    </button>
-                  </div>
-
-                  {items.length === 0 && (
-                    <div className="text-center py-12 text-[var(--color-muted)] bg-neutral-50 rounded-lg border border-dashed border-neutral-300">
-                      <Package className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                      <p className="text-sm">No items added. Click &quot;Add Item&quot; to get started.</p>
-                    </div>
-                  )}
-
-                  <div className="space-y-3">
-                    {items.map((item, index) => (
-                      <div key={index} className="border border-[var(--color-line)] rounded-lg p-4 bg-neutral-50">
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
-                          <div>
-                            <label className="block text-xs font-medium mb-1">Item Name *</label>
-                            <input
-                              type="text"
-                              className="input w-full text-sm"
-                              value={item.name}
-                              onChange={(e) => updateItem(index, "name", e.target.value)}
-                              placeholder="e.g., Soy Wax 464"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium mb-1">Quantity</label>
-                            <input
-                              type="number"
-                              className="input w-full text-sm"
-                              value={item.quantity}
-                              onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 0)}
-                              min="0"
-                              step="1"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium mb-1">Unit Cost ($)</label>
-                            <input
-                              type="text"
-                              inputMode="decimal"
-                              className="input w-full text-sm"
-                              value={itemInputStrs[index] ?? (item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString())}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                                  setItemInputStrs({ ...itemInputStrs, [index]: val });
-                                }
-                              }}
-                              onBlur={() => {
-                                const val = itemInputStrs[index];
-                                if (val !== undefined) {
-                                  const num = parseFloat(val);
-                                  if (!isNaN(num)) {
-                                    updateItem(index, "unitCostCents", Math.round(parseFloat(num.toFixed(2)) * 100));
-                                    setItemInputStrs({ ...itemInputStrs, [index]: num.toFixed(2) });
-                                  } else if (val === "") {
-                                    updateItem(index, "unitCostCents", 0);
-                                    const copy = { ...itemInputStrs };
-                                    delete copy[index];
-                                    setItemInputStrs(copy);
-                                  }
-                                }
-                              }}
-                              onFocus={() => {
-                                if (itemInputStrs[index] === undefined) {
-                                  setItemInputStrs({
-                                    ...itemInputStrs,
-                                    [index]: item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString()
-                                  });
-                                }
-                              }}
-                              placeholder="0.00"
-                            />
-                          </div>
-
-                          <div>
-                            <label className="block text-xs font-medium mb-1">Category</label>
-                            <select
-                              className="input w-full text-sm"
-                              value={item.category}
-                              onChange={(e) => updateItem(index, "category", e.target.value)}
-                            >
-                              {CATEGORIES.map((cat) => (
-                                <option key={cat} value={cat}>
-                                  {cat.charAt(0).toUpperCase() + cat.slice(1)}
-                                </option>
-                              ))}
-                            </select>
-                          </div>
-                        </div>
-
-                        <div className="flex items-end gap-3 mb-3">
-                          <div className="flex-1">
-                            <label className="block text-xs font-medium mb-1">Notes (Optional)</label>
-                            <input
-                              type="text"
-                              className="input w-full text-sm"
-                              value={item.notes || ""}
-                              onChange={(e) => updateItem(index, "notes", e.target.value)}
-                              placeholder="Additional details..."
-                            />
-                          </div>
-                          <button
-                            onClick={() => removeItem(index)}
-                            className="p-2 text-rose-600 hover:bg-rose-100 rounded transition-colors"
-                            aria-label="Remove item"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-
-                        {allocatedItems[index] && (
-                          <div className="pt-3 border-t border-neutral-300 text-xs grid grid-cols-2 md:grid-cols-4 gap-3">
-                            <div className="text-[var(--color-muted)]">
-                              <span className="font-medium">Item Total:</span>
-                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
-                                ${(allocatedItems[index].totalCostCents / 100).toFixed(2)}
-                              </p>
-                            </div>
-                            <div className="text-[var(--color-muted)]">
-                              <span className="font-medium">+ Shipping:</span>
-                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
-                                ${(allocatedItems[index].allocatedShippingCents / 100).toFixed(2)}
-                              </p>
-                            </div>
-                            <div className="text-[var(--color-muted)]">
-                              <span className="font-medium">+ Tax:</span>
-                              <p className="text-sm text-[var(--color-ink)] font-medium mt-0.5">
-                                ${(allocatedItems[index].allocatedTaxCents / 100).toFixed(2)}
-                              </p>
-                            </div>
-                            <div className="text-[var(--color-muted)]">
-                              <span className="font-medium">Per Unit:</span>
-                              <p className="text-sm text-green-600 font-bold mt-0.5">
-                                ${(allocatedItems[index].costPerUnitCents / 100).toFixed(2)}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* ---------- Shipping & Tax Section ---------- */}
-                <div className="mb-8">
-                  <div className="flex items-center gap-2 mb-4">
-                    <DollarSign className="w-5 h-5 text-[var(--color-accent)]" />
-                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Shipping & Tax</h3>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Shipping Cost ($)</label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="input w-full"
-                        value={shippingInputStr}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            setShippingInputStr(val);
-                          }
-                        }}
-                        onBlur={() => {
-                          const num = parseFloat(shippingInputStr);
-                          if (!isNaN(num)) {
-                            setShippingCents(Math.round(parseFloat(num.toFixed(2)) * 100));
-                            setShippingInputStr(num.toFixed(2));
-                          } else if (shippingInputStr === "") {
-                            setShippingCents(0);
-                            setShippingInputStr("");
-                          }
-                        }}
-                        onFocus={() => {
-                          setShippingInputStr(shippingCents === 0 ? "" : (shippingCents / 100).toString());
-                        }}
-                        placeholder="0.00"
-                      />
-                      <p className="text-xs text-[var(--color-muted)] mt-1">
-                        Allocated proportionally across items
-                      </p>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-medium mb-1">Tax ($)</label>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        className="input w-full"
-                        value={taxInputStr}
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === "" || /^\d*\.?\d*$/.test(val)) {
-                            setTaxInputStr(val);
-                          }
-                        }}
-                        onBlur={() => {
-                          const num = parseFloat(taxInputStr);
-                          if (!isNaN(num)) {
-                            setTaxCents(Math.round(parseFloat(num.toFixed(2)) * 100));
-                            setTaxInputStr(num.toFixed(2));
-                          } else if (taxInputStr === "") {
-                            setTaxCents(0);
-                            setTaxInputStr("");
-                          }
-                        }}
-                        onFocus={() => {
-                          setTaxInputStr(taxCents === 0 ? "" : (taxCents / 100).toString());
-                        }}
-                        placeholder="0.00"
-                      />
-                      <p className="text-xs text-[var(--color-muted)] mt-1">
-                        Allocated proportionally across items
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Totals Summary */}
-                  <div className="mt-4 bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4 border border-green-200">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                      <div>
-                        <span className="text-green-700 text-xs font-medium">Subtotal</span>
-                        <p className="text-lg font-bold text-green-900">${(subtotal / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-green-700 text-xs font-medium">Shipping</span>
-                        <p className="text-lg font-bold text-green-900">${(shippingCents / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-green-700 text-xs font-medium">Tax</span>
-                        <p className="text-lg font-bold text-green-900">${(taxCents / 100).toFixed(2)}</p>
-                      </div>
-                      <div>
-                        <span className="text-green-700 text-xs font-medium">Total</span>
-                        <p className="text-2xl font-bold text-green-600">${(total / 100).toFixed(2)}</p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* ---------- Additional Details Section ---------- */}
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <FileText className="w-5 h-5 text-[var(--color-accent)]" />
-                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Additional Details</h3>
-                  </div>
-
-                  {/* Receipt Upload */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium mb-2">Receipt/Invoice (Optional)</label>
-                    <div className="flex items-center gap-4">
-                      <label className="btn border border-[var(--color-line)] cursor-pointer flex items-center gap-2">
-                        <Upload className="w-4 h-4" />
-                        {uploadingImage ? "Uploading..." : "Upload Image/PDF"}
+                    </label>
+                    <label className="block">
+                      <span className="a-label">Unit cost</span>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
                         <input
-                          type="file"
-                          className="hidden"
-                          accept="image/*,application/pdf"
-                          onChange={handleImageUpload}
-                          disabled={uploadingImage}
+                          type="text"
+                          inputMode="decimal"
+                          className="a-input pl-7 tabular-nums"
+                          value={itemInputStrs[index] ?? (item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString())}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                              setItemInputStrs({ ...itemInputStrs, [index]: val });
+                            }
+                          }}
+                          onBlur={() => {
+                            const val = itemInputStrs[index];
+                            if (val !== undefined) {
+                              const num = parseFloat(val);
+                              if (!isNaN(num)) {
+                                updateItem(index, "unitCostCents", Math.round(parseFloat(num.toFixed(2)) * 100));
+                                setItemInputStrs({ ...itemInputStrs, [index]: num.toFixed(2) });
+                              } else if (val === "") {
+                                updateItem(index, "unitCostCents", 0);
+                                const copy = { ...itemInputStrs };
+                                delete copy[index];
+                                setItemInputStrs(copy);
+                              }
+                            }
+                          }}
+                          onFocus={() => {
+                            if (itemInputStrs[index] === undefined) {
+                              setItemInputStrs({
+                                ...itemInputStrs,
+                                [index]: item.unitCostCents === 0 ? "" : (item.unitCostCents / 100).toString(),
+                              });
+                            }
+                          }}
+                          placeholder="0.00"
                         />
-                      </label>
-                      {receiptImageUrl && (
-                        <div className="flex items-center gap-2">
-                          <a
-                            href={receiptImageUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-[var(--color-accent)] hover:underline"
-                          >
-                            View Receipt
-                          </a>
-                          <button
-                            onClick={() => setReceiptImageUrl("")}
-                            className="text-sm text-rose-600 hover:underline"
-                          >
-                            Remove
-                          </button>
-                        </div>
-                      )}
+                      </div>
+                    </label>
+                    <label className="block">
+                      <span className="a-label">Category</span>
+                      <select className="a-select" value={item.category} onChange={(e) => updateItem(index, "category", e.target.value)}>
+                        {CATEGORIES.map((cat) => (
+                          <option key={cat} value={cat}>
+                            {capitalize(cat)}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <div className="flex items-end">
+                      <button
+                        onClick={() => removeItem(index)}
+                        className="a-icon-btn a-icon-btn-danger h-10 w-10"
+                        aria-label={`Remove item ${index + 1}`}
+                        title="Remove item"
+                      >
+                        <Trash2 className="h-4 w-4" aria-hidden />
+                      </button>
                     </div>
                   </div>
 
-                  {/* Notes */}
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Notes (Optional)</label>
-                    <textarea
-                      className="textarea w-full"
-                      rows={3}
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      placeholder="Additional notes about this purchase..."
+                  <label className="mt-3 block">
+                    <span className="sr-only">Item notes</span>
+                    <input
+                      type="text"
+                      className="a-input"
+                      value={item.notes || ""}
+                      onChange={(e) => updateItem(index, "notes", e.target.value)}
+                      placeholder="Notes (optional)"
                     />
-                  </div>
-                </div>
-              </div>
+                  </label>
 
-              {/* Footer */}
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-                <button
-                  onClick={() => {
-                    setShowModal(false);
-                    resetForm();
-                    setEditingId(null);
-                  }}
-                  className="btn border border-[var(--color-line)]"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={savePurchase}
-                  className="btn bg-[var(--color-accent)] text-[var(--color-accent-ink)] flex items-center gap-2"
-                >
-                  <Check className="w-4 h-4" />
-                  {editingId ? "Update Purchase" : "Save Purchase"}
-                </button>
-              </div>
+                  {allocatedItems[index] && (
+                    <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 border-t border-[var(--a-line)] pt-3 text-xs text-[var(--a-muted)]">
+                      <span>Items {money(allocatedItems[index].totalCostCents)}</span>
+                      <span>+ shipping {money(allocatedItems[index].allocatedShippingCents)}</span>
+                      <span>+ tax {money(allocatedItems[index].allocatedTaxCents)}</span>
+                      <span className="ml-auto font-semibold text-[var(--a-ink)]">{money(allocatedItems[index].costPerUnitCents)} per unit</span>
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ol>
+
+            <button onClick={addItem} className="a-btn a-btn-sm mt-3">
+              <Plus className="h-3.5 w-3.5" aria-hidden />
+              Add item
+            </button>
+          </FormSection>
+
+          <FormSection title="Shipping and tax" description="Spread across items in proportion to their cost.">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <label className="block">
+                <span className="a-label">Shipping</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="a-input pl-7 tabular-nums"
+                    value={shippingInputStr}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setShippingInputStr(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(shippingInputStr);
+                      if (!isNaN(num)) {
+                        setShippingCents(Math.round(parseFloat(num.toFixed(2)) * 100));
+                        setShippingInputStr(num.toFixed(2));
+                      } else if (shippingInputStr === "") {
+                        setShippingCents(0);
+                        setShippingInputStr("");
+                      }
+                    }}
+                    onFocus={() => {
+                      setShippingInputStr(shippingCents === 0 ? "" : (shippingCents / 100).toString());
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+              </label>
+              <label className="block">
+                <span className="a-label">Tax</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    className="a-input pl-7 tabular-nums"
+                    value={taxInputStr}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (val === "" || /^\d*\.?\d*$/.test(val)) {
+                        setTaxInputStr(val);
+                      }
+                    }}
+                    onBlur={() => {
+                      const num = parseFloat(taxInputStr);
+                      if (!isNaN(num)) {
+                        setTaxCents(Math.round(parseFloat(num.toFixed(2)) * 100));
+                        setTaxInputStr(num.toFixed(2));
+                      } else if (taxInputStr === "") {
+                        setTaxCents(0);
+                        setTaxInputStr("");
+                      }
+                    }}
+                    onFocus={() => {
+                      setTaxInputStr(taxCents === 0 ? "" : (taxCents / 100).toString());
+                    }}
+                    placeholder="0.00"
+                  />
+                </div>
+              </label>
             </div>
-          </div>
-        )}
-      </div>
+            <dl className="a-panel mt-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <div>
+                <dt className="text-xs text-[var(--a-muted)]">Subtotal</dt>
+                <dd className="font-medium tabular-nums">{money(subtotal)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--a-muted)]">Shipping</dt>
+                <dd className="font-medium tabular-nums">{money(shippingCents)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--a-muted)]">Tax</dt>
+                <dd className="font-medium tabular-nums">{money(taxCents)}</dd>
+              </div>
+              <div>
+                <dt className="text-xs text-[var(--a-muted)]">Total</dt>
+                <dd className="text-lg font-semibold tabular-nums">{money(total)}</dd>
+              </div>
+            </dl>
+          </FormSection>
+
+          <FormSection title="Receipt and notes">
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="a-btn cursor-pointer focus-within:shadow-[var(--a-focus)]">
+                <Upload className="h-4 w-4" aria-hidden />
+                {uploadingImage ? "Uploading…" : receiptImageUrl ? "Replace receipt" : "Upload image or PDF"}
+                <input type="file" className="sr-only" accept="image/*,application/pdf" onChange={handleImageUpload} disabled={uploadingImage} />
+              </label>
+              {receiptImageUrl && (
+                <>
+                  <a href={receiptImageUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-[var(--a-accent-ink)] hover:underline">
+                    View receipt
+                  </a>
+                  <button onClick={() => setReceiptImageUrl("")} className="text-sm font-medium text-[var(--a-bad)] hover:underline">
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
+            <label className="mt-4 block">
+              <span className="a-label">
+                Notes <span className="font-normal text-[var(--a-muted)]">(optional)</span>
+              </span>
+              <textarea
+                className="a-textarea"
+                rows={3}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Anything worth remembering about this purchase"
+              />
+            </label>
+          </FormSection>
+        </Modal>
+      )}
     </div>
   );
 }
