@@ -9,6 +9,10 @@ import type { GlobalScent } from "@/lib/scents";
 import type { BottlePickerOption } from "./[slug]/HomeGoodsBottlePicker";
 import { useCartStore } from "@/lib/cartStore";
 import { Truck, Search, CheckCircle, XCircle, SlidersHorizontal, X } from "lucide-react";
+import s from "@/components/home/home.module.css";
+import { serif } from "@/lib/storefrontFonts";
+import ShopDialog from "@/components/shop/ShopDialog";
+import { btnPrimary, btnQuiet, chipClass, fieldClass, labelClass } from "@/components/shop/styles";
 
 type ProductWithStock = Product & { _computedStock: number };
 
@@ -17,6 +21,19 @@ type FilterOption = "all" | "in-stock" | "low-stock" | "out-of-stock";
 type CategoryFilter = "all" | "candle" | "home_goods";
 
 type AlcoholType = { id: string; name: string; sortOrder?: number };
+
+const FILTER_LABEL: Record<FilterOption, string> = {
+  "in-stock": "In stock",
+  all: "Everything",
+  "low-stock": "Last one",
+  "out-of-stock": "Sold out",
+};
+
+const CATEGORY_TABS: { value: CategoryFilter; label: string }[] = [
+  { value: "all", label: "Everything" },
+  { value: "candle", label: "Candles" },
+  { value: "home_goods", label: "Home goods" },
+];
 
 const FILTERS_KEY = "shopFilters";
 const HOME_GOODS_SECTION = "Home Goods";
@@ -331,474 +348,276 @@ export default function ShopClient({ products, globalScents, alcoholTypes, homeG
   const displayCount = filteredAndSortedProducts.length;
   const inStockCount = filteredAndSortedProducts.filter((p) => p._computedStock > 0).length;
 
-  return (
-    <>
-      {/* Checkout Status Banner */}
-      {showStatusBanner && statusType && (
-        <div
-          className={`full-bleed ${
-            statusType === "success"
-              ? "bg-gradient-to-r from-green-600 to-green-700"
-              : "bg-gradient-to-r from-amber-600 to-amber-700"
-          } text-white py-4 shadow-lg`}
-        >
-          <div className="mx-auto max-w-6xl px-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                {statusType === "success" ? (
-                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
-                ) : (
-                  <XCircle className="w-5 h-5 flex-shrink-0" />
-                )}
-                <div>
-                  <p className="font-semibold">
-                    {statusType === "success" ? "Order Confirmed!" : "Order Cancelled"}
-                  </p>
-                  <p className="text-sm opacity-90">
-                    {statusType === "success"
-                      ? "Thank you for your purchase! A confirmation email has been sent to your email address."
-                      : "Your order was cancelled. No charges were made."}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowStatusBanner(false)}
-                className="text-white/80 hover:text-white transition flex-shrink-0"
-                aria-label="Dismiss"
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+  const priceFiltered = priceMin !== priceRange.min || priceMax !== priceRange.max;
+  const activeChips: { key: string; label: string; clear: () => void }[] = [
+    ...(filterBy !== "in-stock"
+      ? [{ key: "stock", label: FILTER_LABEL[filterBy], clear: () => setFilterBy("in-stock") }]
+      : []),
+    ...Array.from(selectedScents).map((id) => ({
+      key: `scent-${id}`,
+      label: id === "limited" ? "Limited scents" : mainScents.find((sc) => sc.id === id)?.name ?? id,
+      clear: () => toggleScent(id),
+    })),
+    ...(priceFiltered ? [{ key: "price", label: `$${priceMin}–$${priceMax}`, clear: () => { setPriceMin(priceRange.min); setPriceMax(priceRange.max); } }] : []),
+    ...(searchQuery ? [{ key: "q", label: `“${searchQuery}”`, clear: () => setSearchQuery("") }] : []),
+  ];
+  const filterCount = activeChips.filter((c) => c.key !== "q").length;
+
+  const filterPanel = (
+    <div className="space-y-7">
+      <fieldset>
+        <legend className={labelClass}>Availability</legend>
+        <div className="flex flex-wrap gap-2">
+          {(["in-stock", "all", "low-stock", "out-of-stock"] as FilterOption[]).map((opt) => (
+            <button key={opt} type="button" aria-pressed={filterBy === opt} onClick={() => setFilterBy(opt)} className={chipClass(filterBy === opt)}>
+              {FILTER_LABEL[opt]}
+            </button>
+          ))}
+        </div>
+      </fieldset>
+
+      {categoryFilter !== "home_goods" && (mainScents.length > 0 || limitedScentIds.size > 0) && (
+        <fieldset>
+          <legend className={`${labelClass} flex w-full items-baseline justify-between`}>
+            Scent
+            {selectedScents.size > 0 && (
+              <button type="button" onClick={() => setSelectedScents(new Set())} className="text-xs font-medium text-[var(--home-clay)] hover:underline">
+                Clear
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Free Shipping Banner */}
-      <div className="full-bleed bg-gradient-to-r from-blue-600 to-blue-700 text-white py-3">
-        <div className="mx-auto max-w-6xl px-6 text-center">
-          <p className="text-sm font-medium flex items-center justify-center gap-2">
-            <Truck className="w-4 h-4" />
-            Free shipping on orders over $100 • Free local pickup in Scottsdale, AZ
-          </p>
-        </div>
-      </div>
-
-      {/* Header with counts */}
-      <div className="full-bleed relative isolate py-12 sm:py-16">
-        <div className="absolute inset-0 -z-10 bg-gradient-to-b from-white/70 to-white/90 backdrop-blur-[2px]" />
-        <div className="mx-auto max-w-6xl px-6 text-center">
-          <h1>Shop Scottsdale Candles & More</h1>
-          <p className="mt-3 text-[var(--color-muted)]">
-            100% natural coconut apricot wax candles made in Arizona. Clean burning, low-soot, and eco-friendly. Upcycled bottles, wood wicks, and desert-inspired scents.
-          </p>
-          <p className="mt-2 text-sm text-[var(--color-muted)]">
-            Showing {displayCount} of {productCount} {productCount === 1 ? "product" : "products"} (
-            {inStockCount} in stock)
-          </p>
-
-          {/* Category Filter Buttons */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-            {([
-              { value: "all", label: "All Products" },
-              { value: "candle", label: "Candles" },
-              { value: "home_goods", label: "Home Goods" },
-            ] as { value: CategoryFilter; label: string }[]).map((opt) => (
+            )}
+          </legend>
+          <div className="flex flex-wrap gap-2">
+            {mainScents.map((scent) => (
               <button
-                key={opt.value}
-                onClick={() => setCategoryFilter(opt.value)}
-                className={`px-4 py-2 text-sm font-medium rounded-full border transition ${
-                  categoryFilter === opt.value
-                    ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                    : "border-[var(--color-line)] hover:border-[var(--color-ink)] bg-white"
-                }`}
+                key={scent.id}
+                type="button"
+                aria-pressed={selectedScents.has(scent.id)}
+                onClick={() => toggleScent(scent.id)}
+                className={chipClass(selectedScents.has(scent.id))}
               >
-                {opt.label}
+                {scent.name}
               </button>
             ))}
+            {limitedScentIds.size > 0 && (
+              <button
+                type="button"
+                aria-pressed={selectedScents.has("limited")}
+                onClick={() => toggleScent("limited")}
+                className={chipClass(selectedScents.has("limited"))}
+              >
+                Limited &amp; seasonal
+              </button>
+            )}
           </div>
+          <p className="mt-2 text-xs text-[var(--home-muted)]">Shows candles with that scent in stock.</p>
+        </fieldset>
+      )}
 
-          {/* Search Bar */}
-          <div className="mt-6 mx-auto max-w-md">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-[var(--color-muted)] pointer-events-none" />
-              <input
-                type="text"
-                placeholder="Search candles..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 text-sm rounded-xl border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent transition"
-              />
-              {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
-                  aria-label="Clear search"
-                >
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              )}
-            </div>
-          </div>
+      <fieldset>
+        <legend className={`${labelClass} flex w-full items-baseline justify-between`}>
+          Price
+          <span className="text-sm font-normal tabular-nums text-[var(--home-muted)]">
+            ${priceMin} – ${priceMax}
+          </span>
+        </legend>
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs text-[var(--home-muted)]">Minimum</span>
+            <input
+              type="range"
+              min={priceRange.min}
+              max={priceRange.max}
+              value={priceMin}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                if (val <= priceMax) setPriceMin(val);
+              }}
+              className="w-full cursor-pointer accent-[var(--home-clay)]"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-1 block text-xs text-[var(--home-muted)]">Maximum</span>
+            <input
+              type="range"
+              min={priceRange.min}
+              max={priceRange.max}
+              value={priceMax}
+              onChange={(e) => {
+                const val = Number(e.target.value);
+                if (val >= priceMin) setPriceMax(val);
+              }}
+              className="w-full cursor-pointer accent-[var(--home-clay)]"
+            />
+          </label>
         </div>
-      </div>
+      </fieldset>
 
-      {/* Mobile Filters Toggle Button */}
-      <div className="lg:hidden px-6 mb-6">
-        <button
-          onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-          className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border-2 border-[var(--color-line)] bg-white hover:border-[var(--color-accent)] transition shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <SlidersHorizontal className="w-5 h-5 text-[var(--color-ink)]" />
-            <span className="font-medium text-[var(--color-ink)]">
-              Filters & Sort
-            </span>
-          </div>
-          {mobileFiltersOpen ? (
-            <X className="w-5 h-5 text-[var(--color-muted)]" />
-          ) : (
-            <svg className="w-5 h-5 text-[var(--color-muted)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-            </svg>
-          )}
+      {hasActiveFilters && (
+        <button type="button" onClick={resetFilters} className={`${btnQuiet} w-full`}>
+          Reset filters
         </button>
-      </div>
+      )}
+    </div>
+  );
 
-      {/* Mobile Filters Panel (Collapsible) */}
-      {mobileFiltersOpen && (
-        <div className="lg:hidden px-6 mb-8 animate-in slide-in-from-top-4 duration-200">
-          {/* Price Range Filter - Mobile */}
-          <div className="mb-6 p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
-            <h3 className="text-sm font-semibold mb-3">Price Range</h3>
-          <div className="space-y-3">
-            <div className="flex items-center justify-center gap-2 text-sm">
-              <span className="font-medium">${priceMin}</span>
-              <span className="text-[var(--color-muted)]">-</span>
-              <span className="font-medium">${priceMax}</span>
+  return (
+    <div className={`${s.page} s-ui`}>
+      {/* Checkout result */}
+      {showStatusBanner && statusType && (
+        <div
+          role="status"
+          className={`px-6 py-4 ${statusType === "success" ? "bg-[var(--home-sage)]" : "bg-[var(--home-peach)]"}`}
+        >
+          <div className="mx-auto flex max-w-7xl items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              {statusType === "success" ? (
+                <CheckCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#4d6a3a]" aria-hidden />
+              ) : (
+                <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-[var(--home-clay)]" aria-hidden />
+              )}
+              <div>
+                <p className="font-semibold text-[var(--home-ink)]">
+                  {statusType === "success" ? "Thank you, your order is confirmed" : "Checkout cancelled"}
+                </p>
+                <p className="text-sm text-[var(--home-muted)]">
+                  {statusType === "success"
+                    ? "A confirmation email is on its way."
+                    : "Nothing was charged. Your cart is still here when you're ready."}
+                </p>
+              </div>
             </div>
-            <div className="space-y-2">
-              <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
-              <input
-                type="range"
-                min={priceRange.min}
-                max={priceRange.max}
-                value={priceMin}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  if (val <= priceMax) setPriceMin(val);
-                }}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                style={{ accentColor: "var(--color-accent)" }}
-              />
-            </div>
-            <div className="space-y-2">
-              <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
-              <input
-                type="range"
-                min={priceRange.min}
-                max={priceRange.max}
-                value={priceMax}
-                onChange={(e) => {
-                  const val = Number(e.target.value);
-                  if (val >= priceMin) setPriceMax(val);
-                }}
-                className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                style={{ accentColor: "var(--color-accent)" }}
-              />
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-4 mb-6">
-          {/* Sort - Mobile */}
-          <div className="flex-1">
-            <select
-              id="sort-mobile"
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value as SortOption)}
-              className="w-full px-3 py-3 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
+            <button
+              type="button"
+              onClick={() => setShowStatusBanner(false)}
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--home-muted)] hover:bg-white/60 hover:text-[var(--home-ink)]"
+              aria-label="Dismiss"
             >
-              <option value="name-asc">Name (A-Z)</option>
-              <option value="name-desc">Name (Z-A)</option>
-              <option value="price-asc">Price (Low-High)</option>
-              <option value="price-desc">Price (High-Low)</option>
-            </select>
+              <X className="h-4 w-4" aria-hidden />
+            </button>
           </div>
-        </div>
-
-        {/* Stock Filters - Mobile */}
-        <div className="flex flex-wrap gap-2 mb-6">
-          <button
-            onClick={() => setFilterBy("all")}
-            className={`px-4 py-2 text-sm rounded-full border transition ${
-              filterBy === "all"
-                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setFilterBy("in-stock")}
-            className={`px-4 py-2 text-sm rounded-full border transition ${
-              filterBy === "in-stock"
-                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-            }`}
-          >
-            In Stock
-          </button>
-          <button
-            onClick={() => setFilterBy("low-stock")}
-            className={`px-4 py-2 text-sm rounded-full border transition ${
-              filterBy === "low-stock"
-                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-            }`}
-          >
-            Low Stock
-          </button>
-          <button
-            onClick={() => setFilterBy("out-of-stock")}
-            className={`px-4 py-2 text-sm rounded-full border transition ${
-              filterBy === "out-of-stock"
-                ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-            }`}
-          >
-            Out of Stock
-          </button>
-        </div>
-
-        {/* Scent Filters - Mobile */}
-        {categoryFilter !== "home_goods" && (
-          <div className="p-4 rounded-lg border border-[var(--color-line)] bg-white shadow-sm">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold">Scent</h3>
-              {selectedScents.size > 0 && (
-                <button
-                  onClick={() => setSelectedScents(new Set())}
-                  className="text-xs text-[var(--color-accent)] hover:underline"
-                >
-                  Clear
-                </button>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {mainScents.map((scent) => (
-                <button
-                  key={scent.id}
-                  onClick={() => toggleScent(scent.id)}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition ${
-                    selectedScents.has(scent.id)
-                      ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-                  }`}
-                >
-                  {scent.name}
-                </button>
-              ))}
-              {limitedScentIds.size > 0 && (
-                <button
-                  onClick={() => toggleScent("limited")}
-                  className={`px-3 py-1.5 text-sm rounded-full border transition italic ${
-                    selectedScents.has("limited")
-                      ? "bg-[var(--color-ink)] text-white border-[var(--color-ink)]"
-                      : "border-[var(--color-line)] hover:border-[var(--color-ink)]"
-                  }`}
-                >
-                  Limited Scents
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Reset all filters - Mobile */}
-        {hasActiveFilters && (
-          <button
-            onClick={resetFilters}
-            className="w-full px-4 py-3 text-sm rounded-xl border border-[var(--color-line)] hover:border-[var(--color-ink)] transition text-[var(--color-muted)] hover:text-[var(--color-ink)] bg-white"
-          >
-            Reset Filters
-          </button>
-        )}
         </div>
       )}
 
-      {/* Main Content with Sidebar */}
-      <div className="px-6">
+      {/* Header band */}
+      <header className={`${s.paper} px-6 pb-10 pt-12 sm:pt-16`}>
         <div className="mx-auto max-w-7xl">
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-12">
-            {/* Desktop Sidebar */}
-            <aside className="hidden lg:block lg:w-64 flex-shrink-0">
-              <div className="space-y-6">
-                {/* Availability */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Availability</h3>
-                  <div className="space-y-2">
-                    <button
-                      onClick={() => setFilterBy("all")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "all" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      All Products
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("in-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "in-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      In Stock
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("low-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "low-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      Low Stock
-                    </button>
-                    <button
-                      onClick={() => setFilterBy("out-of-stock")}
-                      className={`w-full text-left px-3 py-2 text-sm rounded-lg transition ${
-                        filterBy === "out-of-stock" ? "bg-[var(--color-ink)] text-white" : "hover:bg-neutral-50"
-                      }`}
-                    >
-                      Out of Stock
-                    </button>
-                  </div>
-                </div>
+          <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[var(--home-clay)]">The shop</p>
+          <h1 className={`${serif.className} mt-3 max-w-3xl text-balance text-4xl leading-[1.1] text-[var(--home-ink)] sm:text-5xl`}>
+            Shop Scottsdale candles &amp; more
+          </h1>
+          <p className="mt-4 max-w-2xl text-[17px] leading-relaxed text-[var(--home-muted)]">
+            100% natural coconut apricot wax candles made in Arizona. Clean burning, low-soot, and eco-friendly. Upcycled bottles, wood
+            wicks, and desert-inspired scents.
+          </p>
+          <p className="mt-5 inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-sm text-[var(--home-ink)]">
+            <Truck className="h-4 w-4 text-[var(--home-clay)]" aria-hidden />
+            Free shipping over $100 · Free local pickup in Scottsdale
+          </p>
 
-                {/* Price Range - Desktop */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Price Range</h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-sm">
-                      <span className="text-[var(--color-muted)]">${priceMin}</span>
-                      <span className="text-[var(--color-muted)]">-</span>
-                      <span className="text-[var(--color-muted)]">${priceMax}</span>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-[var(--color-muted)]">Min: ${priceMin}</label>
-                      <input
-                        type="range"
-                        min={priceRange.min}
-                        max={priceRange.max}
-                        value={priceMin}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (val <= priceMax) setPriceMin(val);
-                        }}
-                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                        style={{ accentColor: "var(--color-accent)" }}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs text-[var(--color-muted)]">Max: ${priceMax}</label>
-                      <input
-                        type="range"
-                        min={priceRange.min}
-                        max={priceRange.max}
-                        value={priceMax}
-                        onChange={(e) => {
-                          const val = Number(e.target.value);
-                          if (val >= priceMin) setPriceMax(val);
-                        }}
-                        className="w-full h-2 rounded-lg appearance-none cursor-pointer bg-neutral-200"
-                        style={{ accentColor: "var(--color-accent)" }}
-                      />
-                    </div>
-                  </div>
-                </div>
+          <div role="tablist" aria-label="Category" className="mt-8 flex gap-6 border-b border-[var(--home-line)]">
+            {CATEGORY_TABS.map((opt) => {
+              const active = categoryFilter === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  onClick={() => setCategoryFilter(opt.value)}
+                  className={`-mb-px border-b-2 pb-3 text-[15px] transition-colors ${
+                    active
+                      ? "border-[var(--home-clay)] font-semibold text-[var(--home-ink)]"
+                      : "border-transparent text-[var(--home-muted)] hover:text-[var(--home-ink)]"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </header>
 
-                {/* Scent Filter */}
-                {categoryFilter !== "home_goods" && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-3">Scent</h3>
-                    <div className="space-y-2 max-h-64 overflow-y-auto">
-                      {mainScents.map((scent) => (
-                        <label
-                          key={scent.id}
-                          className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedScents.has(scent.id)}
-                            onChange={() => toggleScent(scent.id)}
-                            className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
-                          />
-                          <span>{scent.name}</span>
-                        </label>
-                      ))}
-                      {/* Limited Scents option */}
-                      {limitedScentIds.size > 0 && (
-                        <label
-                          className="flex items-center gap-2 cursor-pointer text-sm hover:bg-neutral-50 px-2 py-1 rounded transition border-t border-[var(--color-line)] pt-2 mt-2"
-                        >
-                          <input
-                            type="checkbox"
-                            checked={selectedScents.has("limited")}
-                            onChange={() => toggleScent("limited")}
-                            className="w-4 h-4 rounded border-[var(--color-line)] text-[var(--color-ink)] focus:ring-[var(--color-ink)] focus:ring-offset-0"
-                          />
-                          <span className="italic">Limited Scents</span>
-                        </label>
-                      )}
-                    </div>
-                    {selectedScents.size > 0 && (
-                      <button
-                        onClick={() => setSelectedScents(new Set())}
-                        className="mt-2 text-xs text-[var(--color-accent)] hover:underline"
-                      >
-                        Clear scent filters
-                      </button>
-                    )}
-                  </div>
-                )}
+      <div className={`${s.cream} px-6 pb-20 pt-8`}>
+        <div className="mx-auto flex max-w-7xl gap-12">
+          {/* Desktop filters */}
+          <aside className="hidden w-64 shrink-0 lg:block" aria-label="Filters">
+            <div className="sticky top-28 max-h-[calc(100dvh-8rem)] overflow-y-auto pb-4 pr-1">{filterPanel}</div>
+          </aside>
 
-                {/* Sort */}
-                <div>
-                  <h3 className="text-sm font-semibold mb-3">Sort</h3>
-                  <select
-                    id="sort"
-                    value={sortBy}
-                    onChange={(e) => setSortBy(e.target.value as SortOption)}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] bg-white focus:outline-none focus:ring-2 focus:ring-[var(--color-ink)] focus:ring-offset-1"
-                  >
-                    <option value="name-asc">Name (A-Z)</option>
-                    <option value="name-desc">Name (Z-A)</option>
-                    <option value="price-asc">Price (Low-High)</option>
-                    <option value="price-desc">Price (High-Low)</option>
+          <div className="min-w-0 flex-1">
+            {/* Toolbar */}
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              <label className="relative block flex-1">
+                <span className="sr-only">Search the shop</span>
+                <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a8958a]" aria-hidden />
+                <input
+                  type="search"
+                  placeholder="Search by bottle or scent…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  autoComplete="off"
+                  className={`${fieldClass} pl-10`}
+                />
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMobileFiltersOpen(true)}
+                  className={`${btnQuiet} flex-1 lg:hidden`}
+                  aria-haspopup="dialog"
+                >
+                  <SlidersHorizontal className="h-4 w-4" aria-hidden />
+                  Filters
+                  {filterCount > 0 && (
+                    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--home-ink)] px-1.5 text-xs font-semibold !text-white">
+                      {filterCount}
+                    </span>
+                  )}
+                </button>
+                <label className="block flex-1 sm:w-48 sm:flex-none">
+                  <span className="sr-only">Sort</span>
+                  <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortOption)} className={`${fieldClass} min-h-11`}>
+                    <option value="name-asc">Name, A–Z</option>
+                    <option value="name-desc">Name, Z–A</option>
+                    <option value="price-asc">Price, low to high</option>
+                    <option value="price-desc">Price, high to low</option>
                   </select>
-                </div>
-
-                {/* Reset all filters */}
-                {hasActiveFilters && (
-                  <button
-                    onClick={resetFilters}
-                    className="w-full px-3 py-2 text-sm rounded-lg border border-[var(--color-line)] hover:border-[var(--color-ink)] transition text-[var(--color-muted)] hover:text-[var(--color-ink)]"
-                  >
-                    Reset Filters
-                  </button>
-                )}
+                </label>
               </div>
-            </aside>
+            </div>
 
-            {/* Product Sections (Grouped) */}
-            <div className="flex-1 mx-auto max-w-6xl">
+            {/* Results summary + active filters */}
+            <div className="mt-4 flex flex-wrap items-center gap-2" aria-live="polite">
+              <p className="mr-2 text-sm text-[var(--home-muted)]">
+                {displayCount} of {productCount} {productCount === 1 ? "product" : "products"}
+                {filterBy !== "in-stock" && ` · ${inStockCount} in stock`}
+              </p>
+              {activeChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.clear}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-full bg-[var(--home-sand)] pl-3 pr-2 text-sm text-[var(--home-ink)] hover:bg-[var(--home-line)]"
+                  aria-label={`Remove filter ${chip.label}`}
+                >
+                  {chip.label}
+                  <X className="h-3.5 w-3.5" aria-hidden />
+                </button>
+              ))}
+            </div>
+
+            {/* Product sections */}
+            <div className="mt-8 space-y-14">
               {grouped.map(([typeName, list]) => (
-                <section key={typeName} className="mb-16">
-                  <h2 className="text-lg sm:text-xl font-semibold">{typeName}</h2>
-
-                  {/* Add bottom padding inside grid to separate from divider */}
-                  <div className="mt-6 grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4 pb-6">
+                <section key={typeName} aria-labelledby={`group-${typeName}`}>
+                  <div className="mb-5 flex items-baseline justify-between gap-4 border-b border-[var(--home-line)] pb-3">
+                    <h2 id={`group-${typeName}`} className={`${serif.className} text-2xl text-[var(--home-ink)] sm:text-[1.75rem]`}>
+                      {typeName}
+                    </h2>
+                    <span className="text-sm tabular-nums text-[var(--home-muted)]">{list.length}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-x-4 gap-y-9 sm:gap-x-6 md:grid-cols-3 xl:grid-cols-4">
                     {list.map((p) => {
                       const variants = p.variantConfig ? generateVariants(p, globalScents) : [];
                       return (
@@ -813,28 +632,14 @@ export default function ShopClient({ products, globalScents, alcoholTypes, homeG
                       );
                     })}
                   </div>
-
-                  {/* Bottom divider */}
-                  <div className="h-px w-full bg-[var(--color-line)]" />
                 </section>
               ))}
 
-              {/* Empty state */}
               {grouped.length === 0 && (
-                <div className="text-center py-12">
-                  <p className="text-[var(--color-muted)]">No products match your filters.</p>
-                  <button
-                    onClick={() => {
-                      setFilterBy("all");
-                      setCategoryFilter("all");
-                      setSortBy("name-asc");
-                      setSearchQuery("");
-                      setPriceMin(priceRange.min);
-                      setPriceMax(priceRange.max);
-                      setSelectedScents(new Set());
-                    }}
-                    className="mt-4 text-sm text-[var(--color-accent)] hover:underline"
-                  >
+                <div className="rounded-3xl bg-white/70 px-6 py-16 text-center">
+                  <p className={`${serif.className} text-2xl text-[var(--home-ink)]`}>Nothing matches those filters</p>
+                  <p className="mt-2 text-[15px] text-[var(--home-muted)]">Try another scent, widen the price range, or include sold-out candles.</p>
+                  <button type="button" onClick={resetFilters} className={`${btnPrimary} mt-6`}>
                     Reset filters
                   </button>
                 </div>
@@ -843,6 +648,21 @@ export default function ShopClient({ products, globalScents, alcoholTypes, homeG
           </div>
         </div>
       </div>
-    </>
+
+      {mobileFiltersOpen && (
+        <ShopDialog
+          title="Filters"
+          subtitle={`${displayCount} ${displayCount === 1 ? "product" : "products"} match`}
+          onClose={() => setMobileFiltersOpen(false)}
+          footer={
+            <button type="button" className={`${btnPrimary} w-full`} onClick={() => setMobileFiltersOpen(false)}>
+              Show {displayCount} {displayCount === 1 ? "product" : "products"}
+            </button>
+          }
+        >
+          {filterPanel}
+        </ShopDialog>
+      )}
+    </div>
   );
 }

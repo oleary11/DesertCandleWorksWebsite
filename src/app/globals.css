@@ -267,9 +267,26 @@ summary {
 [class*="product-card"] {
   border: 0 !important;
 }
-/* Redesigned admin UI (.a-ui) draws its own button borders. */
-:is(button, .btn, .btn-primary, .btn-ghost):not(.a-ui *) {
+/* Redesigned admin (.a-ui) and storefront (.s-ui) UI draw their own button borders. */
+:is(button, .btn, .btn-primary, .btn-ghost):not(.a-ui *):not(.s-ui *) {
   border-color: transparent !important;
+}
+
+/* Redesigned storefront UI opts out of the legacy unlayered base rules above
+   (link color, heading sizes, paragraph leading) so its utility classes apply. */
+.s-ui a:not(.btn-cta),
+.s-ui a:not(.btn-cta):hover {
+  color: revert-layer;
+}
+.s-ui h1,
+.s-ui h2,
+.s-ui h3 {
+  font-size: revert-layer;
+  font-weight: revert-layer;
+  letter-spacing: revert-layer;
+}
+.s-ui p {
+  line-height: revert-layer;
 }
 .product-card__img { background: transparent !important; }
 
@@ -397,3 +414,6 @@ summary {
 .animation-delay-4000 {
   animation-delay: 4s;
 }
+/* Storefront dialogs (src/components/shop/ShopDialog.tsx) */
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheetIn { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
