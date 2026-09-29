@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Plus, Trash2, DollarSign, Search } from "lucide-react";
+import { Check, Plus, Search, Trash2, X } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge } from "../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type Product = {
@@ -165,17 +166,17 @@ function ComboBox<TValue extends string>(props: {
 
   return (
     <div ref={rootRef} className={`w-full ${className}`}>
-      <label htmlFor={id} className="block text-sm font-medium mb-1">
+      <label htmlFor={id} className="a-label">
         {label}
       </label>
 
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" />
 
         <input
           id={id}
           ref={inputRef}
-          className="input w-full !pl-10 !pr-10" // key fix: important padding
+          className="a-input !pl-9 !pr-10"
           placeholder={open ? placeholder : selected ? "" : placeholder}
           value={inputDisplayValue}
           onFocus={() => openAndFocus({ clearSearch: true })}
@@ -206,6 +207,7 @@ function ComboBox<TValue extends string>(props: {
               commitSelection(activeIndex);
             }
           }}
+          role="combobox"
           aria-expanded={open}
           aria-controls={`${id}-listbox`}
           aria-autocomplete="list"
@@ -217,7 +219,7 @@ function ComboBox<TValue extends string>(props: {
         {open && query && (
           <button
             type="button"
-            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-md hover:bg-neutral-100"
+            className="a-icon-btn absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2"
             onClick={() => {
               setQuery("");
               setActiveIndex(0);
@@ -225,7 +227,7 @@ function ComboBox<TValue extends string>(props: {
             }}
             aria-label="Clear search"
           >
-            <span className="text-[var(--color-muted)]">✕</span>
+            <X className="h-4 w-4" aria-hidden />
           </button>
         )}
 
@@ -233,11 +235,11 @@ function ComboBox<TValue extends string>(props: {
           <div
             id={`${id}-listbox`}
             role="listbox"
-            className="absolute z-30 mt-2 w-full rounded-xl border border-[var(--color-line)] bg-white shadow-lg overflow-hidden"
+            className="a-card absolute z-30 mt-1.5 w-full min-w-[min(20rem,calc(100vw-3rem))] overflow-hidden shadow-lg"
           >
             <div className="max-h-72 overflow-y-auto overscroll-contain">
               {filtered.length === 0 ? (
-                <div className="px-4 py-3 text-sm text-[var(--color-muted)]">
+                <div className="px-4 py-3 text-sm text-[var(--a-muted)]">
                   {emptyMessage}
                 </div>
               ) : (
@@ -254,11 +256,10 @@ function ComboBox<TValue extends string>(props: {
                         aria-selected={isSelected}
                         disabled={item.disabled}
                         className={[
-                          "w-full text-left px-4 py-3",
+                          "w-full text-left px-3.5 py-2.5",
                           "transition-colors",
                           item.disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer",
-                          isActive ? "bg-amber-50" : "bg-white",
-                          "hover:bg-amber-50",
+                          isActive ? "bg-[var(--a-tint)]" : "bg-white",
                         ].join(" ")}
                         onMouseEnter={() => setActiveIndex(idx)}
                         onClick={() => commitSelection(idx)}
@@ -269,15 +270,13 @@ function ComboBox<TValue extends string>(props: {
                               {item.label}
                             </div>
                             {item.sublabel ? (
-                              <div className="text-xs text-[var(--color-muted)] truncate mt-0.5">
+                              <div className="mt-0.5 truncate text-xs text-[var(--a-muted)]">
                                 {item.sublabel}
                               </div>
                             ) : null}
                           </div>
                           {isSelected ? (
-                            <div className="text-xs font-semibold text-green-700 mt-0.5">
-                              Selected
-                            </div>
+                            <Check className="mt-0.5 h-4 w-4 shrink-0 text-[var(--a-ink)]" aria-label="Selected" />
                           ) : null}
                         </div>
                       </button>
@@ -610,78 +609,62 @@ export default function ManualSalePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading…</p>
       </div>
     );
   }
 
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <h1 className="text-3xl font-bold">Record Manual Sale</h1>
-          <p className="text-[var(--color-muted)] mt-1">
-            Add in-person or cash sales to analytics and inventory
-          </p>
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader title="Manual sale" description="Record an in-person or cash sale. It counts toward analytics and, if you choose, inventory." />
+
+      {error && (
+        <div role="alert" className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4 text-sm text-[#7a1a12]">
+          {error}
         </div>
+      )}
+      {success && (
+        <div role="status" className="mb-6 flex items-center gap-2 rounded-lg border border-green-200 bg-[#e8f5ec] p-4 text-sm text-[#1f4d2e]">
+          <Check className="h-4 w-4 shrink-0" aria-hidden />
+          {success}
+        </div>
+      )}
 
-        {/* Messages */}
-        {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
-            <p className="text-rose-600 text-sm">{error}</p>
-          </div>
-        )}
-        {success && (
-          <div className="card p-4 bg-green-50 border border-green-200 mb-6">
-            <p className="text-green-600 text-sm">{success}</p>
-          </div>
-        )}
-
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="min-w-0 space-y-6">
           {/* Items */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Sale Items</h2>
+          <section className="a-card p-5 sm:p-6">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">Items</h2>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => addItem(false)}
-                  className="btn bg-[var(--color-ink)] text-white hover:bg-opacity-90"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Product
+                <button type="button" onClick={() => addItem(false)} className="a-btn a-btn-sm">
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Product
                 </button>
-                <button
-                  type="button"
-                  onClick={() => addItem(true)}
-                  className="btn bg-amber-600 text-white hover:bg-amber-700"
-                >
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Custom
+                <button type="button" onClick={() => addItem(true)} className="a-btn a-btn-sm">
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Custom item
                 </button>
               </div>
             </div>
 
             {items.length === 0 ? (
-              <p className="text-[var(--color-muted)] text-center py-8">
-                No items added yet. Click &quot;Add Item&quot; to start.
-              </p>
+              <div className="rounded-lg border border-dashed border-[var(--a-line-strong)] px-4 py-10 text-center">
+                <p className="text-sm text-[var(--a-muted)]">No items yet. Add a product from the catalog, or a custom item.</p>
+                <button type="button" onClick={() => addItem(false)} className="a-btn a-btn-primary a-btn-sm mt-3">
+                  <Plus className="h-3.5 w-3.5" aria-hidden />
+                  Add product
+                </button>
+              </div>
             ) : (
-              <div className="space-y-4">
-                {items.map((item) => {
+              <ol className="space-y-3">
+                {items.map((item, index) => {
                   const selectedProduct = products.find((p) => p.slug === item.productSlug);
                   const isHomeGoods = !item.isCustom && selectedProduct?.productType === "home_goods";
                   const hasVariants = !isHomeGoods && selectedProduct?.variantConfig?.wickTypes &&
@@ -710,45 +693,43 @@ export default function ManualSalePage() {
                     : [];
 
                   return (
-                    <div key={item.id} className="border border-[var(--color-line)] rounded-lg p-4 mb-4">
-                      {/* Item Type Badge */}
-                      <div className="flex items-center justify-between mb-3">
-                        <span className={`text-xs font-semibold px-2 py-1 rounded ${
-                          item.isCustom
-                            ? "bg-amber-100 text-amber-700"
-                            : "bg-blue-100 text-blue-700"
-                        }`}>
-                          {item.isCustom ? "Custom Product" : "Catalog Product"}
-                        </span>
+                    <li key={item.id} className="rounded-xl border border-[var(--a-line)] p-4">
+                      <div className="mb-3 flex items-center justify-between gap-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-semibold text-[var(--a-ink)]">Item {index + 1}</span>
+                          <Badge tone={item.isCustom ? "amber" : "neutral"}>{item.isCustom ? "Custom" : "Catalog"}</Badge>
+                        </div>
                         <button
                           type="button"
                           onClick={() => removeItem(item.id)}
-                          className="btn bg-rose-600 text-white hover:bg-rose-700 py-1 px-2"
+                          className="a-icon-btn a-icon-btn-danger h-8 w-8"
+                          aria-label={`Remove item ${index + 1}`}
+                          title="Remove item"
                         >
-                          <Trash2 className="w-4 h-4" />
+                          <Trash2 className="h-4 w-4" aria-hidden />
                         </button>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                        {/* Product Selection or Custom Name */}
+                      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                         {item.isCustom ? (
-                          <div className="md:col-span-2">
-                            <label className="block text-sm font-medium mb-1">Product Name *</label>
+                          <div className="col-span-2">
+                            <label htmlFor={`name-${item.id}`} className="a-label">Product name</label>
                             <input
+                              id={`name-${item.id}`}
                               type="text"
-                              className="input w-full"
-                              placeholder="Enter custom product name..."
+                              className="a-input"
+                              placeholder="What did you sell?"
                               value={item.productName}
                               onChange={(e) => updateItem(item.id, { productName: e.target.value })}
                               required
                             />
                           </div>
                         ) : (
-                          <div className="md:col-span-2">
+                          <div className="col-span-2">
                             <ComboBox
                               id={`product-${item.id}`}
                               label="Product"
-                              placeholder="Search products..."
+                              placeholder="Search products…"
                               value={item.productSlug}
                               items={productItems}
                               onChange={(val) => handleProductChange(item.id, val)}
@@ -757,12 +738,12 @@ export default function ManualSalePage() {
                           </div>
                         )}
 
-                        {/* Quantity */}
                         <div>
-                          <label className="block text-sm font-medium mb-1">Quantity</label>
+                          <label htmlFor={`qty-${item.id}`} className="a-label">Quantity</label>
                           <input
+                            id={`qty-${item.id}`}
                             type="number"
-                            className="input w-full"
+                            className="a-input tabular-nums"
                             min="1"
                             value={item.quantity}
                             onChange={(e) =>
@@ -772,37 +753,38 @@ export default function ManualSalePage() {
                           />
                         </div>
 
-                        {/* Price */}
                         <div>
-                          <label className="block text-sm font-medium mb-1">Price ($)</label>
-                          <input
-                            type="number"
-                            className="input w-full"
-                            step="0.01"
-                            min="0"
-                            value={(item.unitPriceCents / 100).toFixed(2)}
-                            onChange={(e) =>
-                              updateItem(item.id, {
-                                unitPriceCents: Math.round(parseFloat(e.target.value || "0") * 100),
-                              })
-                            }
-                            required
-                          />
+                          <label htmlFor={`price-${item.id}`} className="a-label">Price each</label>
+                          <div className="relative">
+                            <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
+                            <input
+                              id={`price-${item.id}`}
+                              type="number"
+                              className="a-input pl-7 tabular-nums"
+                              step="0.01"
+                              min="0"
+                              value={(item.unitPriceCents / 100).toFixed(2)}
+                              onChange={(e) =>
+                                updateItem(item.id, {
+                                  unitPriceCents: Math.round(parseFloat(e.target.value || "0") * 100),
+                                })
+                              }
+                              required
+                            />
+                          </div>
                           {item.quantity > 1 && (
-                            <div className="text-xs text-[var(--color-muted)] mt-1">
-                              Line total: ${((item.unitPriceCents * item.quantity) / 100).toFixed(2)}
-                            </div>
+                            <p className="a-help">Line total {money(item.unitPriceCents * item.quantity)}</p>
                           )}
                         </div>
                       </div>
 
                       {/* Bottle Selection - Home Goods items sell a specific physical bottle */}
                       {isHomeGoods && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
+                        <div className="mt-4">
                           <ComboBox
                             id={`bottle-${item.id}`}
-                            label="Bottle *"
-                            placeholder="Search bottles..."
+                            label="Bottle"
+                            placeholder="Search bottles…"
                             value={item.variantId || ""}
                             items={bottleItems}
                             onChange={(val) => handleBottleChange(item.id, val)}
@@ -814,16 +796,15 @@ export default function ManualSalePage() {
 
                       {/* Size Selection - only shown for products with sizes */}
                       {!item.isCustom && hasSizes && (
-                        <div className="mt-4 pt-4 border-t border-[var(--color-line)]">
-                          <label className="block text-sm font-medium mb-1">
-                            Size <span className="text-rose-500">*</span>
-                          </label>
+                        <div className="mt-4">
+                          <label htmlFor={`size-${item.id}`} className="a-label">Size</label>
                           <select
-                            className="input w-full md:w-64"
+                            id={`size-${item.id}`}
+                            className="a-select md:w-64"
                             value={item.selectedSizeId || ""}
                             onChange={(e) => handleSizeChange(item.id, e.target.value)}
                           >
-                            <option value="">Select size...</option>
+                            <option value="">Select size…</option>
                             {selectedProduct?.variantConfig?.sizes?.map((s) => (
                               <option key={s.id} value={s.id}>
                                 {s.name} — ${(s.priceCents / 100).toFixed(2)}
@@ -833,19 +814,20 @@ export default function ManualSalePage() {
                         </div>
                       )}
 
-                      {/* Variant Selection - shown for all items */}
-                      <div className={`grid grid-cols-1 ${isHomeGoods ? "" : "md:grid-cols-3"} gap-4 mt-4 pt-4 border-t border-[var(--color-line)]`}>
-                        {/* Alcohol Type */}
+                      {/* Variant details */}
+                      <div className={`mt-4 grid grid-cols-1 gap-4 ${isHomeGoods ? "" : "sm:grid-cols-3"}`}>
                         <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Alcohol Type {item.isCustom && <span className="text-[var(--color-muted)]">(for analytics)</span>}
+                          <label htmlFor={`alcohol-${item.id}`} className="a-label">
+                            Alcohol type{" "}
+                            {item.isCustom && <span className="font-normal text-[var(--a-muted)]">(for analytics)</span>}
                           </label>
                           <select
-                            className="input w-full"
+                            id={`alcohol-${item.id}`}
+                            className="a-select"
                             value={item.alcoholType || ""}
                             onChange={(e) => updateItem(item.id, { alcoholType: e.target.value || undefined })}
                           >
-                            <option value="">Select alcohol type...</option>
+                            <option value="">Select…</option>
                             {alcoholTypes
                               .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
                               .map((at) => (
@@ -856,150 +838,90 @@ export default function ManualSalePage() {
                           </select>
                         </div>
 
-                        {/* Wick Type - candle-only */}
                         {!isHomeGoods && (
-                        <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Wick Type <span className="text-[var(--color-muted)]">(optional)</span>
-                          </label>
-                          <select
-                            className="input w-full"
-                            value={item.wickType || ""}
-                            onChange={(e) => handleWickTypeChange(item.id, e.target.value)}
-                          >
-                            <option value="">Select wick type...</option>
-                            {wickTypes.map((wt) => (
-                              <option key={wt.id} value={wt.id}>
-                                {wt.name}
-                              </option>
-                            ))}
-                          </select>
-                        </div>
-                        )}
-
-                        {/* Scent - candle-only */}
-                        {!isHomeGoods && (
-                        <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Scent <span className="text-[var(--color-muted)]">(optional)</span>
-                          </label>
-                          <select
-                            className="input w-full"
-                            value={item.scentId || ""}
-                            onChange={(e) => handleScentChange(item.id, e.target.value, item.wickType)}
-                          >
-                            <option value="">Select scent...</option>
-                            {scents
-                              .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
-                              .map((scent) => (
-                                <option key={scent.id} value={scent.id}>
-                                  {scent.name} {scent.limited ? "(Limited)" : ""}
+                          <div>
+                            <label htmlFor={`wick-${item.id}`} className="a-label">
+                              Wick <span className="font-normal text-[var(--a-muted)]">(optional)</span>
+                            </label>
+                            <select
+                              id={`wick-${item.id}`}
+                              className="a-select"
+                              value={item.wickType || ""}
+                              onChange={(e) => handleWickTypeChange(item.id, e.target.value)}
+                            >
+                              <option value="">Select…</option>
+                              {wickTypes.map((wt) => (
+                                <option key={wt.id} value={wt.id}>
+                                  {wt.name}
                                 </option>
                               ))}
-                          </select>
-                        </div>
+                            </select>
+                          </div>
+                        )}
+
+                        {!isHomeGoods && (
+                          <div>
+                            <label htmlFor={`scent-${item.id}`} className="a-label">
+                              Scent <span className="font-normal text-[var(--a-muted)]">(optional)</span>
+                            </label>
+                            <select
+                              id={`scent-${item.id}`}
+                              className="a-select"
+                              value={item.scentId || ""}
+                              onChange={(e) => handleScentChange(item.id, e.target.value, item.wickType)}
+                            >
+                              <option value="">Select…</option>
+                              {scents
+                                .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999))
+                                .map((scent) => (
+                                  <option key={scent.id} value={scent.id}>
+                                    {scent.name} {scent.limited ? "(Limited)" : ""}
+                                  </option>
+                                ))}
+                            </select>
+                          </div>
                         )}
                       </div>
 
-                      {/* Stock info for non-custom products with variants */}
                       {!item.isCustom && hasVariants && item.variantId && (
-                        <div className="mt-3 text-sm text-[var(--color-muted)]">
-                          Variant Stock: {
-                            selectedProduct?.variantConfig?.variantData?.[item.variantId]?.stock ?? 0
-                          }
-                        </div>
+                        <p className="a-help">
+                          {selectedProduct?.variantConfig?.variantData?.[item.variantId]?.stock ?? 0} of this variant in stock
+                        </p>
                       )}
-                    </div>
+                    </li>
                   );
                 })}
-              </div>
+              </ol>
             )}
+          </section>
 
-            {/* Order Summary with Discount */}
-            {items.length > 0 && (
-              <div className="mt-6 pt-4 border-t border-[var(--color-line)]">
-                {/* Subtotal */}
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm text-[var(--color-muted)]">Subtotal:</span>
-                  <span className="text-sm">
-                    ${(subtotalCents / 100).toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Discount Input */}
-                <div className="flex items-center justify-between mb-3 gap-4">
-                  <label htmlFor="discount" className="text-sm font-medium">
-                    Discount:
-                  </label>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-[var(--color-muted)]">-$</span>
-                    <input
-                      id="discount"
-                      type="number"
-                      className="input w-24 text-right"
-                      step="0.01"
-                      min="0"
-                      max={(subtotalCents / 100).toFixed(2)}
-                      value={discountCents > 0 ? (discountCents / 100).toFixed(2) : ""}
-                      placeholder="0.00"
-                      onChange={(e) => {
-                        const value = parseFloat(e.target.value || "0");
-                        setDiscountCents(Math.round(value * 100));
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {/* Show discount warning if exceeds subtotal */}
-                {discountCents > subtotalCents && (
-                  <div className="text-xs text-amber-600 mb-2">
-                    Discount capped at subtotal (${(subtotalCents / 100).toFixed(2)})
-                  </div>
-                )}
-
-                {/* Total */}
-                <div className="flex items-center justify-between pt-3 border-t border-[var(--color-line)]">
-                  <span className="text-lg font-bold">Total:</span>
-                  <span className="text-2xl font-bold text-green-600">
-                    ${(totalCents / 100).toFixed(2)}
-                  </span>
-                </div>
-
-                {/* Show savings if discount applied */}
-                {effectiveDiscountCents > 0 && (
-                  <div className="text-xs text-green-600 text-right mt-1">
-                    Customer saves ${(effectiveDiscountCents / 100).toFixed(2)}
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Payment Details */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">Payment Details</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Payment */}
+          <section className="a-card p-5 sm:p-6">
+            <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Payment</h2>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium mb-1">Payment Method</label>
+                <label htmlFor="payment-method" className="a-label">Method</label>
                 <select
-                  className="input w-full"
+                  id="payment-method"
+                  className="a-select"
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as "cash" | "card" | "other")}
                   required
                 >
                   <option value="cash">Cash</option>
-                  <option value="card">Card (Non-Stripe)</option>
+                  <option value="card">Card (not Stripe)</option>
                   <option value="other">Other</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">
-                  Customer Email <span className="text-[var(--color-muted)]">(optional)</span>
+                <label htmlFor="customer-email" className="a-label">
+                  Customer email <span className="font-normal text-[var(--a-muted)]">(optional)</span>
                 </label>
                 <input
+                  id="customer-email"
                   type="email"
-                  className="input w-full"
+                  className="a-input"
                   placeholder="customer@example.com"
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
@@ -1008,65 +930,89 @@ export default function ManualSalePage() {
             </div>
 
             <div className="mt-4">
-              <label className="block text-sm font-medium mb-1">
-                Notes <span className="text-[var(--color-muted)]">(optional)</span>
+              <label htmlFor="sale-notes" className="a-label">
+                Notes <span className="font-normal text-[var(--a-muted)]">(optional)</span>
               </label>
               <textarea
-                className="textarea w-full"
+                id="sale-notes"
+                className="a-textarea"
                 rows={3}
-                placeholder="Add any notes about this sale..."
+                placeholder="Market name, trade details, anything worth remembering"
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
               />
             </div>
+          </section>
+        </div>
 
-            <div className="mt-4">
-              <label className="flex items-start gap-3 cursor-pointer group p-3 border border-[var(--color-line)] rounded-lg hover:border-[var(--color-accent)] transition">
-                <div className="relative flex items-center justify-center mt-0.5">
-                  <input
-                    type="checkbox"
-                    checked={decrementStock}
-                    onChange={(e) => setDecrementStock(e.target.checked)}
-                    className="peer absolute opacity-0 w-5 h-5 cursor-pointer"
-                  />
-                  <div className="w-5 h-5 rounded border-2 border-[var(--color-line)] group-hover:border-[var(--color-accent)] transition-colors peer-checked:bg-[var(--color-accent)] peer-checked:border-[var(--color-accent)] flex items-center justify-center pointer-events-none">
-                    {decrementStock && (
-                      <svg
-                        className="w-3 h-3 text-white"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                        strokeWidth={3}
-                      >
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                      </svg>
-                    )}
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Decrement Stock</div>
-                  <p className="text-xs text-[var(--color-muted)] mt-1">
-                    Uncheck this if the sale was made-to-order or custom (not from existing inventory).
-                    Check this if you sold from your current stock.
-                  </p>
-                </div>
-              </label>
+        {/* Summary */}
+        <aside className="a-card p-5 lg:sticky lg:top-20">
+          <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Summary</h2>
+          <dl className="space-y-3 text-sm">
+            <div className="flex justify-between">
+              <dt className="text-[var(--a-muted)]">
+                Subtotal · {itemCount} {itemCount === 1 ? "item" : "items"}
+              </dt>
+              <dd className="tabular-nums">{money(subtotalCents)}</dd>
             </div>
-          </div>
+            <div className="flex items-center justify-between gap-4">
+              <dt>
+                <label htmlFor="discount" className="text-[var(--a-muted)]">Discount</label>
+              </dt>
+              <dd className="relative w-28">
+                <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">−$</span>
+                <input
+                  id="discount"
+                  type="number"
+                  className="a-input h-9 pl-8 text-right tabular-nums"
+                  step="0.01"
+                  min="0"
+                  max={(subtotalCents / 100).toFixed(2)}
+                  value={discountCents > 0 ? (discountCents / 100).toFixed(2) : ""}
+                  placeholder="0.00"
+                  onChange={(e) => {
+                    const value = parseFloat(e.target.value || "0");
+                    setDiscountCents(Math.round(value * 100));
+                  }}
+                />
+              </dd>
+            </div>
+            {discountCents > subtotalCents && (
+              <p className="text-xs text-[#8a5a06]">Discount capped at the subtotal ({money(subtotalCents)}).</p>
+            )}
+            <div className="flex items-baseline justify-between border-t border-[var(--a-line)] pt-3">
+              <dt className="font-semibold">Total</dt>
+              <dd className="text-2xl font-semibold tracking-tight tabular-nums">{money(totalCents)}</dd>
+            </div>
+            {effectiveDiscountCents > 0 && (
+              <p className="text-right text-xs text-[#1f6b3a]">Customer saves {money(effectiveDiscountCents)}</p>
+            )}
+          </dl>
 
-          {/* Submit Button */}
-          <div className="flex gap-4">
-            <button
-              type="submit"
-              disabled={submitting || items.length === 0}
-              className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed flex-1"
-            >
-              <DollarSign className="w-4 h-4 mr-2" />
-              {submitting ? "Recording Sale..." : `Record Sale - $${(totalCents / 100).toFixed(2)}`}
-            </button>
-          </div>
-        </form>
-      </div>
+          <label className="mt-5 flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 text-sm transition-colors hover:border-[var(--a-line-strong)]">
+            <input
+              type="checkbox"
+              className="a-check mt-0.5"
+              checked={decrementStock}
+              onChange={(e) => setDecrementStock(e.target.checked)}
+            />
+            <span>
+              <span className="font-medium text-[var(--a-ink)]">Take from stock</span>
+              <span className="mt-0.5 block text-xs text-[var(--a-muted)]">
+                Leave unchecked for made-to-order or custom pieces that weren&apos;t in inventory.
+              </span>
+            </span>
+          </label>
+
+          <button
+            type="submit"
+            disabled={submitting || items.length === 0}
+            className="a-btn a-btn-primary mt-4 h-11 w-full text-[15px]"
+          >
+            {submitting ? "Recording…" : `Record sale · ${money(totalCents)}`}
+          </button>
+        </aside>
+      </form>
     </div>
   );
 }
