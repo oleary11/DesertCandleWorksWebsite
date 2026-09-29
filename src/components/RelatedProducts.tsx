@@ -9,6 +9,10 @@ type RelatedProductsProps = {
   maxProducts?: number;
 };
 
+/**
+ * @deprecated Defunct: Never wired into any page. The product page shows RecentlyViewed instead.
+ * Kept for reference only; not imported anywhere.
+ */
 export default function RelatedProducts({
   currentProductSlug,
   products,

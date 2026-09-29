@@ -7,6 +7,10 @@ type FreeShippingProgressProps = {
   threshold?: number;
 };
 
+/**
+ * @deprecated Defunct: Never wired into any page. The cart uses FreeShippingBanner instead.
+ * Kept for reference only; not imported anywhere.
+ */
 export default function FreeShippingProgress({
   currentTotal,
   threshold = 50

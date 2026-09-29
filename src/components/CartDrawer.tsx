@@ -15,6 +15,10 @@ type CartDrawerProps = {
   onClose: () => void;
 };
 
+/**
+ * @deprecated Defunct: Never wired into any page. The site uses the /cart page for the cart and checkout. If revived, its checkout request must send sizeName/wickTypeName/scentName like the cart page does.
+ * Kept for reference only; not imported anywhere.
+ */
 export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
   const { showAlert } = useModal();
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();

@@ -15,6 +15,10 @@ type QuickViewModalProps = {
   onClose: () => void;
 };
 
+/**
+ * @deprecated Defunct: Never wired into any page. Use QuickAddModal (opened from ProductCard) instead.
+ * Kept for reference only; not imported anywhere.
+ */
 export default function QuickViewModal({ product, variants = [], globalScents = [], onClose }: QuickViewModalProps) {
   const [addToCartMessage, setAddToCartMessage] = useState("");
   const addItem = useCartStore((state) => state.addItem);
