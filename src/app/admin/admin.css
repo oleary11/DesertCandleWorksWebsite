@@ -292,6 +292,9 @@
 @keyframes a-sheet-in { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes a-fade-in { from { opacity: 0; } to { opacity: 1; } }
 
+/* Dialogs rendered outside the shell carry .admin for tokens but need a white panel. */
+.admin.a-dialog { background: var(--a-surface); }
+
 .a-scroll { scrollbar-width: thin; scrollbar-color: rgb(255 255 255 / 0.15) transparent; }
 
 .a-ui input[type="checkbox"],

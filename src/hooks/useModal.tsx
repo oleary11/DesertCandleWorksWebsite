@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 /* ---------- Types ---------- */
 type ModalButton = {
@@ -165,6 +166,40 @@ function ModalDialog({ config, onBackdropClick }: { config: ModalConfig; onBackd
     }
   };
 
+  const isAdmin = usePathname()?.startsWith("/admin");
+
+  if (isAdmin) {
+    const adminButton = (variant?: string) =>
+      variant === "primary"
+        ? "a-btn a-btn-primary"
+        : variant === "danger"
+          ? "a-btn border-[#b42318] bg-[#b42318] text-white hover:bg-[#912018]"
+          : "a-btn";
+    return (
+      <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" role="alertdialog" aria-modal="true" aria-label={config.title}>
+        <div className="absolute inset-0" onClick={onBackdropClick} />
+        <div className="admin a-ui a-dialog a-fade-enter relative flex w-full max-w-md flex-col rounded-t-[var(--a-radius)] border border-[var(--a-line)] shadow-2xl sm:rounded-[var(--a-radius)]">
+          <div className="px-6 pb-2 pt-5">
+            {config.title && <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">{config.title}</h2>}
+            <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-[var(--a-muted)]">{config.message}</p>
+          </div>
+          <div className="flex items-center justify-end gap-2 px-6 pb-5 pt-4">
+            {config.buttons.map((button, idx) => (
+              <button
+                key={idx}
+                className={adminButton(button.variant)}
+                onClick={button.onClick}
+                autoFocus={idx === 0}
+              >
+                {button.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
       {/* Backdrop */}
@@ -208,6 +243,47 @@ function PromptDialog({
   onSubmit: (value: string) => void;
 }) {
   const [value, setValue] = useState(config.defaultValue);
+  const isAdmin = usePathname()?.startsWith("/admin");
+
+  if (isAdmin) {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/40 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={config.title}>
+        <div className="absolute inset-0" onClick={onCancel} />
+        <form
+          className="admin a-ui a-dialog a-fade-enter relative flex w-full max-w-md flex-col rounded-t-[var(--a-radius)] border border-[var(--a-line)] shadow-2xl sm:rounded-[var(--a-radius)]"
+          onSubmit={(e) => {
+            e.preventDefault();
+            onSubmit(value);
+          }}
+        >
+          <div className="px-6 pb-2 pt-5">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">{config.title}</h2>
+            <label className="mt-1.5 block">
+              <span className="mb-3 block text-sm text-[var(--a-muted)]">{config.message}</span>
+              <input
+                type="text"
+                className="a-input"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") onCancel();
+                }}
+                autoFocus
+              />
+            </label>
+          </div>
+          <div className="flex items-center justify-end gap-2 px-6 pb-5 pt-4">
+            <button type="button" className="a-btn" onClick={onCancel}>
+              Cancel
+            </button>
+            <button type="submit" className="a-btn a-btn-primary">
+              OK
+            </button>
+          </div>
+        </form>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">

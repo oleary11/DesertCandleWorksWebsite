@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -58,88 +59,83 @@ export default function LoginInner() {
   }, []);
 
   return (
-    <section className="min-h-dvh flex items-center justify-center p-6">
-      <div className="card p-6 w-[420px] max-w-[95vw]">
-        <h1 className="text-xl font-semibold">Admin login</h1>
-        <p className="text-sm text-[var(--color-muted)] mt-1">
-          {needsTwoFactor
-            ? "Enter your 2FA code to continue"
-            : "Enter your admin credentials to continue"}
-        </p>
+    <section className="a-ui flex min-h-dvh items-center justify-center bg-[var(--a-canvas)] px-4 py-10">
+      <div className="w-full max-w-sm">
+        <div className="mb-6 flex flex-col items-center text-center">
+          <Image src="/images/logo.png" alt="" width={56} height={56} priority className="h-14 w-14 rounded-full ring-1 ring-[var(--a-line)]" />
+          <p className="mt-3 text-lg font-semibold tracking-tight text-[var(--a-ink)]">Desert Candle Works</p>
+          <p className="text-sm text-[var(--a-muted)]">Admin</p>
+        </div>
 
-        <form className="mt-4 space-y-4" onSubmit={onSubmit}>
-          <input type="hidden" name="next" value={next} />
+        <div className="a-card p-6 shadow-[var(--a-shadow-hover)]">
+          <h1 className="text-xl font-semibold tracking-tight text-[var(--a-ink)]">{needsTwoFactor ? "Two-factor code" : "Sign in"}</h1>
+          <p className="mt-1 text-sm text-[var(--a-muted)]">
+            {needsTwoFactor ? "Enter the code from your authenticator app." : "Use your admin email and password."}
+          </p>
 
-          {!needsTwoFactor ? (
-            <>
+          <form className="mt-5 space-y-4" onSubmit={onSubmit}>
+            <input type="hidden" name="next" value={next} />
+
+            {!needsTwoFactor ? (
+              <>
+                <label className="block">
+                  <span className="a-label">Email</span>
+                  <input id="email" className="a-input" name="email" type="email" autoComplete="email" required />
+                </label>
+
+                <label className="block">
+                  <span className="a-label">Password</span>
+                  <input id="pw" className="a-input" name="password" type="password" autoComplete="current-password" required />
+                </label>
+              </>
+            ) : (
+              <>
+                <input type="hidden" name="email" value={email} />
+                <input type="hidden" name="password" value={password} />
+              </>
+            )}
+
+            {needsTwoFactor && (
               <label className="block">
-                <div className="text-xs mb-1">Email</div>
+                <span className="a-label">Code</span>
                 <input
-                  id="email"
-                  className="input w-full"
-                  name="email"
-                  type="email"
-                  autoComplete="email"
+                  id="twoFactorToken"
+                  className="a-input font-mono tracking-widest"
+                  name="twoFactorToken"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="6-digit code or backup code"
+                  autoComplete="one-time-code"
                   required
                 />
+                <p className="a-help">A backup code works too.</p>
               </label>
+            )}
 
-              <label className="block">
-                <div className="text-xs mb-1">Password</div>
-                <input
-                  id="pw"
-                  className="input w-full"
-                  name="password"
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                />
-              </label>
-            </>
-          ) : (
-            <>
-              <input type="hidden" name="email" value={email} />
-              <input type="hidden" name="password" value={password} />
-            </>
-          )}
+            {error && (
+              <p role="alert" className="rounded-lg border border-red-200 bg-[#fdecea] px-3 py-2 text-sm text-[#7a1a12]">
+                {error}
+              </p>
+            )}
 
-          {needsTwoFactor && (
-            <label className="block">
-              <div className="text-xs mb-1">2FA Code</div>
-              <input
-                id="twoFactorToken"
-                className="input w-full"
-                name="twoFactorToken"
-                type="text"
-                placeholder="Enter 6-digit code or backup code"
-                autoComplete="one-time-code"
-                required
-              />
-              <div className="text-xs text-[var(--color-muted)] mt-1">
-                Enter the code from your authenticator app or a backup code
-              </div>
-            </label>
-          )}
-
-          {error && <p className="text-rose-600 text-sm">{error}</p>}
-
-          <button className="btn btn-primary w-full" type="submit" disabled={submitting}>
-            {submitting ? "Signing in…" : "Sign in"}
-          </button>
-
-          {needsTwoFactor && (
-            <button
-              type="button"
-              onClick={() => {
-                setNeedsTwoFactor(false);
-                setError(null);
-              }}
-              className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] w-full text-center"
-            >
-              ← Back to login
+            <button className="a-btn a-btn-primary h-11 w-full" type="submit" disabled={submitting}>
+              {submitting ? "Signing in…" : needsTwoFactor ? "Verify" : "Sign in"}
             </button>
-          )}
-        </form>
+
+            {needsTwoFactor && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNeedsTwoFactor(false);
+                  setError(null);
+                }}
+                className="w-full text-center text-sm text-[var(--a-muted)] hover:text-[var(--a-ink)]"
+              >
+                Back to sign in
+              </button>
+            )}
+          </form>
+        </div>
       </div>
     </section>
   );
