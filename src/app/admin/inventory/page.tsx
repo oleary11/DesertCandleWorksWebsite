@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import {
-  ArrowLeft,
   RefreshCw,
   Search,
   ChevronUp,
@@ -16,7 +14,10 @@ import {
   X,
   Flame,
   Upload,
+  Settings2,
 } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Modal, Segmented, Stat } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -71,28 +72,31 @@ function Stepper({
   value,
   onChange,
   disabled,
+  label,
 }: {
   value: number;
   onChange: (v: number) => void;
   disabled?: boolean;
+  label?: string;
 }) {
   return (
-    <div className={`flex items-center justify-center gap-1 ${disabled ? "opacity-40" : ""}`}>
+    <div className={`mx-auto flex w-fit items-center rounded-lg border border-[var(--a-line-strong)] bg-[var(--a-surface)] ${disabled ? "opacity-40" : ""}`}>
       <button
         type="button"
-        className="btn btn-ghost !min-h-0 !h-7 !w-7 !p-0 shrink-0"
+        className="flex h-8 w-7 items-center justify-center rounded-l-lg text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)]"
         onClick={() => onChange(Math.max(0, value - 1))}
         disabled={disabled}
-        aria-label="Decrease"
+        aria-label={label ? `Decrease ${label}` : "Decrease"}
       >
-        <Minus className="w-3 h-3" />
+        <Minus className="h-3 w-3" aria-hidden />
       </button>
       <input
-        className="input text-center tabular-nums !w-14 !h-7 !py-0 !px-1"
+        className="h-8 w-10 border-x border-[var(--a-line)] bg-transparent text-center text-sm tabular-nums outline-none focus:bg-[var(--a-canvas)]"
         type="text"
         inputMode="numeric"
         pattern="[0-9]*"
         value={value}
+        aria-label={label}
         onChange={(e) => {
           const digits = e.target.value.replace(/[^0-9]/g, "");
           onChange(digits === "" ? 0 : Math.max(0, Number(digits)));
@@ -101,12 +105,12 @@ function Stepper({
       />
       <button
         type="button"
-        className="btn btn-ghost !min-h-0 !h-7 !w-7 !p-0 shrink-0"
+        className="flex h-8 w-7 items-center justify-center rounded-r-lg text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)]"
         onClick={() => onChange(value + 1)}
         disabled={disabled}
-        aria-label="Increase"
+        aria-label={label ? `Increase ${label}` : "Increase"}
       >
-        <Plus className="w-3 h-3" />
+        <Plus className="h-3 w-3" aria-hidden />
       </button>
     </div>
   );
@@ -144,38 +148,42 @@ function AddBottleForm({
   }
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-3">
-        <input
-          className="input"
-          placeholder="e.g. Empty Jack Daniels 1L (never poured)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
-          autoFocus
-        />
-        <button className="btn btn-primary" onClick={handleSubmit} disabled={submitting}>
-          <Plus className="w-4 h-4 mr-1" /> Add bottle
+    <div className="space-y-4">
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <label className="block flex-1">
+          <span className="sr-only">Bottle name</span>
+          <input
+            className="a-input"
+            placeholder="e.g. Empty Jack Daniels 1L (never poured)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
+            autoFocus
+          />
+        </label>
+        <button className="a-btn a-btn-primary" onClick={handleSubmit} disabled={submitting || !name.trim()}>
+          <Plus className="h-4 w-4" aria-hidden /> Add bottle
         </button>
       </div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {([
           ["qtyUncut", "Uncut"],
-          ["qtyCutUnpolished", "Cut Unpolished"],
-          ["qtyCutPolished", "Cut Polished"],
+          ["qtyCutUnpolished", "Cut, unpolished"],
+          ["qtyCutPolished", "Cut, polished"],
         ] as const).map(([key, label]) => (
-          <label key={key} className="space-y-1">
-            <span className="block text-xs text-center text-[var(--color-muted)]">{label}</span>
+          <div key={key}>
+            <span className="a-label text-center text-xs text-[var(--a-muted)]">{label}</span>
             <Stepper
+              label={label}
               value={counts[key]}
               onChange={(value) => setCounts((current) => ({ ...current, [key]: value }))}
             />
-          </label>
+          </div>
         ))}
-        <label className="space-y-1">
-          <span className="block text-xs text-center text-[var(--color-muted)]">Water Capacity (oz)</span>
+        <label className="block">
+          <span className="a-label text-center text-xs text-[var(--a-muted)]">Water capacity (oz)</span>
           <input
-            className="input text-center !h-7 !py-0 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+            className="a-input mx-auto h-8 w-24 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
             type="number"
             min="0"
             step="0.1"
@@ -208,16 +216,17 @@ function SortHeader({
   const active = sortKey === activeKey;
   return (
     <th
-      className={`relative py-3 px-3 cursor-pointer select-none ${className ?? ""}`}
-      onClick={() => onSort(sortKey)}
+      className={`${align === "center" ? "text-center" : ""} ${className ?? ""}`}
+      aria-sort={active ? (dir === "asc" ? "ascending" : "descending") : undefined}
     >
-      {/* Label is centered on its own — the arrow floats outside the flow so it can never skew the text off-center */}
-      <span className={`block w-full ${align === "center" ? "text-center" : "text-left"}`}>{label}</span>
-      {active && (
-        <span className="absolute right-2 top-1/2 -translate-y-1/2">
-          {dir === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-        </span>
-      )}
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-1 whitespace-nowrap hover:text-[var(--a-ink)] ${active ? "text-[var(--a-ink)]" : ""}`}
+      >
+        {label}
+        {active && (dir === "asc" ? <ChevronUp className="h-3 w-3" aria-hidden /> : <ChevronDown className="h-3 w-3" aria-hidden />)}
+      </button>
     </th>
   );
 }
@@ -594,308 +603,308 @@ export default function BottleInventoryAdminPage() {
   }
 
   return (
-    <div className={`mx-auto max-w-[1800px] p-6 space-y-5 ${dirtyIds.size > 0 ? "pb-24" : ""}`}>
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={handleImageFileChange}
+    <div className={`a-ui mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8 ${dirtyIds.size > 0 ? "pb-28" : ""}`}>
+      <input ref={fileInputRef} type="file" accept="image/*" className="sr-only" tabIndex={-1} aria-hidden onChange={handleImageFileChange} />
+
+      <PageHeader
+        title="Bottle inventory"
+        description="Raw bottles by stage, for Home Goods listings. Edit counts directly; save when you're done."
+        actions={
+          <>
+            <button className="a-btn" onClick={syncFromCandles} disabled={syncing}>
+              <RefreshCw className={`h-4 w-4 ${syncing ? "animate-spin" : ""}`} aria-hidden />
+              {syncing ? "Syncing…" : "Sync from candles"}
+            </button>
+            <button className="a-btn a-btn-primary" onClick={() => setShowAddForm((v) => !v)} aria-expanded={showAddForm}>
+              <Plus className="h-4 w-4" aria-hidden />
+              Add bottle
+            </button>
+          </>
+        }
       />
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="btn">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Bottle Inventory</h1>
-        </div>
-        <button className="btn" onClick={syncFromCandles} disabled={syncing}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${syncing ? "animate-spin" : ""}`} />
-          {syncing ? "Syncing…" : "Sync from Candles"}
-        </button>
+
+      {/* Stats */}
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Bottles" value={stats.totalBottles} hint="All stages" />
+        <Stat label="Unique bottles" value={stats.totalUniqueBottles} />
+        <Stat label="Active" value={stats.active} />
+        <Stat label="Poured" value={stats.totalPoured} hint="Linked to candle listings" />
       </div>
 
-      <p className="text-sm text-[var(--color-muted)]">
-        Uncut / Cut Unpolished / Cut Polished are the raw bottles available for Home Goods
-        listings — edit any count directly with the +/- controls. Cut Poured shows a flame and
-        locks once a bottle is linked to a candle listing (it&apos;s a live read of that listing&apos;s
-        stock, since a poured bottle can&apos;t be reused) — otherwise it&apos;s editable like the rest.
-      </p>
-
-      {/* Stat tiles */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <div className="card card--mist p-4 flex items-center">
-          <div className="text-2xl font-semibold">{stats.totalBottles} <span className="text-base font-normal text-[var(--color-muted)]">total bottles</span></div>
-        </div>
-        <div className="card card--sage p-4 flex items-center">
-          <div className="text-2xl font-semibold">{stats.totalUniqueBottles} <span className="text-base font-normal text-[var(--color-muted)]">total unique bottles</span></div>
-        </div>
-        <div className="card card--rose p-4 flex items-center">
-          <div className="text-2xl font-semibold">{stats.active} <span className="text-base font-normal text-[var(--color-muted)]">active</span></div>
-        </div>
-        <div className="card card--lilac p-4 flex items-center">
-          <div className="text-2xl font-semibold">{stats.totalPoured} <span className="text-base font-normal text-[var(--color-muted)]">poured</span></div>
-        </div>
-      </div>
-
-      {/* Add new (collapsible) */}
-      <div className="card p-4 space-y-3">
-        <button
-          type="button"
-          className="flex items-center justify-between w-full text-left"
-          onClick={() => setShowAddForm((v) => !v)}
-        >
-          <h2 className="text-base font-medium">Add a bottle not tied to any candle</h2>
-          {showAddForm ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {showAddForm && <AddBottleForm onAdd={handleAddBottle} />}
-      </div>
-
-      {/* Default image search query (collapsible) */}
-      <div className="card p-4 space-y-3">
-        <button
-          type="button"
-          className="flex items-center justify-between w-full text-left"
-          onClick={() => setShowSearchSettings((v) => !v)}
-        >
-          <h2 className="text-base font-medium">Default image search</h2>
-          {showSearchSettings ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-        </button>
-        {showSearchSettings && (
-          <div className="space-y-2">
-            <input
-              className="input"
-              value={searchTemplate}
-              onChange={(e) => updateSearchTemplate(e.target.value)}
-              placeholder={DEFAULT_SEARCH_TEMPLATE}
-            />
-            <div className="flex items-center justify-between gap-3">
-              <p className="text-xs text-[var(--color-muted)]">
-                Used to pre-fill the search box when you click the search icon on a bottle. Use{" "}
-                <code className="px-1 rounded bg-neutral-100">[name]</code> as a placeholder for the bottle name
-                (e.g. &quot;{DEFAULT_SEARCH_TEMPLATE}&quot;). Still editable per-search in the search modal itself.
-              </p>
-              {searchTemplate !== DEFAULT_SEARCH_TEMPLATE && (
-                <button
-                  type="button"
-                  className="text-xs text-[var(--color-accent)] hover:underline shrink-0"
-                  onClick={() => updateSearchTemplate(DEFAULT_SEARCH_TEMPLATE)}
-                >
-                  Reset to default
-                </button>
-              )}
+      {/* Add new */}
+      {showAddForm && (
+        <section className="a-card mb-4 p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">Add a bottle</h2>
+              <p className="mt-0.5 text-sm text-[var(--a-muted)]">For bottles not tied to any candle listing.</p>
             </div>
+            <button className="a-icon-btn -mr-1 -mt-1" onClick={() => setShowAddForm(false)} aria-label="Close">
+              <X className="h-4 w-4" aria-hidden />
+            </button>
           </div>
+          <AddBottleForm onAdd={handleAddBottle} />
+        </section>
+      )}
+
+      {/* Image search template */}
+      {showSearchSettings && (
+        <section className="a-card mb-4 p-4 sm:p-5">
+          <div className="mb-3 flex items-start justify-between gap-3">
+            <div>
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">Default image search</h2>
+              <p className="mt-0.5 text-sm text-[var(--a-muted)]">
+                Pre-fills the search when you look up a bottle photo. <code className="rounded bg-[var(--a-tint)] px-1">[name]</code> is
+                replaced with the bottle name.
+              </p>
+            </div>
+            <button className="a-icon-btn -mr-1 -mt-1" onClick={() => setShowSearchSettings(false)} aria-label="Close">
+              <X className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="block flex-1">
+              <span className="sr-only">Search template</span>
+              <input
+                className="a-input"
+                value={searchTemplate}
+                onChange={(e) => updateSearchTemplate(e.target.value)}
+                placeholder={DEFAULT_SEARCH_TEMPLATE}
+              />
+            </label>
+            {searchTemplate !== DEFAULT_SEARCH_TEMPLATE && (
+              <button type="button" className="a-btn" onClick={() => updateSearchTemplate(DEFAULT_SEARCH_TEMPLATE)}>
+                Reset to default
+              </button>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* Toolbar */}
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center">
+        <label className="relative block w-full sm:max-w-xs">
+          <span className="sr-only">Search bottles</span>
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+          <input className="a-input pl-9" placeholder="Search bottles…" value={search} onChange={(e) => setSearch(e.target.value)} />
+        </label>
+        <div className="flex items-center gap-2">
+          <Segmented
+            label="Status"
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={[
+              { value: "all", label: "All" },
+              { value: "active", label: "Active" },
+              { value: "archived", label: "Archived" },
+            ]}
+          />
+          <button
+            className="a-icon-btn h-10 w-10 border border-[var(--a-line)] bg-[var(--a-surface)]"
+            onClick={() => setShowSearchSettings((v) => !v)}
+            aria-expanded={showSearchSettings}
+            aria-label="Image search settings"
+            title="Image search settings"
+          >
+            <Settings2 className="h-4 w-4" aria-hidden />
+          </button>
+        </div>
+        {!loading && (
+          <p className="text-sm text-[var(--a-muted)] sm:ml-auto">
+            {view.length} of {merged.length} bottles
+          </p>
         )}
       </div>
 
-      {/* Search + filter */}
-      <div className="flex flex-col sm:flex-row gap-3 sm:items-center sm:justify-between">
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted)] pointer-events-none" />
-          <input
-            className="input !pl-9"
-            placeholder="Search bottles…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
-        <div className="flex items-center gap-1">
-          {(["all", "active", "archived"] as StatusFilter[]).map((f) => (
-            <button
-              key={f}
-              className={`btn !min-h-0 !py-1.5 !px-3 text-xs capitalize ${statusFilter === f ? "btn-primary" : "btn-ghost"}`}
-              onClick={() => setStatusFilter(f)}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Bulk action bar */}
+      {/* Bulk actions */}
       {selectedIds.size > 0 && (
-        <div className="card p-3 flex items-center justify-between gap-3 card--mist">
-          <span className="text-sm font-medium">{selectedIds.size} selected</span>
-          <div className="flex items-center gap-2">
-            <button className="btn !min-h-0 !py-1.5 !px-3 text-xs" onClick={() => bulkArchive(true)}>
-              <Archive className="w-3.5 h-3.5 mr-1" /> Archive
-            </button>
-            <button className="btn !min-h-0 !py-1.5 !px-3 text-xs" onClick={() => bulkArchive(false)}>
-              <ArchiveRestore className="w-3.5 h-3.5 mr-1" /> Unarchive
-            </button>
-            <button className="btn !min-h-0 !py-1.5 !px-3 text-xs text-rose-600" onClick={bulkDelete}>
-              <Trash2 className="w-3.5 h-3.5 mr-1" /> Delete
-            </button>
-            <button
-              className="btn btn-ghost !min-h-0 !h-7 !w-7 !p-0"
-              onClick={() => setSelectedIds(new Set())}
-              aria-label="Clear selection"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
+        <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl bg-[var(--a-ink)] px-4 py-2.5 text-white shadow-lg">
+          <span className="mr-auto text-sm font-medium">{selectedIds.size} selected</span>
+          <button className="a-btn a-btn-sm border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={() => bulkArchive(true)}>
+            <Archive className="h-3.5 w-3.5" aria-hidden /> Archive
+          </button>
+          <button className="a-btn a-btn-sm border-white/20 bg-white/10 text-white hover:bg-white/20" onClick={() => bulkArchive(false)}>
+            <ArchiveRestore className="h-3.5 w-3.5" aria-hidden /> Unarchive
+          </button>
+          <button className="a-btn a-btn-sm border-white/20 bg-white/10 text-[#ffb4ab] hover:bg-white/20" onClick={bulkDelete}>
+            <Trash2 className="h-3.5 w-3.5" aria-hidden /> Delete
+          </button>
+          <button
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white"
+            onClick={() => setSelectedIds(new Set())}
+            aria-label="Clear selection"
+          >
+            <X className="h-4 w-4" aria-hidden />
+          </button>
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="a-card overflow-hidden">
         {loading ? (
-          <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <div className="flex flex-col items-center justify-center gap-4 py-16">
             <CandleSpinner />
-            <p className="text-sm font-medium text-[var(--color-muted)]">Loading…</p>
+            <p className="text-sm font-medium text-[var(--a-muted)]">Loading…</p>
           </div>
         ) : (
-          <div className="max-h-[65vh] overflow-y-auto overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 z-10 bg-[var(--color-surface)] shadow-[0_1px_0_var(--color-line)]">
-                <tr className="text-left divide-x divide-[var(--color-line)]">
-                  <th className="py-3 px-3 w-10 text-center">
+          <div className="max-h-[70vh] overflow-auto">
+            <table className="a-table a-table-dense">
+              <thead className="sticky top-0 z-10">
+                <tr>
+                  <th className="w-10 text-center">
                     <input
                       ref={selectAllRef}
                       type="checkbox"
+                      className="a-check"
                       checked={allVisibleSelected}
                       onChange={toggleSelectAllVisible}
                       aria-label="Select all visible"
                     />
                   </th>
-                  <SortHeader label="Image" sortKey="image" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-28" />
+                  <SortHeader label="Image" sortKey="image" activeKey={sortKey} dir={sortDir} onSort={toggleSort} className="w-24" />
                   <SortHeader label="Bottle" sortKey="name" activeKey={sortKey} dir={sortDir} onSort={toggleSort} className="min-w-[14rem]" />
-                  <SortHeader label="Type" sortKey="alcoholType" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-36" />
-                  <SortHeader label="Water Oz" sortKey="capacityWaterOz" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-28" />
+                  <SortHeader label="Type" sortKey="alcoholType" activeKey={sortKey} dir={sortDir} onSort={toggleSort} className="w-40" />
+                  <SortHeader label="Water oz" sortKey="capacityWaterOz" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-24" />
                   <SortHeader label="Uncut" sortKey="qtyUncut" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
-                  <SortHeader label="Cut Unpolished" sortKey="qtyCutUnpolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-36" />
-                  <SortHeader label="Cut Polished" sortKey="qtyCutPolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
-                  <SortHeader label="Cut Poured" sortKey="qtyCutPoured" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
-                  <th className="py-3 px-3 w-28 text-center">Home Goods</th>
-                  <th className="py-3 px-3 w-24 text-center">Status</th>
-                  <th className="py-3 px-3 w-24 text-center">Actions</th>
+                  <SortHeader label="Cut, unpolished" sortKey="qtyCutUnpolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
+                  <SortHeader label="Cut, polished" sortKey="qtyCutPolished" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-32" />
+                  <SortHeader label="Poured" sortKey="qtyCutPoured" activeKey={sortKey} dir={sortDir} onSort={toggleSort} align="center" className="w-24" />
+                  <th className="w-24 text-center">Home Goods</th>
+                  <th className="w-24">
+                    <span className="sr-only">Actions</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
-                {view.map((t, idx) => {
+                {view.map((t) => {
                   const dirty = dirtyIds.has(t.id);
+                  const selected = selectedIds.has(t.id);
                   return (
-                    <tr
-                      key={t.id}
-                      className={`border-b border-[var(--color-line)] divide-x divide-[var(--color-line)] align-middle hover:bg-black/[0.03] ${
-                        dirty ? "bg-amber-50" : idx % 2 === 1 ? "bg-black/[0.015]" : ""
-                      }`}
-                    >
-                      <td className="py-2 px-3 text-center">
+                    <tr key={t.id} className={dirty ? "bg-[#fffaf0]" : selected ? "bg-[var(--a-tint)]" : undefined}>
+                      <td className="text-center">
                         <input
                           type="checkbox"
-                          checked={selectedIds.has(t.id)}
+                          className="a-check"
+                          checked={selected}
                           onChange={() => toggleSelect(t.id)}
                           aria-label={`Select ${t.name}`}
                         />
                       </td>
-                      <td className="py-2 px-3 text-center">
-                        <div className="flex items-center justify-center gap-1">
+                      <td>
+                        <div className="flex items-center gap-1">
                           <button
                             type="button"
-                            className="relative w-10 h-10 rounded-lg overflow-hidden border border-[var(--color-line)] bg-neutral-50 flex items-center justify-center hover:border-[var(--color-accent)] transition shrink-0"
+                            className="relative flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-[var(--a-line)] bg-[var(--a-canvas)] transition-colors hover:border-[var(--a-line-strong)]"
                             onClick={() => triggerImageUpload(t.id)}
                             disabled={uploadingId === t.id}
                             title={t.imageUrl ? "Change image" : "Upload image"}
+                            aria-label={t.imageUrl ? `Change image for ${t.name}` : `Upload image for ${t.name}`}
                           >
                             {uploadingId === t.id ? (
-                              <RefreshCw className="w-4 h-4 animate-spin text-[var(--color-muted)]" />
+                              <RefreshCw className="h-4 w-4 animate-spin text-[var(--a-muted)]" aria-hidden />
                             ) : t.imageUrl ? (
                               // eslint-disable-next-line @next/next/no-img-element
-                              <img src={t.imageUrl} alt="" className="w-full h-full object-contain" />
+                              <img src={t.imageUrl} alt="" className="h-full w-full object-contain" />
                             ) : (
-                              <Upload className="w-4 h-4 text-[var(--color-muted)]" />
+                              <Upload className="h-4 w-4 text-[var(--a-faint)]" aria-hidden />
                             )}
                           </button>
                           <button
                             type="button"
-                            className="btn btn-ghost !min-h-0 !h-8 !w-8 !p-0 shrink-0"
+                            className="a-icon-btn h-8 w-8"
                             onClick={() => openImageSearch(t)}
                             title="Search for a bottle image online"
+                            aria-label={`Search images for ${t.name}`}
                           >
-                            <Search className="w-3.5 h-3.5" />
+                            <Search className="h-3.5 w-3.5" aria-hidden />
                           </button>
                         </div>
                       </td>
-                      <td className="py-2 px-3">
-                        <input
-                          className="input w-full min-w-[12rem]"
-                          value={t.name}
-                          onChange={(e) => markDirty(t.id, { name: e.target.value })}
-                        />
+                      <td>
+                        <div className="flex items-center gap-2">
+                          <input
+                            className={`a-input h-9 min-w-[12rem] ${t.archived ? "text-[var(--a-muted)]" : ""}`}
+                            value={t.name}
+                            onChange={(e) => markDirty(t.id, { name: e.target.value })}
+                            aria-label="Bottle name"
+                          />
+                          {t.archived && <Badge>Archived</Badge>}
+                        </div>
                       </td>
-                      <td className="py-2 px-3">
+                      <td>
                         <select
-                          className="select w-full"
+                          className="a-select h-9"
                           value={t.alcoholType || ""}
                           onChange={(e) => markDirty(t.id, { alcoholType: e.target.value || undefined })}
                           title="Groups this bottle in the Home Goods bottle picker"
+                          aria-label="Alcohol type"
                         >
                           <option value="">None</option>
                           {alcoholTypes.map((at) => (
-                            <option key={at.id} value={at.name}>{at.name}</option>
+                            <option key={at.id} value={at.name}>
+                              {at.name}
+                            </option>
                           ))}
                         </select>
                       </td>
-                      <td className="py-2 px-3">
+                      <td>
                         <input
-                          className="input text-center tabular-nums !h-7 !py-0 !px-1 w-20 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                          className="a-input mx-auto h-9 w-20 px-2 text-center tabular-nums [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                           type="number"
                           min="0"
                           step="0.1"
                           value={t.capacityWaterOz ?? ""}
-                          onChange={(e) => markDirty(t.id, { capacityWaterOz: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })}
+                          onChange={(e) =>
+                            markDirty(t.id, { capacityWaterOz: e.target.value === "" ? undefined : Math.max(0, Number(e.target.value)) })
+                          }
                           placeholder="—"
+                          aria-label="Water capacity in ounces"
                         />
                       </td>
-                      <td className="py-2 px-3">
-                        <Stepper value={t.qtyUncut} onChange={(v) => markDirty(t.id, { qtyUncut: v })} />
+                      <td>
+                        <Stepper label="Uncut" value={t.qtyUncut} onChange={(v) => markDirty(t.id, { qtyUncut: v })} />
                       </td>
-                      <td className="py-2 px-3">
-                        <Stepper value={t.qtyCutUnpolished} onChange={(v) => markDirty(t.id, { qtyCutUnpolished: v })} />
+                      <td>
+                        <Stepper label="Cut, unpolished" value={t.qtyCutUnpolished} onChange={(v) => markDirty(t.id, { qtyCutUnpolished: v })} />
                       </td>
-                      <td className="py-2 px-3">
-                        <Stepper value={t.qtyCutPolished} onChange={(v) => markDirty(t.id, { qtyCutPolished: v })} />
+                      <td>
+                        <Stepper label="Cut, polished" value={t.qtyCutPolished} onChange={(v) => markDirty(t.id, { qtyCutPolished: v })} />
                       </td>
-                      <td className="py-2 px-3">
+                      <td>
                         <div
-                          className="flex items-center justify-center gap-1.5 text-[var(--color-muted)]"
+                          className="flex items-center justify-center gap-1.5 text-[var(--a-muted)]"
                           title="Read-only; derived from candle products linked to this bottle"
                         >
-                          <Flame className="w-3.5 h-3.5" />
+                          <Flame className="h-3.5 w-3.5" aria-hidden />
                           <span className="tabular-nums">{t.qtyCutPoured}</span>
                         </div>
                       </td>
-                      <td className="py-2 px-3 text-center">
+                      <td className="text-center">
                         <input
                           type="checkbox"
+                          className="a-check"
                           checked={t.usableForHomeGoods}
                           onChange={(e) => markDirty(t.id, { usableForHomeGoods: e.target.checked })}
                           title="Uncheck if this bottle should never be offered on any Home Goods product"
+                          aria-label="Usable for Home Goods"
                         />
                       </td>
-                      <td className="py-2 px-3 text-center">
-                        {t.archived ? (
-                          <span className="badge">Archived</span>
-                        ) : (
-                          <span className="text-xs font-medium text-emerald-700">Active</span>
-                        )}
-                      </td>
-                      <td className="py-2 px-3">
-                        <div className="flex items-center justify-center gap-1">
+                      <td>
+                        <div className="flex items-center justify-end gap-1">
                           <button
-                            className="btn btn-ghost !min-h-0 !h-8 !w-8 !p-0"
+                            className="a-icon-btn h-8 w-8"
                             title={t.archived ? "Unarchive" : "Archive"}
+                            aria-label={t.archived ? `Unarchive ${t.name}` : `Archive ${t.name}`}
                             onClick={() => toggleArchive(t.id, !t.archived)}
                           >
-                            {t.archived ? <ArchiveRestore className="w-4 h-4" /> : <Archive className="w-4 h-4" />}
+                            {t.archived ? <ArchiveRestore className="h-4 w-4" aria-hidden /> : <Archive className="h-4 w-4" aria-hidden />}
                           </button>
                           <button
-                            className="btn btn-ghost !min-h-0 !h-8 !w-8 !p-0 text-rose-600"
+                            className="a-icon-btn a-icon-btn-danger h-8 w-8"
                             title="Delete"
+                            aria-label={`Delete ${t.name}`}
                             onClick={() => hardDelete(t.id)}
                           >
-                            <Trash2 className="w-4 h-4" />
+                            <Trash2 className="h-4 w-4" aria-hidden />
                           </button>
                         </div>
                       </td>
@@ -904,8 +913,8 @@ export default function BottleInventoryAdminPage() {
                 })}
                 {view.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="py-10 text-center text-sm text-[var(--color-muted)]">
-                      No bottles match your search/filter.
+                    <td colSpan={11} className="py-12 text-center text-sm text-[var(--a-muted)]">
+                      No bottles match your search or filter.
                     </td>
                   </tr>
                 )}
@@ -915,120 +924,108 @@ export default function BottleInventoryAdminPage() {
         )}
       </div>
 
-      {!loading && (
-        <p className="text-xs text-[var(--color-muted)]">
-          Showing {view.length} of {merged.length} bottles
-        </p>
-      )}
+      <p className="a-help mt-3 max-w-3xl">
+        Poured counts (the flame) come from the candle listing linked to that bottle, since a poured bottle can&apos;t be reused.
+        Bottles without a linked candle can be edited like the other stages.
+      </p>
 
       {unmatched.length > 0 && (
-        <div className="card p-4 space-y-2 border-amber-300">
-          <h2 className="text-lg font-medium">Needs review</h2>
-          <p className="text-sm text-[var(--color-muted)]">
-            These candle products don&apos;t end in &quot;Candle&quot;, so they couldn&apos;t be
-            auto-matched to a bottle name. Add them above manually if they should be tracked.
+        <section className="mt-6 rounded-xl border border-amber-200 bg-[#fdf6e7] p-4">
+          <h2 className="text-sm font-semibold text-[#6b4a0b]">Needs review</h2>
+          <p className="mt-0.5 text-sm text-[#6b4a0b]">
+            These candle products don&apos;t end in &quot;Candle&quot;, so they couldn&apos;t be matched to a bottle. Add them manually if they
+            should be tracked.
           </p>
-          <ul className="text-sm list-disc pl-5">
+          <ul className="mt-2 space-y-0.5 text-sm">
             {unmatched.map((u) => (
-              <li key={u.slug}>{u.name} <span className="text-[var(--color-muted)]">({u.slug})</span></li>
+              <li key={u.slug}>
+                {u.name} <span className="text-[var(--a-muted)]">({u.slug})</span>
+              </li>
             ))}
           </ul>
-        </div>
+        </section>
       )}
 
-      {/* Image search modal */}
+      {/* Image search */}
       {imageSearchTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={closeImageSearch} />
-          <div className="relative bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[85vh] flex flex-col">
-            <div className="flex items-center justify-between p-4 border-b border-[var(--color-line)] shrink-0">
-              <div>
-                <h3 className="text-base font-semibold">Search images</h3>
-                <p className="text-xs text-[var(--color-muted)]">{imageSearchTarget.name}</p>
-              </div>
-              <button onClick={closeImageSearch} className="p-2 rounded-lg hover:bg-neutral-100 transition" aria-label="Close">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form
-              className="p-4 border-b border-[var(--color-line)] shrink-0 flex gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                void runImageSearch(imageSearchQuery);
-              }}
-            >
-              <input
-                className="input flex-1"
-                value={imageSearchQuery}
-                onChange={(e) => setImageSearchQuery(e.target.value)}
-                placeholder="Search query"
-              />
-              <button type="submit" className="btn !min-h-0" disabled={imageSearchLoading}>
-                Search
-              </button>
-            </form>
-
-            <div className="flex-1 overflow-y-auto p-4">
-              {imageSearchLoading ? (
-                <div className="flex flex-col items-center justify-center py-12 gap-3">
-                  <CandleSpinner />
-                  <p className="text-sm text-[var(--color-muted)]">Searching…</p>
-                </div>
-              ) : imageSearchError ? (
-                <p className="text-sm text-rose-600 text-center py-8">{imageSearchError}</p>
-              ) : imageSearchResults.length === 0 ? (
-                <p className="text-sm text-[var(--color-muted)] text-center py-8">No results. Try a different search.</p>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  {imageSearchResults.map((r) => (
-                    <button
-                      key={r.imageUrl}
-                      type="button"
-                      className="relative rounded-lg border border-[var(--color-line)] overflow-hidden hover:border-[var(--color-accent)] transition text-left disabled:opacity-50"
-                      onClick={() => attachSearchResult(r.imageUrl)}
-                      disabled={!!attachingUrl}
-                      title={r.sourceUrl || r.title}
-                    >
-                      <div className="aspect-square bg-neutral-100 flex items-center justify-center">
-                        {attachingUrl === r.imageUrl ? (
-                          <RefreshCw className="w-5 h-5 animate-spin text-[var(--color-muted)]" />
-                        ) : (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={r.thumbnailUrl || r.imageUrl}
-                            alt={r.title}
-                            className="w-full h-full object-contain"
-                            loading="lazy"
-                          />
-                        )}
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <p className="p-4 pt-0 text-xs text-[var(--color-muted)] shrink-0">
-              Results come from Brave Image Search. Click one to use it — double-check it&apos;s actually the
-              right bottle before saving.
+        <Modal
+          size="lg"
+          title="Find a bottle image"
+          description={imageSearchTarget.name}
+          onClose={closeImageSearch}
+          footer={
+            <p className="mr-auto text-xs text-[var(--a-muted)]">
+              Results come from Brave Image Search. Make sure it&apos;s the right bottle before saving.
             </p>
-          </div>
-        </div>
+          }
+        >
+          <form
+            className="mb-4 flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void runImageSearch(imageSearchQuery);
+            }}
+          >
+            <label className="block flex-1">
+              <span className="sr-only">Search query</span>
+              <input className="a-input" value={imageSearchQuery} onChange={(e) => setImageSearchQuery(e.target.value)} placeholder="Search query" />
+            </label>
+            <button type="submit" className="a-btn" disabled={imageSearchLoading}>
+              <Search className="h-4 w-4" aria-hidden />
+              Search
+            </button>
+          </form>
+
+          {imageSearchLoading ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12">
+              <CandleSpinner />
+              <p className="text-sm text-[var(--a-muted)]">Searching…</p>
+            </div>
+          ) : imageSearchError ? (
+            <p role="alert" className="py-8 text-center text-sm text-[#b42318]">
+              {imageSearchError}
+            </p>
+          ) : imageSearchResults.length === 0 ? (
+            <p className="py-8 text-center text-sm text-[var(--a-muted)]">No results. Try a different search.</p>
+          ) : (
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+              {imageSearchResults.map((r) => (
+                <button
+                  key={r.imageUrl}
+                  type="button"
+                  className="relative overflow-hidden rounded-lg border border-[var(--a-line)] text-left transition-colors hover:border-[var(--a-ink)] disabled:opacity-50"
+                  onClick={() => attachSearchResult(r.imageUrl)}
+                  disabled={!!attachingUrl}
+                  title={r.sourceUrl || r.title}
+                >
+                  <div className="flex aspect-square items-center justify-center bg-[var(--a-canvas)]">
+                    {attachingUrl === r.imageUrl ? (
+                      <RefreshCw className="h-5 w-5 animate-spin text-[var(--a-muted)]" aria-hidden />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={r.thumbnailUrl || r.imageUrl} alt={r.title} className="h-full w-full object-contain" loading="lazy" />
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </Modal>
       )}
 
-      {/* Sticky unsaved-changes bar */}
+      {/* Unsaved changes */}
       {dirtyIds.size > 0 && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-line)] bg-white/95 backdrop-blur px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)]">
-          <div className="mx-auto max-w-[1800px] flex items-center justify-between gap-3">
-            <span className="text-sm font-medium">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-amber-200 bg-[#fdf6e7]/95 px-4 py-3 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] backdrop-blur lg:left-64">
+          <div className="mx-auto flex max-w-[1600px] items-center justify-between gap-3 sm:px-2 lg:px-4">
+            <span className="flex items-center gap-2 text-sm font-semibold text-[#6b4a0b]">
+              <span className="h-2 w-2 rounded-full bg-amber-500" aria-hidden />
               {dirtyIds.size} unsaved change{dirtyIds.size === 1 ? "" : "s"}
             </span>
             <div className="flex items-center gap-2">
-              <button className="btn" onClick={discardAll} disabled={saving}>
+              <button className="a-btn" onClick={discardAll} disabled={saving}>
                 Discard
               </button>
-              <button className="btn btn-primary" onClick={saveAll} disabled={saving}>
+              <button className="a-btn a-btn-primary" onClick={saveAll} disabled={saving}>
                 {saving ? "Saving…" : "Save changes"}
               </button>
             </div>

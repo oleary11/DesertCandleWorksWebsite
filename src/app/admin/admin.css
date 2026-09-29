@@ -233,6 +233,8 @@
   .a-table tbody tr { transition: background-color 120ms; }
   .a-table tbody tr:hover { background: color-mix(in oklab, var(--a-canvas) 70%, white); }
   .a-num { text-align: right; font-variant-numeric: tabular-nums; }
+  .a-table-dense td { padding: 0.5rem 0.75rem; }
+  .a-table-dense th { padding: 0.625rem 0.75rem; }
 
   /* ---- Icon button ---- */
   .a-icon-btn {
