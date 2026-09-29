@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, TrendingDown, Package, AlertTriangle } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Panel, RankedBars, Stat } from "../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type RefundAnalytics = {
@@ -159,168 +161,70 @@ export default function RefundsAnalyticsPage() {
     }
   }
 
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading analytics…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading analytics…</p>
       </div>
     );
   }
 
   if (!analytics) {
     return (
-      <div className="min-h-screen p-6 bg-neutral-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-[var(--color-muted)]">Failed to load analytics</div>
+      <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <PageHeader title="Refund analytics" />
+        <div role="alert" className="a-card px-6 py-12 text-center text-sm text-[var(--a-muted)]">
+          Couldn&apos;t load analytics. Refresh to try again.
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Refund analytics"
+        description="Completed refunds: why they happen and which products they come from."
+        actions={
+          <Link href="/admin/refunds" className="a-btn">
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+            Refunds
           </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Refunds Analytics</h1>
-              <p className="text-[var(--color-muted)] mt-1">Insights into refunds and returns</p>
-            </div>
-            <div className="flex gap-3">
-              <Link href="/admin/refunds" className="btn border border-[var(--color-line)] text-sm">
-                Manage Refunds
-              </Link>
-            </div>
-          </div>
-        </div>
+        }
+      />
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          {/* Total Refunds */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <RefreshCw className="w-5 h-5 text-red-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Refunds</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.totalRefunds}</p>
-          </div>
+      <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="Refunds" value={analytics.totalRefunds} />
+        <Stat label="Refunded" value={money(analytics.totalRefundedCents)} />
+        <Stat label="Refund rate" value={`${analytics.refundRate.toFixed(1)}%`} hint="Of completed orders" />
+        <Stat label="Average refund" value={money(analytics.averageRefundCents)} />
+      </div>
 
-          {/* Total Refunded Amount */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-red-100 flex items-center justify-center">
-                <TrendingDown className="w-5 h-5 text-red-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Refunded</span>
-            </div>
-            <p className="text-3xl font-bold text-red-600">
-              ${(analytics.totalRefundedCents / 100).toFixed(2)}
-            </p>
-          </div>
-
-          {/* Refund Rate */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
-                <AlertTriangle className="w-5 h-5 text-amber-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Refund Rate</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.refundRate.toFixed(1)}%</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Of completed orders</p>
-          </div>
-
-          {/* Average Refund */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Avg Refund</span>
-            </div>
-            <p className="text-3xl font-bold">${(analytics.averageRefundCents / 100).toFixed(2)}</p>
-          </div>
-        </div>
-
-        {/* Refunds by Reason & Product */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Refunds by Reason */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">Refunds by Reason</h2>
-            {analytics.refundsByReason.length === 0 ? (
-              <p className="text-[var(--color-muted)] text-center py-8">No refunds yet</p>
-            ) : (
-              <div className="space-y-3">
-                {analytics.refundsByReason.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between border-b border-[var(--color-line)] pb-3"
-                  >
-                    <div>
-                      <p className="font-medium">{item.reason}</p>
-                      <p className="text-xs text-[var(--color-muted)]">
-                        {item.count} refund{item.count !== 1 ? "s" : ""}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-red-600">
-                        ${(item.totalCents / 100).toFixed(2)}
-                      </p>
-                      <p className="text-xs text-[var(--color-muted)] mt-0.5">
-                        {analytics.totalRefundedCents > 0
-                          ? ((item.totalCents / analytics.totalRefundedCents) * 100).toFixed(1)
-                          : "0.0"}
-                        %
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Most Refunded Products */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-xl font-bold mb-4">Most Refunded Products</h2>
-            {analytics.refundsByProduct.length === 0 ? (
-              <p className="text-[var(--color-muted)] text-center py-8">No product refunds yet</p>
-            ) : (
-              <div className="space-y-3">
-                {analytics.refundsByProduct.slice(0, 10).map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between border-b border-[var(--color-line)] pb-3"
-                  >
-                    <div>
-                      <p className="font-medium">{item.productName}</p>
-                      <p className="text-xs text-[var(--color-muted)]">
-                        {item.refundCount} unit{item.refundCount !== 1 ? "s" : ""} refunded
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-red-600">
-                        ${(item.totalRefundedCents / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Panel title="By reason" description="Amount refunded">
+          <RankedBars
+            format={money}
+            items={analytics.refundsByReason.map((r) => ({
+              label: r.reason,
+              value: r.totalCents,
+              sub: `${r.count} ${r.count === 1 ? "refund" : "refunds"}`,
+            }))}
+          />
+        </Panel>
+        <Panel title="Most refunded products" description="Amount refunded">
+          <RankedBars
+            format={money}
+            items={analytics.refundsByProduct.map((p) => ({
+              label: p.productName,
+              value: p.totalRefundedCents,
+              sub: `${p.refundCount} ${p.refundCount === 1 ? "unit" : "units"}`,
+            }))}
+          />
+        </Panel>
       </div>
     </div>
   );

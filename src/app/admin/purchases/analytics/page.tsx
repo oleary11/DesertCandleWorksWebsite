@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, TrendingUp, Package, DollarSign, Calendar, PieChart } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
+import PageHeader from "../../_components/PageHeader";
+import { Composition, DateRange, Panel, RankedBars, Stat } from "../../_components/ui";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type CategoryBreakdown = {
@@ -141,374 +143,190 @@ export default function PurchaseAnalyticsPage() {
     }
   }
 
-  if (loading) {
+  const money = (cents: number) =>
+    `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const monthLabel = (ym: string, style: "short" | "long" = "long") => {
+    const [year, monthNum] = ym.split("-");
+    return new Date(parseInt(year), parseInt(monthNum) - 1, 1).toLocaleDateString("en-US", {
+      year: style === "long" ? "numeric" : "2-digit",
+      month: style,
+    });
+  };
+
+  if (loading && !analytics) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading analytics…</p>
-        </div>
+      <div className="a-ui flex min-h-[60vh] flex-col items-center justify-center gap-4">
+        <CandleSpinner />
+        <p className="text-sm font-medium text-[var(--a-muted)]">Loading analytics…</p>
       </div>
     );
   }
 
   if (!analytics) {
     return (
-      <div className="min-h-screen p-6 bg-neutral-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center py-12 text-[var(--color-muted)]">
-            Failed to load analytics
-          </div>
+      <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+        <PageHeader title="Purchase analytics" />
+        <div role="alert" className="a-card px-6 py-12 text-center text-sm text-[var(--a-muted)]">
+          Couldn&apos;t load analytics. Refresh to try again.
         </div>
       </div>
     );
   }
 
-  const avgPurchaseSize = analytics.totalPurchases > 0
-    ? analytics.totalSpent / analytics.totalPurchases
-    : 0;
-
+  const avgPurchaseSize = analytics.totalPurchases > 0 ? analytics.totalSpent / analytics.totalPurchases : 0;
   const productSubtotal = analytics.totalSpent - analytics.totalShipping - analytics.totalTax;
+  const maxMonth = Math.max(...analytics.monthlySpending.map((m) => m.totalCents), 0);
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin/analytics-overview"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Overview
-          </Link>
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold">Purchase Analytics</h1>
-              <p className="text-[var(--color-muted)] mt-1">
-                Spending insights and cost breakdown
-              </p>
-            </div>
-          </div>
+    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Purchase analytics"
+        description="Where the money goes: categories, vendors and months."
+        actions={
+          <>
+            <Link href="/admin/purchases" className="a-btn">
+              <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
+              Cost of goods
+            </Link>
+            <Link href="/admin/analytics-overview" className="a-btn">
+              Business overview
+            </Link>
+          </>
+        }
+      />
+
+      <div className="mb-6 flex flex-wrap items-center gap-3">
+        <DateRange
+          preset={datePreset}
+          presets={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "This week" },
+            { value: "month", label: "This month" },
+            { value: "lastMonth", label: "Last month" },
+            { value: "ytd", label: "Year to date" },
+            { value: "allTime", label: "All time" },
+            { value: "custom", label: "Custom range…" },
+          ]}
+          onPreset={(p) => (p === "custom" ? setDatePreset("custom") : handlePresetChange(p))}
+          customStart={customStartDate}
+          customEnd={customEndDate}
+          onCustomStart={setCustomStartDate}
+          onCustomEnd={setCustomEndDate}
+          onApply={() => {
+            if (customStartDate && customEndDate) {
+              setStartDate(customStartDate);
+              setEndDate(customEndDate);
+              loadAnalytics(customStartDate, customEndDate);
+            }
+          }}
+        />
+        {loading && (
+          <span role="status" className="text-sm text-[var(--a-muted)]">
+            Updating…
+          </span>
+        )}
+      </div>
+
+      <div className={`space-y-6 transition-opacity ${loading ? "opacity-60" : ""}`}>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <Stat label="Spent" value={money(analytics.totalSpent)} hint={`${money(analytics.totalShipping + analytics.totalTax)} shipping + tax`} />
+          <Stat label="Purchases" value={analytics.totalPurchases} />
+          <Stat label="Average purchase" value={money(avgPurchaseSize)} />
+          <Stat label="Months with purchases" value={analytics.monthlySpending.length} />
         </div>
 
-        {/* Date Range Controls */}
-        <div className="card p-6 bg-white mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-[var(--color-muted)]" />
-            <h2 className="text-lg font-semibold">Date Range</h2>
-          </div>
+        <Panel title="Spending mix">
+          <Composition
+            format={money}
+            items={[
+              { label: "Products and supplies", value: productSubtotal },
+              { label: "Shipping", value: analytics.totalShipping },
+              { label: "Tax", value: analytics.totalTax },
+            ]}
+          />
+        </Panel>
 
-          {/* Preset Buttons */}
-          <div className="flex flex-wrap gap-2 mb-4">
-            <button
-              className={`btn ${datePreset === "today" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("today")}
-            >
-              Today
-            </button>
-            <button
-              className={`btn ${datePreset === "week" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("week")}
-            >
-              This Week
-            </button>
-            <button
-              className={`btn ${datePreset === "month" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("month")}
-            >
-              This Month
-            </button>
-            <button
-              className={`btn ${datePreset === "lastMonth" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("lastMonth")}
-            >
-              Last Month
-            </button>
-            <button
-              className={`btn ${datePreset === "ytd" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("ytd")}
-            >
-              Year to Date
-            </button>
-            <button
-              className={`btn ${datePreset === "allTime" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => handlePresetChange("allTime")}
-            >
-              All Time
-            </button>
-            <button
-              className={`btn ${datePreset === "custom" ? "bg-[var(--color-accent)] text-white" : ""}`}
-              onClick={() => setDatePreset("custom")}
-            >
-              Custom Range
-            </button>
-          </div>
-
-          {/* Custom Date Pickers */}
-          {datePreset === "custom" && (
-            <div className="flex flex-wrap items-end gap-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Start Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={customStartDate}
-                  onChange={(e) => setCustomStartDate(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">End Date</label>
-                <input
-                  type="date"
-                  className="input"
-                  value={customEndDate}
-                  onChange={(e) => setCustomEndDate(e.target.value)}
-                />
-              </div>
-              <button
-                className="btn bg-[var(--color-accent)] text-white px-6"
-                onClick={() => {
-                  if (customStartDate && customEndDate) {
-                    setStartDate(customStartDate);
-                    setEndDate(customEndDate);
-                    loadAnalytics(customStartDate, customEndDate);
-                  }
-                }}
-                disabled={!customStartDate || !customEndDate}
-              >
-                Go
-              </button>
-            </div>
-          )}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <Panel title="By category">
+            <RankedBars
+              format={money}
+              items={analytics.categoryBreakdown.map((c) => ({
+                label: c.category.charAt(0).toUpperCase() + c.category.slice(1),
+                value: c.totalCents,
+                sub: `${c.itemCount} ${c.itemCount === 1 ? "item" : "items"}`,
+              }))}
+            />
+          </Panel>
+          <Panel title="By vendor">
+            <RankedBars
+              format={money}
+              items={analytics.vendorBreakdown.map((v) => ({
+                label: v.vendor,
+                value: v.totalCents,
+                sub: `${v.purchaseCount} ${v.purchaseCount === 1 ? "purchase" : "purchases"}`,
+              }))}
+            />
+          </Panel>
         </div>
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
-                <DollarSign className="w-5 h-5 text-green-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Spent</span>
-            </div>
-            <p className="text-3xl font-bold">${(analytics.totalSpent / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
-              Products: ${(productSubtotal / 100).toFixed(2)}<br/>
-              Shipping: ${(analytics.totalShipping / 100).toFixed(2)} | Tax: ${(analytics.totalTax / 100).toFixed(2)}
-            </p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Package className="w-5 h-5 text-blue-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Total Purchases</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.totalPurchases}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Purchase orders placed</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-purple-100 flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Avg Purchase</span>
-            </div>
-            <p className="text-3xl font-bold">${(avgPurchaseSize / 100).toFixed(2)}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Per purchase order</p>
-          </div>
-
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-orange-100 flex items-center justify-center">
-                <Calendar className="w-5 h-5 text-orange-600" />
-              </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">Active Months</span>
-            </div>
-            <p className="text-3xl font-bold">{analytics.monthlySpending.length}</p>
-            <p className="text-xs text-[var(--color-muted)] mt-1">Months with purchases</p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-          {/* Spending by Category */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-2 mb-4">
-              <PieChart className="w-5 h-5 text-[var(--color-accent)]" />
-              <h2 className="text-xl font-bold">Spending by Category</h2>
-            </div>
-
-            {analytics.categoryBreakdown.length === 0 ? (
-              <div className="text-center py-8 text-[var(--color-muted)] text-sm">
-                No category data available
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {analytics.categoryBreakdown.map((item) => {
-                  const percentage = analytics.totalSpent > 0
-                    ? (item.totalCents / analytics.totalSpent) * 100
-                    : 0;
-
-                  return (
-                    <div key={item.category} className="border-b border-[var(--color-line)] pb-3 last:border-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium capitalize">{item.category}</p>
-                          <p className="text-xs text-[var(--color-muted)]">
-                            {item.itemCount} item{item.itemCount !== 1 ? "s" : ""}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">
-                            ${(item.totalCents / 100).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-[var(--color-muted)]">
-                            {percentage.toFixed(1)}%
-                          </p>
-                        </div>
-                      </div>
-                      <div className="w-full bg-neutral-100 rounded-full h-2">
-                        <div
-                          className="bg-[var(--color-accent)] h-2 rounded-full transition-all"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Spending by Vendor */}
-          <div className="card p-6 bg-white">
-            <div className="flex items-center gap-2 mb-4">
-              <Package className="w-5 h-5 text-[var(--color-accent)]" />
-              <h2 className="text-xl font-bold">Spending by Vendor</h2>
-            </div>
-
-            {analytics.vendorBreakdown.length === 0 ? (
-              <div className="text-center py-8 text-[var(--color-muted)] text-sm">
-                No vendor data available
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {analytics.vendorBreakdown.map((item) => {
-                  const percentage = analytics.totalSpent > 0
-                    ? (item.totalCents / analytics.totalSpent) * 100
-                    : 0;
-                  const avgPerPurchase = item.purchaseCount > 0
-                    ? item.totalCents / item.purchaseCount
-                    : 0;
-
-                  return (
-                    <div key={item.vendor} className="border-b border-[var(--color-line)] pb-3 last:border-0">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex-1">
-                          <p className="font-medium">{item.vendor}</p>
-                          <p className="text-xs text-[var(--color-muted)]">
-                            {item.purchaseCount} purchase{item.purchaseCount !== 1 ? "s" : ""} •
-                            Avg ${(avgPerPurchase / 100).toFixed(2)}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-bold text-green-600">
-                            ${(item.totalCents / 100).toFixed(2)}
-                          </p>
-                          <p className="text-xs text-[var(--color-muted)]">
-                            {percentage.toFixed(1)}%
-                          </p>
-                        </div>
-                      </div>
-                      <div className="w-full bg-neutral-100 rounded-full h-2">
-                        <div
-                          className="bg-blue-500 h-2 rounded-full transition-all"
-                          style={{ width: `${percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Monthly Spending Timeline */}
-        <div className="card p-6 bg-white">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-[var(--color-accent)]" />
-            <h2 className="text-xl font-bold">Monthly Spending</h2>
-          </div>
-
+        <Panel title="Monthly spending">
           {analytics.monthlySpending.length === 0 ? (
-            <div className="text-center py-8 text-[var(--color-muted)] text-sm">
-              No monthly data available
-            </div>
+            <p className="py-6 text-center text-sm text-[var(--a-muted)]">No purchases in this period.</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-neutral-50">
-                  <tr>
-                    <th className="text-left py-3 px-4 text-sm font-semibold">Month</th>
-                    <th className="text-right py-3 px-4 text-sm font-semibold">Total Spent</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold">Trend</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[var(--color-line)]">
-                  {analytics.monthlySpending.map((month, index) => {
-                    const maxSpending = Math.max(...analytics.monthlySpending.map(m => m.totalCents));
-                    const barWidth = maxSpending > 0 ? (month.totalCents / maxSpending) * 100 : 0;
+            <>
+              <div className="flex h-44 items-end gap-[2px] border-b border-[var(--a-line)]" role="img" aria-label="Spending by month; exact values in the table below">
+                {analytics.monthlySpending.map((m) => (
+                  <div key={m.month} className="group flex h-full flex-1 items-end" title={`${monthLabel(m.month)}: ${money(m.totalCents)}`}>
+                    <div
+                      className="w-full rounded-t-[4px] bg-[var(--a-viz-single)] transition-opacity group-hover:opacity-75"
+                      style={{ height: `${maxMonth > 0 ? (m.totalCents / maxMonth) * 100 : 0}%`, minHeight: m.totalCents > 0 ? 2 : 0 }}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-1.5 flex justify-between text-xs text-[var(--a-muted)]">
+                <span>{monthLabel(analytics.monthlySpending[0].month, "short")}</span>
+                {analytics.monthlySpending.length > 1 && (
+                  <span>{monthLabel(analytics.monthlySpending[analytics.monthlySpending.length - 1].month, "short")}</span>
+                )}
+              </div>
 
-                    // Calculate month-over-month change
-                    const prevMonth = index > 0 ? analytics.monthlySpending[index - 1] : null;
-                    const change = prevMonth
-                      ? ((month.totalCents - prevMonth.totalCents) / prevMonth.totalCents) * 100
-                      : 0;
-
-                    return (
-                      <tr key={month.month} className="hover:bg-neutral-50">
-                        <td className="py-3 px-4 text-sm font-medium">
-                          {(() => {
-                            const [year, monthNum] = month.month.split("-");
-                            const date = new Date(parseInt(year), parseInt(monthNum) - 1, 1);
-                            return date.toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "long"
-                            });
-                          })()}
-                        </td>
-                        <td className="py-3 px-4 text-sm text-right font-bold text-green-600">
-                          ${(month.totalCents / 100).toFixed(2)}
-                        </td>
-                        <td className="py-3 px-4 text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="flex-1 max-w-[200px]">
-                              <div className="w-full bg-neutral-100 rounded-full h-2">
-                                <div
-                                  className="bg-green-500 h-2 rounded-full transition-all"
-                                  style={{ width: `${barWidth}%` }}
-                                />
-                              </div>
-                            </div>
-                            {prevMonth && (
-                              <span className={`text-xs ${change > 0 ? 'text-red-600' : change < 0 ? 'text-green-600' : 'text-[var(--color-muted)]'}`}>
-                                {change > 0 ? '▲' : change < 0 ? '▼' : '●'} {Math.abs(change).toFixed(0)}%
+              <div className="-mx-5 mt-5 overflow-x-auto border-t border-[var(--a-line)] sm:-mx-6">
+                <table className="a-table a-table-dense">
+                  <thead>
+                    <tr>
+                      <th>Month</th>
+                      <th className="text-right">Spent</th>
+                      <th className="text-right">vs previous month</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analytics.monthlySpending.map((month, index) => {
+                      const prevMonth = index > 0 ? analytics.monthlySpending[index - 1] : null;
+                      const change =
+                        prevMonth && prevMonth.totalCents > 0 ? ((month.totalCents - prevMonth.totalCents) / prevMonth.totalCents) * 100 : null;
+                      return (
+                        <tr key={month.month}>
+                          <td>{monthLabel(month.month)}</td>
+                          <td className="a-num font-medium">{money(month.totalCents)}</td>
+                          <td className="a-num">
+                            {change === null ? (
+                              <span className="text-[var(--a-faint)]">—</span>
+                            ) : (
+                              <span className={change > 0 ? "text-[var(--a-bad)]" : change < 0 ? "text-[var(--a-good)]" : "text-[var(--a-muted)]"}>
+                                {change > 0 ? "▲" : change < 0 ? "▼" : "•"} {Math.abs(change).toFixed(0)}%
                               </span>
                             )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </>
           )}
-        </div>
+        </Panel>
       </div>
     </div>
   );
