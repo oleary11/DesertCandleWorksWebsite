@@ -62,7 +62,7 @@ export default function ShareButtons({ productName, productSlug }: ShareButtonsP
             setShowDropdown(!showDropdown);
           }
         }}
-        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[var(--color-line)] hover:bg-neutral-50 transition"
+        className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-[var(--home-line)] hover:bg-[var(--home-sand)] transition"
         aria-label="Share product"
       >
         <Share2 className="w-4 h-4" />
@@ -79,15 +79,15 @@ export default function ShareButtons({ productName, productSlug }: ShareButtonsP
           />
 
           {/* Menu */}
-          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[var(--color-line)] z-20 overflow-hidden">
+          <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-[var(--home-line)] z-20 overflow-hidden">
             <button
               onClick={handleCopyLink}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-neutral-50 transition text-left"
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[var(--home-sand)] transition text-left"
             >
               {copied ? (
                 <>
-                  <Check className="w-4 h-4 text-green-600" />
-                  <span className="text-green-600">Link copied!</span>
+                  <Check className="w-4 h-4 text-[#4d6a3a]" />
+                  <span className="text-[#4d6a3a]">Link copied!</span>
                 </>
               ) : (
                 <>
@@ -99,16 +99,16 @@ export default function ShareButtons({ productName, productSlug }: ShareButtonsP
 
             <button
               onClick={handleFacebookShare}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-neutral-50 transition text-left border-t border-[var(--color-line)]"
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[var(--home-sand)] transition text-left border-t border-[var(--home-line)]"
             >
-              <Facebook className="w-4 h-4 text-blue-600" />
+              <Facebook className="w-4 h-4 text-[var(--home-muted)]" />
               <span>Share on Facebook</span>
             </button>
 
             {typeof navigator !== 'undefined' && 'share' in navigator && (
               <button
                 onClick={handleNativeShare}
-                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-neutral-50 transition text-left border-t border-[var(--color-line)]"
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-[var(--home-sand)] transition text-left border-t border-[var(--home-line)]"
               >
                 <Share2 className="w-4 h-4" />
                 <span>More options...</span>

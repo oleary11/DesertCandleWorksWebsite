@@ -10,84 +10,82 @@ type Props = {
 };
 
 export default function ProductImageGallery({ images, productName }: Props) {
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [index, setIndex] = useState(0);
 
   if (images.length === 0) {
     return (
-      <div className="relative w-3/5 mx-auto aspect-[3/5] md:w-3/4 md:aspect-[2/3] max-h-[70svh] md:max-h-[75svh] rounded-lg overflow-hidden bg-neutral-100 flex items-center justify-center">
-        <p className="text-neutral-400">No image available</p>
+      <div className="flex aspect-[4/5] items-center justify-center rounded-3xl bg-[#efe3d6] text-[var(--home-muted)]">
+        Photo coming soon
       </div>
     );
   }
 
-  const nextImage = () => {
-    setCurrentIndex((prev) => (prev + 1) % images.length);
-  };
-
-  const prevImage = () => {
-    setCurrentIndex((prev) => (prev - 1 + images.length) % images.length);
-  };
+  const many = images.length > 1;
+  const go = (next: number) => setIndex((next + images.length) % images.length);
 
   return (
-    <div className="space-y-4">
-      {/* Main Image Display */}
-      <div className="relative w-3/5 mx-auto aspect-[3/5] md:w-3/4 md:aspect-[2/3] max-h-[70svh] md:max-h-[75svh] rounded-lg overflow-hidden group">
+    <div className="lg:sticky lg:top-28">
+      <div
+        className="group relative aspect-[4/5] overflow-hidden rounded-3xl bg-[#efe3d6] shadow-[0_1px_2px_rgb(63_42_33/0.06),0_24px_50px_-24px_rgb(63_42_33/0.45)]"
+        role={many ? "region" : undefined}
+        aria-roledescription={many ? "carousel" : undefined}
+        aria-label={many ? `${productName} photos` : undefined}
+        tabIndex={many ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (!many) return;
+          if (e.key === "ArrowRight") go(index + 1);
+          if (e.key === "ArrowLeft") go(index - 1);
+        }}
+      >
         <Image
-          src={images[currentIndex]}
-          alt={`${productName} - Image ${currentIndex + 1}`}
+          key={images[index]}
+          src={images[index]}
+          alt={`${productName}, photo ${index + 1} of ${images.length}`}
           fill
-          className="object-contain"
-          priority={currentIndex === 0}
-          sizes="(max-width: 768px) 60vw, 37.5vw"
+          className="object-cover motion-safe:animate-[fadeIn_200ms_ease-out]"
+          priority={index === 0}
+          sizes="(min-width: 1024px) 55vw, 100vw"
         />
 
-        {/* Navigation Arrows - Only show if more than 1 image */}
-        {images.length > 1 && (
+        {many && (
           <>
             <button
-              onClick={prevImage}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-[var(--color-ink)] p-2 rounded-full shadow-lg transition opacity-0 group-hover:opacity-100"
-              aria-label="Previous image"
+              type="button"
+              onClick={() => go(index - 1)}
+              aria-label="Previous photo"
+              className="absolute left-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[var(--home-ink)] shadow-md transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-clay)] md:opacity-0 md:group-hover:opacity-100"
             >
-              <ChevronLeft className="w-5 h-5" />
+              <ChevronLeft className="h-5 w-5" aria-hidden />
             </button>
             <button
-              onClick={nextImage}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-white/90 hover:bg-white text-[var(--color-ink)] p-2 rounded-full shadow-lg transition opacity-0 group-hover:opacity-100"
-              aria-label="Next image"
+              type="button"
+              onClick={() => go(index + 1)}
+              aria-label="Next photo"
+              className="absolute right-3 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-[var(--home-ink)] shadow-md transition-opacity hover:bg-white focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-clay)] md:opacity-0 md:group-hover:opacity-100"
             >
-              <ChevronRight className="w-5 h-5" />
+              <ChevronRight className="h-5 w-5" aria-hidden />
             </button>
-
-            {/* Image Counter */}
-            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 text-white px-3 py-1 rounded-full text-xs">
-              {currentIndex + 1} / {images.length}
-            </div>
+            <p className="absolute bottom-3 left-1/2 -translate-x-1/2 rounded-full bg-black/55 px-3 py-1 text-xs tabular-nums text-white" aria-live="polite">
+              {index + 1} / {images.length}
+            </p>
           </>
         )}
       </div>
 
-      {/* Thumbnail Strip - Only show if more than 1 image */}
-      {images.length > 1 && (
-        <div className="flex gap-2 justify-center flex-wrap max-w-md mx-auto">
-          {images.map((img, idx) => (
+      {many && (
+        <div className="mt-4 flex gap-3 overflow-x-auto pb-1">
+          {images.map((img, i) => (
             <button
-              key={idx}
-              onClick={() => setCurrentIndex(idx)}
-              className={`relative w-16 h-16 md:w-20 md:h-20 rounded-lg overflow-hidden border-2 transition ${
-                idx === currentIndex
-                  ? "border-[var(--color-accent)] ring-2 ring-[var(--color-accent)]/30"
-                  : "border-transparent hover:border-neutral-300"
-              }`}
-              aria-label={`View image ${idx + 1}`}
+              key={img}
+              type="button"
+              onClick={() => setIndex(i)}
+              aria-label={`Show photo ${i + 1}`}
+              aria-current={i === index}
+              className={`relative h-20 w-16 shrink-0 overflow-hidden rounded-xl transition ${
+                i === index ? "ring-2 ring-[var(--home-ink)] ring-offset-2 ring-offset-[var(--home-cream)]" : "opacity-70 hover:opacity-100"
+              } focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--home-clay)]`}
             >
-              <Image
-                src={img}
-                alt={`${productName} thumbnail ${idx + 1}`}
-                fill
-                className="object-cover"
-                sizes="80px"
-              />
+              <Image src={img} alt="" fill className="object-cover" sizes="64px" />
             </button>
           ))}
         </div>

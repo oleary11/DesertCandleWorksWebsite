@@ -35,7 +35,7 @@ export default function ProductBreadcrumbs({ productName }: ProductBreadcrumbsPr
       {/* Back Button */}
       <button
         onClick={handleBackClick}
-        className="inline-flex items-center gap-1.5 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition group"
+        className="inline-flex items-center gap-1.5 text-sm text-[var(--home-muted)] hover:text-[var(--home-ink)] transition group"
       >
         <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
         <span>Back to Shop</span>
@@ -45,24 +45,24 @@ export default function ProductBreadcrumbs({ productName }: ProductBreadcrumbsPr
       <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
         <Link
           href="/"
-          className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition flex items-center gap-1"
+          className="text-[var(--home-muted)] hover:text-[var(--home-ink)] transition flex items-center gap-1"
         >
           <Home className="w-3.5 h-3.5" />
           <span className="hidden sm:inline">Home</span>
         </Link>
 
-        <ChevronRight className="w-3.5 h-3.5 text-[var(--color-muted)]" />
+        <ChevronRight className="w-3.5 h-3.5 text-[var(--home-muted)]" />
 
         <Link
           href="/shop"
-          className="text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
+          className="text-[var(--home-muted)] hover:text-[var(--home-ink)] transition"
         >
           Shop
         </Link>
 
-        <ChevronRight className="w-3.5 h-3.5 text-[var(--color-muted)]" />
+        <ChevronRight className="w-3.5 h-3.5 text-[var(--home-muted)]" />
 
-        <span className="text-[var(--color-ink)] font-medium truncate max-w-xs">
+        <span className="text-[var(--home-ink)] font-medium truncate max-w-xs">
           {productName}
         </span>
       </nav>

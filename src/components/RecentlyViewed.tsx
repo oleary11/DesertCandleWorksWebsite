@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { getRecentlyViewed, type RecentlyViewedProduct } from "@/lib/recentlyViewed";
 import { Clock } from "lucide-react";
+import { serif } from "@/lib/storefrontFonts";
 
 type RecentlyViewedProps = {
   currentProductSlug?: string;
@@ -28,11 +29,11 @@ export default function RecentlyViewed({
   if (recentProducts.length === 0) return null;
 
   return (
-    <section className="py-12 px-6 bg-neutral-50/50">
+    <section className="s-ui px-6 py-16">
       <div className="mx-auto max-w-6xl">
         <div className="flex items-center gap-2 mb-8">
-          <Clock className="w-5 h-5 text-[var(--color-muted)]" />
-          <h2 className="text-2xl font-semibold">Recently Viewed</h2>
+          <Clock className="w-5 h-5 text-[var(--home-muted)]" />
+          <h2 className={`${serif.className} text-3xl text-[var(--home-ink)]`}>Recently viewed</h2>
         </div>
 
         <div className="grid gap-5 sm:gap-6 grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -43,7 +44,7 @@ export default function RecentlyViewed({
               className="group block overflow-hidden rounded-2xl bg-white shadow-[0_8px_30px_rgba(20,16,12,0.06)] hover:shadow-[0_12px_40px_rgba(20,16,12,0.10)] transition hover:-translate-y-0.5"
             >
               {/* Image */}
-              <div className="relative aspect-[4/5] overflow-hidden border border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)] border-b-0 rounded-t-2xl bg-transparent">
+              <div className="relative aspect-[4/5] overflow-hidden border border-[color-mix(in_oklab,var(--home-ink)_10%,transparent)] border-b-0 rounded-t-2xl bg-transparent">
                 {product.image && (
                   <Image
                     src={product.image}
@@ -57,13 +58,13 @@ export default function RecentlyViewed({
                 )}
 
                 {/* Price pill */}
-                <span className="absolute top-3 right-3 px-2.5 py-1 text-xs font-medium rounded-full bg-white/90 backdrop-blur-sm border border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)] text-[var(--color-ink)] shadow-sm">
+                <span className="absolute top-3 right-3 px-2.5 py-1 text-xs font-medium rounded-full bg-white/90 backdrop-blur-sm border border-[color-mix(in_oklab,var(--home-ink)_10%,transparent)] text-[var(--home-ink)] shadow-sm">
                   ${product.price}
                 </span>
               </div>
 
               {/* Footer */}
-              <div className="bg-white border border-t-0 border-[color-mix(in_oklab,var(--color-ink)_10%,transparent)] p-3 rounded-b-2xl">
+              <div className="bg-white border border-t-0 border-[color-mix(in_oklab,var(--home-ink)_10%,transparent)] p-3 rounded-b-2xl">
                 <h3 className="text-sm font-medium tracking-tight line-clamp-2 leading-snug min-h-[3em]">
                   {product.name}
                 </h3>

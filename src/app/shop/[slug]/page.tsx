@@ -13,6 +13,9 @@ import ProductPageTracker from "@/components/ProductPageTracker";
 import ShareButtons from "@/components/ShareButtons";
 import ProductImageGallery from "./ProductImageGallery";
 import GoogleReviews from "@/components/GoogleReviews";
+import s from "@/components/home/home.module.css";
+import { serif } from "@/lib/storefrontFonts";
+import { CANDLE_DETAILS, HOME_GOODS_DETAILS } from "@/components/shop/productDetails";
 
 // Cache product pages for 1 minute in production
 export const revalidate = 60;
@@ -211,57 +214,87 @@ export default async function ProductPage({ params }: Props) {
     ],
   };
 
+  const isHomeGoods = p.productType === "home_goods";
+  const details = isHomeGoods ? HOME_GOODS_DETAILS : CANDLE_DETAILS;
+
   return (
-    <section className="pt-6 md:pt-8 px-6">
-      <div className="mx-auto max-w-6xl mb-6">
-        <ProductBreadcrumbs productName={p.name} />
-      </div>
-
-      <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
-        <ProductImageGallery images={getAllImages(p)} productName={p.name} />
-
-        <div>
-          <div className="flex items-start justify-between gap-4 mb-2">
-            <h1 className="text-3xl md:text-4xl font-semibold tracking-tight flex-1">{p.name}</h1>
-            <ShareButtons productName={p.name} productSlug={p.slug} />
-          </div>
-          <p className="mt-2 md:mt-3 text-sm md:text-base text-[var(--color-muted)] whitespace-pre-line">{p.seoDescription}</p>
-          {p.productType !== "home_goods" && (
-            <p className="mt-4 md:mt-6 text-xl font-medium">${p.price}</p>
-          )}
-
-          {p.productType === "home_goods" ? (
-            <HomeGoodsBottlePicker productSlug={p.slug} productName={p.name} bottles={homeGoodsBottles} />
-          ) : p.variantConfig && globalScents.length > 0 ? (
-            <ProductVariantForm product={p} variants={variants} globalScents={globalScents} variantConfig={p.variantConfig} />
-          ) : p.variantConfig && globalScents.length === 0 ? (
-            <div className="mt-6 p-4 bg-amber-50 border border-amber-200 rounded-lg">
-              <p className="text-sm text-amber-900">
-                <strong>No scents available yet.</strong> Please contact us to set up scents for this product.
-              </p>
-            </div>
-          ) : (
-            <ProductActions
-              product={p}
-              stock={stock}
-            />
-          )}
+    <div className={`${s.page} s-ui`}>
+      <section className={`${s.cream} px-6 pb-32 pt-6 md:pb-20`}>
+        <div className="mx-auto mb-6 max-w-7xl">
+          <ProductBreadcrumbs productName={p.name} />
         </div>
 
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      </article>
+        <article className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-12 lg:gap-14">
+          <div className="lg:col-span-7">
+            <ProductImageGallery images={productImages} productName={p.name} />
+          </div>
 
-      {/* Google Reviews */}
-      <div className="mx-auto max-w-6xl px-6">
-        <GoogleReviews maxReviews={3} />
-      </div>
+          <div className="lg:col-span-5">
+            <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[var(--home-clay)]">
+              {isHomeGoods ? "Home goods" : p.alcoholType || "Candle"}
+            </p>
+            <div className="mt-3 flex items-start justify-between gap-4">
+              <h1 className={`${serif.className} text-balance text-[2.1rem] leading-[1.12] text-[var(--home-ink)] sm:text-[2.6rem]`}>
+                {p.name}
+              </h1>
+              <div className="shrink-0 pt-1">
+                <ShareButtons productName={p.name} productSlug={p.slug} />
+              </div>
+            </div>
+            <p className="mt-4 whitespace-pre-line text-[16px] leading-relaxed text-[var(--home-muted)]">{p.seoDescription}</p>
 
-      {/* Product page tracker - tracks view in localStorage */}
+            <div className="mt-8">
+              {isHomeGoods ? (
+                <HomeGoodsBottlePicker productSlug={p.slug} productName={p.name} bottles={homeGoodsBottles} />
+              ) : p.variantConfig && globalScents.length > 0 ? (
+                <ProductVariantForm product={p} variants={variants} globalScents={globalScents} variantConfig={p.variantConfig} />
+              ) : p.variantConfig ? (
+                <p className="rounded-2xl bg-[var(--home-peach)] px-5 py-4 text-[15px] text-[var(--home-ink)]">
+                  <span className="font-semibold">Scents are on their way.</span> Get in touch and we&apos;ll let you know when this one is ready.
+                </p>
+              ) : (
+                <ProductActions product={p} stock={stock} />
+              )}
+            </div>
+
+            <div className="mt-10 divide-y divide-[var(--home-line)] border-y border-[var(--home-line)]">
+              {details.map((section) => (
+                <details key={section.title} className="group">
+                  <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-semibold text-[var(--home-ink)] [&::-webkit-details-marker]:hidden">
+                    {section.title}
+                    <span className="text-xl font-normal leading-none text-[var(--home-muted)] transition-transform group-open:rotate-45" aria-hidden>
+                      +
+                    </span>
+                  </summary>
+                  <ul className="space-y-2 pb-5 text-[15px] leading-relaxed text-[var(--home-muted)]">
+                    {section.items.map((item) => (
+                      <li key={item} className="flex gap-3">
+                        <span className="mt-2.5 h-1 w-1 shrink-0 rounded-full bg-[var(--home-clay)]" aria-hidden />
+                        {item}
+                      </li>
+                    ))}
+                  </ul>
+                </details>
+              ))}
+            </div>
+          </div>
+
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }} />
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        </article>
+      </section>
+
+      <section className={`${s.paper} ${s.tornTop} px-6 py-16`}>
+        <div className="mx-auto max-w-7xl">
+          <GoogleReviews maxReviews={3} />
+        </div>
+      </section>
+
       <ProductPageTracker product={p} />
 
-      {/* Recently Viewed */}
-      <RecentlyViewed currentProductSlug={p.slug} maxProducts={4} />
-    </section>
+      <div className={s.cream}>
+        <RecentlyViewed currentProductSlug={p.slug} maxProducts={4} />
+      </div>
+    </div>
   );
 }
