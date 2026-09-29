@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Search, Mail, CheckCircle, AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle, Mail, Search } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Segmented } from "../_components/ui";
 
 interface Order {
   orderId: string;
@@ -101,209 +102,136 @@ export default function AdminInvoicesPage() {
     }
   }
 
+  const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
+  const isManual = order?.email === "manual-sale@admin.local";
+
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <h1 className="text-3xl font-bold">Send Order Invoices</h1>
-          <p className="text-[var(--color-muted)] mt-1">
-            Search for orders and send/resend invoice emails
-          </p>
+    <div className="a-ui mx-auto max-w-3xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader title="Order invoices" description="Find an order and send (or resend) its invoice email." />
+
+      <form onSubmit={handleSearch} className="a-card mb-6 p-4 sm:p-5">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-medium text-[var(--a-ink)]">Find by</p>
+          <Segmented
+            label="Search by"
+            value={searchType}
+            onChange={setSearchType}
+            options={[
+              { value: "email", label: "Email" },
+              { value: "orderId", label: "Order number" },
+            ]}
+          />
         </div>
-
-        {/* Search Form */}
-        <div className="card p-6 bg-white mb-6">
-          <h2 className="text-xl font-bold mb-4">Search for Order</h2>
-          <form onSubmit={handleSearch} className="space-y-4">
-            <div className="flex gap-4">
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="searchType"
-                  value="email"
-                  checked={searchType === "email"}
-                  onChange={(e) => setSearchType(e.target.value as "email")}
-                />
-                <span>Email Address</span>
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="radio"
-                  name="searchType"
-                  value="orderId"
-                  checked={searchType === "orderId"}
-                  onChange={(e) => setSearchType(e.target.value as "orderId")}
-                />
-                <span>Order Number</span>
-              </label>
-            </div>
-
-            <div className="flex gap-2">
-              <input
-                type="text"
-                className="input flex-1"
-                placeholder={
-                  searchType === "email"
-                    ? "customer@example.com"
-                    : "cs_test_abc123..."
-                }
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                required
-              />
-              <button
-                type="submit"
-                className="btn btn-primary inline-flex items-center gap-2"
-                disabled={loading}
-              >
-                <Search className="w-4 h-4" />
-                {loading ? "Searching..." : "Search"}
-              </button>
-            </div>
-          </form>
+        <div className="flex gap-2">
+          <label className="relative block flex-1">
+            <span className="sr-only">{searchType === "email" ? "Customer email" : "Order number"}</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--a-faint)]" aria-hidden />
+            <input
+              type={searchType === "email" ? "email" : "text"}
+              className={`a-input pl-9 ${searchType === "orderId" ? "font-mono" : ""}`}
+              placeholder={searchType === "email" ? "customer@example.com" : "cs_live_… or order ID"}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              required
+            />
+          </label>
+          <button type="submit" className="a-btn a-btn-primary" disabled={loading}>
+            {loading ? "Searching…" : "Search"}
+          </button>
         </div>
+      </form>
 
-        {/* Error Message */}
-        {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
-            <div className="flex items-start gap-2">
-              <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
-              <p className="text-rose-600 text-sm">{error}</p>
+      {error && (
+        <div role="alert" className="mb-6 flex items-start gap-2 rounded-lg border border-red-200 bg-[#fdecea] p-4 text-sm text-[#7a1a12]">
+          <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          {error}
+        </div>
+      )}
+
+      {sendSuccess && (
+        <div role="status" className="mb-6 flex items-start gap-2 rounded-lg border border-green-200 bg-[#e8f5ec] p-4 text-sm text-[#1f4d2e]">
+          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          Invoice sent to {order?.email}.
+        </div>
+      )}
+
+      {order && order.orderId && (
+        <section className="a-card overflow-hidden">
+          <div className="flex flex-wrap items-start justify-between gap-4 border-b border-[var(--a-line)] p-5">
+            <div className="min-w-0">
+              <p className="a-section-label text-[var(--a-faint)]">Order</p>
+              <p className="mt-0.5 break-all font-mono text-sm font-medium text-[var(--a-ink)]">{order.orderId}</p>
+              <p className="mt-0.5 text-sm text-[var(--a-muted)]">{new Date(order.createdAt).toLocaleString()}</p>
             </div>
+            <p className="text-2xl font-semibold tabular-nums">{money(order.totalCents)}</p>
           </div>
-        )}
 
-        {/* Success Message */}
-        {sendSuccess && (
-          <div className="card p-4 bg-green-50 border border-green-200 mb-6">
-            <div className="flex items-start gap-2">
-              <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-              <p className="text-green-600 text-sm">
-                Invoice email sent successfully to {order?.email}!
-              </p>
+          <dl className="grid grid-cols-2 gap-4 border-b border-[var(--a-line)] p-5 text-sm sm:grid-cols-4">
+            <div className="col-span-2">
+              <dt className="text-xs text-[var(--a-muted)]">Customer</dt>
+              <dd className="truncate font-medium">{order.email}</dd>
             </div>
-          </div>
-        )}
-
-        {/* Order Details */}
-        {order && order.orderId && (
-          <div className="card p-6 bg-white">
-            <div className="mb-6">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <h2 className="text-2xl font-bold mb-1">
-                    Order #{order.orderId.slice(0, 16)}
-                  </h2>
-                  <p className="text-sm text-[var(--color-muted)] font-mono text-xs">
-                    {order.orderId}
-                  </p>
-                  <p className="text-sm text-[var(--color-muted)]">
-                    {new Date(order.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-
-              {/* Custom Email Input for Manual Sales */}
-              {order.email === "manual-sale@admin.local" && (
-                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded">
-                  <p className="text-sm text-amber-900 mb-2">
-                    This is a manual sale. Enter the customer&apos;s email address to send the invoice:
-                  </p>
-                  <input
-                    type="email"
-                    className="input w-full"
-                    placeholder="customer@example.com"
-                    value={customEmail}
-                    onChange={(e) => setCustomEmail(e.target.value)}
-                    required
-                  />
-                </div>
-              )}
-
-              <button
-                onClick={handleSendInvoice}
-                disabled={sending}
-                className="btn btn-primary inline-flex items-center gap-2"
-              >
-                <Mail className="w-4 h-4" />
-                {sending ? "Sending..." : "Send Invoice Email"}
-              </button>
-            </div>
-
-            {/* Customer Info */}
-            <div className="grid grid-cols-2 gap-4 mb-6 p-4 bg-neutral-50 rounded">
-              <div>
-                <p className="text-xs text-[var(--color-muted)] mb-1">Customer Email</p>
-                <p className="font-medium">{order.email}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--color-muted)] mb-1">Account Type</p>
-                <p className="font-medium">
-                  {order.isGuest ? "Guest Checkout" : "Registered User"}
-                </p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--color-muted)] mb-1">Status</p>
-                <p className="font-medium capitalize">{order.status}</p>
-              </div>
-              <div>
-                <p className="text-xs text-[var(--color-muted)] mb-1">Points Earned</p>
-                <p className="font-medium">{order.pointsEarned} points</p>
-              </div>
-            </div>
-
-            {/* Order Items */}
             <div>
-              <h3 className="font-semibold mb-3">Order Items</h3>
-              <div className="space-y-2">
-                {order.items.map((item, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-3 bg-neutral-50 rounded"
-                  >
-                    <div className="flex-1">
-                      <p className="font-medium">{item.productName}</p>
-                      {item.productSlug.startsWith("unmapped-") && (
-                        <div className="text-xs text-amber-600 mt-1 p-2 bg-amber-50 rounded">
-                          <p className="font-semibold">⚠️ Not listed on website</p>
-                          <p className="text-[var(--color-muted)] mt-1">
-                            To link future sales: Add this product to your website via <strong>/admin/products</strong>, then set its <strong>Stripe Price ID</strong> to match this unmapped product&apos;s ID. Future orders will automatically link to the real product.
-                          </p>
-                          <p className="text-[var(--color-muted)] mt-1 font-mono text-xs">
-                            Unmapped ID: {item.productSlug}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm text-[var(--color-muted)]">Qty: {item.quantity}</p>
-                      <p className="font-medium">
-                        ${(item.priceCents / 100).toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              {/* Total */}
-              <div className="flex items-center justify-between pt-4 mt-4 border-t border-[var(--color-line)]">
-                <p className="font-semibold text-lg">Total</p>
-                <p className="font-bold text-xl">
-                  ${(order.totalCents / 100).toFixed(2)}
-                </p>
-              </div>
+              <dt className="text-xs text-[var(--a-muted)]">Account</dt>
+              <dd className="font-medium">{order.isGuest ? "Guest" : "Registered"}</dd>
             </div>
+            <div>
+              <dt className="text-xs text-[var(--a-muted)]">Status</dt>
+              <dd>
+                <Badge tone={order.status === "completed" ? "green" : "amber"}>{order.status}</Badge>
+              </dd>
+            </div>
+          </dl>
+
+          <div className="p-5">
+            <h2 className="a-section-label mb-2 text-[var(--a-faint)]">Items</h2>
+            <ul className="divide-y divide-[var(--a-line)]">
+              {order.items.map((item, idx) => (
+                <li key={idx} className="py-2.5 text-sm first:pt-0">
+                  <div className="flex items-start justify-between gap-4">
+                    <p>
+                      <span className="font-medium text-[var(--a-ink)]">{item.productName}</span>
+                      <span className="text-[var(--a-muted)]"> × {item.quantity}</span>
+                    </p>
+                    <span className="shrink-0 tabular-nums">{money(item.priceCents)}</span>
+                  </div>
+                  {item.productSlug.startsWith("unmapped-") && (
+                    <div className="mt-2 rounded-lg border border-amber-200 bg-[#fdf6e7] p-3 text-xs text-[#6b4a0b]">
+                      <p className="font-semibold">Not listed on the website</p>
+                      <p className="mt-1">
+                        To link future sales, add this product in Products and set its Stripe Price ID to this unmapped ID.
+                      </p>
+                      <p className="mt-1 font-mono">{item.productSlug}</p>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-xs text-[var(--a-muted)]">{order.pointsEarned} reward points earned</p>
           </div>
-        )}
-      </div>
+
+          <div className="border-t border-[var(--a-line)] bg-[var(--a-canvas)] p-5">
+            {isManual && (
+              <label className="mb-3 block">
+                <span className="a-label">Customer email</span>
+                <input
+                  type="email"
+                  className="a-input"
+                  placeholder="customer@example.com"
+                  value={customEmail}
+                  onChange={(e) => setCustomEmail(e.target.value)}
+                  required
+                />
+                <p className="a-help">This was a manual sale, so there&apos;s no email on file.</p>
+              </label>
+            )}
+            <button onClick={handleSendInvoice} disabled={sending} className="a-btn a-btn-primary w-full sm:w-auto">
+              <Mail className="h-4 w-4" aria-hidden />
+              {sending ? "Sending…" : "Send invoice email"}
+            </button>
+          </div>
+        </section>
+      )}
     </div>
   );
 }
