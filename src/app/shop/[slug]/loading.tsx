@@ -1,65 +1,52 @@
+import s from "@/components/home/home.module.css";
+
+const bar = "rounded-full bg-[#eadccf] motion-safe:animate-pulse";
+
 export default function Loading() {
   return (
-    <section className="pt-8 md:pt-12 px-6">
-      <article className="mx-auto max-w-6xl grid gap-8 md:gap-10 md:grid-cols-2 items-start pb-14">
-        {/* Image Skeleton */}
-        <div className="relative w-full aspect-[4/5] md:aspect-[3/4] max-h-[56svh] md:max-h-[60svh] overflow-hidden rounded-lg md:rounded-xl bg-neutral-200 animate-pulse" />
+    <div className={`${s.page} s-ui`} aria-busy="true" aria-label="Loading product">
+      <section className={`${s.cream} px-6 pb-20 pt-6`}>
+        <div className={`${bar} mx-auto mb-6 h-3 w-48 max-w-7xl`} />
 
-        {/* Content Skeleton */}
-        <div>
-          {/* Title */}
-          <div className="h-10 bg-neutral-200 rounded-lg w-3/4 mb-3 animate-pulse" />
-
-          {/* Description */}
-          <div className="space-y-2 mb-6">
-            <div className="h-4 bg-neutral-200 rounded w-full animate-pulse" />
-            <div className="h-4 bg-neutral-200 rounded w-5/6 animate-pulse" />
+        <div className="mx-auto grid max-w-7xl items-start gap-10 lg:grid-cols-12 lg:gap-14">
+          <div className="lg:col-span-7">
+            <div className="aspect-[4/5] rounded-3xl bg-[#eadccf] motion-safe:animate-pulse" />
+            <div className="mt-4 flex gap-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-20 w-16 rounded-xl bg-[#eadccf] motion-safe:animate-pulse" />
+              ))}
+            </div>
           </div>
 
-          {/* Price */}
-          <div className="h-7 bg-neutral-200 rounded w-24 mb-8 animate-pulse" />
-
-          {/* Variant Selectors */}
-          <div className="space-y-6">
-            {/* Scent Collection Toggle */}
-            <div>
-              <div className="h-5 bg-neutral-200 rounded w-32 mb-2 animate-pulse" />
-              <div className="flex gap-3">
-                <div className="flex-1 h-12 bg-neutral-200 rounded-xl animate-pulse" />
-                <div className="flex-1 h-12 bg-neutral-200 rounded-xl animate-pulse" />
-              </div>
+          <div className="lg:col-span-5">
+            <div className={`${bar} h-3 w-24`} />
+            <div className={`${bar} mt-4 h-10 w-4/5`} />
+            <div className="mt-5 space-y-2">
+              <div className={`${bar} h-4 w-full`} />
+              <div className={`${bar} h-4 w-11/12`} />
+              <div className={`${bar} h-4 w-2/3`} />
             </div>
 
-            {/* Wick Type */}
-            <div>
-              <div className="h-5 bg-neutral-200 rounded w-24 mb-2 animate-pulse" />
-              <div className="h-12 bg-neutral-200 rounded-lg animate-pulse" />
+            <div className="mt-10 space-y-8">
+              {[3, 2, 6].map((count, row) => (
+                <div key={row}>
+                  <div className={`${bar} mb-3 h-4 w-28`} />
+                  <div className="flex flex-wrap gap-2">
+                    {Array.from({ length: count }, (_, i) => (
+                      <div key={i} className="h-11 w-28 rounded-xl bg-[#eadccf] motion-safe:animate-pulse" />
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
 
-            {/* Scent */}
-            <div>
-              <div className="h-5 bg-neutral-200 rounded w-16 mb-2 animate-pulse" />
-              <div className="h-12 bg-neutral-200 rounded-lg animate-pulse" />
-            </div>
-
-            {/* Quantity */}
-            <div>
-              <div className="h-5 bg-neutral-200 rounded w-20 mb-2 animate-pulse" />
-              <div className="flex items-center gap-3">
-                <div className="h-12 w-12 bg-neutral-200 rounded-lg animate-pulse" />
-                <div className="h-8 w-16 bg-neutral-200 rounded animate-pulse" />
-                <div className="h-12 w-12 bg-neutral-200 rounded-lg animate-pulse" />
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3 pt-4">
-              <div className="flex-1 h-12 bg-neutral-200 rounded-xl animate-pulse" />
-              <div className="flex-1 h-12 bg-neutral-200 rounded-xl animate-pulse" />
+            <div className="mt-8 grid gap-3 border-t border-[var(--home-line)] pt-6 sm:grid-cols-2">
+              <div className={`${bar} h-12`} />
+              <div className={`${bar} h-12`} />
             </div>
           </div>
         </div>
-      </article>
-    </section>
+      </section>
+    </div>
   );
 }

@@ -3,12 +3,15 @@
 import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
-import { Trash2, Minus, Plus, Tag, X } from "lucide-react";
+import { Trash2, Minus, Plus, Tag, X, ShoppingBag, Truck, Lock } from "lucide-react";
 import { useState, useEffect, useCallback } from "react";
-import FreeShippingBanner from "@/components/FreeShippingBanner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModal } from "@/hooks/useModal";
 import { trackEvent } from "@/components/AnalyticsTracker";
+import s from "@/components/home/home.module.css";
+import { serif } from "@/lib/storefrontFonts";
+import ShopDialog from "@/components/shop/ShopDialog";
+import { btnPrimary, btnQuiet, fieldClass, labelClass, money } from "@/components/shop/styles";
 
 type AppliedPromotion = {
   id: string;
@@ -24,6 +27,7 @@ export default function CartPage() {
   const { items, removeItem, updateQuantity, clearCart, getTotalPrice } = useCartStore();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
   const [itemToRemove, setItemToRemove] = useState<{ slug: string; variantId?: string; name: string } | null>(null);
+  const [confirmClear, setConfirmClear] = useState(false);
   const { user } = useAuth();
   const [pointsToRedeem, setPointsToRedeem] = useState(0);
 
@@ -229,499 +233,454 @@ export default function CartPage() {
     }
   };
 
-  // Calculate discount amount based on points
-  const maxPointsForDiscount = Math.min(
-    user?.points || 0, // Can't use more points than user has
-    Math.floor(getTotalPrice() * 100) // Can't use more points than order total (in cents)
+  // Calculate discount amount based on points (1 point = $0.05)
+  const maxPointsForDiscount = Math.max(
+    0,
+    Math.min(
+      user?.points || 0, // Can't use more points than user has
+      Math.floor((getTotalPrice() * 100) / 5) // Can't discount more than the order total
+    )
   );
 
   const discountAmount = (pointsToRedeem * 5) / 100; // Convert points to dollars (1 point = $0.05)
 
+  const subtotal = getTotalPrice();
+  const total = Math.max(0, subtotal - getDiscountAmount() - discountAmount + getShippingCost());
+  const activePromo = getActivePromotion();
+  const addressComplete = !!(
+    shippingAddress.name &&
+    shippingAddress.line1 &&
+    shippingAddress.city &&
+    shippingAddress.state &&
+    shippingAddress.postalCode
+  );
+  const shippingProgress = Math.min((subtotal / FREE_SHIPPING_THRESHOLD) * 100, 100);
+  const itemCount = items.reduce((n, item) => n + item.quantity, 0);
+
+  function setAddress(field: keyof typeof shippingAddress, value: string) {
+    setShippingAddress((prev) => ({ ...prev, [field]: value }));
+  }
+
   if (items.length === 0) {
     return (
-      <section className="flex flex-col items-center justify-center px-6 py-20">
-        <div className="text-center max-w-md">
-          <h1 className="text-3xl font-bold mb-4">Your Cart is Empty</h1>
-          <p className="text-[var(--color-muted)] mb-8">
-            Looks like you haven&apos;t added any candles to your cart yet.
+      <div className={`${s.page} s-ui`}>
+        <section className={`${s.cream} flex min-h-[60dvh] flex-col items-center justify-center px-6 py-20 text-center`}>
+          <span className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--home-peach)] text-[var(--home-clay)]">
+            <ShoppingBag className="h-7 w-7" strokeWidth={1.6} aria-hidden />
+          </span>
+          <h1 className={`${serif.className} mt-6 text-4xl text-[var(--home-ink)]`}>Your cart is empty</h1>
+          <p className="mt-3 max-w-sm text-[16px] text-[var(--home-muted)]">
+            Nothing in here yet. Find a bottle you love and it&apos;ll wait for you here.
           </p>
-          <Link
-            href="/shop"
-            className="inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium
-            [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-            !text-white shadow-[0_2px_10px_rgba(20,16,12,0.1)]
-            hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition"
-          >
-            Shop Candles
+          <Link href="/shop" className={`${btnPrimary} mt-8`}>
+            Shop candles
           </Link>
-        </div>
-      </section>
+        </section>
+      </div>
     );
   }
 
   return (
-    <>
-      {/* Full-screen loading overlay */}
+    <div className={`${s.page} s-ui`}>
+      {/* Full-screen loading overlay while Stripe prepares checkout */}
       {isCheckingOut && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
-          <div className="bg-white rounded-lg p-8 flex flex-col items-center gap-4 shadow-2xl">
-            <div className="animate-spin h-12 w-12 border-4 border-[var(--color-accent)] border-t-transparent rounded-full"></div>
-            <p className="text-lg font-medium">Preparing your checkout...</p>
-            <p className="text-sm text-[var(--color-muted)]">This may take a moment</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-[rgb(63_42_33/0.45)] px-6" role="alertdialog" aria-modal="true" aria-labelledby="checkout-wait">
+          <div className="flex flex-col items-center gap-4 rounded-3xl bg-[var(--home-cream)] px-10 py-8 text-center shadow-2xl">
+            <span className="h-11 w-11 rounded-full border-4 border-[var(--home-clay)] border-t-transparent motion-safe:animate-spin" aria-hidden />
+            <p id="checkout-wait" className={`${serif.className} text-xl text-[var(--home-ink)]`}>
+              Preparing your checkout…
+            </p>
+            <p className="text-sm text-[var(--home-muted)]">This can take a moment.</p>
           </div>
         </div>
       )}
 
-      <section className="py-12 px-6">
+      <section className={`${s.cream} px-6 pb-20 pt-10 sm:pt-14`}>
         <div className="mx-auto max-w-6xl">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-3xl font-bold">Shopping Cart</h1>
-          <button
-            onClick={clearCart}
-            className="text-sm text-[var(--color-muted)] hover:text-rose-600 transition"
-          >
-            Clear Cart
-          </button>
-        </div>
-
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Cart Items */}
-          <div className="space-y-4">
-            {/* Free Shipping Banner */}
-            <FreeShippingBanner currentTotal={getTotalPrice()} threshold={100} />
-
-            {items.map((item) => (
-              <div
-                key={`${item.productSlug}-${item.variantId || ""}`}
-                className="card p-4"
-              >
-                <div className="flex gap-4">
-                  {/* Product Image */}
-                  {item.productImage && (
-                    <div className="relative w-20 h-20 sm:w-24 sm:h-24 flex-shrink-0">
-                      <Image
-                        src={item.productImage}
-                        alt={item.productName}
-                        fill
-                        className="object-cover rounded-lg"
-                      />
-                    </div>
-                  )}
-
-                  {/* Product Details */}
-                  <div className="flex-1 min-w-0">
-                    <Link
-                      href={`/shop/${item.productSlug}`}
-                      className="font-medium hover:underline block text-sm sm:text-base"
-                    >
-                      {item.productName}
-                    </Link>
-                    {item.variantId && (
-                      <p className="text-xs sm:text-sm text-[var(--color-muted)] mt-1">
-                        {item.sizeName && `${item.sizeName}`}
-                        {item.wickTypeName && `${item.sizeName ? ' • ' : ''}${item.wickTypeName}`}
-                        {item.scentName && ` • ${item.scentName}`}
-                      </p>
-                    )}
-                    <p className="text-sm font-medium mt-2">${item.price.toFixed(2)}</p>
-                  </div>
-
-                  {/* Remove Button (desktop) */}
-                  <button
-                    onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
-                    className="hidden sm:block p-2 text-[var(--color-muted)] hover:text-rose-600 transition self-start"
-                    aria-label="Remove from cart"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-
-                {/* Quantity Controls and Remove (mobile) */}
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-[var(--color-line)]">
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={() =>
-                        handleQuantityChange(
-                          item.productSlug,
-                          item.quantity - 1,
-                          item.variantId,
-                          item.quantity,
-                          item.productName
-                        )
-                      }
-                      className="p-2 rounded-lg border border-[var(--color-line)] hover:bg-neutral-50 transition"
-                      aria-label="Decrease quantity"
-                    >
-                      <Minus className="w-4 h-4" />
-                    </button>
-                    <span className="w-10 text-center font-medium">{item.quantity}</span>
-                    <button
-                      onClick={() =>
-                        updateQuantity(
-                          item.productSlug,
-                          item.quantity + 1,
-                          item.variantId
-                        )
-                      }
-                      disabled={item.quantity >= item.maxStock}
-                      className="p-2 rounded-lg border border-[var(--color-line)] hover:bg-neutral-50 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                      aria-label="Increase quantity"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </button>
-                    {item.quantity >= item.maxStock && (
-                      <span className="text-xs text-amber-600 ml-2">Max</span>
-                    )}
-                  </div>
-
-                  {/* Remove Button (mobile) */}
-                  <button
-                    onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
-                    className="sm:hidden p-2 text-[var(--color-muted)] hover:text-rose-600 transition"
-                    aria-label="Remove from cart"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+          <div className="flex items-end justify-between gap-4">
+            <div>
+              <p className="text-[13px] font-semibold uppercase tracking-[0.16em] text-[var(--home-clay)]">Your cart</p>
+              <h1 className={`${serif.className} mt-2 text-4xl text-[var(--home-ink)] sm:text-5xl`}>
+                {itemCount} {itemCount === 1 ? "item" : "items"}
+              </h1>
+            </div>
+            <button type="button" onClick={() => setConfirmClear(true)} className="min-h-11 text-sm font-medium text-[var(--home-muted)] underline-offset-4 hover:text-[#9b3b2a] hover:underline">
+              Clear cart
+            </button>
           </div>
 
-          {/* Order Summary */}
-          <div>
-            <div className="card p-6 lg:sticky lg:top-24">
-              <h2 className="text-xl font-semibold mb-4">Order Summary</h2>
-
-              {/* Promo Code Input */}
-              <div className="mb-4 pb-4 border-b border-[var(--color-line)]">
-                <label className="block text-sm font-medium mb-2 flex items-center gap-2">
-                  <Tag className="w-4 h-4" />
-                  Promo Code
-                </label>
-
-                {getActivePromotion() ? (
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-                    <div className="flex items-center justify-between mb-1">
-                      <div className="flex items-center gap-2">
-                        <Tag className="w-4 h-4 text-green-600" />
-                        <span className="font-mono font-bold text-sm">
-                          {getActivePromotion()!.code}
-                        </span>
-                        {!appliedPromotion && (
-                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded">
-                            Auto-applied
-                          </span>
-                        )}
-                      </div>
-                      <button
-                        onClick={removePromotion}
-                        className="p-1 hover:bg-green-100 rounded transition"
-                        title="Remove promo code"
-                      >
-                        <X className="w-4 h-4 text-green-600" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-green-700">{getActivePromotion()!.name}</p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        className="input flex-1 text-sm uppercase"
-                        placeholder="Enter code"
-                        value={promoCode}
-                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        onKeyDown={(e) => e.key === "Enter" && applyPromoCode()}
-                        disabled={applyingPromo}
-                      />
-                      <button
-                        onClick={applyPromoCode}
-                        disabled={!promoCode.trim() || applyingPromo}
-                        className="btn btn-sm px-4 disabled:opacity-50 disabled:cursor-not-allowed"
-                      >
-                        {applyingPromo ? "..." : "Apply"}
-                      </button>
-                    </div>
-                    {promoError && (
-                      <p className="text-xs text-rose-600 mt-2">{promoError}</p>
-                    )}
-                  </>
-                )}
-              </div>
-
-              <div className="space-y-2 mb-4 pb-4 border-b border-[var(--color-line)]">
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-muted)]">Subtotal</span>
-                  <span className="font-medium">${getTotalPrice().toFixed(2)}</span>
-                </div>
-                {getActivePromotion() && (
-                  <div className="flex justify-between text-sm text-green-600">
+          <div className="mt-8 grid items-start gap-10 lg:grid-cols-12">
+            {/* Items */}
+            <div className="lg:col-span-7">
+              <div className={`rounded-2xl px-5 py-4 ${hasFreeShipping ? "bg-[var(--home-sage)]" : "bg-[var(--home-peach)]"}`}>
+                <p className="flex items-center gap-2 text-sm text-[var(--home-ink)]">
+                  <Truck className="h-4 w-4 shrink-0 text-[var(--home-clay)]" aria-hidden />
+                  {hasFreeShipping ? (
                     <span>
-                      Promotion
-                      {getActivePromotion()!.discountPercent && ` (${getActivePromotion()!.discountPercent}% off)`}
+                      <span className="font-semibold">Free shipping unlocked.</span> Standard shipping is on us.
                     </span>
-                    <span className="font-medium">-${getDiscountAmount().toFixed(2)}</span>
-                  </div>
-                )}
-                {pointsToRedeem > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Points Discount</span>
-                    <span className="font-medium">-${discountAmount.toFixed(2)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-muted)]">Shipping</span>
-                  <span className="font-medium">
-                    {hasFreeShipping ? "FREE" : "Calculated in checkout"}
-                  </span>
-                </div>
-                {hasFreeShipping && (
-                  <p className="text-xs text-green-600 pt-1">
-                    🎉 You qualify for free shipping!
-                  </p>
-                )}
-                <div className="flex justify-between text-sm">
-                  <span className="text-[var(--color-muted)]">Tax</span>
-                  <span className="font-medium">Calculated at checkout</span>
-                </div>
-              </div>
-
-              {/* Points Redemption */}
-              {user && user.points > 0 && (
-                <div className="mb-4 pb-4 border-b border-[var(--color-line)]">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-sm font-medium">Redeem Points</span>
-                    <span className="text-xs text-[var(--color-muted)]">
-                      {user.points.toLocaleString()} available (${((user.points * 5) / 100).toFixed(2)})
+                  ) : (
+                    <span>
+                      <span className="font-semibold tabular-nums">{money(FREE_SHIPPING_THRESHOLD - subtotal)}</span> away from free shipping
                     </span>
-                  </div>
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      type="number"
-                      min="0"
-                      max={maxPointsForDiscount}
-                      value={pointsToRedeem}
-                      onChange={(e) => setPointsToRedeem(Math.min(Number(e.target.value), maxPointsForDiscount))}
-                      className="input text-sm flex-1"
-                      placeholder="0"
-                    />
-                    <button
-                      onClick={() => setPointsToRedeem(maxPointsForDiscount)}
-                      className="text-xs bg-[var(--color-accent)] text-white px-3 py-2 rounded-md hover:opacity-90 transition whitespace-nowrap"
-                    >
-                      Use Max
-                    </button>
-                  </div>
-                  <p className="text-xs text-[var(--color-muted)]">
-                    100 points = $5.00 discount
-                  </p>
-                </div>
-              )}
-
-              <div className="flex justify-between text-lg font-semibold mb-6">
-                <span>Total</span>
-                <span>${(getTotalPrice() - getDiscountAmount() - discountAmount + getShippingCost()).toFixed(2)}</span>
-              </div>
-
-              {/* Shipping Address */}
-              <div className="mb-6 pb-6 border-b border-[var(--color-line)]">
-                <h3 className="text-sm font-semibold mb-3">Shipping Address</h3>
-                <p className="text-xs text-[var(--color-muted)] mb-3">
-                  You&apos;ll select your shipping method (including local pickup) in checkout
+                  )}
                 </p>
-
-                <div className="space-y-2">
-                          <input
-                            type="text"
-                            placeholder="Full Name"
-                            value={shippingAddress.name}
-                            onChange={(e) => setShippingAddress({ ...shippingAddress, name: e.target.value })}
-                            className="input text-sm w-full"
-                          />
-
-                          <input
-                            type="text"
-                            placeholder="Address Line 1"
-                            value={shippingAddress.line1}
-                            onChange={(e) => setShippingAddress({ ...shippingAddress, line1: e.target.value })}
-                            className="input text-sm w-full"
-                          />
-
-                          <input
-                            type="text"
-                            placeholder="Address Line 2 (Optional)"
-                            value={shippingAddress.line2}
-                            onChange={(e) => setShippingAddress({ ...shippingAddress, line2: e.target.value })}
-                            className="input text-sm w-full"
-                          />
-
-                          <div className="grid grid-cols-2 gap-2">
-                            <input
-                              type="text"
-                              placeholder="City"
-                              value={shippingAddress.city}
-                              onChange={(e) => setShippingAddress({ ...shippingAddress, city: e.target.value })}
-                              className="input text-sm"
-                            />
-
-                            <select
-                              value={shippingAddress.state}
-                              onChange={(e) => setShippingAddress({ ...shippingAddress, state: e.target.value })}
-                              className="input text-sm"
-                            >
-                              <option value="">State</option>
-                              <option value="AL">AL</option>
-                              <option value="AK">AK</option>
-                              <option value="AZ">AZ</option>
-                              <option value="AR">AR</option>
-                              <option value="CA">CA</option>
-                              <option value="CO">CO</option>
-                              <option value="CT">CT</option>
-                              <option value="DE">DE</option>
-                              <option value="FL">FL</option>
-                              <option value="GA">GA</option>
-                              <option value="HI">HI</option>
-                              <option value="ID">ID</option>
-                              <option value="IL">IL</option>
-                              <option value="IN">IN</option>
-                              <option value="IA">IA</option>
-                              <option value="KS">KS</option>
-                              <option value="KY">KY</option>
-                              <option value="LA">LA</option>
-                              <option value="ME">ME</option>
-                              <option value="MD">MD</option>
-                              <option value="MA">MA</option>
-                              <option value="MI">MI</option>
-                              <option value="MN">MN</option>
-                              <option value="MS">MS</option>
-                              <option value="MO">MO</option>
-                              <option value="MT">MT</option>
-                              <option value="NE">NE</option>
-                              <option value="NV">NV</option>
-                              <option value="NH">NH</option>
-                              <option value="NJ">NJ</option>
-                              <option value="NM">NM</option>
-                              <option value="NY">NY</option>
-                              <option value="NC">NC</option>
-                              <option value="ND">ND</option>
-                              <option value="OH">OH</option>
-                              <option value="OK">OK</option>
-                              <option value="OR">OR</option>
-                              <option value="PA">PA</option>
-                              <option value="RI">RI</option>
-                              <option value="SC">SC</option>
-                              <option value="SD">SD</option>
-                              <option value="TN">TN</option>
-                              <option value="TX">TX</option>
-                              <option value="UT">UT</option>
-                              <option value="VT">VT</option>
-                              <option value="VA">VA</option>
-                              <option value="WA">WA</option>
-                              <option value="WV">WV</option>
-                              <option value="WI">WI</option>
-                              <option value="WY">WY</option>
-                            </select>
-                          </div>
-
-                  <input
-                    type="text"
-                    placeholder="ZIP Code"
-                    value={shippingAddress.postalCode}
-                    onChange={(e) => setShippingAddress({ ...shippingAddress, postalCode: e.target.value.replace(/\D/g, '').slice(0, 5) })}
-                    className="input text-sm w-full"
-                    maxLength={5}
-                  />
+                <div
+                  className="mt-3 h-1.5 overflow-hidden rounded-full bg-white/70"
+                  role="progressbar"
+                  aria-label="Progress to free shipping"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={Math.round(shippingProgress)}
+                >
+                  <div className="h-full rounded-full bg-[var(--home-clay)] transition-[width] duration-500" style={{ width: `${shippingProgress}%` }} />
                 </div>
               </div>
 
-              {/* Guest Checkout - Encourage Account Creation */}
-              {!user && (
-                <div className="mb-6 p-4 bg-gradient-to-r from-amber-50 to-orange-50 rounded-lg border border-amber-200">
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-amber-500 text-white flex items-center justify-center font-bold text-sm">
-                      💡
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-amber-900 mb-1">
-                        Create an account to earn points!
-                      </p>
-                      <p className="text-xs text-amber-800 mb-2">
-                        You&apos;ll earn <strong>{Math.round(getTotalPrice())} points</strong> (${((Math.round(getTotalPrice()) * 5) / 100).toFixed(2)} value) on this ${getTotalPrice().toFixed(2)} order.
-                      </p>
+              <ul className="mt-6 divide-y divide-[var(--home-line)] border-y border-[var(--home-line)]">
+                {items.map((item) => {
+                  const details = [item.sizeName, item.wickTypeName, item.scentName].filter(Boolean).join(" · ");
+                  const atMax = item.quantity >= item.maxStock;
+                  return (
+                    <li key={`${item.productSlug}-${item.variantId || ""}`} className="flex gap-4 py-5 sm:gap-5">
                       <Link
-                        href="/account/register"
-                        className="inline-flex items-center text-xs font-medium text-amber-900 hover:text-amber-950 underline"
+                        href={`/shop/${item.productSlug}`}
+                        className="relative h-24 w-20 shrink-0 overflow-hidden rounded-xl bg-[#efe3d6] sm:h-28 sm:w-24"
+                        tabIndex={-1}
+                        aria-hidden
                       >
-                        Sign up now →
+                        {item.productImage && <Image src={item.productImage} alt="" fill className="object-cover" sizes="96px" />}
                       </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
 
-              <button
-                onClick={handleCheckout}
-                disabled={isCheckingOut || !shippingAddress.name || !shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.postalCode}
-                className="w-full inline-flex items-center justify-center rounded-xl px-6 py-3 text-sm font-medium mb-3
-                [background:linear-gradient(180deg,_color-mix(in_oklab,_var(--color-accent)_95%,_white_5%),_color-mix(in_oklab,_var(--color-accent)_80%,_black_6%))]
-                text-[var(--color-accent-ink)] shadow-[0_2px_10px_rgba(20,16,12,0.1)]
-                hover:shadow-[0_4px_16px_rgba(20,16,12,0.15)] hover:-translate-y-[1px] transition
-                disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isCheckingOut
-                  ? "Processing..."
-                  : (!shippingAddress.name || !shippingAddress.line1 || !shippingAddress.city || !shippingAddress.state || !shippingAddress.postalCode)
-                    ? "Enter Shipping Address"
-                    : "Checkout"
-                }
-              </button>
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <Link
+                              href={`/shop/${item.productSlug}`}
+                              className={`${serif.className} block text-[17px] leading-snug text-[var(--home-ink)] hover:text-[var(--home-clay)]`}
+                            >
+                              {item.productName}
+                            </Link>
+                            {details && <p className="mt-1 text-sm text-[var(--home-muted)]">{details}</p>}
+                          </div>
+                          <p className="shrink-0 font-semibold tabular-nums text-[var(--home-ink)]">{money(item.price * item.quantity)}</p>
+                        </div>
 
-              <Link
-                href="/shop"
-                className="block text-center text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition"
-              >
-                Continue Shopping
+                        <div className="mt-auto flex items-center justify-between gap-3 pt-3">
+                          <div className="flex items-center gap-2">
+                            <div className="inline-flex items-center rounded-full bg-white ring-1 ring-[var(--home-line)]">
+                              <button
+                                type="button"
+                                onClick={() => handleQuantityChange(item.productSlug, item.quantity - 1, item.variantId, item.quantity, item.productName)}
+                                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--home-ink)] hover:bg-[var(--home-sand)]"
+                                aria-label={`Decrease quantity of ${item.productName}`}
+                              >
+                                <Minus className="h-4 w-4" aria-hidden />
+                              </button>
+                              <span className="w-8 text-center text-sm font-semibold tabular-nums text-[var(--home-ink)]" aria-live="polite">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => updateQuantity(item.productSlug, item.quantity + 1, item.variantId)}
+                                disabled={atMax}
+                                className="flex h-10 w-10 items-center justify-center rounded-full text-[var(--home-ink)] hover:bg-[var(--home-sand)] disabled:cursor-not-allowed disabled:opacity-35"
+                                aria-label={`Increase quantity of ${item.productName}`}
+                              >
+                                <Plus className="h-4 w-4" aria-hidden />
+                              </button>
+                            </div>
+                            {atMax && <span className="text-xs text-[var(--home-muted)]">That&apos;s all we have</span>}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveItem(item.productSlug, item.variantId, item.productName)}
+                            className="flex h-10 items-center gap-1.5 rounded-full px-3 text-sm text-[var(--home-muted)] hover:bg-[#f7e1da] hover:text-[#9b3b2a]"
+                            aria-label={`Remove ${item.productName}`}
+                          >
+                            <Trash2 className="h-4 w-4" aria-hidden />
+                            <span className="hidden sm:inline">Remove</span>
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+
+              <Link href="/shop" className="mt-6 inline-flex min-h-11 items-center text-sm font-semibold text-[var(--home-clay)] hover:underline">
+                ← Keep shopping
               </Link>
             </div>
-          </div>
-        </div>
 
-        {/* Confirmation Modal */}
-        {itemToRemove && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-              className="absolute inset-0 bg-black/40"
-              onClick={() => setItemToRemove(null)}
-            />
+            {/* Summary + checkout */}
+            <div className="lg:sticky lg:top-28 lg:col-span-5">
+              <div className="rounded-3xl bg-white p-6 shadow-[0_1px_2px_rgb(63_42_33/0.06),0_20px_44px_-28px_rgb(63_42_33/0.4)] ring-1 ring-[var(--home-line)] sm:p-7">
+                <h2 className={`${serif.className} text-2xl text-[var(--home-ink)]`}>Order summary</h2>
 
-            {/* Modal */}
-            <div className="relative card max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold mb-2">Remove Item?</h3>
-              <p className="text-sm text-[var(--color-muted)] mb-6">
-                Are you sure you want to remove <strong>{itemToRemove.name}</strong> from your cart?
-              </p>
+                {/* Promo code */}
+                <div className="mt-5 border-b border-[var(--home-line)] pb-5">
+                  {activePromo ? (
+                    <div className="flex items-start justify-between gap-3 rounded-2xl bg-[var(--home-sage)] px-4 py-3">
+                      <div className="min-w-0">
+                        <p className="flex flex-wrap items-center gap-2 text-sm text-[var(--home-ink)]">
+                          <Tag className="h-4 w-4 text-[#4d6a3a]" aria-hidden />
+                          <span className="font-mono font-semibold">{activePromo.code}</span>
+                          {!appliedPromotion && <span className="rounded-full bg-white/70 px-2 py-0.5 text-xs">Applied automatically</span>}
+                        </p>
+                        <p className="mt-1 text-xs text-[var(--home-muted)]">{activePromo.name}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={removePromotion}
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-[var(--home-ink)] hover:bg-white/60"
+                        aria-label={`Remove promo code ${activePromo.code}`}
+                      >
+                        <X className="h-4 w-4" aria-hidden />
+                      </button>
+                    </div>
+                  ) : (
+                    <form
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        applyPromoCode();
+                      }}
+                    >
+                      <label htmlFor="promo-code" className={labelClass}>
+                        Promo code
+                      </label>
+                      <div className="flex gap-2">
+                        <input
+                          id="promo-code"
+                          type="text"
+                          className={`${fieldClass} flex-1 uppercase placeholder:normal-case`}
+                          placeholder="Enter code"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                          disabled={applyingPromo}
+                          autoComplete="off"
+                          spellCheck={false}
+                          aria-invalid={!!promoError}
+                          aria-describedby={promoError ? "promo-error" : undefined}
+                        />
+                        <button type="submit" disabled={!promoCode.trim() || applyingPromo} className={btnQuiet}>
+                          {applyingPromo ? "Checking…" : "Apply"}
+                        </button>
+                      </div>
+                      {promoError && (
+                        <p id="promo-error" role="alert" className="mt-2 text-sm text-[#9b3b2a]">
+                          {promoError}
+                        </p>
+                      )}
+                    </form>
+                  )}
+                </div>
 
-              <div className="flex gap-3 justify-end">
-                <button
-                  onClick={() => setItemToRemove(null)}
-                  className="px-4 py-2 rounded-lg text-sm font-medium border border-[var(--color-line)] hover:bg-neutral-50 transition"
-                >
-                  Cancel
+                {/* Totals */}
+                <dl className="space-y-2.5 border-b border-[var(--home-line)] py-5 text-[15px]">
+                  <div className="flex justify-between">
+                    <dt className="text-[var(--home-muted)]">Subtotal</dt>
+                    <dd className="tabular-nums text-[var(--home-ink)]">{money(subtotal)}</dd>
+                  </div>
+                  {activePromo && (
+                    <div className="flex justify-between text-[#4d6a3a]">
+                      <dt>Promotion{activePromo.discountPercent ? ` (${activePromo.discountPercent}% off)` : ""}</dt>
+                      <dd className="tabular-nums">−{money(getDiscountAmount())}</dd>
+                    </div>
+                  )}
+                  {pointsToRedeem > 0 && (
+                    <div className="flex justify-between text-[#4d6a3a]">
+                      <dt>Points</dt>
+                      <dd className="tabular-nums">−{money(discountAmount)}</dd>
+                    </div>
+                  )}
+                  <div className="flex justify-between">
+                    <dt className="text-[var(--home-muted)]">Shipping</dt>
+                    <dd className="text-[var(--home-ink)]">{hasFreeShipping ? "Free" : "Calculated at checkout"}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-[var(--home-muted)]">Tax</dt>
+                    <dd className="text-[var(--home-ink)]">Calculated at checkout</dd>
+                  </div>
+                </dl>
+
+                {/* Points */}
+                {user && user.points > 0 && (
+                  <div className="border-b border-[var(--home-line)] py-5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <label htmlFor="points" className="text-sm font-semibold text-[var(--home-ink)]">
+                        Use your points
+                      </label>
+                      <span className="text-xs text-[var(--home-muted)]">
+                        {user.points.toLocaleString()} available ({money((user.points * 5) / 100)})
+                      </span>
+                    </div>
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        id="points"
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        max={maxPointsForDiscount}
+                        value={pointsToRedeem}
+                        onChange={(e) => setPointsToRedeem(Math.max(0, Math.min(Math.floor(Number(e.target.value) || 0), maxPointsForDiscount)))}
+                        className={`${fieldClass} flex-1`}
+                        aria-describedby="points-hint"
+                      />
+                      <button type="button" onClick={() => setPointsToRedeem(maxPointsForDiscount)} className={btnQuiet}>
+                        Use max
+                      </button>
+                    </div>
+                    <p id="points-hint" className="mt-2 text-xs text-[var(--home-muted)]">
+                      100 points = $5.00 off
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex items-baseline justify-between py-5">
+                  <span className="font-semibold text-[var(--home-ink)]">Total</span>
+                  <span className="text-2xl font-semibold tabular-nums text-[var(--home-ink)]">{money(total)}</span>
+                </div>
+
+                {/* Shipping address */}
+                <div className="border-t border-[var(--home-line)] pt-5">
+                <fieldset className="m-0 min-w-0 border-0 p-0">
+                  <legend className={`${serif.className} text-lg text-[var(--home-ink)]`}>Shipping address</legend>
+                  <p className="mt-1 text-sm text-[var(--home-muted)]">You&apos;ll choose delivery or free local pickup on the next step.</p>
+
+                  <div className="mt-4 space-y-3">
+                    <div>
+                      <label htmlFor="ship-name" className="mb-1 block text-sm text-[var(--home-ink)]">
+                        Full name
+                      </label>
+                      <input id="ship-name" type="text" autoComplete="shipping name" value={shippingAddress.name} onChange={(e) => setAddress("name", e.target.value)} className={fieldClass} />
+                    </div>
+                    <div>
+                      <label htmlFor="ship-line1" className="mb-1 block text-sm text-[var(--home-ink)]">
+                        Street address
+                      </label>
+                      <input id="ship-line1" type="text" autoComplete="shipping address-line1" value={shippingAddress.line1} onChange={(e) => setAddress("line1", e.target.value)} className={fieldClass} />
+                    </div>
+                    <div>
+                      <label htmlFor="ship-line2" className="mb-1 block text-sm text-[var(--home-ink)]">
+                        Apt, suite, etc. <span className="text-[var(--home-muted)]">(optional)</span>
+                      </label>
+                      <input id="ship-line2" type="text" autoComplete="shipping address-line2" value={shippingAddress.line2} onChange={(e) => setAddress("line2", e.target.value)} className={fieldClass} />
+                    </div>
+                    <div className="grid grid-cols-[1fr_6.5rem] gap-3">
+                      <div>
+                        <label htmlFor="ship-city" className="mb-1 block text-sm text-[var(--home-ink)]">
+                          City
+                        </label>
+                        <input id="ship-city" type="text" autoComplete="shipping address-level2" value={shippingAddress.city} onChange={(e) => setAddress("city", e.target.value)} className={fieldClass} />
+                      </div>
+                      <div>
+                        <label htmlFor="ship-state" className="mb-1 block text-sm text-[var(--home-ink)]">
+                          State
+                        </label>
+                        <select id="ship-state" autoComplete="shipping address-level1" value={shippingAddress.state} onChange={(e) => setAddress("state", e.target.value)} className={fieldClass}>
+                          <option value="">—</option>
+                          {US_STATES.map((st) => (
+                            <option key={st} value={st}>
+                              {st}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="max-w-[10rem]">
+                      <label htmlFor="ship-zip" className="mb-1 block text-sm text-[var(--home-ink)]">
+                        ZIP code
+                      </label>
+                      <input
+                        id="ship-zip"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="shipping postal-code"
+                        value={shippingAddress.postalCode}
+                        onChange={(e) => setAddress("postalCode", e.target.value.replace(/\D/g, "").slice(0, 5))}
+                        className={fieldClass}
+                        maxLength={5}
+                      />
+                    </div>
+                  </div>
+                </fieldset>
+                </div>
+
+                {!user && (
+                  <p className="mt-5 rounded-2xl bg-[var(--home-sand)] px-4 py-3 text-sm text-[var(--home-ink)]">
+                    <span className="font-semibold">Earn {Math.round(subtotal)} points</span> ({money((Math.round(subtotal) * 5) / 100)} toward a future order) with a free account.{" "}
+                    <Link href="/account/register" className="font-semibold text-[var(--home-clay)] underline underline-offset-2">
+                      Create one
+                    </Link>
+                  </p>
+                )}
+
+                <button type="button" onClick={handleCheckout} disabled={isCheckingOut || !addressComplete} className={`${btnPrimary} mt-6 w-full`}>
+                  <Lock className="h-4 w-4" aria-hidden />
+                  {isCheckingOut ? "Taking you to checkout…" : addressComplete ? "Continue to checkout" : "Enter your address to continue"}
                 </button>
-                <button
-                  onClick={confirmRemove}
-                  className="px-4 py-2 rounded-lg text-sm font-medium bg-rose-600 text-white hover:bg-rose-700 transition"
-                >
-                  Remove
-                </button>
+                <p className="mt-3 text-center text-xs text-[var(--home-muted)]">Secure checkout with Stripe</p>
               </div>
             </div>
           </div>
-        )}
         </div>
       </section>
-    </>
+
+      {itemToRemove && (
+        <ShopDialog
+          title="Remove this item?"
+          onClose={() => setItemToRemove(null)}
+          footer={
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button type="button" className={btnQuiet} onClick={() => setItemToRemove(null)}>
+                Keep it
+              </button>
+              <button type="button" className={`${btnPrimary} !bg-[#9b3b2a] hover:!bg-[#7f2f21]`} onClick={confirmRemove}>
+                Remove
+              </button>
+            </div>
+          }
+        >
+          <p className="text-[15px] text-[var(--home-muted)]">
+            <span className="font-semibold text-[var(--home-ink)]">{itemToRemove.name}</span> will be taken out of your cart.
+          </p>
+        </ShopDialog>
+      )}
+
+      {confirmClear && (
+        <ShopDialog
+          title="Clear your cart?"
+          onClose={() => setConfirmClear(false)}
+          footer={
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button type="button" className={btnQuiet} onClick={() => setConfirmClear(false)}>
+                Keep items
+              </button>
+              <button
+                type="button"
+                className={`${btnPrimary} !bg-[#9b3b2a] hover:!bg-[#7f2f21]`}
+                onClick={() => {
+                  clearCart();
+                  setConfirmClear(false);
+                }}
+              >
+                Clear cart
+              </button>
+            </div>
+          }
+        >
+          <p className="text-[15px] text-[var(--home-muted)]">
+            {itemCount === 1 ? "The item in your cart will be removed." : `All ${itemCount} items will be removed.`}
+          </p>
+        </ShopDialog>
+      )}
+    </div>
   );
 }
+
+const US_STATES = [
+  "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY",
+  "LA", "ME", "MD", "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ", "NM", "NY", "NC", "ND",
+  "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+];
