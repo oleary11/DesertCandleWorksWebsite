@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 type Product = {
   slug: string;
@@ -129,18 +127,15 @@ export default function TestOrderPage() {
   const pointsToEarn = Math.floor(totalCents / 100);
 
   return (
-    <div className="mx-auto max-w-4xl p-4 sm:p-6">
+    <div className="a-ui mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
-        <Link href="/admin" className="btn">
-          <ArrowLeft className="w-4 h-4" />
-        </Link>
-        <h1 className="text-2xl font-semibold">Create Test Order</h1>
+        <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Create Test Order</h1>
       </div>
 
       {/* Info Banner */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-900">
+      <div className="a-panel mb-6">
+        <p className="text-sm text-[var(--a-ink)]">
           <strong>Test the order and points system</strong> without going through Stripe checkout.
           This will create a real order and decrement stock. Enable &quot;Guest Checkout&quot; to test orders without user accounts,
           or leave it unchecked to award points to authenticated users.
@@ -159,50 +154,50 @@ export default function TestOrderPage() {
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-6">
         {/* User Email & Options */}
-        <div className="card p-6 space-y-4">
+        <div className="a-card p-6 space-y-4">
           <label className="block">
-            <div className="text-sm font-medium mb-2">Customer Email</div>
+            <div className="a-label">Customer Email</div>
             <input
               type="email"
-              className="input w-full"
+              className="a-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="user@example.com"
               required
             />
-            <p className="text-xs text-[var(--color-muted)] mt-1">
+            <p className="a-help">
               {isGuest
                 ? "Email for guest checkout - no account required"
                 : "The user must have an account with this email address"}
             </p>
           </label>
 
-          <div className="space-y-3 pt-3 border-t border-[var(--color-line)]">
-            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-neutral-50">
+          <div className="space-y-3 pt-3 border-t border-[var(--a-line)]">
+            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-[var(--a-canvas)]">
               <input
                 type="checkbox"
                 checked={isGuest}
                 onChange={(e) => setIsGuest(e.target.checked)}
-                className="w-5 h-5 rounded border-[var(--color-line)] flex-shrink-0"
+                className="w-5 h-5 rounded border-[var(--a-line)] flex-shrink-0"
               />
               <div>
                 <div className="text-sm font-medium">Guest Checkout</div>
-                <div className="text-xs text-[var(--color-muted)]">
+                <div className="text-xs text-[var(--a-muted)]">
                   Create order without user account (no points awarded)
                 </div>
               </div>
             </label>
 
-            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-neutral-50">
+            <label className="flex items-center gap-3 cursor-pointer py-2 -mx-2 px-2 rounded hover:bg-[var(--a-canvas)]">
               <input
                 type="checkbox"
                 checked={sendEmail}
                 onChange={(e) => setSendEmail(e.target.checked)}
-                className="w-5 h-5 rounded border-[var(--color-line)] flex-shrink-0"
+                className="w-5 h-5 rounded border-[var(--a-line)] flex-shrink-0"
               />
               <div>
                 <div className="text-sm font-medium">Send Invoice Email</div>
-                <div className="text-xs text-[var(--color-muted)]">
+                <div className="text-xs text-[var(--a-muted)]">
                   Send order confirmation email with invoice link
                 </div>
               </div>
@@ -211,16 +206,16 @@ export default function TestOrderPage() {
         </div>
 
         {/* Order Items */}
-        <div className="card p-6">
+        <div className="a-card p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-lg font-semibold">Order Items</h2>
-            <button type="button" className="btn btn-primary" onClick={addItem}>
+            <button type="button" className="a-btn a-btn-primary" onClick={addItem}>
               + Add Item
             </button>
           </div>
 
           {items.length === 0 ? (
-            <p className="text-[var(--color-muted)] text-center py-8">No items yet. Click &quot;Add Item&quot; to get started.</p>
+            <p className="text-[var(--a-muted)] text-center py-8">No items yet. Click &quot;Add Item&quot; to get started.</p>
           ) : (
             <div className="space-y-4">
               {items.map((item, index) => {
@@ -228,13 +223,13 @@ export default function TestOrderPage() {
                 const hasVariants = product?.variantConfig?.wickTypes && product.variantConfig.wickTypes.length > 0;
 
                 return (
-                  <div key={index} className="p-4 border border-[var(--color-line)] rounded-lg">
+                  <div key={index} className="p-4 border border-[var(--a-line)] rounded-lg">
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       {/* Product */}
                       <label className="block">
-                        <div className="text-xs font-medium mb-1">Product</div>
+                        <div className="a-label">Product</div>
                         <select
-                          className="input w-full text-sm"
+                          className="a-select"
                           value={item.productSlug}
                           onChange={(e) => updateItem(index, "productSlug", e.target.value)}
                           required
@@ -251,9 +246,9 @@ export default function TestOrderPage() {
                       {/* Variant (if applicable) */}
                       {hasVariants && (
                         <label className="block">
-                          <div className="text-xs font-medium mb-1">Variant</div>
+                          <div className="a-label">Variant</div>
                           <select
-                            className="input w-full text-sm"
+                            className="a-select"
                             value={item.variantId}
                             onChange={(e) => updateItem(index, "variantId", e.target.value)}
                           >
@@ -269,10 +264,10 @@ export default function TestOrderPage() {
 
                       {/* Quantity */}
                       <label className="block">
-                        <div className="text-xs font-medium mb-1">Quantity</div>
+                        <div className="a-label">Quantity</div>
                         <input
                           type="number"
-                          className="input w-full text-sm"
+                          className="a-input"
                           value={item.quantity}
                           onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value))}
                           min="1"
@@ -282,11 +277,11 @@ export default function TestOrderPage() {
 
                       {/* Price */}
                       <label className="block">
-                        <div className="text-xs font-medium mb-1">Unit Price ($)</div>
+                        <div className="a-label">Unit Price ($)</div>
                         <input
                           type="text"
                           inputMode="decimal"
-                          className="input w-full text-sm"
+                          className="a-input"
                           value={itemPriceStrs[index] ?? (item.priceCents === 0 ? "" : (item.priceCents / 100).toString())}
                           onChange={(e) => {
                             const val = e.target.value;
@@ -328,7 +323,7 @@ export default function TestOrderPage() {
                       </div>
                       <button
                         type="button"
-                        className="btn text-sm text-red-600"
+                        className="a-btn text-sm text-red-600"
                         onClick={() => removeItem(index)}
                       >
                         Remove
@@ -343,7 +338,7 @@ export default function TestOrderPage() {
 
         {/* Order Summary */}
         {items.length > 0 && (
-          <div className="card p-6 bg-neutral-50">
+          <div className="a-card p-6 bg-[var(--a-canvas)]">
             <h3 className="font-semibold mb-3">Order Summary</h3>
             <div className="space-y-2 text-sm">
               <div className="flex justify-between">
@@ -354,7 +349,7 @@ export default function TestOrderPage() {
                 <span>Total Amount:</span>
                 <span className="font-semibold">${(totalCents / 100).toFixed(2)}</span>
               </div>
-              <div className={`flex justify-between ${isGuest ? 'text-[var(--color-muted)]' : 'text-green-700'}`}>
+              <div className={`flex justify-between ${isGuest ? 'text-[var(--a-muted)]' : 'text-green-700'}`}>
                 <span>Points to Award:</span>
                 <span className="font-semibold">
                   {isGuest ? '0 points (guest)' : `${pointsToEarn} points`}
@@ -366,12 +361,9 @@ export default function TestOrderPage() {
 
         {/* Submit */}
         <div className="flex justify-end gap-3">
-          <Link href="/admin" className="btn">
-            Cancel
-          </Link>
           <button
             type="submit"
-            className="btn btn-primary"
+            className="a-btn a-btn-primary"
             disabled={loading || items.length === 0}
           >
             {loading ? "Creating..." : "Create Test Order"}

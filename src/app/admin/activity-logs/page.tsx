@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, Activity, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { Activity, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 interface AdminLogEntry {
@@ -74,7 +73,7 @@ export default function ActivityLogsPage() {
     if (log.action.includes("delete")) {
       return <AlertCircle className="w-5 h-5 text-amber-600" />;
     }
-    return <Activity className="w-5 h-5 text-blue-600" />;
+    return <Activity className="w-5 h-5" />;
   }
 
   function formatDetailsHumanReadable(action: string, details?: Record<string, unknown>): string {
@@ -220,46 +219,39 @@ export default function ActivityLogsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-7xl mx-auto">
+    <div className="a-ui mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
-          <h1 className="text-3xl font-bold">Activity Logs</h1>
-          <p className="text-[var(--color-muted)] mt-1">
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Activity Logs</h1>
+          <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
             Track all admin actions, logins, and changes
           </p>
         </div>
 
         {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
+          <div className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4">
             <p className="text-rose-600 text-sm">{error}</p>
           </div>
         )}
 
         {/* Filters */}
-        <div className="card p-4 bg-white mb-6">
+        <div className="a-card p-5 mb-6">
           <div className="flex flex-col sm:flex-row gap-4">
             <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Filter by Action</label>
+              <label className="a-label">Filter by Action</label>
               <select
-                className="input w-full"
+                className="a-select"
                 value={filterAction}
                 onChange={(e) => setFilterAction(e.target.value)}
               >
@@ -272,9 +264,9 @@ export default function ActivityLogsPage() {
               </select>
             </div>
             <div className="flex-1">
-              <label className="block text-sm font-medium mb-1">Filter by Status</label>
+              <label className="a-label">Filter by Status</label>
               <select
-                className="input w-full"
+                className="a-select"
                 value={filterSuccess}
                 onChange={(e) => setFilterSuccess(e.target.value)}
               >
@@ -286,7 +278,7 @@ export default function ActivityLogsPage() {
             <div className="flex items-end">
               <button
                 onClick={loadLogs}
-                className="btn w-full sm:w-auto"
+                className="a-btn w-full sm:w-auto"
               >
                 Refresh
               </button>
@@ -295,22 +287,22 @@ export default function ActivityLogsPage() {
         </div>
 
         {/* Logs Table */}
-        <div className="card p-6 bg-white">
+        <div className="a-card p-5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">
+            <h2 className="text-base font-semibold text-[var(--a-ink)]">
               Recent Activity ({filteredLogs.length})
             </h2>
           </div>
 
           {filteredLogs.length === 0 ? (
-            <p className="text-[var(--color-muted)] text-center py-8">
+            <p className="text-[var(--a-muted)] text-center py-8">
               No activity logs found
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-line)]">
+                  <tr className="border-b border-[var(--a-line)]">
                     <th className="text-left py-3 text-sm font-semibold">Status</th>
                     <th className="text-left py-3 text-sm font-semibold">Action</th>
                     <th className="text-left py-3 text-sm font-semibold">Admin</th>
@@ -321,7 +313,7 @@ export default function ActivityLogsPage() {
                 </thead>
                 <tbody>
                   {filteredLogs.map((log, idx) => (
-                    <tr key={idx} className="border-b border-[var(--color-line)] hover:bg-neutral-50">
+                    <tr key={idx} className="border-b border-[var(--a-line)] hover:bg-[var(--a-canvas)]">
                       <td className="py-3">
                         <div className="flex items-center gap-2">
                           {getActionIcon(log)}
@@ -334,32 +326,32 @@ export default function ActivityLogsPage() {
                         <span className="text-sm">{log.adminEmail || "—"}</span>
                       </td>
                       <td className="py-3">
-                        <span className="text-sm text-[var(--color-muted)]">
+                        <span className="text-sm text-[var(--a-muted)]">
                           {formatDate(log.timestamp)}
                         </span>
                       </td>
                       <td className="py-3">
-                        <span className="text-sm font-mono text-[var(--color-muted)]">
+                        <span className="text-sm font-mono text-[var(--a-muted)]">
                           {log.ip}
                         </span>
                       </td>
                       <td className="py-3">
                         {log.details && Object.keys(log.details).length > 0 ? (
                           <div className="text-sm">
-                            <p className="text-[var(--color-ink)]">
+                            <p className="text-[var(--a-ink)]">
                               {formatDetailsHumanReadable(log.action, log.details)}
                             </p>
                             <details className="mt-1">
-                              <summary className="cursor-pointer text-xs text-[var(--color-muted)] hover:text-[var(--color-accent)]">
+                              <summary className="cursor-pointer text-xs text-[var(--a-muted)] hover:text-[var(--color-accent)]">
                                 View raw data
                               </summary>
-                              <pre className="mt-2 text-xs bg-neutral-100 p-2 rounded overflow-x-auto">
+                              <pre className="mt-2 text-xs bg-[var(--a-tint)] p-2 rounded overflow-x-auto">
                                 {JSON.stringify(log.details, null, 2)}
                               </pre>
                             </details>
                           </div>
                         ) : (
-                          <span className="text-sm text-[var(--color-muted)]">—</span>
+                          <span className="text-sm text-[var(--a-muted)]">—</span>
                         )}
                       </td>
                     </tr>

@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, UserPlus, Shield, User, Clock, CheckCircle, XCircle } from "lucide-react";
+import { UserPlus, Shield, User, Clock, CheckCircle, XCircle } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 interface AdminUserPublic {
@@ -60,37 +59,30 @@ export default function AdminUsersPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-5xl mx-auto">
+    <div className="a-ui mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Admin Users</h1>
-              <p className="text-[var(--color-muted)] mt-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Admin Users</h1>
+              <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
                 Manage admin accounts and permissions
               </p>
             </div>
             <button
               onClick={() => setShowCreateModal(true)}
-              className="btn btn-primary inline-flex items-center gap-2"
+              className="a-btn a-btn-primary"
             >
               <UserPlus className="w-4 h-4" />
               Create Admin User
@@ -99,21 +91,21 @@ export default function AdminUsersPage() {
         </div>
 
         {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
+          <div className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4">
             <p className="text-rose-600 text-sm">{error}</p>
           </div>
         )}
 
         {/* Users List */}
-        <div className="card p-6 bg-white">
-          <h2 className="text-xl font-bold mb-4">Admin Accounts ({users.length})</h2>
+        <div className="a-card p-5">
+          <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Admin Accounts ({users.length})</h2>
 
           {users.length === 0 ? (
             <div className="text-center py-12">
-              <p className="text-[var(--color-muted)] mb-4">No admin users yet</p>
+              <p className="text-[var(--a-muted)] mb-4">No admin users yet</p>
               <button
                 onClick={() => setShowCreateModal(true)}
-                className="btn btn-primary inline-flex items-center gap-2"
+                className="a-btn a-btn-primary"
               >
                 <UserPlus className="w-4 h-4" />
                 Create First Admin
@@ -124,7 +116,7 @@ export default function AdminUsersPage() {
               {users.map((user) => (
                 <div
                   key={user.id}
-                  className="card p-4 bg-neutral-50 border border-[var(--color-line)] hover:shadow-sm transition-shadow"
+                  className="a-card p-4 bg-[var(--a-canvas)] border border-[var(--a-line)] hover:shadow-sm transition-shadow"
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -132,7 +124,7 @@ export default function AdminUsersPage() {
                         {user.role === "super_admin" ? (
                           <Shield className="w-4 h-4 text-purple-600" />
                         ) : (
-                          <User className="w-4 h-4 text-blue-600" />
+                          <User className="w-4 h-4" />
                         )}
                         <span className="font-semibold">{user.email}</span>
                         {!user.active && (
@@ -146,7 +138,7 @@ export default function AdminUsersPage() {
                           </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-4 text-xs text-[var(--color-muted)]">
+                      <div className="flex items-center gap-4 text-xs text-[var(--a-muted)]">
                         <div className="flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           Created: {formatDate(user.createdAt)}
@@ -239,19 +231,19 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
 
   if (twoFactorSetup) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="a-ui fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
         <div className="absolute inset-0" onClick={onClose} />
-        <div className="relative w-full max-w-2xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+        <div className="a-card relative flex max-h-[92dvh] w-full max-w-2xl flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]">
           {/* Header */}
-          <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+          <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
             <div>
-              <h2 className="text-xl font-semibold text-[var(--color-ink)]">Admin User Created Successfully</h2>
-              <p className="text-sm text-[var(--color-muted)] mt-0.5">
+              <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">Admin User Created Successfully</h2>
+              <p className="text-sm text-[var(--a-muted)] mt-0.5">
                 Save these 2FA details securely
               </p>
             </div>
             <button
-              className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+              className="a-icon-btn -mr-2 shrink-0"
               onClick={onClose}
             >
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -265,7 +257,7 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
 
           <div className="space-y-6">
             <div className="bg-blue-50 border border-blue-200 p-4 rounded">
-              <p className="text-sm text-blue-900">
+              <p className="text-sm text-[var(--a-ink)]">
                 <strong>Important:</strong> Provide this information to the new admin. They will need to scan
                 the QR code with their authenticator app (Google Authenticator, Authy, etc.) and save the
                 backup codes in a secure location.
@@ -278,14 +270,14 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
               <img
                 src={twoFactorSetup.qrCodeUrl}
                 alt="2FA QR Code"
-                className="mx-auto border border-[var(--color-line)] p-2 rounded"
+                className="mx-auto border border-[var(--a-line)] p-2 rounded"
               />
             </div>
 
             {/* Secret (manual entry) */}
             <div>
               <h3 className="font-semibold mb-2">Or enter this secret manually:</h3>
-              <code className="block p-3 bg-neutral-100 rounded text-sm font-mono break-all">
+              <code className="block p-3 bg-[var(--a-tint)] rounded text-sm font-mono break-all">
                 {twoFactorSetup.secret}
               </code>
             </div>
@@ -300,7 +292,7 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {twoFactorSetup.backupCodes.map((code, i) => (
-                  <code key={i} className="block p-2 bg-neutral-100 rounded text-sm font-mono text-center">
+                  <code key={i} className="block p-2 bg-[var(--a-tint)] rounded text-sm font-mono text-center">
                     {code}
                   </code>
                 ))}
@@ -310,8 +302,8 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-end px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-            <button onClick={onClose} className="btn btn-primary">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
+            <button onClick={onClose} className="a-btn a-btn-primary">
               Close
             </button>
           </div>
@@ -321,19 +313,19 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+    <div className="a-ui fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center sm:p-4">
       <div className="absolute inset-0" onClick={onClose} />
-      <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
+      <div className="a-card relative flex max-h-[92dvh] w-full max-w-4xl flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
+        <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
           <div>
-            <h2 className="text-xl font-semibold text-[var(--color-ink)]">Create Admin User</h2>
-            <p className="text-sm text-[var(--color-muted)] mt-0.5">
+            <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">Create Admin User</h2>
+            <p className="text-sm text-[var(--a-muted)] mt-0.5">
               Add a new administrator with 2FA enabled
             </p>
           </div>
           <button
-            className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
+            className="a-icon-btn -mr-2 shrink-0"
             onClick={onClose}
           >
             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,10 +338,10 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6 py-6 space-y-4 min-h-0">
           <label className="block">
-            <div className="text-sm font-medium mb-1">Email</div>
+            <div className="a-label">Email</div>
             <input
               type="email"
-              className="input w-full"
+              className="a-input"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -357,31 +349,31 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
           </label>
 
           <label className="block">
-            <div className="text-sm font-medium mb-1">Password</div>
+            <div className="a-label">Password</div>
             <input
               type="password"
-              className="input w-full"
+              className="a-input"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
               minLength={12}
             />
-            <p className="text-xs text-[var(--color-muted)] mt-1">
+            <p className="a-help">
               Minimum 12 characters
             </p>
           </label>
 
           <label className="block">
-            <div className="text-sm font-medium mb-1">Role</div>
+            <div className="a-label">Role</div>
             <select
-              className="input w-full"
+              className="a-select"
               value={role}
               onChange={(e) => setRole(e.target.value as "admin" | "super_admin")}
             >
               <option value="admin">Admin</option>
               <option value="super_admin">Super Admin</option>
             </select>
-            <p className="text-xs text-[var(--color-muted)] mt-1">
+            <p className="a-help">
               Super admins can manage other admin users
             </p>
           </label>
@@ -394,18 +386,18 @@ function CreateAdminModal({ onClose, onSuccess, twoFactorSetup }: CreateAdminMod
           </div>
 
           {/* Footer */}
-          <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
+          <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
             <button
               type="button"
               onClick={onClose}
-              className="btn hover:bg-white transition-colors"
+              className="a-btn"
               disabled={submitting}
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="btn btn-primary"
+              className="a-btn a-btn-primary"
               disabled={submitting}
             >
               {submitting ? "Creating..." : "Create Admin"}

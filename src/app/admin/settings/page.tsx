@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
-import { ArrowLeft, Save } from "lucide-react";
+import { Save } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 const DEFAULT_DESCRIPTION_TEMPLATE = "Hand-poured candle in an upcycled {{BOTTLE_NAME}} bottle.\n\ncoco apricot creme™ candle wax\n\nApprox. - {{WAX_OZ}} oz wax";
@@ -86,29 +85,22 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading settings…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading settings…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-4xl mx-auto">
+    <div className="a-ui mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-1 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Dashboard
-          </Link>
-          <h1 className="text-3xl font-bold">Settings</h1>
-          <p className="text-[var(--color-muted)] mt-1">
+          <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Settings</h1>
+          <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
             Configure product templates and default values
           </p>
         </div>
@@ -127,60 +119,60 @@ export default function SettingsPage() {
         )}
 
         {/* Default Product Description Template */}
-        <div className="card p-6 bg-white mb-6">
+        <div className="a-card p-5 mb-6">
           <h2 className="text-xl font-semibold mb-2">Default Product Description</h2>
-          <p className="text-sm text-[var(--color-muted)] mb-4">
+          <p className="text-sm text-[var(--a-muted)] mb-4">
             This template is used when auto-generating product descriptions in the calculator.
             Use the following placeholders:
           </p>
 
-          <div className="bg-neutral-50 rounded-lg p-4 mb-4">
+          <div className="bg-[var(--a-canvas)] rounded-lg p-4 mb-4">
             <h3 className="text-sm font-medium mb-2">Available Placeholders</h3>
             <ul className="space-y-2 text-sm">
               <li className="flex items-start gap-2">
                 <code className="bg-white px-2 py-0.5 rounded border text-xs font-mono">{"{{BOTTLE_NAME}}"}</code>
-                <span className="text-[var(--color-muted)]">Product name with &quot;Candle&quot; removed (e.g., &quot;Tito&apos;s&quot;)</span>
+                <span className="text-[var(--a-muted)]">Product name with &quot;Candle&quot; removed (e.g., &quot;Tito&apos;s&quot;)</span>
               </li>
               <li className="flex items-start gap-2">
                 <code className="bg-white px-2 py-0.5 rounded border text-xs font-mono">{"{{WAX_OZ}}"}</code>
-                <span className="text-[var(--color-muted)]">Calculated wax ounces based on container capacity</span>
+                <span className="text-[var(--a-muted)]">Calculated wax ounces based on container capacity</span>
               </li>
             </ul>
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">Description Template</label>
+            <label className="a-label">Description Template</label>
             <textarea
-              className="w-full p-3 border border-[var(--color-line)] rounded-lg font-mono text-sm resize-y min-h-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full p-3 border border-[var(--a-line)] rounded-lg font-mono text-sm resize-y min-h-[200px] focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               value={descriptionTemplate}
               onChange={(e) => setDescriptionTemplate(e.target.value)}
               placeholder="Enter description template..."
             />
-            <p className="text-xs text-[var(--color-muted)] mt-2">
+            <p className="text-xs text-[var(--a-muted)] mt-2">
               Line breaks in the template will be preserved in the generated description.
             </p>
           </div>
 
           {/* Preview */}
           <div className="mb-6">
-            <label className="block text-sm font-medium mb-2">Preview</label>
-            <div className="p-4 bg-neutral-50 rounded-lg border border-[var(--color-line)] text-sm whitespace-pre-wrap">
+            <label className="a-label">Preview</label>
+            <div className="p-4 bg-[var(--a-canvas)] rounded-lg border border-[var(--a-line)] text-sm whitespace-pre-wrap">
               {descriptionTemplate
                 .replace(/\{\{BOTTLE_NAME\}\}/g, "Tito's")
                 .replace(/\{\{WAX_OZ\}\}/g, "12")}
             </div>
           </div>
 
-          <div className="flex items-center justify-between pt-4 border-t border-[var(--color-line)]">
+          <div className="flex items-center justify-between pt-4 border-t border-[var(--a-line)]">
             <button
-              className="text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] transition-colors"
+              className="text-sm text-[var(--a-muted)] hover:text-[var(--a-ink)] transition-colors"
               onClick={() => setDescriptionTemplate(DEFAULT_DESCRIPTION_TEMPLATE)}
               disabled={descriptionTemplate === DEFAULT_DESCRIPTION_TEMPLATE}
             >
               Reset to default
             </button>
             <button
-              className="btn bg-blue-600 text-white hover:bg-blue-700 inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="a-btn a-btn-primary inline-flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={saveTemplate}
               disabled={!hasChanges || saving}
             >

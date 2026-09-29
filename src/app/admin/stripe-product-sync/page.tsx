@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, RefreshCw, Image, CheckCircle, AlertCircle, UploadCloud, Search } from "lucide-react";
+import { RefreshCw, Image, CheckCircle, AlertCircle, UploadCloud, Search } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type ProductSyncStatus = {
@@ -189,23 +188,23 @@ export default function StripeProductSyncPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading products…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading products…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
+    <div className="a-ui">
       {/* Loading overlay — shown during single sync or bulk push */}
       {(pushing || syncing !== null) && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-          <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4 min-w-[220px]">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30 backdrop-blur-[2px]">
+          <div className="a-card flex min-w-[220px] flex-col items-center gap-4 px-10 py-8 shadow-2xl">
             <CandleSpinner />
-            <p className="text-sm font-medium text-[var(--color-ink)]">
+            <p className="text-sm font-medium text-[var(--a-ink)]">
               {pushProgress
                 ? `Pushing photos… ${pushProgress.current} / ${pushProgress.total}`
                 : "Updating photo…"}
@@ -213,20 +212,13 @@ export default function StripeProductSyncPage() {
           </div>
         </div>
       )}
-      <div className="max-w-7xl mx-auto">
+      <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">Stripe Product Image Sync</h1>
-              <p className="text-[var(--color-muted)] mt-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Stripe Product Image Sync</h1>
+              <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
                 Sync product images from your database to Stripe
               </p>
             </div>
@@ -234,7 +226,7 @@ export default function StripeProductSyncPage() {
               <button
                 onClick={loadProducts}
                 disabled={loading}
-                className="btn bg-[var(--color-ink)] text-white hover:bg-opacity-90"
+                className="a-btn bg-[var(--color-ink)] text-white hover:bg-opacity-90"
               >
                 <RefreshCw className="w-4 h-4 mr-2" />
                 Refresh
@@ -243,7 +235,7 @@ export default function StripeProductSyncPage() {
                 <button
                   onClick={syncAllProducts}
                   disabled={syncingAll}
-                  className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                  className="a-btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                 >
                   {syncingAll ? "Syncing..." : `Sync All (${productsNeedingSync.length})`}
                 </button>
@@ -254,48 +246,48 @@ export default function StripeProductSyncPage() {
 
         {/* Messages */}
         {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
+          <div className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4">
             <p className="text-rose-600 text-sm">{error}</p>
           </div>
         )}
         {success && (
-          <div className="card p-4 bg-green-50 border border-green-200 mb-6">
+          <div className="a-card p-4 bg-green-50 border border-green-200 mb-6">
             <p className="text-green-600 text-sm">{success}</p>
           </div>
         )}
 
         {/* Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="card p-6 bg-white">
+          <div className="a-card p-5">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-                <Image className="w-5 h-5 text-blue-600" />
+              <div className="a-icon-tile">
+                <Image className="w-5 h-5" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
+              <span className="text-sm font-medium text-[var(--a-muted)]">
                 Total Products
               </span>
             </div>
             <p className="text-3xl font-bold">{products.length}</p>
           </div>
 
-          <div className="card p-6 bg-white">
+          <div className="a-card p-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center">
                 <CheckCircle className="w-5 h-5 text-green-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
+              <span className="text-sm font-medium text-[var(--a-muted)]">
                 With Images
               </span>
             </div>
             <p className="text-3xl font-bold">{productsWithImages.length}</p>
           </div>
 
-          <div className="card p-6 bg-white">
+          <div className="a-card p-5">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-10 h-10 rounded-lg bg-amber-100 flex items-center justify-center">
                 <AlertCircle className="w-5 h-5 text-amber-600" />
               </div>
-              <span className="text-sm font-medium text-[var(--color-muted)]">
+              <span className="text-sm font-medium text-[var(--a-muted)]">
                 Need Sync
               </span>
             </div>
@@ -305,17 +297,17 @@ export default function StripeProductSyncPage() {
 
         {/* Products Needing Sync */}
         {productsNeedingSync.length > 0 && (
-          <div className="card p-6 bg-white mb-8">
+          <div className="a-card p-5 mb-8">
             <h2 className="text-xl font-bold mb-4 text-amber-600">
               Products Missing Images in Stripe
             </h2>
-            <p className="text-sm text-[var(--color-muted)] mb-4">
+            <p className="text-sm text-[var(--a-muted)] mb-4">
               These products have images in your database but not in Stripe. Click &quot;Sync&quot; to upload them.
             </p>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-line)]">
+                  <tr className="border-b border-[var(--a-line)]">
                     <th className="text-left py-3 text-sm font-semibold">Product</th>
                     <th className="text-left py-3 text-sm font-semibold">Image Preview</th>
                     <th className="text-left py-3 text-sm font-semibold">Stripe Price ID</th>
@@ -324,7 +316,7 @@ export default function StripeProductSyncPage() {
                 </thead>
                 <tbody>
                   {productsNeedingSync.map((product) => (
-                    <tr key={product.slug} className="border-b border-[var(--color-line)]">
+                    <tr key={product.slug} className="border-b border-[var(--a-line)]">
                       <td className="py-3 text-sm font-medium">{product.name}</td>
                       <td className="py-3">
                         {product.imageUrl ? (
@@ -339,14 +331,14 @@ export default function StripeProductSyncPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 text-sm font-mono text-[var(--color-muted)]">
+                      <td className="py-3 text-sm font-mono text-[var(--a-muted)]">
                         {product.stripePriceId ? product.stripePriceId.slice(0, 20) + '...' : 'None'}
                       </td>
                       <td className="py-3 text-right">
                         <button
                           onClick={() => syncProduct(product.slug)}
                           disabled={syncing === product.slug || !product.stripePriceId}
-                          className="btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                          className="a-btn bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
                         >
                           {syncing === product.slug ? "Syncing..." : product.stripePriceId ? "Sync" : "No Stripe Price"}
                         </button>
@@ -360,12 +352,12 @@ export default function StripeProductSyncPage() {
         )}
 
         {/* All Products */}
-        <div className="card p-6 bg-white">
+        <div className="a-card p-5">
           <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold">All Products</h2>
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">All Products</h2>
               {selectedSlugs.length > 0 && (
-                <span className="text-sm text-[var(--color-muted)]">{selectedSlugs.length} selected</span>
+                <span className="text-sm text-[var(--a-muted)]">{selectedSlugs.length} selected</span>
               )}
             </div>
             <div className="flex items-center gap-3 flex-wrap">
@@ -373,37 +365,37 @@ export default function StripeProductSyncPage() {
                 <button
                   onClick={pushSelectedPhotos}
                   disabled={pushing}
-                  className="btn btn-primary flex items-center gap-1.5"
+                  className="a-btn btn-primary flex items-center gap-1.5"
                 >
                   <UploadCloud className="w-4 h-4" />
                   Push Selected ({selectedSlugs.length})
                 </button>
               )}
               <div className="relative w-64">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--color-muted)] pointer-events-none" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--a-muted)] pointer-events-none" />
                 <input
                   type="text"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   placeholder="Search products…"
-                  className="input !pl-9 text-sm"
+                  className="a-input !pl-9"
                 />
               </div>
             </div>
           </div>
           {products.length === 0 ? (
-            <p className="text-center text-[var(--color-muted)] py-8">
+            <p className="text-center text-[var(--a-muted)] py-8">
               No products found
             </p>
           ) : filteredProducts.length === 0 ? (
-            <p className="text-center text-[var(--color-muted)] py-8">
+            <p className="text-center text-[var(--a-muted)] py-8">
               No products match &ldquo;{search}&rdquo;
             </p>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-[var(--color-line)]">
+                  <tr className="border-b border-[var(--a-line)]">
                     <th className="w-10 py-3 pl-1 pr-3">
                       <input
                         type="checkbox"
@@ -431,7 +423,7 @@ export default function StripeProductSyncPage() {
                   {filteredProducts.map((product) => (
                     <tr
                       key={product.slug}
-                      className={`border-b border-[var(--color-line)] transition-colors ${selectedSlugs.includes(product.slug) ? "bg-blue-50" : ""}`}
+                      className={`border-b border-[var(--a-line)] transition-colors ${selectedSlugs.includes(product.slug) ? "bg-[var(--a-tint)]" : ""}`}
                     >
                       <td className="py-3 pl-1 pr-3">
                         <input
@@ -451,10 +443,10 @@ export default function StripeProductSyncPage() {
                           <img
                             src={product.imageUrl}
                             alt={product.name}
-                            className="w-16 h-16 object-cover rounded border border-[var(--color-line)]"
+                            className="w-16 h-16 object-cover rounded border border-[var(--a-line)]"
                           />
                         ) : (
-                          <div className="w-16 h-16 bg-gray-100 rounded border border-[var(--color-line)] flex items-center justify-center">
+                          <div className="w-16 h-16 bg-gray-100 rounded border border-[var(--a-line)] flex items-center justify-center">
                             <Image className="w-6 h-6 text-gray-400" />
                           </div>
                         )}
@@ -465,7 +457,7 @@ export default function StripeProductSyncPage() {
                           <img
                             src={product.stripeImageUrl}
                             alt={`${product.name} on Stripe`}
-                            className="w-16 h-16 object-cover rounded border border-[var(--color-line)]"
+                            className="w-16 h-16 object-cover rounded border border-[var(--a-line)]"
                           />
                         ) : (
                           <div className="w-16 h-16 bg-gray-100 rounded border border-dashed border-gray-300 flex items-center justify-center" title="No image in Stripe">
@@ -473,7 +465,7 @@ export default function StripeProductSyncPage() {
                           </div>
                         )}
                       </td>
-                      <td className="py-3 text-sm font-mono text-[var(--color-muted)]">
+                      <td className="py-3 text-sm font-mono text-[var(--a-muted)]">
                         {product.stripePriceId ? product.stripePriceId.slice(0, 20) + '...' : 'None'}
                       </td>
                       <td className="py-3 text-center">
@@ -494,7 +486,7 @@ export default function StripeProductSyncPage() {
                           onClick={() => forceSyncProduct(product.slug)}
                           disabled={syncing === product.slug || !product.stripePriceId || !product.imageUrl}
                           title={!product.imageUrl ? "No image on file" : !product.stripePriceId ? "No Stripe Price ID" : "Force upload current photo to Stripe"}
-                          className="btn flex items-center gap-1.5 ml-auto disabled:opacity-40"
+                          className="a-btn flex items-center gap-1.5 ml-auto disabled:opacity-40"
                         >
                           <UploadCloud className="w-4 h-4" />
                           {syncing === product.slug ? "Updating…" : "Update Photo"}

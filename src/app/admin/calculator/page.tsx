@@ -990,8 +990,8 @@ export default function CalculatorPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
           <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
@@ -2056,7 +2056,7 @@ export default function CalculatorPage() {
                         }
                       }}
                     >
-                      <svg className="a-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Create Stripe Product
@@ -2124,7 +2124,7 @@ export default function CalculatorPage() {
                         }
                       }}
                     >
-                      <svg className="a-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
                       </svg>
                       Create Square Product

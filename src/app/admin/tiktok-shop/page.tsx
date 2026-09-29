@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { ArrowLeft, RefreshCw, Link2, Unlink, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { RefreshCw, Link2, Unlink, CheckCircle, XCircle, AlertCircle } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 interface SyncResult {
@@ -119,31 +118,24 @@ export default function TikTokShopPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-4xl mx-auto">
+    <div className="a-ui mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-8">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-ink)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-3xl font-bold">TikTok Shop Integration</h1>
-              <p className="text-[var(--color-muted)] mt-1">
+              <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">TikTok Shop Integration</h1>
+              <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
                 Sync your products to TikTok Shop
               </p>
             </div>
@@ -154,7 +146,7 @@ export default function TikTokShopPage() {
                   Connected
                 </div>
               ) : (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-200 text-neutral-600 rounded-lg text-sm">
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-neutral-200 text-[var(--a-muted)] rounded-lg text-sm">
                   <XCircle className="w-4 h-4" />
                   Not Connected
                 </div>
@@ -164,7 +156,7 @@ export default function TikTokShopPage() {
         </div>
 
         {error && (
-          <div className="card p-4 bg-rose-50 border border-rose-200 mb-6">
+          <div className="mb-6 rounded-lg border border-red-200 bg-[#fdecea] p-4">
             <div className="flex items-start gap-2">
               <AlertCircle className="w-5 h-5 text-rose-600 flex-shrink-0 mt-0.5" />
               <p className="text-rose-600 text-sm">{error}</p>
@@ -173,17 +165,17 @@ export default function TikTokShopPage() {
         )}
 
         {/* Connection Card */}
-        <div className="card p-6 bg-white mb-6">
-          <h2 className="text-xl font-bold mb-4">Connection Status</h2>
+        <div className="a-card p-5 mb-6">
+          <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Connection Status</h2>
 
           {!connected ? (
             <div className="space-y-4">
-              <p className="text-[var(--color-muted)]">
+              <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
                 Connect your TikTok Shop account to sync products automatically.
               </p>
               <button
                 onClick={handleConnect}
-                className="btn btn-primary inline-flex items-center gap-2"
+                className="a-btn a-btn-primary"
               >
                 <Link2 className="w-4 h-4" />
                 Connect TikTok Shop
@@ -191,21 +183,21 @@ export default function TikTokShopPage() {
             </div>
           ) : (
             <div className="space-y-4">
-              <p className="text-[var(--color-muted)]">
+              <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
                 Your TikTok Shop account is connected and ready to sync products.
               </p>
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSync}
                   disabled={syncing}
-                  className="btn btn-primary inline-flex items-center gap-2"
+                  className="a-btn a-btn-primary"
                 >
                   <RefreshCw className={`w-4 h-4 ${syncing ? "animate-spin" : ""}`} />
                   {syncing ? "Syncing..." : "Sync All Products"}
                 </button>
                 <button
                   onClick={handleDisconnect}
-                  className="btn btn-ghost inline-flex items-center gap-2"
+                  className="a-btn btn-ghost inline-flex items-center gap-2"
                 >
                   <Unlink className="w-4 h-4" />
                   Disconnect
@@ -217,13 +209,13 @@ export default function TikTokShopPage() {
 
         {/* Sync Results */}
         {syncResult && (
-          <div className="card p-6 bg-white mb-6">
-            <h2 className="text-xl font-bold mb-4">Sync Results</h2>
+          <div className="a-card p-5 mb-6">
+            <h2 className="mb-4 text-base font-semibold text-[var(--a-ink)]">Sync Results</h2>
 
             <div className="grid grid-cols-3 gap-4 mb-6">
-              <div className="p-4 bg-blue-50 rounded-lg">
-                <div className="text-2xl font-bold text-blue-600">{syncResult.total}</div>
-                <div className="text-sm text-blue-900">Total Products</div>
+              <div className="a-panel">
+                <div className="text-2xl font-semibold tabular-nums text-[var(--a-ink)]">{syncResult.total}</div>
+                <div className="text-sm text-[var(--a-ink)]">Total Products</div>
               </div>
               <div className="p-4 bg-green-50 rounded-lg">
                 <div className="text-2xl font-bold text-green-600">{syncResult.success}</div>
@@ -252,9 +244,9 @@ export default function TikTokShopPage() {
         )}
 
         {/* Info Card */}
-        <div className="card p-6 bg-blue-50 border border-blue-200">
-          <h3 className="font-semibold mb-2 text-blue-900">How it works</h3>
-          <ul className="space-y-2 text-sm text-blue-800">
+        <div className="a-panel mt-6">
+          <h3 className="font-semibold mb-2 text-[var(--a-ink)]">How it works</h3>
+          <ul className="space-y-2 text-sm text-[var(--a-ink)]">
             <li>• Click &quot;Connect TikTok Shop&quot; to authorize access to your TikTok Shop account</li>
             <li>• Once connected, click &quot;Sync All Products&quot; to upload your entire catalog</li>
             <li>• Products will be created in TikTok Shop with your current pricing and inventory</li>

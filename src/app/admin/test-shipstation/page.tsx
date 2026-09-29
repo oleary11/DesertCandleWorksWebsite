@@ -1,8 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Truck, ArrowLeft, Check, AlertCircle } from "lucide-react";
-import Link from "next/link";
+import { Truck, Check, AlertCircle } from "lucide-react";
 import CandleSpinner from "@/components/CandleSpinner";
 
 type Product = {
@@ -232,34 +231,27 @@ export default function TestShipStationPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-neutral-50">
-        <div className="bg-white rounded-2xl shadow-2xl px-10 py-8 flex flex-col items-center gap-4">
+      <div className="a-ui flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-ink)]">Loading…</p>
+          <p className="text-sm font-medium text-[var(--a-ink)]">Loading…</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen p-6 bg-neutral-50">
-      <div className="max-w-4xl mx-auto">
+    <div className="a-ui mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <div>
         {/* Header */}
         <div className="mb-6">
-          <Link
-            href="/admin"
-            className="inline-flex items-center gap-2 text-sm text-[var(--color-muted)] hover:text-[var(--color-text)] mb-4"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Admin
-          </Link>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center">
-              <Truck className="w-6 h-6 text-blue-600" />
+            <div className="a-icon-tile">
+              <Truck className="w-6 h-6" />
             </div>
-            <h1 className="text-3xl font-bold">Test ShipStation Order Creation</h1>
+            <h1 className="text-3xl font-semibold tracking-tight text-[var(--a-ink)] sm:text-[2.125rem]">Test ShipStation Order Creation</h1>
           </div>
-          <p className="text-[var(--color-muted)]">
+          <p className="mt-1.5 text-[15px] text-[var(--a-muted)]">
             Create a test order in ShipStation to verify API integration. Orders will be marked with &quot;TEST ORDER&quot; in internal notes.
           </p>
         </div>
@@ -300,16 +292,16 @@ export default function TestShipStationPage() {
         {/* Form */}
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Shipping Address */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-lg font-semibold mb-4">Shipping Address</h2>
+          <div className="a-card p-5">
+            <h2 className="mb-3 text-base font-semibold text-[var(--a-ink)]">Shipping Address</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   Name <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.name}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, name: e.target.value })
@@ -318,10 +310,10 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Phone</label>
+                <label className="a-label">Phone</label>
                 <input
                   type="tel"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.phone}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, phone: e.target.value })
@@ -329,12 +321,12 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   Street Address <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.line1}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, line1: e.target.value })
@@ -343,12 +335,12 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   Apartment, Suite, etc.
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.line2}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, line2: e.target.value })
@@ -356,12 +348,12 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   City <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.city}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, city: e.target.value })
@@ -370,12 +362,12 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   State <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.state}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, state: e.target.value })
@@ -386,12 +378,12 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">
+                <label className="a-label">
                   ZIP Code <span className="text-rose-600">*</span>
                 </label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.postalCode}
                   onChange={(e) =>
                     setShippingAddress({
@@ -403,10 +395,10 @@ export default function TestShipStationPage() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Country</label>
+                <label className="a-label">Country</label>
                 <input
                   type="text"
-                  className="input w-full"
+                  className="a-input"
                   value={shippingAddress.country}
                   onChange={(e) =>
                     setShippingAddress({ ...shippingAddress, country: e.target.value })
@@ -418,13 +410,13 @@ export default function TestShipStationPage() {
           </div>
 
           {/* Customer Info */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-lg font-semibold mb-4">Customer Information</h2>
+          <div className="a-card p-5">
+            <h2 className="mb-3 text-base font-semibold text-[var(--a-ink)]">Customer Information</h2>
             <div>
-              <label className="block text-sm font-medium mb-1">Email</label>
+              <label className="a-label">Email</label>
               <input
                 type="email"
-                className="input w-full"
+                className="a-input"
                 value={customerEmail}
                 onChange={(e) => setCustomerEmail(e.target.value)}
               />
@@ -432,8 +424,8 @@ export default function TestShipStationPage() {
           </div>
 
           {/* Products */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-lg font-semibold mb-4">Products</h2>
+          <div className="a-card p-5">
+            <h2 className="mb-3 text-base font-semibold text-[var(--a-ink)]">Products</h2>
             <div className="space-y-4">
               {testProducts.map((product, index) => {
                 const selectedProduct = products.find(p => p.sku === product.sku);
@@ -441,14 +433,14 @@ export default function TestShipStationPage() {
                   Object.keys(selectedProduct.variantConfig.variantData).length > 0;
 
                 return (
-                  <div key={index} className="border border-[var(--color-line)] rounded-lg p-4 space-y-3">
+                  <div key={index} className="border border-[var(--a-line)] rounded-lg p-4 space-y-3">
                     <div className="flex gap-4 items-end">
                       <div className="flex-1">
-                        <label className="block text-sm font-medium mb-1">
+                        <label className="a-label">
                           Product <span className="text-rose-600">*</span>
                         </label>
                         <select
-                          className="input w-full"
+                          className="a-select"
                           value={product.sku}
                           onChange={(e) => {
                             const updated = [...testProducts];
@@ -472,11 +464,11 @@ export default function TestShipStationPage() {
                         </select>
                       </div>
                       <div className="w-24">
-                        <label className="block text-sm font-medium mb-1">Quantity</label>
+                        <label className="a-label">Quantity</label>
                         <input
                           type="number"
                           min="1"
-                          className="input w-full"
+                          className="a-input"
                           value={product.quantity}
                           onChange={(e) =>
                             handleProductChange(index, "quantity", parseInt(e.target.value))
@@ -484,12 +476,12 @@ export default function TestShipStationPage() {
                         />
                       </div>
                       <div className="w-32">
-                        <label className="block text-sm font-medium mb-1">Unit Price</label>
+                        <label className="a-label">Unit Price</label>
                         <input
                           type="number"
                           step="0.01"
                           min="0"
-                          className="input w-full"
+                          className="a-input"
                           value={product.unitPrice}
                           onChange={(e) =>
                             handleProductChange(index, "unitPrice", parseFloat(e.target.value))
@@ -500,7 +492,7 @@ export default function TestShipStationPage() {
                         <button
                           type="button"
                           onClick={() => handleRemoveProduct(index)}
-                          className="btn btn-ghost text-rose-600 px-3"
+                          className="a-btn btn-ghost text-rose-600 px-3"
                         >
                           Remove
                         </button>
@@ -509,13 +501,13 @@ export default function TestShipStationPage() {
 
                     {/* Variant Selection */}
                     {hasVariants && (
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[var(--color-line)]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 border-t border-[var(--a-line)]">
                         <div>
-                          <label className="block text-sm font-medium mb-1">
-                            Variant <span className="text-xs text-[var(--color-muted)]">(optional)</span>
+                          <label className="a-label">
+                            Variant <span className="text-xs text-[var(--a-muted)]">(optional)</span>
                           </label>
                           <select
-                            className="input w-full text-sm"
+                            className="a-select"
                             value={product.variantId || ""}
                             onChange={(e) => {
                               const variantId = e.target.value;
@@ -617,19 +609,19 @@ export default function TestShipStationPage() {
                             }
                           </select>
                         </div>
-                        <div className="flex flex-wrap gap-2 text-sm text-[var(--color-muted)]">
+                        <div className="flex flex-wrap gap-2 text-sm text-[var(--a-muted)]">
                           {product.sizeName && (
-                            <span className="badge bg-green-100 text-green-700">
+                            <span className="a-badge bg-green-100 text-green-700">
                               Size: {product.sizeName}
                             </span>
                           )}
                           {product.wickType && (
-                            <span className="badge bg-blue-100 text-blue-700">
+                            <span className="a-badge a-badge-blue">
                               Wick: {product.wickType}
                             </span>
                           )}
                           {product.scent && (
-                            <span className="badge bg-purple-100 text-purple-700">
+                            <span className="a-badge bg-purple-100 text-purple-700">
                               Scent: {product.scent}
                             </span>
                           )}
@@ -642,7 +634,7 @@ export default function TestShipStationPage() {
               <button
                 type="button"
                 onClick={handleAddProduct}
-                className="btn btn-ghost text-sm"
+                className="a-btn btn-ghost text-sm"
               >
                 + Add Another Product
               </button>
@@ -650,14 +642,14 @@ export default function TestShipStationPage() {
           </div>
 
           {/* Shipping Rates */}
-          <div className="card p-6 bg-white">
-            <h2 className="text-lg font-semibold mb-4">Shipping Method</h2>
+          <div className="a-card p-5">
+            <h2 className="mb-3 text-base font-semibold text-[var(--a-ink)]">Shipping Method</h2>
 
             <button
               type="button"
               onClick={handleGetRates}
               disabled={loadingRates || !shippingAddress.name || testProducts.length === 0 || !testProducts[0].sku}
-              className="btn bg-blue-600 text-white hover:bg-blue-700 mb-4"
+              className="a-btn a-btn-primary mb-4"
             >
               {loadingRates ? "Validating & Getting Rates..." : "Get Shipping Rates"}
             </button>
@@ -671,7 +663,7 @@ export default function TestShipStationPage() {
 
             {shippingRates.length > 0 && (
               <div className="space-y-2">
-                <p className="text-sm text-[var(--color-muted)] mb-3">
+                <p className="text-sm text-[var(--a-muted)] mb-3">
                   Select a shipping method:
                 </p>
                 {shippingRates.map((rate, index) => (
@@ -679,8 +671,8 @@ export default function TestShipStationPage() {
                     key={index}
                     className={`block p-4 border rounded-lg cursor-pointer transition-colors ${
                       selectedRate === rate
-                        ? "border-blue-600 bg-blue-50"
-                        : "border-[var(--color-line)] hover:border-blue-300"
+                        ? "border-[var(--a-ink)] bg-[var(--a-tint)]"
+                        : "border-[var(--a-line)] hover:border-[var(--a-line-strong)]"
                     }`}
                   >
                     <div className="flex items-start gap-3">
@@ -695,7 +687,7 @@ export default function TestShipStationPage() {
                         <div className="flex justify-between items-start">
                           <div>
                             <p className="font-medium">{rate.serviceName}</p>
-                            <p className="text-sm text-[var(--color-muted)]">
+                            <p className="text-sm text-[var(--a-muted)]">
                               {rate.carrierCode} - {rate.serviceCode}
                             </p>
                           </div>
@@ -704,7 +696,7 @@ export default function TestShipStationPage() {
                           </p>
                         </div>
                         {rate.deliveryDays && (
-                          <p className="text-sm text-[var(--color-muted)] mt-1">
+                          <p className="text-sm text-[var(--a-muted)] mt-1">
                             {rate.deliveryDays} business day{rate.deliveryDays !== 1 ? 's' : ''}
                           </p>
                         )}
@@ -718,10 +710,7 @@ export default function TestShipStationPage() {
 
           {/* Submit */}
           <div className="flex justify-end gap-3">
-            <Link href="/admin" className="btn btn-ghost">
-              Cancel
-            </Link>
-            <button type="submit" className="btn" disabled={submitting || !selectedRate}>
+            <button type="submit" className="a-btn" disabled={submitting || !selectedRate}>
               {submitting ? "Creating Order..." : "Create Test Order"}
             </button>
           </div>
