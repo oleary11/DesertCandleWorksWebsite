@@ -41,11 +41,9 @@ Halfway through, introduce a subtle 10 to 15 degree camera orbit around the prod
 Warm golden-hour lighting, shallow depth of field, soft shadows, realistic reflections, ${style} aesthetic, high-end commercial product photography, smooth stabilized camera motion, natural motion only, no dramatic transformations.
 Vertical 9:16 social media reel, photorealistic, polished commercial quality.${notes ? `\n${notes}` : ""}
 The candle is NOT lit and stays unlit for the entire video. Do not add, ignite or show any flame, fire, spark, ember, glow or smoke on the wick or anywhere else. The wick stays exactly as it is in the image. The wax is solid and never moves, ripples or flows.
-Important: do not alter, rewrite, distort, animate, or replace any text or branding on the product. Do not change the candle shape, label design, colors, background objects, or composition. No new objects, no hands, no people, no floating particles, no text overlays, no morphing or warping.`;
+Important: do not alter, rewrite, distort, animate, or replace any text or branding on the product. Do not change the candle shape, label design, colors, background objects, or composition. No new objects, no hands, no people, no floating particles, no text overlays, no morphing or warping.
+Avoid: flame, fire, lit candle, burning wick, smoke, sparks, glow on the wick, liquid, pouring, sloshing, ripples in the wax, drink, morphing, warping, changing text, distorted label, extra objects, blur.`;
 }
-
-const REEL_NEGATIVE =
-  "flame, fire, lit candle, burning wick, candle light, smoke, sparks, glow on wick, liquid, pouring, sloshing, ripples in wax, drink, beverage, morphing, warping, changing text, distorted label, extra objects, hands, people, blur, low quality";
 
 const SCENE_PROMPT = (setting: string) =>
   `Use the candle from the reference photo exactly as it is: same bottle shape, glass color, label artwork, every letter of the label text, wax and wick. Keep every color on the candle identical to the reference, including the exact color of the label printing, even where it is faint or low contrast. Do not redraw, restyle, re-letter, recolor, resize or change the candle in any way. Only change what is around it.
@@ -87,12 +85,12 @@ export async function createReel(productSlug: string, photoUrls: string[], motio
       ? await writeReelCopy(product, motionNotes, await recentHooks())
       : { hook: product.name, caption: "", hashtags: [] };
 
+    // The turbo endpoint only takes image_url, prompt, duration (and multi_prompt): no negative
+    // prompt or audio switch, so the things to avoid are spelled out inside the prompt itself.
     const job = await submitFalJob(post.id, "clip-0", FAL_MODELS.video, {
-      start_image_url: startFrame,
+      image_url: startFrame,
       prompt,
-      negative_prompt: REEL_NEGATIVE,
       duration: String(REEL_SECONDS),
-      generate_audio: false,
     });
 
     const plan: ReelPlan = { sourceImages: [source], startFrames: [startFrame], prompts: [prompt], motionNotes };
