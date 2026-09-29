@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
-import { ArrowLeft, Star, Eye, EyeOff, Trash2, Edit2, Plus } from "lucide-react";
+import { Pencil, Plus, Star, Trash2 } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, Modal, Switch } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -164,277 +165,193 @@ export default function AdminReviewsPage() {
 
   function renderStars(rating: number) {
     return (
-      <div className="flex gap-0.5">
+      <span className="flex gap-0.5" role="img" aria-label={`${rating} out of 5 stars`}>
         {[1, 2, 3, 4, 5].map((star) => (
           <Star
             key={star}
-            className={`w-4 h-4 ${
-              star <= rating ? "fill-amber-400 text-amber-400" : "text-neutral-300"
-            }`}
+            className={`h-3.5 w-3.5 ${star <= rating ? "fill-amber-400 text-amber-400" : "text-[var(--a-line-strong)]"}`}
+            aria-hidden
           />
         ))}
-      </div>
+      </span>
     );
   }
 
+  function closeEditor() {
+    setEditing(null);
+    setError(null);
+  }
+
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="btn">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-semibold">Google Reviews</h1>
-            <p className="text-sm text-[var(--color-muted)]">
-              {reviews.length} total · {visibleCount} visible on site
-            </p>
-          </div>
-        </div>
-        <button className="btn btn-primary" onClick={handleNew}>
-          <Plus className="w-4 h-4 mr-1" />
-          Add Review
-        </button>
-      </div>
+    <div className="a-ui mx-auto max-w-4xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Google reviews"
+        description={`${reviews.length} reviews · ${visibleCount} shown on product pages. Copy them in from your Google Business profile.`}
+        actions={
+          <button className="a-btn a-btn-primary" onClick={handleNew}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Add review
+          </button>
+        }
+      />
 
-      {/* Info Banner */}
-      <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-        <p className="text-sm text-blue-900">
-          <strong>Import your Google reviews manually.</strong> Copy reviews from your Google
-          Business profile and add them here. Toggle visibility to control which reviews appear on
-          product pages. Reviews marked as visible will be randomly displayed across all product
-          pages.
-        </p>
-      </div>
-
-      {/* Content */}
       {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
+        <div className="flex flex-col items-center justify-center gap-4 py-16">
           <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-muted)]">Loading reviews…</p>
+          <p className="text-sm font-medium text-[var(--a-muted)]">Loading reviews…</p>
         </div>
       ) : reviews.length === 0 ? (
-        <div className="card p-8 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-100 flex items-center justify-center">
-            <Star className="w-8 h-8 text-amber-500" />
-          </div>
-          <p className="text-[var(--color-muted)] mb-4">
-            No reviews yet. Import your first Google review to get started.
-          </p>
-          <button className="btn btn-primary" onClick={handleNew}>
-            <Plus className="w-4 h-4 mr-1" />
-            Add First Review
+        <div className="a-card flex flex-col items-center px-6 py-16 text-center">
+          <span className="a-icon-tile mb-3 h-11 w-11">
+            <Star className="h-5 w-5" strokeWidth={1.75} aria-hidden />
+          </span>
+          <p className="font-medium text-[var(--a-ink)]">No reviews yet</p>
+          <p className="mt-1 text-sm text-[var(--a-muted)]">Add your first Google review to show it on product pages.</p>
+          <button className="a-btn a-btn-primary mt-4" onClick={handleNew}>
+            <Plus className="h-4 w-4" aria-hidden />
+            Add review
           </button>
         </div>
       ) : (
-        <div className="space-y-3">
+        <ul className="a-card divide-y divide-[var(--a-line)]">
           {sortedReviews.map((review) => (
-            <div
-              key={review.id}
-              className={`card p-4 ${!review.visible ? "opacity-60" : ""}`}
-            >
-              <div className="flex items-start gap-4">
-                {/* Avatar */}
-                <div className="w-10 h-10 rounded-full bg-[var(--color-accent)] text-white flex items-center justify-center font-semibold text-sm flex-shrink-0">
-                  {review.reviewerInitials || review.reviewerName.substring(0, 2).toUpperCase()}
-                </div>
+            <li key={review.id} className="flex items-start gap-3 px-4 py-4 sm:gap-4 sm:px-5">
+              <span
+                className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                  review.visible ? "bg-[var(--a-ink)] text-white" : "bg-[var(--a-tint)] text-[var(--a-muted)]"
+                }`}
+                aria-hidden
+              >
+                {review.reviewerInitials || review.reviewerName.substring(0, 2).toUpperCase()}
+              </span>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-medium">{review.reviewerName}</span>
-                    {renderStars(review.rating)}
-                    {!review.visible && (
-                      <span className="badge bg-neutral-200 text-neutral-600 text-xs">Hidden</span>
-                    )}
-                  </div>
-                  <p className="text-sm text-[var(--color-muted)] mb-2">
-                    {new Date(review.date).toLocaleDateString("en-US", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                  </p>
-                  <p className="text-sm line-clamp-3">{review.text}</p>
+              <div className={`min-w-0 flex-1 ${review.visible ? "" : "opacity-60"}`}>
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="font-medium text-[var(--a-ink)]">{review.reviewerName}</span>
+                  {renderStars(review.rating)}
+                  <span className="text-xs text-[var(--a-muted)]">
+                    {new Date(review.date).toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric" })}
+                  </span>
+                  {!review.visible && <Badge>Hidden</Badge>}
                 </div>
-
-                {/* Actions */}
-                <div className="flex gap-2 flex-shrink-0">
-                  <button
-                    className="btn p-2"
-                    onClick={() => handleToggleVisibility(review.id)}
-                    title={review.visible ? "Hide from site" : "Show on site"}
-                  >
-                    {review.visible ? (
-                      <Eye className="w-4 h-4 text-green-600" />
-                    ) : (
-                      <EyeOff className="w-4 h-4 text-neutral-400" />
-                    )}
-                  </button>
-                  <button
-                    className="btn p-2"
-                    onClick={() => handleEdit(review)}
-                    title="Edit review"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    className="btn p-2"
-                    onClick={() => handleDelete(review.id, review.reviewerName)}
-                    title="Delete review"
-                  >
-                    <Trash2 className="w-4 h-4 text-rose-500" />
-                  </button>
-                </div>
+                <p className="mt-1 line-clamp-3 text-sm text-[var(--a-ink)]">{review.text}</p>
               </div>
-            </div>
+
+              <div className="flex shrink-0 items-center gap-1">
+                <Switch
+                  checked={review.visible}
+                  onChange={() => handleToggleVisibility(review.id)}
+                  label={review.visible ? `Hide ${review.reviewerName}'s review from the site` : `Show ${review.reviewerName}'s review on the site`}
+                />
+                <button className="a-icon-btn ml-1" onClick={() => handleEdit(review)} aria-label={`Edit ${review.reviewerName}'s review`} title="Edit">
+                  <Pencil className="h-4 w-4" aria-hidden />
+                </button>
+                <button
+                  className="a-icon-btn a-icon-btn-danger"
+                  onClick={() => handleDelete(review.id, review.reviewerName)}
+                  aria-label={`Delete ${review.reviewerName}'s review`}
+                  title="Delete"
+                >
+                  <Trash2 className="h-4 w-4" aria-hidden />
+                </button>
+              </div>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
 
-      {/* Edit/Create Modal */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setEditing(null);
-              setError(null);
-            }}
-          />
-
-          {/* Modal */}
-          <div className="relative w-full max-w-lg max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
-              <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
-                  {editing.id ? "Edit Review" : "Add Google Review"}
-                </h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                  Copy details from your Google Business profile
-                </p>
-              </div>
-              <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                onClick={() => {
-                  setEditing(null);
-                  setError(null);
-                }}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              {error && (
-                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg">
-                  <p className="text-sm text-rose-900">{error}</p>
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {/* Reviewer Name */}
-                <label className="block">
-                  <div className="text-sm font-medium mb-1">Reviewer Name</div>
-                  <input
-                    className="input"
-                    value={editing.reviewerName || ""}
-                    onChange={(e) => setEditing({ ...editing, reviewerName: e.target.value })}
-                    placeholder="e.g., John Smith"
-                  />
-                </label>
-
-                {/* Rating */}
-                <label className="block">
-                  <div className="text-sm font-medium mb-2">Rating</div>
-                  <div className="flex gap-2">
-                    {[1, 2, 3, 4, 5].map((star) => (
-                      <button
-                        key={star}
-                        type="button"
-                        onClick={() => setEditing({ ...editing, rating: star })}
-                        className="p-1 hover:scale-110 transition-transform"
-                      >
-                        <Star
-                          className={`w-8 h-8 ${
-                            star <= (editing.rating || 0)
-                              ? "fill-amber-400 text-amber-400"
-                              : "text-neutral-300"
-                          }`}
-                        />
-                      </button>
-                    ))}
-                  </div>
-                </label>
-
-                {/* Date */}
-                <label className="block">
-                  <div className="text-sm font-medium mb-1">Review Date</div>
-                  <input
-                    type="date"
-                    className="input"
-                    value={editing.date || ""}
-                    onChange={(e) => setEditing({ ...editing, date: e.target.value })}
-                  />
-                </label>
-
-                {/* Review Text */}
-                <label className="block">
-                  <div className="text-sm font-medium mb-1">Review Text</div>
-                  <textarea
-                    className="textarea min-h-[150px]"
-                    value={editing.text || ""}
-                    onChange={(e) => setEditing({ ...editing, text: e.target.value })}
-                    placeholder="Copy and paste the review text from Google..."
-                  />
-                </label>
-
-                {/* Visibility */}
-                <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg bg-white hover:bg-neutral-50 transition-colors cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={editing.visible ?? true}
-                    onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <div className="text-sm font-medium">Visible on Site</div>
-                    <p className="text-xs text-[var(--color-muted)] mt-1">
-                      When checked, this review may appear on product pages.
-                    </p>
-                  </div>
-                </label>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-              <button
-                className="btn hover:bg-white transition-colors"
-                onClick={() => {
-                  setEditing(null);
-                  setError(null);
-                }}
-              >
+        <Modal
+          size="sm"
+          title={editing.id ? "Edit review" : "Add Google review"}
+          description="Copy the details from your Google Business profile."
+          onClose={closeEditor}
+          busy={saving}
+          footer={
+            <>
+              <button className="a-btn" onClick={closeEditor} disabled={saving}>
                 Cancel
               </button>
-              <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
-                {saving ? "Saving..." : editing.id ? "Update Review" : "Add Review"}
+              <button className="a-btn a-btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : editing.id ? "Save review" : "Add review"}
               </button>
+            </>
+          }
+        >
+          {error && (
+            <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-[#fdecea] p-3 text-sm text-[#7a1a12]">
+              {error}
             </div>
+          )}
+
+          <div className="space-y-4">
+            <label className="block">
+              <span className="a-label">Reviewer name</span>
+              <input
+                className="a-input"
+                value={editing.reviewerName || ""}
+                onChange={(e) => setEditing({ ...editing, reviewerName: e.target.value })}
+                placeholder="e.g. John Smith"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <fieldset>
+                <legend className="a-label">Rating</legend>
+                <div className="flex gap-1">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setEditing({ ...editing, rating: star })}
+                      aria-label={`${star} star${star === 1 ? "" : "s"}`}
+                      aria-pressed={(editing.rating || 0) === star}
+                      className="rounded-md p-1 transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--a-accent)]"
+                    >
+                      <Star
+                        className={`h-7 w-7 ${star <= (editing.rating || 0) ? "fill-amber-400 text-amber-400" : "text-[var(--a-line-strong)]"}`}
+                        aria-hidden
+                      />
+                    </button>
+                  ))}
+                </div>
+              </fieldset>
+
+              <label className="block">
+                <span className="a-label">Review date</span>
+                <input
+                  type="date"
+                  className="a-input"
+                  value={editing.date || ""}
+                  onChange={(e) => setEditing({ ...editing, date: e.target.value })}
+                />
+              </label>
+            </div>
+
+            <label className="block">
+              <span className="a-label">Review text</span>
+              <textarea
+                className="a-textarea min-h-[150px]"
+                value={editing.text || ""}
+                onChange={(e) => setEditing({ ...editing, text: e.target.value })}
+                placeholder="Paste the review text from Google"
+              />
+            </label>
+
+            <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)]">
+              <input
+                type="checkbox"
+                className="a-check mt-0.5"
+                checked={editing.visible ?? true}
+                onChange={(e) => setEditing({ ...editing, visible: e.target.checked })}
+              />
+              <span>
+                <span className="block text-sm font-medium text-[var(--a-ink)]">Show on the site</span>
+                <span className="mt-0.5 block text-xs text-[var(--a-muted)]">Visible reviews appear at random on product pages.</span>
+              </span>
+            </label>
           </div>
-        </div>
+        </Modal>
       )}
     </div>
   );
