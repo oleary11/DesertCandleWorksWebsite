@@ -10,6 +10,8 @@ export function Menu({
   onOpenChange,
   align = "right",
   disabled,
+  primary,
+  panel,
   children,
 }: {
   label: React.ReactNode;
@@ -17,6 +19,10 @@ export function Menu({
   onOpenChange: (open: boolean) => void;
   align?: "left" | "right";
   disabled?: boolean;
+  /** Dark primary trigger button. */
+  primary?: boolean;
+  /** Content is a small form, not a list of actions. */
+  panel?: boolean;
   children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -41,19 +47,19 @@ export function Menu({
     <div ref={ref} className="relative">
       <button
         type="button"
-        className="a-btn"
-        aria-haspopup="menu"
+        className={`a-btn ${primary ? "a-btn-primary" : ""}`}
+        aria-haspopup={panel ? "dialog" : "menu"}
         aria-expanded={open}
         disabled={disabled}
         onClick={() => onOpenChange(!open)}
       >
         {label}
-        <ChevronDown className="h-3.5 w-3.5 text-[var(--a-faint)]" aria-hidden />
+        <ChevronDown className={`h-3.5 w-3.5 ${primary ? "text-white/70" : "text-[var(--a-faint)]"}`} aria-hidden />
       </button>
       {open && (
         <div
-          role="menu"
-          className={`a-card a-fade-enter z-40 p-1.5 shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 sm:absolute sm:top-full sm:mt-1.5 sm:min-w-72 ${align === "right" ? "sm:right-0" : "sm:left-0"}`}
+          role={panel ? "dialog" : "menu"}
+          className={`a-card a-fade-enter z-40 ${panel ? "p-4 sm:w-80" : "p-1.5"} shadow-lg max-sm:fixed max-sm:inset-x-3 max-sm:bottom-3 sm:absolute sm:top-full sm:mt-1.5 sm:min-w-72 ${align === "right" ? "sm:right-0" : "sm:left-0"}`}
         >
           {children}
         </div>
@@ -247,6 +253,44 @@ export function Modal({
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/** Underlined tab bar. Pass `value: null` when no tab should look selected. */
+export function Tabs<T extends string>({
+  label,
+  value,
+  onChange,
+  tabs,
+}: {
+  label: string;
+  value: T | null;
+  onChange: (value: T) => void;
+  tabs: { value: T; label: React.ReactNode; count?: number }[];
+}) {
+  return (
+    <div role="tablist" aria-label={label} className="mb-6 flex gap-1 overflow-x-auto [scrollbar-width:none] shadow-[inset_0_-1px_0_var(--a-line)]">
+      {tabs.map((t) => {
+        const active = t.value === value;
+        return (
+          <button
+            key={t.value}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            onClick={() => onChange(t.value)}
+            className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--a-accent)] ${
+              active ? "border-[var(--a-ink)] text-[var(--a-ink)]" : "border-transparent text-[var(--a-muted)] hover:text-[var(--a-ink)]"
+            }`}
+          >
+            {t.label}
+            {t.count ? (
+              <span className="rounded-full bg-[var(--a-ink)] px-1.5 py-px text-[11px] font-semibold leading-4 text-white">{t.count}</span>
+            ) : null}
+          </button>
+        );
+      })}
     </div>
   );
 }
