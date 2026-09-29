@@ -141,7 +141,7 @@ export function FormSection({
   children: React.ReactNode;
 }) {
   return (
-    <section className="border-b border-[var(--a-line)] py-7 last:border-b-0">
+    <section className="border-b border-[var(--a-line)] py-7 first:pt-0 last:border-b-0 last:pb-0">
       <div className="mb-4">
         <h3 className="text-base font-semibold text-[var(--a-ink)]">{title}</h3>
         {description && <p className="mt-0.5 text-sm text-[var(--a-muted)]">{description}</p>}

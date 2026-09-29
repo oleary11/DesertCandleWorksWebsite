@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import Link from "next/link";
-import { ArrowLeft, ChevronUp, ChevronDown } from "lucide-react";
+import { ChevronDown, ChevronUp, Pencil, Plus, Trash2 } from "lucide-react";
+import PageHeader from "../_components/PageHeader";
+import { Badge, FormSection, Modal, Segmented, Tabs } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
 
@@ -288,207 +289,197 @@ export default function AdminScentsPage() {
     if (res.ok) await loadBaseOils();
   }
 
+  function closeEditor() {
+    setEditing(null);
+    setNotesInput("");
+    setError(null);
+  }
+
+  function openEditor(scent: GlobalScent) {
+    setEditing(scent);
+    setNotesInput(scent.notes?.join(", ") || "");
+    setCostMode(scent.composition && scent.composition.length > 0 ? "composition" : "direct");
+  }
+
+  const isExisting = editing ? !!scents.find((s) => s.id === editing.id) : false;
+  const compositionTotal = editing?.composition?.reduce((sum, c) => sum + c.percentage, 0) ?? 0;
+
   return (
-    <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Link href="/admin" className="btn">
-            <ArrowLeft className="w-4 h-4" />
-          </Link>
-          <h1 className="text-2xl font-semibold">Global Scents & Base Oils</h1>
-        </div>
-        {activeTab === "scents" && (
-          <button className="btn btn-primary" onClick={handleNew}>
-            + New Scent
-          </button>
-        )}
-      </div>
+    <div className="a-ui mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader
+        title="Scents"
+        description="Every scent is offered on all candles unless you mark it Limited."
+        actions={
+          activeTab === "scents" ? (
+            <button className="a-btn a-btn-primary" onClick={handleNew}>
+              <Plus className="h-4 w-4" aria-hidden />
+              New scent
+            </button>
+          ) : undefined
+        }
+      />
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-[var(--color-line)] pb-2">
-        {(["scents", "base-oils"] as const).map((tab) => (
-          <button
-            key={tab}
-            className={`btn ${activeTab === tab ? "btn-primary" : ""}`}
-            onClick={() => setActiveTab(tab)}
-          >
-            {tab === "scents" && "Scents"}
-            {tab === "base-oils" && "Base Oils"}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        label="Scent sections"
+        value={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          { value: "scents", label: "Scents" },
+          { value: "base-oils", label: "Base oils" },
+        ]}
+      />
 
-      {/* Scents Tab */}
-      {activeTab === "scents" && (
-        <>
-          {/* Info Banner */}
-          <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-900">
-              <strong>Favorites scents</strong> are automatically available for all candles. Mark a scent as <strong>Limited</strong> to restrict it to specific products only.
-            </p>
+      {/* Scents */}
+      {activeTab === "scents" &&
+        (loading ? (
+          <div className="flex flex-col items-center justify-center gap-4 py-16">
+            <CandleSpinner />
+            <p className="text-sm font-medium text-[var(--a-muted)]">Loading scents…</p>
           </div>
-
-          {/* Content */}
-      {loading ? (
-        <div className="flex flex-col items-center justify-center py-12 gap-4">
-          <CandleSpinner />
-          <p className="text-sm font-medium text-[var(--color-muted)]">Loading scents…</p>
-        </div>
-      ) : scents.length === 0 ? (
-        <div className="card p-8 text-center">
-          <p className="text-[var(--color-muted)] mb-4">No scents yet. Create your first scent to get started.</p>
-          <button className="btn btn-primary" onClick={handleNew}>
-            + Create First Scent
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {sortedScents.map((scent, index) => (
-            <div key={scent.id} className="card p-4 flex items-center justify-between gap-4">
-              {/* Reorder Controls */}
-              <div className="flex flex-col gap-1">
-                <button
-                  onClick={() => moveScent(scent.id, "up")}
-                  disabled={index === 0}
-                  className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Move up"
-                >
-                  <ChevronUp className="w-4 h-4" />
-                </button>
-                <button
-                  onClick={() => moveScent(scent.id, "down")}
-                  disabled={index === sortedScents.length - 1}
-                  className="p-1 rounded hover:bg-neutral-100 disabled:opacity-30 disabled:cursor-not-allowed transition"
-                  title="Move down"
-                >
-                  <ChevronDown className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="font-medium">{scent.name}</h3>
-                  {scent.limited && (
-                    <span className="badge bg-amber-100 text-amber-800 text-xs">Limited</span>
-                  )}
-                  {scent.seasonal && (
-                    <span className="badge bg-blue-100 text-blue-800 text-xs">Seasonal</span>
-                  )}
+        ) : scents.length === 0 ? (
+          <div className="a-card px-6 py-16 text-center">
+            <p className="font-medium text-[var(--a-ink)]">No scents yet</p>
+            <p className="mt-1 text-sm text-[var(--a-muted)]">Create your first scent to get started.</p>
+            <button className="a-btn a-btn-primary mt-4" onClick={handleNew}>
+              <Plus className="h-4 w-4" aria-hidden />
+              New scent
+            </button>
+          </div>
+        ) : (
+          <ol className="a-card divide-y divide-[var(--a-line)]">
+            {sortedScents.map((scent, index) => (
+              <li key={scent.id} className="flex items-center gap-3 px-3 py-3 sm:px-4">
+                <div className="flex shrink-0 flex-col">
+                  <button
+                    onClick={() => moveScent(scent.id, "up")}
+                    disabled={index === 0}
+                    className="a-icon-btn h-6 w-7 disabled:opacity-30"
+                    aria-label={`Move ${scent.name} up`}
+                    title="Move up"
+                  >
+                    <ChevronUp className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    onClick={() => moveScent(scent.id, "down")}
+                    disabled={index === sortedScents.length - 1}
+                    className="a-icon-btn h-6 w-7 disabled:opacity-30"
+                    aria-label={`Move ${scent.name} down`}
+                    title="Move down"
+                  >
+                    <ChevronDown className="h-4 w-4" aria-hidden />
+                  </button>
                 </div>
-                <p className="text-sm text-[var(--color-muted)]">
-                  ID: <code className="text-xs bg-neutral-100 px-1 py-0.5 rounded">{scent.id}</code>
-                  {scent.limited && scent.enabledProducts && scent.enabledProducts.length > 0 && (
-                    <span className="ml-2">
-                      · Enabled on {scent.enabledProducts.length} product{scent.enabledProducts.length !== 1 ? 's' : ''}
-                    </span>
-                  )}
-                  {!scent.limited && (
-                    <span className="ml-2">· Favorites - Available on all products</span>
-                  )}
-                </p>
-                {scent.notes && scent.notes.length > 0 && (
-                  <p className="text-sm text-[var(--color-muted)] italic mt-1">
-                    Notes: {scent.notes.join(", ")}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button className="btn" onClick={() => {
-                  setEditing(scent);
-                  setNotesInput(scent.notes?.join(", ") || "");
-                  setCostMode(scent.composition && scent.composition.length > 0 ? "composition" : "direct");
-                }}>
-                  Edit
-                </button>
-                <button className="btn" onClick={() => handleDelete(scent.id)}>
-                  Delete
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-        </>
-      )}
 
-      {/* Base Oils Tab */}
+                <button type="button" onClick={() => openEditor(scent)} className="group min-w-0 flex-1 text-left">
+                  <span className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium text-[var(--a-ink)] group-hover:underline">{scent.name}</span>
+                    {scent.limited ? (
+                      <Badge tone="amber">
+                        Limited · {scent.enabledProducts?.length ?? 0} product{(scent.enabledProducts?.length ?? 0) === 1 ? "" : "s"}
+                      </Badge>
+                    ) : (
+                      <Badge>All candles</Badge>
+                    )}
+                    {scent.seasonal && <Badge tone="blue">Seasonal</Badge>}
+                  </span>
+                  {scent.notes && scent.notes.length > 0 && (
+                    <span className="mt-0.5 block truncate text-sm text-[var(--a-muted)]">{scent.notes.join(" · ")}</span>
+                  )}
+                </button>
+
+                <div className="flex shrink-0 gap-1">
+                  <button className="a-icon-btn" onClick={() => openEditor(scent)} aria-label={`Edit ${scent.name}`} title="Edit">
+                    <Pencil className="h-4 w-4" aria-hidden />
+                  </button>
+                  <button
+                    className="a-icon-btn a-icon-btn-danger"
+                    onClick={() => handleDelete(scent.id)}
+                    aria-label={`Delete ${scent.name}`}
+                    title="Delete"
+                  >
+                    <Trash2 className="h-4 w-4" aria-hidden />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ol>
+        ))}
+
+      {/* Base oils */}
       {activeTab === "base-oils" && (
-        <div>
-          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <p className="text-sm text-blue-900">
-              Base oils are the raw fragrance oils you use to create scent compositions. Add the oils you buy and their costs here.
-            </p>
-          </div>
-
-        <div className="space-y-6">
-          {/* Add New Base Oil */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Add Base Oil</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
+          <section className="a-card p-5">
+            <h2 className="text-base font-semibold text-[var(--a-ink)]">Add a base oil</h2>
+            <p className="mb-4 mt-0.5 text-sm text-[var(--a-muted)]">The raw fragrance oils you buy. Scents can be built from them.</p>
+            <div className="space-y-4">
               <label className="block">
-                <div className="text-sm font-medium mb-2">Fragrance Oil Name</div>
+                <span className="a-label">Fragrance oil name</span>
                 <input
-                  className="input"
-                  placeholder="e.g., Bonfire Embers"
+                  className="a-input"
+                  placeholder="e.g. Bonfire Embers"
                   value={newOil.name}
                   onChange={(e) => setNewOil({ ...newOil, name: e.target.value })}
                 />
               </label>
               <label className="block">
-                <div className="text-sm font-medium mb-2">Cost per Oz ($)</div>
-                <input
-                  className="input"
-                  type="number"
-                  placeholder="e.g., 2.43"
-                  value={newOil.costPerOz || ""}
-                  onChange={(e) => setNewOil({ ...newOil, costPerOz: e.target.value === "" ? 0 : Number(e.target.value) })}
-                  step="0.01"
-                />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Total cost ÷ bottle size (include shipping if desired)
-                </p>
+                <span className="a-label">Cost per oz</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
+                  <input
+                    className="a-input pl-7 tabular-nums"
+                    type="number"
+                    placeholder="2.43"
+                    value={newOil.costPerOz || ""}
+                    onChange={(e) => setNewOil({ ...newOil, costPerOz: e.target.value === "" ? 0 : Number(e.target.value) })}
+                    step="0.01"
+                  />
+                </div>
+                <p className="a-help">Total cost ÷ bottle size. Include shipping if you like.</p>
               </label>
+              <button
+                className="a-btn a-btn-primary w-full"
+                onClick={async () => {
+                  if (!newOil.name || !newOil.costPerOz) {
+                    await showAlert("Please fill in name and cost", "Validation Error");
+                    return;
+                  }
+                  saveOil({
+                    id: slugify(newOil.name),
+                    name: newOil.name,
+                    costPerOz: newOil.costPerOz,
+                  });
+                }}
+              >
+                <Plus className="h-4 w-4" aria-hidden />
+                Add base oil
+              </button>
             </div>
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                if (!newOil.name || !newOil.costPerOz) {
-                  await showAlert("Please fill in name and cost", "Validation Error");
-                  return;
-                }
-                saveOil({
-                  id: slugify(newOil.name),
-                  name: newOil.name,
-                  costPerOz: newOil.costPerOz,
-                });
-              }}
-            >
-              Add Base Oil
-            </button>
-          </div>
+          </section>
 
-          {/* Existing Base Oils */}
-          <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4">Existing Base Oils</h3>
-            <div className="space-y-3">
-              {baseOils.map((o) => (
-                <div key={o.id}>
-                  {editingOil?.id === o.id ? (
-                    // Edit mode
-                    <div className="p-3 border border-[var(--color-line)] rounded bg-[var(--color-background)]">
-                      <div className="space-y-3">
-                        <label className="block">
-                          <div className="text-xs font-medium mb-1">Name</div>
+          <section className="a-card overflow-hidden">
+            <div className="border-b border-[var(--a-line)] px-5 py-3.5">
+              <h2 className="text-base font-semibold text-[var(--a-ink)]">Base oils</h2>
+            </div>
+            {baseOils.length === 0 ? (
+              <p className="px-5 py-10 text-center text-sm text-[var(--a-muted)]">No base oils yet.</p>
+            ) : (
+              <ul className="divide-y divide-[var(--a-line)]">
+                {baseOils.map((o) => (
+                  <li key={o.id} className="px-5 py-3">
+                    {editingOil?.id === o.id ? (
+                      <div className="flex flex-wrap items-end gap-3">
+                        <label className="block min-w-40 flex-1">
+                          <span className="a-label">Name</span>
                           <input
-                            className="input text-sm"
+                            className="a-input"
                             value={editingOil.name}
                             onChange={(e) => setEditingOil({ ...editingOil, name: e.target.value })}
                           />
                         </label>
-                        <label className="block">
-                          <div className="text-xs font-medium mb-1">Cost per Oz ($)</div>
+                        <label className="block w-32">
+                          <span className="a-label">Cost per oz</span>
                           <input
-                            className="input text-sm"
+                            className="a-input tabular-nums"
                             type="number"
                             step="0.01"
                             value={editingOil.costPerOz || ""}
@@ -496,8 +487,11 @@ export default function AdminScentsPage() {
                           />
                         </label>
                         <div className="flex gap-2">
+                          <button className="a-btn" onClick={() => setEditingOil(null)}>
+                            Cancel
+                          </button>
                           <button
-                            className="btn btn-primary text-sm"
+                            className="a-btn a-btn-primary"
                             onClick={() => {
                               if (editingOil.id && editingOil.name && editingOil.costPerOz !== undefined) {
                                 saveOil(editingOil as BaseOil);
@@ -506,460 +500,319 @@ export default function AdminScentsPage() {
                           >
                             Save
                           </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate font-medium text-[var(--a-ink)]">{o.name}</p>
+                          <p className="text-sm tabular-nums text-[var(--a-muted)]">${o.costPerOz.toFixed(2)} / oz</p>
+                        </div>
+                        <div className="flex shrink-0 gap-1">
+                          <button className="a-icon-btn" onClick={() => setEditingOil(o)} aria-label={`Edit ${o.name}`} title="Edit">
+                            <Pencil className="h-4 w-4" aria-hidden />
+                          </button>
                           <button
-                            className="btn text-sm"
-                            onClick={() => setEditingOil(null)}
+                            className="a-icon-btn a-icon-btn-danger"
+                            onClick={() => deleteOil(o.id)}
+                            aria-label={`Delete ${o.name}`}
+                            title="Delete"
                           >
-                            Cancel
+                            <Trash2 className="h-4 w-4" aria-hidden />
                           </button>
                         </div>
                       </div>
-                    </div>
-                  ) : (
-                    // View mode
-                    <div className="flex items-center justify-between p-3 border border-[var(--color-line)] rounded">
-                      <div>
-                        <div className="font-medium">{o.name}</div>
-                        <div className="text-sm text-[var(--color-muted)]">${o.costPerOz.toFixed(2)}/oz</div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button className="btn text-sm" onClick={() => setEditingOil(o)}>
-                          Edit
-                        </button>
-                        <button className="btn text-sm" onClick={() => deleteOil(o.id)}>
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-              {baseOils.length === 0 && (
-                <p className="text-[var(--color-muted)]">No base oils yet</p>
-              )}
-            </div>
-          </div>
-        </div>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
         </div>
       )}
 
-      {/* Edit/Create Modal */}
+      {/* Scent editor */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-          {/* Backdrop */}
-          <div
-            className="absolute inset-0"
-            onClick={() => {
-              setEditing(null);
-              setNotesInput("");
-              setError(null);
-            }}
-          />
-
-          {/* Modal */}
-          <div className="relative w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-2xl bg-white shadow-2xl flex flex-col">
-            {/* Header */}
-            <div className="flex items-center justify-between px-6 py-4 border-b border-neutral-200 bg-gradient-to-r from-neutral-50 to-white">
-              <div>
-                <h2 className="text-xl font-semibold text-[var(--color-ink)]">
-                  {scents.find(s => s.id === editing.id) ? "Edit Scent" : "New Scent"}
-                </h2>
-                <p className="text-sm text-[var(--color-muted)] mt-0.5">
-                  Configure scent details, cost calculation, and product availability
-                </p>
-              </div>
-              <button
-                className="p-2 hover:bg-neutral-100 rounded-lg transition-colors"
-                onClick={() => {
-                  setEditing(null);
-                  setNotesInput("");
-                  setError(null);
-                }}
-              >
-                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
+        <Modal
+          size="lg"
+          title={isExisting ? `Edit ${editing.name || "scent"}` : "New scent"}
+          description="Details, cost and which candles offer it."
+          onClose={closeEditor}
+          busy={saving}
+          footer={
+            <>
+              <button className="a-btn" onClick={closeEditor} disabled={saving}>
+                Cancel
               </button>
+              <button className="a-btn a-btn-primary" onClick={handleSave} disabled={saving}>
+                {saving ? "Saving…" : "Save scent"}
+              </button>
+            </>
+          }
+        >
+          {error && (
+            <div role="alert" className="mb-4 rounded-lg border border-red-200 bg-[#fdecea] p-3 text-sm text-[#7a1a12]">
+              {error}
             </div>
+          )}
 
-            {/* Scrollable Content */}
-            <div className="flex-1 overflow-y-auto px-6 py-6">
-              {error && (
-                <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg">
-                  <p className="text-sm text-rose-900">{error}</p>
-                </div>
-              )}
-
-              {/* ---------- Basic Information Section ---------- */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Basic Information</h3>
-                </div>
-
-                <div className="space-y-4">
-              {/* Name */}
+          <FormSection title="Details">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="block">
-                <div className="text-sm font-medium mb-1">Display Name</div>
+                <span className="a-label">Display name</span>
                 <input
-                  className="input"
+                  className="a-input"
                   value={editing.name}
                   onChange={(e) => {
                     const newName = e.target.value;
                     const updates: Partial<GlobalScent> = { name: newName };
 
                     // Auto-generate ID from name if this is a new scent (not found in existing scents)
-                    if (!scents.find(s => s.id === editing.id)) {
+                    if (!scents.find((s) => s.id === editing.id)) {
                       const autoId = newName
                         .toLowerCase()
-                        .replace(/[^a-z0-9\s-]/g, '') // Remove special chars except spaces and hyphens
+                        .replace(/[^a-z0-9\s-]/g, "") // Remove special chars except spaces and hyphens
                         .trim()
-                        .replace(/\s+/g, '-') // Replace spaces with hyphens
-                        .replace(/-+/g, '-'); // Replace multiple hyphens with single
+                        .replace(/\s+/g, "-") // Replace spaces with hyphens
+                        .replace(/-+/g, "-"); // Replace multiple hyphens with single
                       updates.id = autoId;
                     }
 
                     setEditing({ ...editing, ...updates });
                   }}
-                  placeholder="e.g., Vanilla, Lavender, Cinnamon"
+                  placeholder="e.g. Vanilla, Lavender, Cinnamon"
                 />
               </label>
 
-              {/* ID */}
               <label className="block">
-                <div className="text-sm font-medium mb-1">ID</div>
+                <span className="a-label">ID</span>
                 <input
-                  className="input"
+                  className="a-input font-mono"
                   value={editing.id}
                   onChange={(e) => setEditing({ ...editing, id: e.target.value.toLowerCase() })}
-                  placeholder="e.g., vanilla, lavender, cinnamon"
-                  disabled={!!scents.find(s => s.id === editing.id)} // Don't allow changing ID after creation
+                  placeholder="e.g. vanilla"
+                  disabled={isExisting} // Don't allow changing ID after creation
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Lowercase letters, numbers, and hyphens only. Auto-generated from name. Cannot be changed after creation.
-                </p>
+                <p className="a-help">Made from the name. Can&apos;t be changed after the scent is created.</p>
               </label>
 
-              {/* Scent Notes */}
               <label className="block">
-                <div className="text-sm font-medium mb-1">Scent Notes</div>
+                <span className="a-label">Scent notes</span>
                 <input
-                  className="input"
+                  className="a-input"
                   value={notesInput}
                   onChange={(e) => setNotesInput(e.target.value)}
-                  placeholder="e.g., Leather, Bonfire Embers"
+                  placeholder="e.g. Leather, Bonfire Embers"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Enter scent notes separated by commas (e.g., &quot;Leather, Bonfire Embers&quot;). These will be displayed on product pages.
-                </p>
+                <p className="a-help">Separate with commas. Shown on product pages.</p>
               </label>
 
-              {/* Sort Order */}
               <label className="block">
-                <div className="text-sm font-medium mb-1">Sort Order</div>
+                <span className="a-label">Sort order</span>
                 <input
-                  className="input"
+                  className="a-input tabular-nums"
                   type="number"
                   value={editing.sortOrder ?? ""}
                   onChange={(e) => setEditing({ ...editing, sortOrder: e.target.value === "" ? 0 : Number(e.target.value) })}
                   placeholder="0"
                 />
-                <p className="text-xs text-[var(--color-muted)] mt-1">
-                  Lower numbers appear first. Leave at 0 for alphabetical sorting.
-                </p>
+                <p className="a-help">Lower numbers come first. Leave at 0 for alphabetical.</p>
               </label>
+            </div>
+          </FormSection>
+
+          <FormSection title="Cost" description="Only used for your cost calculations.">
+            <Segmented
+              label="Cost mode"
+              value={costMode}
+              onChange={(mode) => {
+                setCostMode(mode);
+                if (mode === "direct") setEditing({ ...editing, composition: [] });
+                else setEditing({ ...editing, costPerOz: undefined, composition: editing.composition || [] });
+              }}
+              options={[
+                { value: "direct", label: "Direct cost" },
+                { value: "composition", label: "Blend of base oils" },
+              ]}
+            />
+
+            {costMode === "direct" && (
+              <label className="mt-4 block max-w-xs">
+                <span className="a-label">Cost per oz</span>
+                <div className="relative">
+                  <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">$</span>
+                  <input
+                    className="a-input pl-7 tabular-nums"
+                    type="number"
+                    step="0.01"
+                    value={editing.costPerOz ?? ""}
+                    onChange={(e) => setEditing({ ...editing, costPerOz: e.target.value === "" ? undefined : Number(e.target.value) })}
+                    placeholder="2.43"
+                  />
                 </div>
-              </div>
+              </label>
+            )}
 
-              {/* ---------- Cost Calculation Section ---------- */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Cost Calculation</h3>
-                  <span className="text-xs text-[var(--color-muted)]">(Admin Only)</span>
-                </div>
-
-                <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
-
-                {/* Cost Mode Selector */}
-                <div className="mb-3">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      className={`btn text-sm ${costMode === "direct" ? "btn-primary" : ""}`}
-                      onClick={() => {
-                        setCostMode("direct");
-                        setEditing({ ...editing, composition: [] });
-                      }}
-                    >
-                      Direct Cost
-                    </button>
-                    <button
-                      type="button"
-                      className={`btn text-sm ${costMode === "composition" ? "btn-primary" : ""}`}
-                      onClick={() => {
-                        setCostMode("composition");
-                        setEditing({ ...editing, costPerOz: undefined, composition: editing.composition || [] });
-                      }}
-                    >
-                      Base Oil Composition
-                    </button>
-                  </div>
-                </div>
-
-                {/* Direct Cost Mode */}
-                {costMode === "direct" && (
-                  <div>
-                    <label className="block">
-                      <div className="text-xs font-medium mb-1">Cost per Oz ($)</div>
-                      <input
-                        className="input text-sm"
-                        type="number"
-                        step="0.01"
-                        value={editing.costPerOz ?? ""}
-                        onChange={(e) => setEditing({ ...editing, costPerOz: e.target.value === "" ? undefined : Number(e.target.value) })}
-                        placeholder="e.g., 2.43"
-                      />
-                    </label>
-                  </div>
-                )}
-
-                {/* Composition Mode */}
-                {costMode === "composition" && (
-                  <div>
-                    {baseOils.length === 0 ? (
-                      <p className="text-sm text-[var(--color-muted)]">
-                        No base oils available. Switch to the &quot;Base Oils&quot; tab to add base oils first.
-                      </p>
-                    ) : (
-                      <div className="space-y-4">
-                        <p className="text-xs text-[var(--color-muted)]">
-                          Build this scent from base fragrance oils. Percentages must total 100%.
-                        </p>
-
-                        {/* Base Oil Components Grid */}
-                        {(editing.composition || []).length > 0 && (
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                            {(editing.composition || []).map((comp, idx) => (
-                              <div key={idx} className="bg-white border border-neutral-200 rounded-lg p-3 hover:border-[var(--color-accent)] hover:shadow-sm transition-all">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="text-xs font-medium text-neutral-900">
-                                    Component {idx + 1}
-                                  </div>
-                                  <button
-                                    type="button"
-                                    className="p-1.5 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                    onClick={() => {
-                                      const newComp = [...(editing.composition || [])];
-                                      newComp.splice(idx, 1);
-                                      setEditing({ ...editing, composition: newComp });
-                                    }}
-                                  >
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                    </svg>
-                                  </button>
-                                </div>
-
-                                <div className="space-y-2">
-                                  <label className="block">
-                                    <div className="text-xs font-medium mb-1 text-neutral-600">Base Oil</div>
-                                    <select
-                                      className="input text-sm w-full"
-                                      value={comp.baseOilId}
-                                      onChange={(e) => {
-                                        const newComp = [...(editing.composition || [])];
-                                        newComp[idx] = { ...comp, baseOilId: e.target.value };
-                                        setEditing({ ...editing, composition: newComp });
-                                      }}
-                                    >
-                                      <option value="">Select...</option>
-                                      {baseOils.map((oil) => (
-                                        <option key={oil.id} value={oil.id}>
-                                          {oil.name} (${oil.costPerOz.toFixed(2)}/oz)
-                                        </option>
-                                      ))}
-                                    </select>
-                                  </label>
-
-                                  <label className="block">
-                                    <div className="text-xs font-medium mb-1 text-neutral-600">Percentage (%)</div>
-                                    <input
-                                      className="input text-sm w-full"
-                                      type="number"
-                                      step="1"
-                                      min="0"
-                                      max="100"
-                                      value={comp.percentage || ""}
-                                      onChange={(e) => {
-                                        const newComp = [...(editing.composition || [])];
-                                        newComp[idx] = { ...comp, percentage: e.target.value === "" ? 0 : Number(e.target.value) };
-                                        setEditing({ ...editing, composition: newComp });
-                                      }}
-                                      placeholder="e.g., 60"
-                                    />
-                                  </label>
-                                </div>
-                              </div>
+            {costMode === "composition" && (
+              <div className="mt-4">
+                {baseOils.length === 0 ? (
+                  <p className="text-sm text-[var(--a-muted)]">No base oils yet. Add some in the Base oils tab first.</p>
+                ) : (
+                  <div className="space-y-3">
+                    {(editing.composition || []).map((comp, idx) => (
+                      <div key={idx} className="flex items-end gap-2">
+                        <label className="block min-w-0 flex-1">
+                          <span className={idx === 0 ? "a-label" : "sr-only"}>Base oil</span>
+                          <select
+                            className="a-select"
+                            value={comp.baseOilId}
+                            onChange={(e) => {
+                              const newComp = [...(editing.composition || [])];
+                              newComp[idx] = { ...comp, baseOilId: e.target.value };
+                              setEditing({ ...editing, composition: newComp });
+                            }}
+                          >
+                            <option value="">Select…</option>
+                            {baseOils.map((oil) => (
+                              <option key={oil.id} value={oil.id}>
+                                {oil.name} (${oil.costPerOz.toFixed(2)}/oz)
+                              </option>
                             ))}
+                          </select>
+                        </label>
+                        <label className="block w-24">
+                          <span className={idx === 0 ? "a-label" : "sr-only"}>Percent</span>
+                          <div className="relative">
+                            <input
+                              className="a-input pr-7 text-right tabular-nums"
+                              type="number"
+                              step="1"
+                              min="0"
+                              max="100"
+                              value={comp.percentage || ""}
+                              onChange={(e) => {
+                                const newComp = [...(editing.composition || [])];
+                                newComp[idx] = { ...comp, percentage: e.target.value === "" ? 0 : Number(e.target.value) };
+                                setEditing({ ...editing, composition: newComp });
+                              }}
+                              placeholder="60"
+                            />
+                            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-[var(--a-faint)]">%</span>
                           </div>
-                        )}
-
+                        </label>
                         <button
                           type="button"
-                          className="btn text-sm w-full hover:bg-neutral-100 transition-colors"
+                          className="a-icon-btn a-icon-btn-danger h-10 w-10"
+                          aria-label={`Remove component ${idx + 1}`}
                           onClick={() => {
-                            setEditing({
-                              ...editing,
-                              composition: [...(editing.composition || []), { baseOilId: "", percentage: 0 }],
-                            });
+                            const newComp = [...(editing.composition || [])];
+                            newComp.splice(idx, 1);
+                            setEditing({ ...editing, composition: newComp });
                           }}
                         >
-                          + Add Base Oil Component
+                          <Trash2 className="h-4 w-4" aria-hidden />
                         </button>
-
-                        {/* Show total percentage */}
-                        {editing.composition && editing.composition.length > 0 && (
-                          <div className="p-3 bg-white rounded-lg border-2 border-neutral-200">
-                            <div className="text-sm font-medium flex items-center justify-between">
-                              <span>Total Percentage:</span>
-                              <span className="text-lg">
-                                {editing.composition.reduce((sum, c) => sum + c.percentage, 0)}%
-                                {Math.abs(editing.composition.reduce((sum, c) => sum + c.percentage, 0) - 100) > 0.01 ? (
-                                  <span className="text-amber-600 ml-2 text-xs">⚠ Must equal 100%</span>
-                                ) : (
-                                  <span className="text-green-600 ml-2 text-xs">✓ Valid</span>
-                                )}
-                              </span>
-                            </div>
-                          </div>
-                        )}
                       </div>
-                    )}
+                    ))}
+
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <button
+                        type="button"
+                        className="a-btn a-btn-sm"
+                        onClick={() => {
+                          setEditing({
+                            ...editing,
+                            composition: [...(editing.composition || []), { baseOilId: "", percentage: 0 }],
+                          });
+                        }}
+                      >
+                        <Plus className="h-3.5 w-3.5" aria-hidden />
+                        Add base oil
+                      </button>
+                      {editing.composition && editing.composition.length > 0 && (
+                        <p className="text-sm">
+                          Total <span className="font-semibold tabular-nums">{compositionTotal}%</span>{" "}
+                          {Math.abs(compositionTotal - 100) > 0.01 ? (
+                            <Badge tone="amber">Must equal 100%</Badge>
+                          ) : (
+                            <Badge tone="green">Good</Badge>
+                          )}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
-                </div>
               </div>
+            )}
+          </FormSection>
 
-              {/* ---------- Scent Settings Section ---------- */}
-              <div className="mb-8">
-                <div className="flex items-center gap-2 mb-4">
-                  <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                  </svg>
-                  <h3 className="text-base font-semibold text-[var(--color-ink)]">Scent Settings</h3>
-                </div>
-
-                <div className="space-y-3">
-              {/* Limited Toggle */}
-              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg bg-white hover:bg-neutral-50 transition-colors cursor-pointer">
+          <FormSection title="Availability">
+            <div className="space-y-2">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)]">
                 <input
                   type="checkbox"
+                  className="a-check mt-0.5"
                   checked={editing.limited}
-                  onChange={(e) => setEditing({
-                    ...editing,
-                    limited: e.target.checked,
-                    enabledProducts: e.target.checked ? editing.enabledProducts : []
-                  })}
-                  className="mt-1"
+                  onChange={(e) =>
+                    setEditing({
+                      ...editing,
+                      limited: e.target.checked,
+                      enabledProducts: e.target.checked ? editing.enabledProducts : [],
+                    })
+                  }
                 />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Limited Scent</div>
-                  <p className="text-xs text-[var(--color-muted)] mt-1">
-                    When checked, this scent will only appear on selected products. When unchecked, it will be a Favorites scent available for all products.
-                  </p>
-                </div>
+                <span>
+                  <span className="block text-sm font-medium text-[var(--a-ink)]">Limited</span>
+                  <span className="mt-0.5 block text-xs text-[var(--a-muted)]">
+                    Only offer this scent on the candles you pick below. Otherwise it&apos;s on every candle.
+                  </span>
+                </span>
               </label>
 
-              {/* Seasonal Toggle */}
-              <label className="flex items-start gap-3 p-3 border border-[var(--color-line)] rounded-lg bg-white hover:bg-neutral-50 transition-colors cursor-pointer">
+              <label className="flex cursor-pointer items-start gap-3 rounded-lg border border-[var(--a-line)] p-3 transition-colors hover:border-[var(--a-line-strong)]">
                 <input
                   type="checkbox"
+                  className="a-check mt-0.5"
                   checked={editing.seasonal ?? false}
-                  onChange={(e) => setEditing({
-                    ...editing,
-                    seasonal: e.target.checked
-                  })}
-                  className="mt-1"
+                  onChange={(e) => setEditing({ ...editing, seasonal: e.target.checked })}
                 />
-                <div className="flex-1">
-                  <div className="text-sm font-medium">Seasonal Scent</div>
-                  <p className="text-xs text-[var(--color-muted)] mt-1">
-                    When checked, this scent will be marked as seasonal and can be filtered separately in the shop.
-                  </p>
-                </div>
+                <span>
+                  <span className="block text-sm font-medium text-[var(--a-ink)]">Seasonal</span>
+                  <span className="mt-0.5 block text-xs text-[var(--a-muted)]">Can be filtered separately in the shop.</span>
+                </span>
               </label>
-                </div>
-              </div>
+            </div>
 
-              {/* ---------- Product Selection Section (only if limited) ---------- */}
-              {editing.limited && (
-                <div className="mb-8">
-                  <div className="flex items-center gap-2 mb-4">
-                    <svg className="w-5 h-5 text-[var(--color-accent)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-                    </svg>
-                    <h3 className="text-base font-semibold text-[var(--color-ink)]">Enabled Products</h3>
-                    <span className="text-xs text-[var(--color-muted)]">
-                      ({editing.enabledProducts?.length ?? 0} selected)
-                    </span>
+            {editing.limited && (
+              <div className="mt-4">
+                <p className="a-label">
+                  Offered on{" "}
+                  <span className="font-normal text-[var(--a-muted)]">({editing.enabledProducts?.length ?? 0} selected)</span>
+                </p>
+                {products.length === 0 ? (
+                  <p className="text-sm text-[var(--a-muted)]">No products available.</p>
+                ) : (
+                  <div className="max-h-64 overflow-y-auto rounded-lg border border-[var(--a-line)] p-1">
+                    {products.map((product) => {
+                      const isEnabled = editing.enabledProducts?.includes(product.slug) ?? false;
+                      return (
+                        <label key={product.slug} className="a-menu-item font-normal">
+                          <input
+                            type="checkbox"
+                            className="a-check"
+                            checked={isEnabled}
+                            onChange={() => toggleProductForScent(product.slug)}
+                          />
+                          <span className="flex-1">{product.name}</span>
+                        </label>
+                      );
+                    })}
                   </div>
-
-                <div className="bg-neutral-50 rounded-xl p-4 border border-neutral-200">
-                  {products.length === 0 ? (
-                    <p className="text-sm text-[var(--color-muted)]">No products available</p>
-                  ) : (
-                    <div className="max-h-64 overflow-y-auto space-y-2">
-                      {products.map((product) => {
-                        const isEnabled = editing.enabledProducts?.includes(product.slug) ?? false;
-                        return (
-                          <label
-                            key={product.slug}
-                            className="flex items-center gap-2 p-2 hover:bg-neutral-50 rounded cursor-pointer"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={isEnabled}
-                              onChange={() => toggleProductForScent(product.slug)}
-                            />
-                            <span className="text-sm">{product.name}</span>
-                            <code className="text-xs text-[var(--color-muted)] ml-auto">{product.slug}</code>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-                </div>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="flex items-center justify-between px-6 py-4 border-t border-neutral-200 bg-neutral-50">
-              <button
-                className="btn hover:bg-white transition-colors"
-                onClick={() => {
-                  setEditing(null);
-                  setNotesInput("");
-                  setError(null);
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleSave}
-                disabled={saving}
-              >
-                {saving ? "Saving..." : "Save Scent"}
-              </button>
-            </div>
-          </div>
-        </div>
+                )}
+              </div>
+            )}
+          </FormSection>
+        </Modal>
       )}
     </div>
   );
