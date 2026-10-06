@@ -1,0 +1,30 @@
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const { createRequire } = require('node:module');
+const ts = require('typescript');
+const base = fs.existsSync('src/lib/social/meme-selection.ts') ? 'src/lib/social' : 'lib/social';
+const filename = path.resolve(base, 'meme-selection.ts');
+const source = ts.transpileModule(fs.readFileSync(filename, 'utf8'), { compilerOptions: { module: ts.ModuleKind.CommonJS, esModuleInterop: true, target: ts.ScriptTarget.ES2022 } }).outputText;
+const mod = { exports: {} };
+vm.runInThisContext('(function(require,module,exports){' + source + '\n})', { filename })(createRequire(filename), mod, mod.exports);
+const { mergeMemeTemplates, selectMemeTemplates } = mod.exports;
+const popular = Array.from({ length: 100 }, (_, i) => ({ id: 'test-' + i, name: 'Template ' + i, box_count: i === 99 ? 8 : 2 }));
+const merged = mergeMemeTemplates(popular);
+assert.ok(merged.length >= 140, 'classics expand beyond top 100');
+assert.ok(merged.some(t => t.name === 'Success Kid'));
+assert.ok(merged.some(t => t.box_count === 8));
+assert.equal(mergeMemeTemplates([{ id: '61544', name: 'Success Kid live', box_count: 3 }]).find(t => t.id === '61544').box_count, 3);
+const history = popular.slice(0, 40).map(t => t.id);
+for (let i = 0; i < 100; i++) {
+  const candidates = selectMemeTemplates(merged, history, 6);
+  assert.equal(candidates.length, 60);
+  assert.ok(candidates.every(t => !history.includes(t.id)));
+  assert.equal(new Set(candidates.map(t => t.id)).size, candidates.length);
+}
+assert.equal(selectMemeTemplates(popular.slice(0, 3), ['test-0', 'test-1', 'test-2'], 1)[0].id, 'test-2', 'oldest reused only on exhaustion');
+const scarce = selectMemeTemplates(popular.slice(0, 3), ['test-0', 'test-1'], 2);
+assert.deepEqual(scarce.map(t => t.id), ['test-2', 'test-1']);
+assert.equal(selectMemeTemplates([popular[0], popular[0]], [], 1).length, 1);
+console.log('PASS: 42 extra classics, up to 8 boxes, 60 unique choices, last 40 excluded, oldest-first fallback');

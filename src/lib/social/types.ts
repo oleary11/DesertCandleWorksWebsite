@@ -41,8 +41,15 @@ export type ReelPlan = {
 
 export type SlideshowPlan = { slides: SlidePlan[] };
 
-// memePrompt is only on older, AI-drawn memes.
-export type MemePlan = { memePrompt?: string; punchline?: string; photoQuery?: string };
+// Optional legacy fields keep existing stock-photo and AI-drawn posts readable.
+export type MemePlan = {
+  templateId?: string;
+  templateName?: string;
+  texts?: string[];
+  memePrompt?: string;
+  punchline?: string;
+  photoQuery?: string;
+};
 
 export type SocialPost = {
   id: string;

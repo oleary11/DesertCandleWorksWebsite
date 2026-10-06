@@ -10,8 +10,8 @@ export const maxDuration = 300;
 // POST /api/admin/social/generate  body: { collections, slideshows, memes }
 export async function POST(req: NextRequest) {
   if (!(await isAdminAuthed())) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isFalConfigured() || !isOpenAIConfigured()) {
-    return NextResponse.json({ error: "FAL_KEY and OPENAI_API_KEY must both be configured" }, { status: 500 });
+  if (!isOpenAIConfigured()) {
+    return NextResponse.json({ error: "OPENAI_API_KEY must be configured" }, { status: 500 });
   }
 
   const body = await req.json().catch(() => ({}));
@@ -20,6 +20,9 @@ export async function POST(req: NextRequest) {
   const slideshows = clamp(body.slideshows, 12);
   const memes = clamp(body.memes, 6);
   if (!collections && !slideshows && !memes) return NextResponse.json({ error: "Nothing to generate" }, { status: 400 });
+  if (slideshows && !isFalConfigured()) {
+    return NextResponse.json({ error: "FAL_KEY must be configured for slideshow scenes" }, { status: 500 });
+  }
 
   try {
     const posts = await createBatch({ collections, slideshows, memes });

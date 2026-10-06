@@ -17,11 +17,11 @@ import {
   cropTo,
   detailCrop,
   fetchImage,
-  renderPhotoMeme,
+  fitTo,
   renderSlide,
   uploadToBlob,
 } from "./render";
-import { findMemePhoto, isStockPhotoConfigured } from "./memes";
+import { captionMeme } from "./memes";
 import {
   createSocialPost,
   getSocialPost,
@@ -120,14 +120,12 @@ export async function createReel(productSlug: string, photoUrls: string[], motio
 
 async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
   if (planned.kind === "meme") {
-    const plan: MemePlan = { punchline: planned.punchline, photoQuery: planned.photoQuery };
+    const plan: MemePlan = { templateId: planned.templateId, templateName: planned.templateName, texts: planned.texts };
     const post = await createSocialPost({ kind: "meme", hook: planned.hook, caption: planned.caption, hashtags: planned.hashtags, plan });
     try {
-      // Like Platrly's person memes: a real stock photo with classic top/bottom text. Never AI.
-      if (!isStockPhotoConfigured()) throw new Error("Memes need a stock photo key: set PEXELS_API_KEY or UNSPLASH_ACCESS_KEY");
-      const photoUrl = await findMemePhoto(planned.photoQuery);
-      if (!photoUrl) throw new Error(`No stock photo found for "${planned.photoQuery}"`);
-      const jpeg = await renderPhotoMeme(await cropTo(await fetchImage(photoUrl), SLIDE_W, SLIDE_H), planned.hook, planned.punchline);
+      const memeUrl = await captionMeme(planned.templateId, planned.texts);
+      // Contain the entire captioned template: cropping would cut off panels and text boxes.
+      const jpeg = await fitTo(await fetchImage(memeUrl), SLIDE_W, SLIDE_H);
       const url = await uploadToBlob(`social/${post.id}/meme.jpg`, jpeg, "image/jpeg");
       return (await updateSocialPost(post.id, { status: "pending_review", slides: [url], coverImageUrl: url })) ?? post;
     } catch (err) {
@@ -168,9 +166,14 @@ async function startPlannedPost(planned: PlannedPost): Promise<SocialPost> {
   }
 }
 
-/** Plans and starts a batch of collections, slideshows and memes. Scenes and memes finish asynchronously. */
+/** Plans and starts a batch. Scene jobs finish asynchronously; template memes render inline. */
 export async function createBatch(counts: BatchCounts): Promise<SocialPost[]> {
-  const planned = await planBatch(counts, await recentHooks());
+  const recentMemes = counts.memes ? (await listSocialPosts(undefined, 300)).filter((p) => p.kind === "meme") : [];
+  const recentTemplateIds = [...new Set(recentMemes.flatMap((p) => {
+    const { templateId } = p.plan as MemePlan;
+    return templateId ? [templateId] : [];
+  }))].slice(0, 40);
+  const planned = await planBatch(counts, await recentHooks(), recentTemplateIds);
   // In parallel: memes are generated inline (up to a minute each), and the whole batch has to fit
   // in one function run. startPlannedPost never throws; failures are saved on the post.
   return Promise.all(planned.map((p) => startPlannedPost(p)));

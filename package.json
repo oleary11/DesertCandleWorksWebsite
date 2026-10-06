@@ -8,6 +8,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test:social-memes": "node scripts/test-social-memes.cjs && node scripts/test-meme-variety.cjs",
     "db:migrate": "tsx scripts/run-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",

@@ -1,54 +1,49 @@
-// Memes, made the way Platrly makes its person memes: a real stock photo with classic bold
-// top/bottom text. No AI-generated images.
-//
-// Photos come from Unsplash first, then Pexels. Env: PEXELS_API_KEY and/or UNSPLASH_ACCESS_KEY.
+// Same real template/caption-box approach as Platrly. Never fall back to stock photos.
+import { mergeMemeTemplates, type MemeTemplate } from "./meme-selection";
+export type { MemeTemplate } from "./meme-selection";
 
-const UNSPLASH_BASE = "https://api.unsplash.com";
-const PEXELS_BASE = "https://api.pexels.com/v1";
+const IMGFLIP_BASE = "https://api.imgflip.com";
 
-export function isStockPhotoConfigured(): boolean {
-  return !!(process.env.UNSPLASH_ACCESS_KEY || process.env.PEXELS_API_KEY);
+export function isMemeConfigured(): boolean {
+  return !!(process.env.IMGFLIP_API_KEY || (process.env.IMGFLIP_USERNAME && process.env.IMGFLIP_PASSWORD));
 }
 
-function pick<T>(items: T[]): T | undefined {
-  return items.length ? items[Math.floor(Math.random() * items.length)] : undefined;
+export async function fetchMemeTemplates(): Promise<MemeTemplate[]> {
+  const res = await fetch(`${IMGFLIP_BASE}/get_memes`, { signal: AbortSignal.timeout(8000) });
+  if (!res.ok) throw new Error(`Could not load Imgflip meme templates (${res.status})`);
+  const data = await res.json() as { success?: boolean; data?: { memes?: MemeTemplate[] } };
+  const templates = mergeMemeTemplates(data.data?.memes ?? []);
+  if (!data.success || !templates.length) throw new Error("Imgflip returned no usable meme templates");
+  return templates;
 }
 
-async function searchUnsplash(query: string): Promise<string | null> {
-  const key = process.env.UNSPLASH_ACCESS_KEY;
-  if (!key) return null;
-  try {
-    const res = await fetch(
-      `${UNSPLASH_BASE}/search/photos?query=${encodeURIComponent(query)}&per_page=10&orientation=portrait&content_filter=high`,
-      { headers: { Authorization: `Client-ID ${key}` } }
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { results?: Array<{ urls: { regular: string } }> };
-    return pick(data.results ?? [])?.urls.regular ?? null;
-  } catch {
-    return null;
+/** Reject malformed plans before creating any review posts or calling Imgflip. */
+export function validateMemeTexts(template: MemeTemplate, texts: unknown): string[] {
+  if (!Array.isArray(texts) || texts.length !== template.box_count || texts.some((t) => typeof t !== "string")) {
+    throw new Error(`Meme ${template.name} needs exactly ${template.box_count} text boxes`);
   }
+  const trimmed = texts.map((t: string) => t.trim());
+  if (trimmed.every((t) => !t)) throw new Error(`Meme ${template.name} has no caption text`);
+  return trimmed;
 }
 
-async function searchPexels(query: string): Promise<string | null> {
-  const key = process.env.PEXELS_API_KEY;
-  if (!key) return null;
-  try {
-    const res = await fetch(
-      `${PEXELS_BASE}/search?query=${encodeURIComponent(query)}&per_page=20&orientation=portrait&size=large`,
-      { headers: { Authorization: key } }
-    );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { photos?: Array<{ src: { portrait: string } }> };
-    return pick(data.photos ?? [])?.src.portrait ?? null;
-  } catch {
-    return null;
+export async function captionMeme(templateId: string, texts: string[]): Promise<string> {
+  if (!isMemeConfigured()) throw new Error("Memes need Imgflip credentials: set IMGFLIP_API_KEY or IMGFLIP_USERNAME and IMGFLIP_PASSWORD");
+  const params = new URLSearchParams({ template_id: templateId });
+  const headers: Record<string, string> = { "Content-Type": "application/x-www-form-urlencoded" };
+  if (process.env.IMGFLIP_API_KEY) {
+    headers.Authorization = `Bearer ${process.env.IMGFLIP_API_KEY}`;
+  } else {
+    params.set("username", process.env.IMGFLIP_USERNAME!);
+    params.set("password", process.env.IMGFLIP_PASSWORD!);
   }
-}
-
-/** A real portrait stock photo for the query: Unsplash first, Pexels as the fallback. */
-export async function findMemePhoto(query: string): Promise<string | null> {
-  return (await searchUnsplash(query)) ?? (await searchPexels(query));
+  texts.forEach((text, i) => params.append(`boxes[${i}][text]`, text));
+  const res = await fetch(`${IMGFLIP_BASE}/caption_image`, {
+    method: "POST", headers, body: params.toString(), signal: AbortSignal.timeout(30000),
+  });
+  const data = await res.json() as { success?: boolean; data?: { url?: string }; error_message?: string };
+  if (!res.ok || !data.success || !data.data?.url) throw new Error(`Imgflip caption failed: ${data.error_message ?? res.status}`);
+  return data.data.url;
 }
 
 const NSFW_WORDS = ["sex", "porn", "nude", "naked", "nsfw", "fuck", "shit", "ass", "dick", "cock", "pussy", "boob", "tit", "horny", "cum", "boner", "orgasm", "fetish"];

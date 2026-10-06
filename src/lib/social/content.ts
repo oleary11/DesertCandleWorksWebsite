@@ -1,7 +1,8 @@
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import type { Product } from "@/lib/products";
 import { listExcludedImages } from "./store";
-import { fetchTrendingFormats } from "./memes";
+import { fetchMemeTemplates, fetchTrendingFormats, isMemeConfigured, validateMemeTexts } from "./memes";
+import { selectMemeTemplates } from "./meme-selection";
 import type { SlidePlan } from "./types";
 
 const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
@@ -104,9 +105,10 @@ export type PlannedSlideshow = {
 };
 export type PlannedMeme = {
   kind: "meme";
-  hook: string; // top text
-  punchline?: string; // bottom text
-  photoQuery: string; // stock photo search for the image under the text
+  hook: string; // review title, not drawn on the image
+  templateId: string;
+  templateName: string;
+  texts: string[]; // one caption per template box, in box order
   caption: string;
   hashtags: string[];
 };
@@ -121,8 +123,8 @@ type RawPost = {
   caption?: string;
   hashtags?: string[];
   slides?: RawSlide[];
-  punchline?: string;
-  photo_query?: string;
+  meme_template_id?: string;
+  meme_texts?: unknown;
 };
 
 const SLIDESHOW_ANGLES = [
@@ -155,8 +157,13 @@ const COLLECTION_THEMES = [
  * - slideshows: one product, may include 1-2 AI scene slides
  * - memes
  */
-export async function planBatch(counts: BatchCounts, hooksToAvoid: string[]): Promise<PlannedPost[]> {
+export async function planBatch(counts: BatchCounts, hooksToAvoid: string[], recentMemeTemplateIds: string[] = []): Promise<PlannedPost[]> {
   const { collections, slideshows, memes } = counts;
+  if (memes && !isMemeConfigured()) {
+    throw new Error("Memes need Imgflip credentials: set IMGFLIP_API_KEY or IMGFLIP_USERNAME and IMGFLIP_PASSWORD");
+  }
+  const allTemplates = memes ? await fetchMemeTemplates() : [];
+  const templates = selectMemeTemplates(allTemplates, recentMemeTemplateIds, memes);
   const products = await listSocialProducts();
   if (!products.length && collections + slideshows > 0) {
     throw new Error("No products have photos switched on for social. Turn some on in the Photos tab.");
@@ -209,11 +216,13 @@ ${productLines || "(none)"}
 MEMES (${memes})
 - A SINGLE image, not a slideshow. Meme-native, the kind people send to a friend: relatable candle-person life (buying too many candles, saving the good candle for a special occasion, "just one more", sniffing every candle in the store, candle math, lighting a candle so the house looks clean, the candle outliving the relationship). About one in three can nod to candles made from old liquor bottles (your ex's tequila, the bottle from that night out). Keep the rest general.
 - Voice: unpolished and internet-native, never ad copy. Meme text is often all lowercase. Formats like "POV:", "nobody: / me:", "Day X of", "me at 2am:" are welcome.
-- Every meme is a REAL stock photo with classic bold top and bottom text. Nothing is AI generated, so the photo has to exist on Unsplash or Pexels:
-  - hook: the top text, the setup (max 10 words).
-  - punchline: the bottom text, the payoff (max 8 words). Can be empty when the top text carries the joke alone.
-  - photo_query: a 2 to 4 word stock photo search for the image under the text. Plain, common subjects photographers actually upload: reaction faces ("woman shocked face", "man side eye", "woman laughing hysterically", "tired woman couch"), pets ("cat judging", "dog tilted head"), or everyday scenes ("candles bathtub", "messy living room", "shopping cart aisle"). Never a brand, product name or celebrity.
-  - The joke has to work with ANY photo matching the query, so the text does the heavy lifting.
+- Every meme uses one recognizable Imgflip template from MEME TEMPLATES below, captioned in its existing text boxes. No stock photos, AI images, or generic photo overlays.
+  - Choose a template whose actual internet joke structure fits the candle joke. For example, Drake rejects one choice and approves another, Two Buttons is a dilemma, and Distracted Boyfriend labels the three people.
+  - meme_template_id: the exact id from the list. Never reuse a template within this batch.
+  - meme_texts: exactly one string per text box, in the template's normal box order. Max 8 words per box. Write real meme captions, no hashtags, brand name, sales pitch, or emojis.
+  - hook: a short review title summarizing the joke, not drawn on the meme.
+MEME TEMPLATES (id | name | text boxes):
+${templates.map((t) => `${t.id} | ${t.name} | ${t.box_count}`).join("\n") || "(none)"}
 ${trending.length ? `- Currently circulating internet formats (this week's top posts; use the format energy and structure, not the content):\n${trending.map((t) => `  - "${t}"`).join("\n")}\n` : ""}
 EVERY POST
 - hook: max 9 words, the line that stops the scroll. Every hook starts differently.
@@ -223,7 +232,7 @@ EVERY POST
 Return JSON: {"posts":[
   {"kind":"collection","hook":"...","product_slugs":["..."],"caption":"...","hashtags":["..."]},
   {"kind":"slideshow","product_slug":"...","hook":"...","slides":[{"source":"photo"|"scene","photo_index":0,"scene_prompt":"...","headline":"...","body":"..."}],"caption":"...","hashtags":["..."]},
-  {"kind":"meme","hook":"top text","punchline":"bottom text","photo_query":"...","caption":"...","hashtags":["..."]}
+  {"kind":"meme","hook":"review title","meme_template_id":"...","meme_texts":["box 1","box 2"],"caption":"...","hashtags":["..."]}
 ]}
 Collections first, then slideshows in assignment order, then memes.`;
 
@@ -232,21 +241,25 @@ Collections first, then slideshows in assignment order, then memes.`;
 
   const bySlug = new Map(products.map((p) => [p.slug, p]));
   const planned: PlannedPost[] = [];
+  const usedTemplates = new Set<string>();
 
   for (const raw of posts) {
     const hashtags = (raw.hashtags ?? []).map((h) => h.replace(/^#/, "").toLowerCase().replace(/\s+/g, "")).slice(0, 12);
 
     if (raw.kind === "meme") {
-      if (raw.hook && raw.photo_query) {
-        planned.push({
-          kind: "meme",
-          hook: raw.hook,
-          punchline: raw.punchline || undefined,
-          photoQuery: raw.photo_query,
-          caption: raw.caption ?? "",
-          hashtags,
-        });
-      }
+      const template = templates.find((t) => t.id === String(raw.meme_template_id ?? ""));
+      if (!raw.hook || !template) throw new Error("Meme draft has no valid Imgflip template or title");
+      if (usedTemplates.has(template.id)) throw new Error(`Meme draft reused template ${template.name}`);
+      usedTemplates.add(template.id);
+      planned.push({
+        kind: "meme",
+        hook: raw.hook,
+        templateId: template.id,
+        templateName: template.name,
+        texts: validateMemeTexts(template, raw.meme_texts),
+        caption: raw.caption ?? "",
+        hashtags,
+      });
       continue;
     }
 
@@ -295,6 +308,9 @@ Collections first, then slideshows in assignment order, then memes.`;
       };
     });
     planned.push({ kind: "slideshow", productSlug: product.slug, hook: raw.hook ?? slides[0].headline, caption: raw.caption ?? "", hashtags, slides });
+  }
+  if (planned.filter((p) => p.kind === "meme").length !== memes) {
+    throw new Error(`OpenAI did not return the requested ${memes} meme drafts`);
   }
   return planned;
 }

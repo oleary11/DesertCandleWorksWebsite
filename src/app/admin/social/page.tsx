@@ -175,7 +175,7 @@ export default function AdminSocialPage() {
     return c;
   }, [posts]);
 
-  const batchCost = batch.slideshows * 1.5 * SCENE_COST + batch.memes * SCENE_COST;
+  const batchCost = batch.slideshows * 1.5 * SCENE_COST;
 
   const [batchOpen, setBatchOpen] = useState(false);
 
@@ -209,7 +209,7 @@ export default function AdminSocialPage() {
                   [
                     { key: "collections", label: "Collections", hint: "Several products, real photos only", max: 12 },
                     { key: "slideshows", label: "Slideshows", hint: "One product, 1–2 AI scene slides", max: 12 },
-                    { key: "memes", label: "Memes", hint: "Stock photo with top and bottom text", max: 6 },
+                    { key: "memes", label: "Memes", hint: "Real meme templates with custom captions", max: 6 },
                   ] as const
                 ).map((row) => (
                   <label key={row.key} className="flex items-center justify-between gap-4">
