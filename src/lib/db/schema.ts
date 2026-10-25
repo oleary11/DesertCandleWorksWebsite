@@ -489,6 +489,35 @@ export const socialExcludedImages = pgTable('social_excluded_images', {
 });
 
 // ============================================
+// ADMIN EMAIL CONVERSATIONS
+// ============================================
+
+// One per single-recipient email sent from /admin/emails; customer replies land here
+// through the Resend inbound webhook (reply+{threadId}@ address).
+export const emailThreads = pgTable('email_threads', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  customerEmail: varchar('customer_email', { length: 255 }).notNull(),
+  customerName: varchar('customer_name', { length: 255 }),
+  subject: text('subject').notNull(),
+  personal: boolean('personal').notNull().default(false),
+  unreadCount: integer('unread_count').notNull().default(0),
+  lastMessageAt: timestamp('last_message_at', { withTimezone: true }).notNull().defaultNow(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const emailMessages = pgTable('email_messages', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  threadId: uuid('thread_id').notNull().references(() => emailThreads.id, { onDelete: 'cascade' }),
+  direction: varchar('direction', { length: 3 }).notNull(), // 'out' | 'in'
+  fromEmail: varchar('from_email', { length: 255 }).notNull(),
+  subject: text('subject').notNull().default(''),
+  bodyText: text('body_text').notNull().default(''),
+  messageId: text('message_id'), // RFC Message-ID of inbound mail, for In-Reply-To on our answers
+  resendId: varchar('resend_id', { length: 100 }).unique(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
+// ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================
 

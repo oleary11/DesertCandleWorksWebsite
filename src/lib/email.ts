@@ -6,12 +6,29 @@ type EmailOptions = {
   subject: string;
   html: string;
   text?: string;
+  /** Defaults to Desert Candle Works <noreply@desertcandleworks.com>. */
+  from?: string;
+  replyTo?: string;
+  /** Extra headers, e.g. In-Reply-To / References to keep a reply in the customer's thread. */
+  headers?: Record<string, string>;
 };
 
 /**
  * Send email using Resend
  */
 export async function sendEmail(options: EmailOptions): Promise<void> {
+  await deliver(options, false);
+}
+
+/**
+ * Same as sendEmail, but also throws when Resend rejects the email, and returns
+ * Resend's email id (null when RESEND_API_KEY is unset).
+ */
+export async function sendEmailWithId(options: EmailOptions): Promise<string | null> {
+  return deliver(options, true);
+}
+
+async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise<string | null> {
   // Log to console for development
   console.log("\n========== EMAIL ==========");
   console.log(`To: ${options.to}`);
@@ -25,19 +42,29 @@ export async function sendEmail(options: EmailOptions): Promise<void> {
   // Send actual email with Resend
   if (!process.env.RESEND_API_KEY) {
     console.warn("RESEND_API_KEY not set - email not sent (shown above)");
-    return;
+    return null;
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
 
   try {
-    await resend.emails.send({
-      from: 'Desert Candle Works <noreply@desertcandleworks.com>',
+    const { data, error } = await resend.emails.send({
+      from: options.from || 'Desert Candle Works <noreply@desertcandleworks.com>',
       to: options.to,
       subject: options.subject,
       html: options.html,
+      ...(options.text ? { text: options.text } : {}),
+      ...(options.replyTo ? { replyTo: options.replyTo } : {}),
+      ...(options.headers ? { headers: options.headers } : {}),
     });
+    if (error) {
+      // Older callers only logged rejections; keep that unless asked to throw.
+      if (throwOnRejected) throw new Error(error.message);
+      console.error("Resend rejected email:", error);
+      return null;
+    }
     console.log(`✓ Email sent to ${options.to}`);
+    return data?.id ?? null;
   } catch (error) {
     console.error("Failed to send email:", error);
     throw error;

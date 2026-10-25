@@ -1,131 +1,81 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
-import { sendEmail } from "@/lib/email";
-import { getOrderById, getAllOrders } from "@/lib/userStore";
+import { getOrderById } from "@/lib/userStore";
+import { sendAdminMessage } from "@/lib/adminMessages";
+import { createThread, deleteThread, replyDomain } from "@/lib/emailThreadsStore";
 import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
 
-type EmailTemplate = "shipping" | "delivery" | "custom";
-
 type SendEmailRequest = {
-  // Recipient selection
-  recipients: "single" | "all_customers" | "order_customers";
-  singleEmail?: string;
-  orderId?: string; // For order-specific emails
-
-  // Template
-  template: EmailTemplate;
+  recipients: Array<{ email: string; name?: string }>;
   subject: string;
-  htmlBody: string;
-  textBody: string;
-
-  // For shipping/delivery templates
+  /** Plain text; rendered into the shared email layout on the server. */
+  message: string;
+  /** Signed by Josh & Cori with the signature image. */
+  personal?: boolean;
+  template?: string;
+  orderId?: string;
   trackingNumber?: string;
 };
+
+const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(req: NextRequest) {
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
   const userAgent = req.headers.get("user-agent") || "unknown";
 
-  // Check admin auth
   const isAdmin = await isAdminAuthed();
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await req.json() as SendEmailRequest;
+    const body = (await req.json()) as SendEmailRequest;
+    const subject = body.subject?.trim();
+    const message = body.message?.trim();
+    const personal = !!body.personal;
 
-    // Validate request
-    if (!body.subject || !body.htmlBody || !body.textBody) {
-      return NextResponse.json(
-        { error: "Subject, HTML body, and text body are required" },
-        { status: 400 }
-      );
+    if (!subject || !message) {
+      return NextResponse.json({ error: "Subject and message are required" }, { status: 400 });
     }
 
-    if (!body.recipients) {
-      return NextResponse.json(
-        { error: "Recipients type is required" },
-        { status: 400 }
-      );
+    const seen = new Set<string>();
+    const recipients = (Array.isArray(body.recipients) ? body.recipients : []).filter((r) => {
+      const email = r?.email?.trim().toLowerCase();
+      if (!email || !EMAIL.test(email) || seen.has(email)) return false;
+      seen.add(email);
+      return true;
+    });
+    if (recipients.length === 0) {
+      return NextResponse.json({ error: "No valid recipients" }, { status: 400 });
     }
 
-    // Determine recipient list
-    let recipientEmails: string[] = [];
-    let recipientCount = 0;
+    // A one-to-one email becomes a conversation so the customer's reply shows up in admin.
+    // Mass emails stay one-way (replies go to contact@).
+    const thread =
+      recipients.length === 1
+        ? await createThread({
+            customerEmail: recipients[0].email.trim(),
+            customerName: recipients[0].name,
+            subject,
+            personal,
+          })
+        : null;
 
-    if (body.recipients === "single") {
-      if (!body.singleEmail) {
-        return NextResponse.json(
-          { error: "Email address is required for single recipient" },
-          { status: 400 }
-        );
-      }
-      recipientEmails = [body.singleEmail];
-    } else if (body.recipients === "order_customers") {
-      // Get email from specific order
-      if (!body.orderId) {
-        return NextResponse.json(
-          { error: "Order ID is required for order customer emails" },
-          { status: 400 }
-        );
-      }
-      const order = await getOrderById(body.orderId);
-      if (!order) {
-        return NextResponse.json(
-          { error: "Order not found" },
-          { status: 404 }
-        );
-      }
-      recipientEmails = [order.email];
-    } else if (body.recipients === "all_customers") {
-      // Get all unique customer emails from orders
-      const orders = await getAllOrders();
-      const uniqueEmails = new Set<string>();
-      orders.forEach(order => {
-        if (order.email && !order.email.includes("@admin.local")) {
-          uniqueEmails.add(order.email);
-        }
-      });
-      recipientEmails = Array.from(uniqueEmails);
-    }
-
-    if (recipientEmails.length === 0) {
-      return NextResponse.json(
-        { error: "No recipients found" },
-        { status: 400 }
-      );
-    }
-
-    // Send emails
-    const results = {
-      success: 0,
-      failed: 0,
-      errors: [] as string[],
-    };
-
-    for (const email of recipientEmails) {
+    const results = { success: 0, failed: 0, errors: [] as string[] };
+    for (const recipient of recipients) {
       try {
-        await sendEmail({
-          to: email,
-          subject: body.subject,
-          html: body.htmlBody,
-          text: body.textBody,
-        });
+        await sendAdminMessage({ to: recipient.email.trim(), subject, message, personal, threadId: thread?.id });
         results.success++;
-        console.log(`[Admin Email] Sent to ${email}`);
       } catch (err) {
         results.failed++;
-        results.errors.push(`${email}: ${err instanceof Error ? err.message : String(err)}`);
-        console.error(`[Admin Email] Failed to send to ${email}:`, err);
+        results.errors.push(`${recipient.email}: ${err instanceof Error ? err.message : String(err)}`);
+        console.error(`[Admin Email] Failed to send to ${recipient.email}:`, err);
       }
     }
+    if (thread && results.success === 0) await deleteThread(thread.id);
 
-    recipientCount = recipientEmails.length;
-
-    // Log admin action
     await logAdminAction({
       action: "email.send",
       adminEmail: "admin",
@@ -134,9 +84,10 @@ export async function POST(req: NextRequest) {
       success: results.failed === 0,
       details: {
         template: body.template,
-        recipients: body.recipients,
-        recipientCount,
-        subject: body.subject,
+        recipientCount: recipients.length,
+        subject,
+        personal,
+        threadId: results.success > 0 ? thread?.id : undefined,
         successCount: results.success,
         failedCount: results.failed,
         orderId: body.orderId,
@@ -145,12 +96,13 @@ export async function POST(req: NextRequest) {
     });
 
     return NextResponse.json({
-      success: true,
+      success: results.success > 0,
       sent: results.success,
       failed: results.failed,
-      total: recipientCount,
+      total: recipients.length,
       errors: results.errors,
-      message: `Successfully sent ${results.success} of ${recipientCount} emails`,
+      threadId: results.success > 0 ? thread?.id ?? null : null,
+      repliesTracked: !!(thread && replyDomain()),
     });
   } catch (error) {
     console.error("[Admin Email] Error:", error);
@@ -162,10 +114,7 @@ export async function POST(req: NextRequest) {
       success: false,
       details: { error: String(error) },
     });
-    return NextResponse.json(
-      { error: "Failed to send email", details: String(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to send email", details: String(error) }, { status: 500 });
   }
 }
 

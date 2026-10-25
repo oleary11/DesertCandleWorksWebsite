@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Mail, Package, Pencil, Save, Search, Trash2, Users, X } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
-import { Badge, Modal } from "../_components/ui";
+import { Badge, Modal, Switch, Tabs } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
+import { renderMessageEmail } from "@/lib/emailLayout";
+import ConversationsPanel from "./ConversationsPanel";
 
 type Recipient = {
   email: string;
@@ -37,6 +39,10 @@ type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
 export default function AdminEmailsPage() {
   const { showAlert, showConfirm } = useModal();
+  const [view, setView] = useState<"compose" | "conversations">("compose");
+  const [openThreadId, setOpenThreadId] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
+  const [personal, setPersonal] = useState(false);
   const [template, setTemplate] = useState<EmailTemplate>("custom");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -74,6 +80,27 @@ export default function AdminEmailsPage() {
   // Load templates on mount
   useEffect(() => {
     loadTemplates();
+  }, []);
+
+  // /admin/emails?thread=… (link in the "new reply" notification) opens that conversation
+  useEffect(() => {
+    const thread = new URLSearchParams(window.location.search).get("thread");
+    if (thread) {
+      setView("conversations");
+      setOpenThreadId(thread);
+    }
+    fetch("/api/admin/email-threads")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setUnread(data.unread))
+      .catch(() => {});
+  }, []);
+
+  const openThread = useCallback((id: string | null) => {
+    setOpenThreadId(id);
+    const url = new URL(window.location.href);
+    if (id) url.searchParams.set("thread", id);
+    else url.searchParams.delete("thread");
+    window.history.replaceState(null, "", url);
   }, []);
 
   // Load recipients when modal opens
@@ -305,79 +332,31 @@ export default function AdminEmailsPage() {
     setSendMessage(null);
 
     try {
-      // Convert message to HTML (simple: preserve line breaks)
-      const htmlBody = `<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
-    .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
-    .content { padding: 30px; background: #fff; white-space: pre-wrap; }
-    .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1 style="margin: 0; color: white;">Desert Candle Works</h1>
-  </div>
-  <div class="content">${message}</div>
-  <div class="footer">
-    <p style="margin: 0;">© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.</p>
-    <p style="margin: 5px 0 0 0;">Scottsdale, AZ | www.desertcandleworks.com</p>
-    <p style="margin: 10px 0 0 0;">
-      <a href="mailto:contact@desertcandleworks.com">contact@desertcandleworks.com</a>
-    </p>
-  </div>
-</body>
-</html>`;
-
-      const textBody = `Desert Candle Works
-
-${message}
-
-© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
-Scottsdale, AZ | www.desertcandleworks.com
-contact@desertcandleworks.com`;
-
-      // Send to each recipient
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const recipient of selectedRecipients) {
-        try {
-          const res = await fetch("/api/admin/send-email", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              recipients: "single",
-              singleEmail: recipient.email,
-              template,
-              subject,
-              htmlBody,
-              textBody,
-              trackingNumber: template !== "custom" ? trackingNumber : undefined,
-            }),
-          });
-
-          if (res.ok) {
-            successCount++;
-          } else {
-            failCount++;
-          }
-        } catch (err) {
-          failCount++;
-        }
-      }
+      const res = await fetch("/api/admin/send-email", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          recipients: selectedRecipients.map((r) => ({ email: r.email, name: r.name })),
+          subject,
+          message,
+          personal,
+          template,
+          orderId: orderId || undefined,
+          trackingNumber: template !== "custom" ? trackingNumber : undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send email");
 
       setSendMessage({
-        type: successCount > 0 ? "success" : "error",
-        text: `Sent ${successCount} of ${selectedRecipients.length} emails${
-          failCount > 0 ? `. ${failCount} failed.` : ""
+        type: data.sent > 0 ? "success" : "error",
+        text: `Sent ${data.sent} of ${data.total} ${data.total === 1 ? "email" : "emails"}${data.failed > 0 ? `. ${data.failed} failed.` : "."}${
+          data.threadId && data.repliesTracked ? " Their reply will show up in Conversations." : ""
         }`,
       });
 
       // Clear form on success
-      if (successCount > 0) {
+      if (data.sent > 0) {
         setSelectedRecipients([]);
         if (template === "custom") {
           setSubject("");
@@ -399,9 +378,33 @@ contact@desertcandleworks.com`;
   const canSend = !sending && selectedRecipients.length > 0 && !!subject && !!message;
   const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
+  // Same renderer the server sends with; images load from this site for the preview.
+  const preview = useMemo(
+    () =>
+      subject && message
+        ? renderMessageEmail({
+            subject,
+            message,
+            personal,
+            assetBaseUrl: typeof window === "undefined" ? undefined : window.location.origin,
+          })
+        : null,
+    [subject, message, personal]
+  );
+
   return (
     <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <PageHeader title="Send emails" description="Email customers with a saved template or a one-off message." />
+      <PageHeader title="Send emails" description="Email customers with a saved template or a one-off message, and read their replies." />
+
+      <Tabs
+        label="Email views"
+        value={view}
+        onChange={setView}
+        tabs={[
+          { value: "compose", label: "Compose" },
+          { value: "conversations", label: "Conversations", count: unread },
+        ]}
+      />
 
       {sendMessage && (
         <div
@@ -417,6 +420,9 @@ contact@desertcandleworks.com`;
         </div>
       )}
 
+      {view === "conversations" ? (
+        <ConversationsPanel openThreadId={openThreadId} onOpenThread={openThread} onUnreadChange={setUnread} />
+      ) : (
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
         {/* Compose */}
         <section className="a-card space-y-5 p-5 sm:p-6">
@@ -556,6 +562,12 @@ contact@desertcandleworks.com`;
               <Users className="h-4 w-4" aria-hidden />
               {selectedRecipients.length === 0 ? "Choose recipients" : "Add more recipients"}
             </button>
+            {selectedRecipients.length === 1 && (
+              <p className="a-help">One-to-one: their reply will show up under Conversations.</p>
+            )}
+            {selectedRecipients.length > 1 && (
+              <p className="a-help">Each person gets their own copy. Replies to group emails go to contact@.</p>
+            )}
           </div>
 
           <label className="block">
@@ -572,8 +584,16 @@ contact@desertcandleworks.com`;
               rows={12}
               placeholder="Write your message…"
             />
-            <p className="a-help">Line breaks are kept in the email.</p>
+            <p className="a-help">Line breaks are kept in the email; links become clickable.</p>
           </label>
+
+          <div className="flex items-start gap-3 rounded-lg border border-[var(--a-line)] p-3">
+            <Switch checked={personal} onChange={() => setPersonal(!personal)} label="Personal email" />
+            <div className="text-sm">
+              <p className="font-medium text-[var(--a-ink)]">Personal email</p>
+              <p className="text-[var(--a-muted)]">Sent from Josh &amp; Cori with your signature at the bottom.</p>
+            </div>
+          </div>
 
           <button onClick={handleSend} disabled={!canSend} className="a-btn a-btn-primary h-11 w-full text-[15px]">
             <Mail className="h-4 w-4" aria-hidden />
@@ -593,47 +613,18 @@ contact@desertcandleworks.com`;
               <p className="a-section-label text-[var(--a-faint)]">Preview</p>
               <p className="mt-0.5 truncate text-sm font-medium text-[var(--a-ink)]">{subject || "No subject yet"}</p>
             </div>
-            {subject && message ? (
+            {preview ? (
               <>
                 <iframe
-                  srcDoc={`<!DOCTYPE html>
-<html>
-<head>
-  <style>
-    body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; max-width: 600px; margin: 0 auto; }
-    .header { background: #1e40af; color: white; padding: 20px; text-align: center; }
-    .content { padding: 30px; background: #fff; white-space: pre-wrap; }
-    .footer { background: #f8f9fa; padding: 20px; text-align: center; color: #666; font-size: 14px; }
-  </style>
-</head>
-<body>
-  <div class="header">
-    <h1 style="margin: 0; color: white;">Desert Candle Works</h1>
-  </div>
-  <div class="content">${message}</div>
-  <div class="footer">
-    <p style="margin: 0;">© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.</p>
-    <p style="margin: 5px 0 0 0;">Scottsdale, AZ | www.desertcandleworks.com</p>
-    <p style="margin: 10px 0 0 0;">
-      <a href="mailto:contact@desertcandleworks.com">contact@desertcandleworks.com</a>
-    </p>
-  </div>
-</body>
-</html>`}
-                  className="block h-[480px] w-full border-0 bg-white"
+                  srcDoc={preview.html}
+                  className="block h-[620px] w-full border-0 bg-[#f7f2eb]"
                   title="Email preview"
                 />
                 <details className="border-t border-[var(--a-line)]">
                   <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-[var(--a-muted)] hover:text-[var(--a-ink)]">
                     Plain-text version
                   </summary>
-                  <pre className="whitespace-pre-wrap break-words bg-[var(--a-canvas)] px-4 py-3 font-mono text-xs text-[var(--a-ink)]">{`Desert Candle Works
-
-${message}
-
-© ${new Date().getFullYear()} Desert Candle Works. All rights reserved.
-Scottsdale, AZ | www.desertcandleworks.com
-contact@desertcandleworks.com`}</pre>
+                  <pre className="whitespace-pre-wrap break-words bg-[var(--a-canvas)] px-4 py-3 font-mono text-xs text-[var(--a-ink)]">{preview.text}</pre>
                 </details>
               </>
             ) : (
@@ -642,6 +633,7 @@ contact@desertcandleworks.com`}</pre>
           </div>
         </section>
       </div>
+      )}
 
       {/* Recipient picker */}
       {showRecipientModal && (

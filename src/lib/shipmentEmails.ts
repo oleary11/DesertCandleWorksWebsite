@@ -6,6 +6,7 @@ import {
   type Order,
 } from "@/lib/userStore";
 import { getPrimaryImage } from "@/lib/products";
+import { COLORS, emailFooter, emailHeader, escapeHtml } from "@/lib/emailLayout";
 
 export type ShipmentEmailDetails = {
   trackingNumber: string;
@@ -41,7 +42,7 @@ export async function sendPremiumOrderConfirmationEmail(
           <tr>
             <td align="center" style="padding:24px 12px 36px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${COLORS.white};border:1px solid ${COLORS.sand};border-radius:18px;overflow:hidden;box-shadow:0 10px 30px rgba(66,48,28,.08);">
-                <tr><td>${header(logoUrl, `We received your order ${orderId}.`)}</td></tr>
+                <tr><td>${emailHeader(logoUrl, `We received your order ${orderId}.`)}</td></tr>
                 <tr>
                   <td align="center" style="padding:34px 34px 12px;">
                     <div style="font-family:Arial,sans-serif;font-size:11px;line-height:17px;letter-spacing:1.8px;text-transform:uppercase;color:${COLORS.goldDark};font-weight:700;">Order confirmed</div>
@@ -110,7 +111,7 @@ export async function sendPremiumOrderConfirmationEmail(
                     </p>
                   </td>
                 </tr>
-                <tr><td>${footer(baseUrl)}</td></tr>
+                <tr><td>${emailFooter(baseUrl)}</td></tr>
               </table>
             </td>
           </tr>
@@ -146,27 +147,6 @@ export async function sendPremiumOrderConfirmationEmail(
     html,
     text,
   });
-}
-
-const COLORS = {
-  ink: "#211a16",
-  muted: "#6f655e",
-  cream: "#f7f2eb",
-  sand: "#eadfce",
-  gold: "#b97835",
-  goldDark: "#8f5520",
-  white: "#ffffff",
-  green: "#256b4b",
-  greenSoft: "#e9f4ee",
-};
-
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
 }
 
 function money(cents?: number): string {
@@ -223,27 +203,6 @@ async function buildEmailContext(orderId: string) {
     invoiceUrl,
     logoUrl: `${baseUrl}/images/logo.png`,
   };
-}
-
-function header(logoUrl: string, preheader: string): string {
-  return `
-    <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">
-      ${escapeHtml(preheader)}
-    </div>
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${COLORS.ink};">
-      <tr>
-        <td align="center" style="padding:28px 24px 24px;">
-          <img src="${escapeHtml(logoUrl)}" width="92" height="92" alt="Desert Candle Works" style="display:block;width:92px;height:92px;object-fit:contain;border:0;border-radius:18px;margin:0 auto 10px;">
-          <div style="font-family:Georgia,'Times New Roman',serif;font-size:24px;line-height:30px;letter-spacing:.4px;color:${COLORS.white};">
-            Desert Candle Works
-          </div>
-          <div style="font-family:Arial,sans-serif;font-size:11px;line-height:18px;letter-spacing:2.2px;text-transform:uppercase;color:${COLORS.sand};margin-top:5px;">
-            Handcrafted in Scottsdale
-          </div>
-        </td>
-      </tr>
-    </table>
-  `;
 }
 
 function orderItems(
@@ -324,25 +283,6 @@ function address(order: Order): string {
   `;
 }
 
-function footer(baseUrl: string): string {
-  return `
-    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
-      <tr>
-        <td align="center" style="padding:28px 24px;font-family:Arial,sans-serif;font-size:12px;line-height:19px;color:${COLORS.muted};">
-          Questions? We are happy to help.<br>
-          <a href="mailto:contact@desertcandleworks.com" style="color:${COLORS.goldDark};text-decoration:none;font-weight:700;">contact@desertcandleworks.com</a>
-          &nbsp;·&nbsp;
-          <a href="${escapeHtml(baseUrl)}" style="color:${COLORS.goldDark};text-decoration:none;font-weight:700;">desertcandleworks.com</a>
-          <div style="margin-top:14px;color:#958a82;">
-            Desert Candle Works · Scottsdale, Arizona<br>
-            © ${new Date().getFullYear()} Desert Candle Works
-          </div>
-        </td>
-      </tr>
-    </table>
-  `;
-}
-
 function detailsCard(details: ShipmentEmailDetails): string {
   const eta = humanDate(details.estimatedDelivery);
   return `
@@ -415,7 +355,7 @@ export async function sendPremiumShippingEmail(
           <tr>
             <td align="center" style="padding:24px 10px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${COLORS.white};border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(33,26,22,.08);">
-                <tr><td>${header(logoUrl, `Order ${orderId} is on its way.`)}</td></tr>
+                <tr><td>${emailHeader(logoUrl, `Order ${orderId} is on its way.`)}</td></tr>
                 <tr>
                   <td style="padding:38px 34px 8px;">
                     <div style="font-family:Georgia,'Times New Roman',serif;font-size:34px;line-height:42px;color:${COLORS.ink};text-align:center;">Your order is on the way</div>
@@ -460,7 +400,7 @@ export async function sendPremiumShippingEmail(
                     <a href="${escapeHtml(invoiceUrl)}" style="display:inline-block;border:1px solid ${COLORS.gold};color:${COLORS.goldDark};font-family:Arial,sans-serif;font-size:14px;font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">Open order invoice</a>
                   </td>
                 </tr>
-                <tr><td>${footer(baseUrl)}</td></tr>
+                <tr><td>${emailFooter(baseUrl)}</td></tr>
               </table>
             </td>
           </tr>
@@ -493,7 +433,7 @@ export async function sendPremiumDeliveryEmail(
           <tr>
             <td align="center" style="padding:24px 10px;">
               <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${COLORS.white};border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(33,26,22,.08);">
-                <tr><td>${header(logoUrl, `Order ${orderId} has been delivered.`)}</td></tr>
+                <tr><td>${emailHeader(logoUrl, `Order ${orderId} has been delivered.`)}</td></tr>
                 <tr>
                   <td style="padding:38px 34px 10px;text-align:center;">
                     <div style="display:inline-block;background:${COLORS.greenSoft};color:${COLORS.green};font-family:Arial,sans-serif;font-size:11px;line-height:18px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;padding:7px 12px;border-radius:999px;">Delivered</div>
@@ -539,7 +479,7 @@ export async function sendPremiumDeliveryEmail(
                     </div>
                   </td>
                 </tr>
-                <tr><td>${footer(baseUrl)}</td></tr>
+                <tr><td>${emailFooter(baseUrl)}</td></tr>
               </table>
             </td>
           </tr>
