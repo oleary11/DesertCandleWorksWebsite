@@ -400,7 +400,7 @@ export default function AdminEmailsPage() {
   );
 
   return (
-    <div className="a-ui mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
+    <div className={`a-ui mx-auto px-4 py-8 sm:px-6 lg:px-8 ${view === "compose" ? "max-w-6xl" : "max-w-[1600px]"}`}>
       <PageHeader title="Send emails" description="Email customers with a saved template or a one-off message, and read their replies." />
 
       <Tabs

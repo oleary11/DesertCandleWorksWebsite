@@ -224,7 +224,8 @@ export function Modal({
   onClose: () => void;
   busy?: boolean;
   footer?: React.ReactNode;
-  size?: "sm" | "md" | "lg";
+  /** "full" nearly fills the screen and lets the body stretch (for email/document viewers). */
+  size?: "sm" | "md" | "lg" | "full";
   children: React.ReactNode;
 }) {
   useEffect(() => {
@@ -235,11 +236,12 @@ export function Modal({
     return () => document.removeEventListener("keydown", onKey);
   }, [busy, onClose]);
 
-  const width = size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : "max-w-xl";
+  const width =
+    size === "sm" ? "max-w-md" : size === "lg" ? "max-w-3xl" : size === "full" ? "h-[94dvh] max-w-[1400px]" : "max-w-xl";
   return (
     <div className="a-ui fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label={title}>
       <button type="button" aria-label="Close" className="a-fade-enter absolute inset-0 bg-black/40" onClick={() => !busy && onClose()} />
-      <div className={`a-card a-fade-enter relative flex max-h-[92dvh] w-full ${width} flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]`}>
+      <div className={`a-card a-fade-enter relative flex ${size === "full" ? "max-h-[94dvh]" : "max-h-[92dvh]"} w-full ${width} flex-col overflow-hidden rounded-b-none shadow-2xl sm:rounded-b-[var(--a-radius)]`}>
         <div className="flex items-start justify-between gap-4 border-b border-[var(--a-line)] px-5 py-4 sm:px-6">
           <div className="min-w-0">
             <h2 className="text-lg font-semibold tracking-tight text-[var(--a-ink)]">{title}</h2>
@@ -249,7 +251,11 @@ export function Modal({
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-5 sm:px-6">{children}</div>
+        <div
+          className={`min-h-0 flex-1 overscroll-contain px-5 py-5 sm:px-6 ${size === "full" ? "flex flex-col overflow-hidden" : "overflow-y-auto"}`}
+        >
+          {children}
+        </div>
         {footer && (
           <div className="flex flex-wrap items-center justify-end gap-2 border-t border-[var(--a-line)] bg-[var(--a-canvas)] px-5 py-3 sm:px-6">
             {footer}

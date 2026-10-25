@@ -144,10 +144,10 @@ export default function ConversationsPanel({
         </div>
       )}
 
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+      <div className="grid grid-cols-1 items-stretch gap-6 lg:h-[calc(100dvh-230px)] lg:min-h-[560px] lg:grid-cols-[minmax(300px,380px)_minmax(0,1fr)]">
         {/* Thread list */}
-        <section className={`a-card overflow-hidden ${openThreadId ? "hidden lg:block" : ""}`}>
-          <div className="flex items-center justify-between border-b border-[var(--a-line)] px-4 py-3">
+        <section className={`a-card flex min-h-0 flex-col overflow-hidden ${openThreadId ? "hidden lg:flex" : ""}`}>
+          <div className="flex shrink-0 items-center justify-between border-b border-[var(--a-line)] px-4 py-3">
             <p className="text-sm font-medium text-[var(--a-ink)]">Conversations</p>
             <button className="a-icon-btn h-8 w-8" onClick={loadThreads} aria-label="Refresh" title="Refresh">
               <RefreshCw className="h-4 w-4" aria-hidden />
@@ -163,7 +163,7 @@ export default function ConversationsPanel({
               No conversations yet. Emails sent to a single customer show up here with their replies.
             </div>
           ) : (
-            <ul className="max-h-[640px] divide-y divide-[var(--a-line)] overflow-y-auto">
+            <ul className="min-h-0 flex-1 divide-y divide-[var(--a-line)] overflow-y-auto">
               {threads.map((t) => (
                 <li key={t.id}>
                   <button
@@ -191,12 +191,12 @@ export default function ConversationsPanel({
         </section>
 
         {/* Open thread */}
-        <section className={`a-card overflow-hidden ${openThreadId ? "" : "hidden lg:block"}`}>
+        <section className={`a-card flex min-h-[70dvh] flex-col overflow-hidden lg:min-h-0 ${openThreadId ? "" : "hidden lg:flex"}`}>
           {!openThreadId ? (
             <p className="px-4 py-24 text-center text-sm text-[var(--a-muted)]">Choose a conversation to read it.</p>
           ) : (
             <>
-              <div className="flex items-start gap-2 border-b border-[var(--a-line)] px-4 py-3">
+              <div className="flex shrink-0 items-start gap-2 border-b border-[var(--a-line)] px-4 py-3">
                 <button className="a-icon-btn h-8 w-8 shrink-0 lg:hidden" onClick={() => onOpenThread(null)} aria-label="Back to conversations">
                   <ArrowLeft className="h-4 w-4" aria-hidden />
                 </button>
@@ -209,14 +209,14 @@ export default function ConversationsPanel({
                 </div>
               </div>
 
-              <div className="max-h-[520px] min-h-[240px] space-y-3 overflow-y-auto bg-[var(--a-canvas)] px-4 py-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto bg-[var(--a-canvas)] px-4 py-4">
                 {loadingThread ? (
                   <p className="py-10 text-center text-sm text-[var(--a-muted)]">Loading…</p>
                 ) : (
                   messages.map((m) => (
                     <div key={m.id} className={`flex ${m.direction === "out" ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[85%] rounded-xl border px-3.5 py-2.5 text-sm ${
+                        className={`max-w-[min(85%,760px)] rounded-xl border px-4 py-3 text-[15px] leading-relaxed ${
                           m.direction === "out"
                             ? "border-[#eadfce] bg-[#f7f2eb] text-[var(--a-ink)]"
                             : "border-[var(--a-line)] bg-white text-[var(--a-ink)]"
@@ -234,7 +234,7 @@ export default function ConversationsPanel({
                 <div ref={endRef} />
               </div>
 
-              <div className="space-y-3 border-t border-[var(--a-line)] p-4">
+              <div className="shrink-0 space-y-3 border-t border-[var(--a-line)] p-4">
                 <label className="block">
                   <span className="sr-only">Reply</span>
                   <textarea
@@ -270,7 +270,7 @@ export default function ConversationsPanel({
 
       {replyPreview && (
         <Modal
-          size="lg"
+          size="full"
           title={replySubject}
           description={`To ${open?.customerName ? `${open.customerName} <${open.customerEmail}>` : open?.customerEmail} · ${
             personal ? "from Josh & Cori, with signature" : "from Desert Candle Works"
@@ -301,7 +301,7 @@ export default function ConversationsPanel({
         >
           <iframe
             srcDoc={replyPreview.html}
-            className="block h-[60dvh] w-full rounded-lg border border-[var(--a-line)] bg-[#f7f2eb]"
+            className="block min-h-0 w-full flex-1 rounded-lg border border-[var(--a-line)] bg-[#f7f2eb]"
             title="Reply preview"
           />
         </Modal>

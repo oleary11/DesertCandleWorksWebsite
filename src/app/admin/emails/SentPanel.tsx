@@ -323,29 +323,39 @@ export default function SentPanel({ initialQuery = "" }: { initialQuery?: string
       </section>
 
       {opened && (
-        <Modal size="lg" title={opened.subject || "(no subject)"} onClose={() => setOpened(null)}>
-          <dl className="mb-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
-            <dt className="text-[var(--a-muted)]">To</dt>
-            <dd className="min-w-0 break-words">{opened.toEmail}</dd>
-            <dt className="text-[var(--a-muted)]">From</dt>
-            <dd className="min-w-0 break-words">{opened.fromEmail}</dd>
+        <Modal size="full" title={opened.subject || "(no subject)"} onClose={() => setOpened(null)}>
+          <dl className="mb-4 flex shrink-0 flex-wrap gap-x-6 gap-y-2 text-sm">
+            <div className="min-w-0">
+              <dt className="text-xs text-[var(--a-muted)]">To</dt>
+              <dd className="break-words">{opened.toEmail}</dd>
+            </div>
+            <div className="min-w-0">
+              <dt className="text-xs text-[var(--a-muted)]">From</dt>
+              <dd className="break-words">{opened.fromEmail}</dd>
+            </div>
             {opened.replyTo.length > 0 && (
-              <>
-                <dt className="text-[var(--a-muted)]">Reply-To</dt>
-                <dd className="min-w-0 break-words">{opened.replyTo.join(", ")}</dd>
-              </>
+              <div className="min-w-0">
+                <dt className="text-xs text-[var(--a-muted)]">Reply-To</dt>
+                <dd className="break-all">{opened.replyTo.join(", ")}</dd>
+              </div>
             )}
-            <dt className="text-[var(--a-muted)]">Sent</dt>
-            <dd>{new Date(opened.sentAt).toLocaleString()}</dd>
-            <dt className="text-[var(--a-muted)]">Type</dt>
-            <dd>
-              {categoryLabel(opened.category)}
-              {opened.orderId && <span className="font-mono"> · {opened.orderId}</span>}
-            </dd>
-            <dt className="text-[var(--a-muted)]">Status</dt>
-            <dd>
-              <StatusBadge status={opened.lastEvent} />
-            </dd>
+            <div>
+              <dt className="text-xs text-[var(--a-muted)]">Sent</dt>
+              <dd>{new Date(opened.sentAt).toLocaleString()}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-[var(--a-muted)]">Type</dt>
+              <dd>
+                {categoryLabel(opened.category)}
+                {opened.orderId && <span className="font-mono"> · {opened.orderId}</span>}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-[var(--a-muted)]">Status</dt>
+              <dd>
+                <StatusBadge status={opened.lastEvent} />
+              </dd>
+            </div>
           </dl>
 
           {openingId === opened.resendId ? (
@@ -356,11 +366,11 @@ export default function SentPanel({ initialQuery = "" }: { initialQuery?: string
             <iframe
               srcDoc={opened.html}
               sandbox="allow-popups allow-popups-to-escape-sandbox"
-              className="block h-[60dvh] w-full rounded-lg border border-[var(--a-line)] bg-white"
+              className="block min-h-0 w-full flex-1 rounded-lg border border-[var(--a-line)] bg-white"
               title="Email content"
             />
           ) : (
-            <pre className="whitespace-pre-wrap break-words rounded-lg bg-[var(--a-canvas)] p-4 text-sm text-[var(--a-ink)]">
+            <pre className="min-h-0 flex-1 overflow-y-auto whitespace-pre-wrap break-words rounded-lg bg-[var(--a-canvas)] p-4 text-sm text-[var(--a-ink)]">
               {opened.text || "No content stored for this email."}
             </pre>
           )}
