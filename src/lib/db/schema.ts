@@ -517,6 +517,20 @@ export const emailMessages = pgTable('email_messages', {
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
 });
 
+// Every email Desert Candle Works sends through Resend (the Resend account is shared
+// with other projects). Written at send time and kept current by syncing Resend's list.
+export const emailLog = pgTable('email_log', {
+  resendId: varchar('resend_id', { length: 100 }).primaryKey(),
+  toEmail: text('to_email').notNull().default(''),
+  fromEmail: text('from_email').notNull().default(''),
+  subject: text('subject').notNull().default(''),
+  category: varchar('category', { length: 30 }).notNull().default('other'),
+  orderId: varchar('order_id', { length: 100 }),
+  lastEvent: varchar('last_event', { length: 30 }),
+  sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+});
+
 // ============================================
 // RELATIONS (Optional - for Drizzle query API)
 // ============================================

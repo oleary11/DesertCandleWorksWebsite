@@ -66,7 +66,14 @@ export async function POST(req: NextRequest) {
     const results = { success: 0, failed: 0, errors: [] as string[] };
     for (const recipient of recipients) {
       try {
-        await sendAdminMessage({ to: recipient.email.trim(), subject, message, personal, threadId: thread?.id });
+        await sendAdminMessage({
+          to: recipient.email.trim(),
+          subject,
+          message,
+          personal,
+          threadId: thread?.id,
+          orderId: body.orderId || undefined,
+        });
         results.success++;
       } catch (err) {
         results.failed++;

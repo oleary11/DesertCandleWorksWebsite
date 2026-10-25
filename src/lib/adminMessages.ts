@@ -16,6 +16,8 @@ export async function sendAdminMessage(input: {
   threadId?: string;
   /** Message-ID of the customer email we're answering, to keep their mail client's thread. */
   inReplyTo?: string | null;
+  /** Order picked on the compose form, so the email shows up under that order. */
+  orderId?: string;
 }): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || DEFAULT_BASE_URL;
   const { html, text } = renderMessageEmail({
@@ -37,6 +39,8 @@ export async function sendAdminMessage(input: {
     subject: input.subject,
     html,
     text,
+    category: "message",
+    orderId: input.orderId,
     headers: input.inReplyTo ? { "In-Reply-To": input.inReplyTo, References: input.inReplyTo } : undefined,
   });
 

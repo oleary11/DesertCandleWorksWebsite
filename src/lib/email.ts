@@ -1,5 +1,6 @@
 // Email sending utility
 import { Resend } from 'resend';
+import type { EmailCategory } from '@/lib/emailLog';
 
 type EmailOptions = {
   to: string;
@@ -11,6 +12,10 @@ type EmailOptions = {
   replyTo?: string;
   /** Extra headers, e.g. In-Reply-To / References to keep a reply in the customer's thread. */
   headers?: Record<string, string>;
+  /** Type shown in the admin "Sent" list; guessed from the subject when omitted. */
+  category?: EmailCategory;
+  /** Order this email is about, when the subject doesn't name it. */
+  orderId?: string;
 };
 
 /**
@@ -47,9 +52,10 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
 
   const resend = new Resend(process.env.RESEND_API_KEY);
 
+  const from = options.from || 'Desert Candle Works <noreply@desertcandleworks.com>';
   try {
     const { data, error } = await resend.emails.send({
-      from: options.from || 'Desert Candle Works <noreply@desertcandleworks.com>',
+      from,
       to: options.to,
       subject: options.subject,
       html: options.html,
@@ -64,6 +70,22 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
       return null;
     }
     console.log(`✓ Email sent to ${options.to}`);
+    if (data?.id) {
+      // Loaded lazily so sending never depends on the database being reachable.
+      try {
+        const { logSentEmail } = await import('@/lib/emailLog');
+        await logSentEmail({
+          resendId: data.id,
+          to: options.to,
+          from,
+          subject: options.subject,
+          category: options.category,
+          orderId: options.orderId,
+        });
+      } catch (logError) {
+        console.error("Email sent but not logged:", logError);
+      }
+    }
     return data?.id ?? null;
   } catch (error) {
     console.error("Failed to send email:", error);

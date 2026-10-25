@@ -7,6 +7,7 @@ import { Badge, Modal, Switch, Tabs } from "../_components/ui";
 import { useModal } from "@/hooks/useModal";
 import { renderMessageEmail } from "@/lib/emailLayout";
 import ConversationsPanel from "./ConversationsPanel";
+import SentPanel from "./SentPanel";
 
 type Recipient = {
   email: string;
@@ -39,7 +40,8 @@ type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
 export default function AdminEmailsPage() {
   const { showAlert, showConfirm } = useModal();
-  const [view, setView] = useState<"compose" | "conversations">("compose");
+  const [view, setView] = useState<"compose" | "conversations" | "sent">("compose");
+  const [sentQuery, setSentQuery] = useState("");
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [personal, setPersonal] = useState(false);
@@ -84,10 +86,15 @@ export default function AdminEmailsPage() {
 
   // /admin/emails?thread=… (link in the "new reply" notification) opens that conversation
   useEffect(() => {
-    const thread = new URLSearchParams(window.location.search).get("thread");
+    const params = new URLSearchParams(window.location.search);
+    const thread = params.get("thread");
     if (thread) {
       setView("conversations");
       setOpenThreadId(thread);
+    } else if (params.get("view") === "sent") {
+      // /admin/emails?view=sent&q=ORDER-ID lists every email for that order
+      setSentQuery(params.get("q") ?? "");
+      setView("sent");
     }
     fetch("/api/admin/email-threads")
       .then((res) => (res.ok ? res.json() : null))
@@ -403,6 +410,7 @@ export default function AdminEmailsPage() {
         tabs={[
           { value: "compose", label: "Compose" },
           { value: "conversations", label: "Conversations", count: unread },
+          { value: "sent", label: "Sent" },
         ]}
       />
 
@@ -420,7 +428,9 @@ export default function AdminEmailsPage() {
         </div>
       )}
 
-      {view === "conversations" ? (
+      {view === "sent" ? (
+        <SentPanel key={sentQuery} initialQuery={sentQuery} />
+      ) : view === "conversations" ? (
         <ConversationsPanel openThreadId={openThreadId} onOpenThread={openThread} onUnreadChange={setUnread} />
       ) : (
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">

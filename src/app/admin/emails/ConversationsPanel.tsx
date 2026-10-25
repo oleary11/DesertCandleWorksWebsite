@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ArrowLeft, Inbox, RefreshCw, Send } from "lucide-react";
-import { Badge, Switch } from "../_components/ui";
+import { ArrowLeft, Eye, Inbox, RefreshCw, Send } from "lucide-react";
+import { Badge, Modal, Switch } from "../_components/ui";
+import { renderMessageEmail } from "@/lib/emailLayout";
 
 type ThreadSummary = {
   id: string;
@@ -54,6 +55,7 @@ export default function ConversationsPanel({
   const [personal, setPersonal] = useState(true);
   const [sending, setSending] = useState(false);
   const [replyError, setReplyError] = useState<string | null>(null);
+  const [previewing, setPreviewing] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const loadThreads = useCallback(async () => {
@@ -126,6 +128,12 @@ export default function ConversationsPanel({
   };
 
   const open = threads.find((t) => t.id === openThreadId) ?? null;
+  // Mirrors the server: answers go out as "Re: {subject}" in the shared layout.
+  const replySubject = open ? (/^re:/i.test(open.subject) ? open.subject : `Re: ${open.subject}`) : "";
+  const replyPreview =
+    previewing && reply.trim()
+      ? renderMessageEmail({ subject: replySubject, message: reply, personal, assetBaseUrl: window.location.origin })
+      : null;
 
   return (
     <div className="space-y-4">
@@ -243,16 +251,61 @@ export default function ConversationsPanel({
                     <Switch checked={personal} onChange={() => setPersonal(!personal)} label="Personal email" />
                     Personal email
                   </label>
-                  <button className="a-btn a-btn-primary" onClick={sendReply} disabled={sending || !reply.trim()}>
-                    <Send className="h-4 w-4" aria-hidden />
-                    {sending ? "Sending…" : "Send reply"}
-                  </button>
+                  <div className="flex gap-2">
+                    <button className="a-btn" onClick={() => setPreviewing(true)} disabled={!reply.trim()}>
+                      <Eye className="h-4 w-4" aria-hidden />
+                      Preview
+                    </button>
+                    <button className="a-btn a-btn-primary" onClick={sendReply} disabled={sending || !reply.trim()}>
+                      <Send className="h-4 w-4" aria-hidden />
+                      {sending ? "Sending…" : "Send reply"}
+                    </button>
+                  </div>
                 </div>
               </div>
             </>
           )}
         </section>
       </div>
+
+      {replyPreview && (
+        <Modal
+          size="lg"
+          title={replySubject}
+          description={`To ${open?.customerName ? `${open.customerName} <${open.customerEmail}>` : open?.customerEmail} · ${
+            personal ? "from Josh & Cori, with signature" : "from Desert Candle Works"
+          }`}
+          onClose={() => setPreviewing(false)}
+          footer={
+            <>
+              <label className="mr-auto flex items-center gap-2 text-sm text-[var(--a-ink)]">
+                <Switch checked={personal} onChange={() => setPersonal(!personal)} label="Personal email" />
+                Personal email
+              </label>
+              <button className="a-btn" onClick={() => setPreviewing(false)}>
+                Keep editing
+              </button>
+              <button
+                className="a-btn a-btn-primary"
+                disabled={sending}
+                onClick={async () => {
+                  setPreviewing(false);
+                  await sendReply();
+                }}
+              >
+                <Send className="h-4 w-4" aria-hidden />
+                Send reply
+              </button>
+            </>
+          }
+        >
+          <iframe
+            srcDoc={replyPreview.html}
+            className="block h-[60dvh] w-full rounded-lg border border-[var(--a-line)] bg-[#f7f2eb]"
+            title="Reply preview"
+          />
+        </Modal>
+      )}
     </div>
   );
 }

@@ -176,6 +176,7 @@ export async function POST(req: NextRequest) {
         <p><a href="${escapeHtml(link)}" style="color:#8f5520;font-weight:700;">Open the conversation in admin</a></p>
       </div>`,
       text: `${who} replied to "${thread.subject}":\n\n${bodyText}\n\nOpen the conversation: ${link}`,
+      category: "notification",
     });
   } catch (err) {
     console.error("[Inbound Email] Notification failed:", err);

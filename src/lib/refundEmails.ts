@@ -115,6 +115,8 @@ export async function sendRefundConfirmationEmail(
   await sendEmail({
     to: order.email,
     subject: `Your ${money(refund.amountCents)} refund from Desert Candle Works`,
+    category: "refund",
+    orderId: order.id,
     html,
     text: [
       "Your refund is on its way",

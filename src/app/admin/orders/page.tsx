@@ -787,6 +787,13 @@ export default function AdminOrdersPage() {
                             </div>
                           )}
 
+                          <a
+                            href={`/admin/emails?view=sent&q=${encodeURIComponent(order.id)}`}
+                            className="mt-3 inline-block text-sm text-[var(--a-accent-ink)] hover:underline"
+                          >
+                            Emails sent for this order →
+                          </a>
+
                           {isManualSale(order.id) && (
                             <p className="text-sm text-[var(--a-muted)]">No shipping tracking for manual sales.</p>
                           )}
