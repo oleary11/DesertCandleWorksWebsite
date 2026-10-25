@@ -527,6 +527,10 @@ export const emailLog = pgTable('email_log', {
   category: varchar('category', { length: 30 }).notNull().default('other'),
   orderId: varchar('order_id', { length: 100 }),
   lastEvent: varchar('last_event', { length: 30 }),
+  // Our own copy of the content: Resend deletes emails after ~30 days.
+  replyTo: text('reply_to'),
+  htmlBody: text('html_body'),
+  textBody: text('text_body'),
   sentAt: timestamp('sent_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
 });

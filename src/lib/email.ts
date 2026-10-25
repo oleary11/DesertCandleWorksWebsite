@@ -81,6 +81,9 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
           subject: options.subject,
           category: options.category,
           orderId: options.orderId,
+          replyTo: options.replyTo,
+          html: options.html,
+          text: options.text,
         });
       } catch (logError) {
         console.error("Email sent but not logged:", logError);

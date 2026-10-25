@@ -3,11 +3,17 @@
 // list: each send is recorded by lib/email.ts, and syncFromResend() fills in anything
 // sent elsewhere (e.g. Gmail through Resend SMTP) and refreshes delivery status.
 
-import { and, desc, eq, ilike, or, sql as dsql, type SQL } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, ilike, inArray, isNull, or, sql as dsql, type SQL } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { emailLog } from "@/lib/db/schema";
 
 export type EmailLogEntry = typeof emailLog.$inferSelect;
+
+// List rows leave out the (large) email bodies.
+const SUMMARY_COLUMNS = Object.fromEntries(
+  Object.entries(getTableColumns(emailLog)).filter(([key]) => key !== "htmlBody" && key !== "textBody")
+) as Omit<ReturnType<typeof getTableColumns<typeof emailLog>>, "htmlBody" | "textBody">;
+export type EmailLogSummary = Omit<EmailLogEntry, "htmlBody" | "textBody">;
 
 export type EmailCategory =
   | "order"
@@ -20,7 +26,7 @@ export type EmailCategory =
   | "notification"
   | "other";
 
-// Same as drizzle/0014_email_log.sql, so the feature works before that migration is run.
+// Same as drizzle/0014 + 0015, so the feature works before those migrations are run.
 const ENSURE_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS "email_log" (
     "resend_id" varchar(100) PRIMARY KEY,
@@ -36,6 +42,9 @@ const ENSURE_STATEMENTS = [
   `CREATE INDEX IF NOT EXISTS "email_log_sent_at_idx" ON "email_log" ("sent_at")`,
   `CREATE INDEX IF NOT EXISTS "email_log_category_idx" ON "email_log" ("category")`,
   `CREATE INDEX IF NOT EXISTS "email_log_order_idx" ON "email_log" ("order_id")`,
+  `ALTER TABLE "email_log" ADD COLUMN IF NOT EXISTS "reply_to" text`,
+  `ALTER TABLE "email_log" ADD COLUMN IF NOT EXISTS "html_body" text`,
+  `ALTER TABLE "email_log" ADD COLUMN IF NOT EXISTS "text_body" text`,
 ];
 
 let ensured: Promise<void> | null = null;
@@ -88,12 +97,16 @@ export async function logSentEmail(input: {
   subject: string;
   category?: EmailCategory;
   orderId?: string | null;
+  replyTo?: string;
+  html: string;
+  text?: string;
 }): Promise<void> {
   try {
     await ensureTable();
-    const guessed = classifyEmail(input.subject, input.from);
+    const guessed = classifyEmail(input.subject, input.from, input.replyTo ? [input.replyTo] : []);
     const category = input.category ?? guessed.category;
     const orderId = input.orderId ?? guessed.orderId;
+    const content = { replyTo: input.replyTo ?? null, htmlBody: input.html, textBody: input.text ?? null };
     await db
       .insert(emailLog)
       .values({
@@ -104,10 +117,11 @@ export async function logSentEmail(input: {
         category,
         orderId,
         lastEvent: "sent",
+        ...content,
       })
       .onConflictDoUpdate({
         target: emailLog.resendId,
-        set: { category, orderId, updatedAt: dsql`now()` },
+        set: { category, orderId, ...content, updatedAt: dsql`now()` },
       });
   } catch (err) {
     console.error("[Email Log] Could not record sent email:", err);
@@ -180,6 +194,8 @@ export async function syncFromResend(options: { stopBefore?: Date; maxPages?: nu
           target: emailLog.resendId,
           set: { lastEvent: dsql`excluded.last_event`, sentAt: dsql`excluded.sent_at`, updatedAt: dsql`now()` },
         });
+      // Emails sent outside this app (e.g. Gmail via Resend SMTP) arrive without content.
+      await copyMissingContent(ours.map((email) => email.id));
     }
 
     const last = page.data[page.data.length - 1];
@@ -188,6 +204,75 @@ export async function syncFromResend(options: { stopBefore?: Date; maxPages?: nu
     after = last.id;
   }
   return { pages, seen };
+}
+
+type ResendEmail = {
+  html?: string | null;
+  text?: string | null;
+  last_event?: string | null;
+  reply_to?: string[] | null;
+};
+
+async function fetchFromResend(id: string): Promise<ResendEmail | null> {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  const res = await fetch(`https://api.resend.com/emails/${encodeURIComponent(id)}`, {
+    headers: { Authorization: `Bearer ${apiKey}` },
+    cache: "no-store",
+  });
+  return res.ok ? ((await res.json()) as ResendEmail) : null;
+}
+
+/** Saves our own copy of the content for any of these emails we don't have yet. */
+async function copyMissingContent(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const missing = await db
+    .select({ resendId: emailLog.resendId })
+    .from(emailLog)
+    .where(and(inArray(emailLog.resendId, ids), isNull(emailLog.htmlBody), isNull(emailLog.textBody)));
+  for (const [i, { resendId }] of missing.entries()) {
+    if (i > 0) await sleep(300);
+    const email = await fetchFromResend(resendId);
+    if (!email || (!email.html && !email.text)) continue;
+    await db
+      .update(emailLog)
+      .set({
+        htmlBody: email.html ?? null,
+        textBody: email.text ?? null,
+        replyTo: email.reply_to?.length ? email.reply_to.join(", ") : null,
+      })
+      .where(eq(emailLog.resendId, resendId));
+  }
+}
+
+/**
+ * One logged email with its content, from our own copy. Falls back to Resend (and
+ * saves the result) only for emails we never stored; refreshes the status while
+ * Resend still has the email.
+ */
+export async function getLoggedEmail(id: string): Promise<EmailLogEntry | null> {
+  await ensureTable();
+  const [logged] = await db.select().from(emailLog).where(eq(emailLog.resendId, id));
+  if (!logged) return null;
+
+  const needsContent = !logged.htmlBody && !logged.textBody;
+  const recent = Date.now() - logged.sentAt.getTime() < 30 * 24 * 60 * 60_000;
+  if (!needsContent && !recent) return logged;
+
+  const remote = await fetchFromResend(id).catch(() => null);
+  if (!remote) return logged;
+  const update = {
+    lastEvent: remote.last_event ?? logged.lastEvent,
+    ...(needsContent
+      ? {
+          htmlBody: remote.html ?? null,
+          textBody: remote.text ?? null,
+          replyTo: remote.reply_to?.length ? remote.reply_to.join(", ") : logged.replyTo,
+        }
+      : {}),
+  };
+  await db.update(emailLog).set(update).where(eq(emailLog.resendId, id));
+  return { ...logged, ...update };
 }
 
 let lastRecentSync = 0;
@@ -209,7 +294,7 @@ export async function listEmailLog(filters: {
   q?: string;
   limit?: number;
   offset?: number;
-}): Promise<{ emails: EmailLogEntry[]; total: number; counts: Record<string, number> }> {
+}): Promise<{ emails: EmailLogSummary[]; total: number; counts: Record<string, number> }> {
   await ensureTable();
   const where: SQL[] = []; // everything except the type filter
   if (filters.status === "problem") {
@@ -225,7 +310,7 @@ export async function listEmailLog(filters: {
   const condition = and(...where, ...(filters.category ? [eq(emailLog.category, filters.category)] : []));
 
   const emails = await db
-    .select()
+    .select(SUMMARY_COLUMNS)
     .from(emailLog)
     .where(condition)
     .orderBy(desc(emailLog.sentAt))

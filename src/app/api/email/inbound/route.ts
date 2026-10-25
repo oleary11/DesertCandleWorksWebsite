@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
-import { DEFAULT_BASE_URL, escapeHtml } from "@/lib/emailLayout";
+import { COLORS, DEFAULT_BASE_URL, escapeHtml } from "@/lib/emailLayout";
 import {
   addMessage,
   getThread,
@@ -170,12 +170,13 @@ export async function POST(req: NextRequest) {
     await sendEmail({
       to: NOTIFY_ADDRESS,
       subject: `New reply from ${thread.customerName || fromEmail}: ${thread.subject}`,
-      html: `<div style="font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:#211a16;">
-        <p><strong>${escapeHtml(who)}</strong> replied to “${escapeHtml(thread.subject)}”:</p>
-        <blockquote style="margin:0 0 16px;padding:10px 14px;border-left:3px solid #b97835;background:#f7f2eb;white-space:pre-wrap;">${escapeHtml(bodyText)}</blockquote>
-        <p><a href="${escapeHtml(link)}" style="color:#8f5520;font-weight:700;">Open the conversation in admin</a></p>
+      html: `<div style="max-width:560px;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:${COLORS.ink};">
+        <p style="margin:0 0 12px;"><strong>${escapeHtml(who)}</strong> replied to “${escapeHtml(thread.subject)}”:</p>
+        <blockquote style="margin:0 0 20px;padding:12px 16px;border-left:3px solid ${COLORS.gold};background:${COLORS.cream};white-space:pre-wrap;">${escapeHtml(bodyText)}</blockquote>
+        <a href="${escapeHtml(link)}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.white};font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">Open in Admin Dashboard</a>
+        <p style="margin:16px 0 0;font-size:12px;color:${COLORS.muted};">Reply from the dashboard so your answer stays in the conversation.</p>
       </div>`,
-      text: `${who} replied to "${thread.subject}":\n\n${bodyText}\n\nOpen the conversation: ${link}`,
+      text: `${who} replied to "${thread.subject}":\n\n${bodyText}\n\nOpen in Admin Dashboard: ${link}`,
       category: "notification",
     });
   } catch (err) {
