@@ -6,6 +6,7 @@ import {
   addMessage,
   getThread,
   latestThreadForCustomer,
+  replyDomain,
   threadIdFromAddresses,
 } from "@/lib/emailThreadsStore";
 
@@ -134,6 +135,14 @@ export async function POST(req: NextRequest) {
 
   const fromEmail = bareAddress(email.from || event.data.from || "");
   const addresses = [...(email.to ?? event.data.to ?? []), ...(email.received_for ?? event.data.received_for ?? [])];
+
+  // Resend sends every received email on the account (other domains too) to every
+  // email.received webhook, so only take mail addressed to our reply domain.
+  const domain = replyDomain();
+  if (!domain || !addresses.some((a) => bareAddress(a).endsWith(`@${domain}`))) {
+    return NextResponse.json({ ignored: true });
+  }
+
   const threadId = threadIdFromAddresses(addresses);
   const thread = (threadId && (await getThread(threadId))) || (fromEmail ? await latestThreadForCustomer(fromEmail) : null);
   if (!thread) {
