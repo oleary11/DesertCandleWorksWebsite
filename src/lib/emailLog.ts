@@ -170,7 +170,11 @@ export async function syncFromResend(options: { stopBefore?: Date; maxPages?: nu
     const page = (await res.json()) as { data: ResendListedEmail[]; has_more: boolean };
     pages++;
 
-    const ours = page.data.filter((email) => OUR_DOMAIN.test(email.from));
+    // Our domain only, and not inbox replies to a reply+ address (those are forwarded
+    // to the customer in our layout, which is logged on its own).
+    const ours = page.data.filter(
+      (email) => OUR_DOMAIN.test(email.from) && !(email.to?.length && email.to.every((to) => /reply\+[^@]+@/i.test(to)))
+    );
     seen += ours.length;
     if (ours.length > 0) {
       await db

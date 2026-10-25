@@ -58,7 +58,25 @@ export function replyAddressFor(threadId: string): string | null {
   return domain ? `reply+${threadId}@${domain}` : null;
 }
 
-const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+/**
+ * A fixed Message-ID every email in a conversation points to (References header), so
+ * Gmail shows the customer's emails, our answers and the reply alerts to contact@ as
+ * one thread. No email carries this id itself; it only ties the others together.
+ */
+export function threadReference(threadId: string): string {
+  return `<conversation-${threadId}@desertcandleworks.com>`;
+}
+
+/** In-Reply-To / References headers for an email in this conversation. */
+export function threadHeaders(threadId: string, inReplyTo?: string | null): Record<string, string> {
+  const root = threadReference(threadId);
+  return {
+    "In-Reply-To": inReplyTo || root,
+    References: inReplyTo && inReplyTo !== root ? `${root} ${inReplyTo}` : root,
+  };
+}
+
+const UUID =/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
 /** Pulls the thread id out of reply+{id}@domain in any of the given addresses. */
 export function threadIdFromAddresses(addresses: string[]): string | null {

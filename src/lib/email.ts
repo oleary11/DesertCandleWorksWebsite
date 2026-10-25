@@ -10,6 +10,8 @@ type EmailOptions = {
   /** Defaults to Desert Candle Works <noreply@desertcandleworks.com>. */
   from?: string;
   replyTo?: string;
+  /** Hidden copy, e.g. contact@ so our side of a conversation shows in the shared inbox. */
+  bcc?: string;
   /** Extra headers, e.g. In-Reply-To / References to keep a reply in the customer's thread. */
   headers?: Record<string, string>;
   /** Type shown in the admin "Sent" list; guessed from the subject when omitted. */
@@ -61,6 +63,7 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
       html: options.html,
       ...(options.text ? { text: options.text } : {}),
       ...(options.replyTo ? { replyTo: options.replyTo } : {}),
+      ...(options.bcc ? { bcc: options.bcc } : {}),
       ...(options.headers ? { headers: options.headers } : {}),
     });
     if (error) {

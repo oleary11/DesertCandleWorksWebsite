@@ -2,11 +2,17 @@ import crypto from "crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { sendEmail } from "@/lib/email";
 import { COLORS, DEFAULT_BASE_URL, escapeHtml } from "@/lib/emailLayout";
+import { sendAdminMessage } from "@/lib/adminMessages";
+import { redis } from "@/lib/redis";
 import {
   addMessage,
   getThread,
+  latestInboundMessageId,
   latestThreadForCustomer,
+  markThreadRead,
+  replyAddressFor,
   replyDomain,
+  threadHeaders,
   threadIdFromAddresses,
 } from "@/lib/emailThreadsStore";
 
@@ -41,9 +47,20 @@ type ReceivedEmail = {
   text?: string | null;
   html?: string | null;
   message_id?: string | null;
+  authentication?: { spf?: string; dkim?: string; dmarc?: string };
 };
 
 const NOTIFY_ADDRESS = "contact@desertcandleworks.com";
+
+/**
+ * Addresses whose mail to a reply+ address is our answer (Cori replying to an alert
+ * in the inbox), not the customer's. ADMIN_REPLY_SENDERS adds more, comma-separated.
+ */
+function adminSenders(): string[] {
+  return [NOTIFY_ADDRESS, ...(process.env.ADMIN_REPLY_SENDERS ?? "").split(",")]
+    .map((address) => address.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 /** Svix-style signature check (svix-id / svix-timestamp / svix-signature, secret "whsec_..."). */
 function verifySignature(req: NextRequest, rawBody: string): boolean {
@@ -106,6 +123,8 @@ function stripQuoted(text: string): string {
       (/^On .+/i.test(line) && /wrote:\s*$/i.test(lines[i + 1] ?? "")) ||
       /^-{2,}\s*Original Message\s*-{2,}/i.test(line) ||
       /^_{5,}\s*$/.test(line) ||
+      // "-- " starts an email signature
+      /^--\s*$/.test(line) ||
       (/^From: .+/i.test(line) && /^(Sent|Date): /i.test(lines[i + 1] ?? ""))
   );
   const kept = (cut >= 0 ? lines.slice(0, cut) : lines).filter((line) => !line.startsWith(">"));
@@ -144,13 +163,55 @@ export async function POST(req: NextRequest) {
   }
 
   const threadId = threadIdFromAddresses(addresses);
+  const fullText = email.text?.trim() ? email.text : email.html ? htmlToText(email.html) : "";
+
+  // Cori answered a reply alert from the inbox: send her text to the customer in our
+  // email layout, exactly as if she had replied from the dashboard.
+  if (adminSenders().includes(fromEmail)) {
+    // Resend retries webhooks; never act on the same email twice.
+    const first = await redis.set(`inbound:handled:${email.id || event.data.email_id}`, 1, { nx: true, ex: 7 * 24 * 60 * 60 });
+    if (!first) return NextResponse.json({ duplicate: true });
+
+    const notSent = async (reason: string) => {
+      console.warn(`[Inbound Email] Inbox reply not sent: ${reason}`);
+      await sendEmail({
+        to: NOTIFY_ADDRESS,
+        subject: `Not sent: ${email.subject || "your reply"}`,
+        html: `<p style="font-family:Arial,sans-serif;font-size:14px;">Your reply was <strong>not</strong> sent to the customer: ${escapeHtml(reason)}</p>
+          <p style="font-family:Arial,sans-serif;font-size:14px;">Please answer from the admin dashboard instead.</p>`,
+        text: `Your reply was NOT sent to the customer: ${reason}\nPlease answer from the admin dashboard instead.`,
+        category: "notification",
+      }).catch(() => {});
+      return NextResponse.json({ ignored: true, reason });
+    };
+
+    const auth = email.authentication;
+    if (auth?.dmarc !== "pass" && auth?.dkim !== "pass") {
+      return notSent("we couldn't verify it came from Desert Candle Works (email authentication failed).");
+    }
+    const target = threadId ? await getThread(threadId) : null;
+    if (!target) return notSent("it wasn't a reply to a customer conversation.");
+    const message = stripQuoted(fullText);
+    if (!message) return notSent("the reply looked empty.");
+
+    await sendAdminMessage({
+      to: target.customerEmail,
+      subject: /^re:/i.test(target.subject) ? target.subject : `Re: ${target.subject}`,
+      message,
+      personal: target.personal,
+      threadId: target.id,
+      inReplyTo: await latestInboundMessageId(target.id),
+    });
+    await markThreadRead(target.id);
+    return NextResponse.json({ ok: true, answered: true });
+  }
+
   const thread = (threadId && (await getThread(threadId))) || (fromEmail ? await latestThreadForCustomer(fromEmail) : null);
   if (!thread) {
     console.warn(`[Inbound Email] No conversation for mail from ${fromEmail} to ${addresses.join(", ")}`);
     return NextResponse.json({ ignored: true });
   }
 
-  const fullText = email.text?.trim() ? email.text : email.html ? htmlToText(email.html) : "";
   const bodyText = stripQuoted(fullText);
   const saved = await addMessage({
     threadId: thread.id,
@@ -165,18 +226,30 @@ export async function POST(req: NextRequest) {
 
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || DEFAULT_BASE_URL;
   const link = `${baseUrl}/admin/emails?thread=${thread.id}`;
-  const who = thread.customerName ? `${thread.customerName} (${fromEmail})` : fromEmail;
+  const displayName = (thread.customerName || fromEmail).replace(/["<>\\]/g, "").trim();
   try {
+    // Shaped like the customer's own reply ("Re: subject", from "Name via Desert Candle
+    // Works", same References as the rest of the conversation) so Gmail keeps the whole
+    // conversation — their replies and our Bcc'd answers — in one thread at contact@.
     await sendEmail({
       to: NOTIFY_ADDRESS,
-      subject: `New reply from ${thread.customerName || fromEmail}: ${thread.subject}`,
-      html: `<div style="max-width:560px;font-family:Arial,sans-serif;font-size:14px;line-height:22px;color:${COLORS.ink};">
-        <p style="margin:0 0 12px;"><strong>${escapeHtml(who)}</strong> replied to “${escapeHtml(thread.subject)}”:</p>
-        <blockquote style="margin:0 0 20px;padding:12px 16px;border-left:3px solid ${COLORS.gold};background:${COLORS.cream};white-space:pre-wrap;">${escapeHtml(bodyText)}</blockquote>
-        <a href="${escapeHtml(link)}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.white};font-weight:700;text-decoration:none;padding:12px 24px;border-radius:8px;">Open in Admin Dashboard</a>
-        <p style="margin:16px 0 0;font-size:12px;color:${COLORS.muted};">Reply from the dashboard so your answer stays in the conversation.</p>
+      from: `"${displayName} via Desert Candle Works" <noreply@desertcandleworks.com>`,
+      // Replying in the inbox comes back here and goes out in our email layout.
+      replyTo: replyAddressFor(thread.id) ?? fromEmail,
+      subject: /^re:/i.test(thread.subject) ? thread.subject : `Re: ${thread.subject}`,
+      headers: threadHeaders(thread.id, saved.messageId),
+      html: `<div style="max-width:640px;font-family:Arial,sans-serif;font-size:15px;line-height:24px;color:${COLORS.ink};">
+        <div style="white-space:pre-wrap;">${escapeHtml(bodyText)}</div>
+        <div style="margin:22px 0 0;padding-top:16px;border-top:1px solid ${COLORS.sand};">
+          <a href="${escapeHtml(link)}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.white};font-size:14px;font-weight:700;text-decoration:none;padding:11px 22px;border-radius:8px;">Open in Admin Dashboard</a>
+          <p style="margin:12px 0 0;font-size:12px;line-height:18px;color:${COLORS.muted};">
+            From ${escapeHtml(fromEmail)}. Just hit Reply: we&#039;ll send your answer to them in our email style${
+              thread.personal ? " with your signature" : ""
+            }, and save it in the dashboard.
+          </p>
+        </div>
       </div>`,
-      text: `${who} replied to "${thread.subject}":\n\n${bodyText}\n\nOpen in Admin Dashboard: ${link}`,
+      text: `${bodyText}\n\n—\nFrom ${fromEmail}. Just hit Reply: we'll send your answer to them in our email style and save it in the dashboard.\nOpen in Admin Dashboard: ${link}`,
       category: "notification",
     });
   } catch (err) {

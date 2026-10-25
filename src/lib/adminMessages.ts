@@ -3,7 +3,7 @@
 
 import { sendEmailWithId } from "@/lib/email";
 import { DEFAULT_BASE_URL, renderMessageEmail } from "@/lib/emailLayout";
-import { addMessage, replyAddressFor } from "@/lib/emailThreadsStore";
+import { addMessage, replyAddressFor, threadHeaders } from "@/lib/emailThreadsStore";
 
 const CONTACT_ADDRESS = "contact@desertcandleworks.com";
 
@@ -41,7 +41,13 @@ export async function sendAdminMessage(input: {
     text,
     category: "message",
     orderId: input.orderId,
-    headers: input.inReplyTo ? { "In-Reply-To": input.inReplyTo, References: input.inReplyTo } : undefined,
+    // In a conversation, contact@ gets a hidden copy so our side shows in the inbox
+    // thread next to the customer's replies.
+    ...(input.threadId
+      ? { bcc: CONTACT_ADDRESS, headers: threadHeaders(input.threadId, input.inReplyTo) }
+      : input.inReplyTo
+        ? { headers: { "In-Reply-To": input.inReplyTo, References: input.inReplyTo } }
+        : {}),
   });
 
   if (input.threadId) {
