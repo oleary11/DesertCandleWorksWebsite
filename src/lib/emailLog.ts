@@ -24,6 +24,7 @@ export type EmailCategory =
   | "message"
   | "personal"
   | "notification"
+  | "review"
   | "other";
 
 // Same as drizzle/0014 + 0015, so the feature works before those migrations are run.
@@ -82,6 +83,7 @@ export function classifyEmail(
   else if (/refund/i.test(subject)) category = "refund";
   else if (/reset your password|verify your email/i.test(subject)) category = "account";
   else if (/^new reply from/i.test(subject)) category = "notification";
+  else if (/^how are you liking your/i.test(subject)) category = "review";
   // Only emails written on /admin/emails carry a reply+{conversation}@ Reply-To.
   else if (replyTo.some((address) => /reply\+[^@]+@/i.test(address))) category = "message";
   else if (/^\s*(re|fwd?):/i.test(subject) || /contact@desertcandleworks\.com/i.test(from)) category = "personal";

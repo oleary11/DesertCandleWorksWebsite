@@ -22,6 +22,7 @@ const CATEGORIES: { value: string; label: string }[] = [
   { value: "shipping", label: "Shipped" },
   { value: "delivered", label: "Delivered" },
   { value: "refund", label: "Refunds" },
+  { value: "review", label: "Review requests" },
   { value: "message", label: "Sent from here" },
   { value: "personal", label: "From inbox" },
   { value: "account", label: "Account" },

@@ -5,6 +5,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/review-requests",
+      "schedule": "0 17 * * *"
+    },
+    {
       "path": "/api/cron/cleanup-sessions",
       "schedule": "0 2 * * *"
     },

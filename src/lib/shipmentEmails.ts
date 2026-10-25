@@ -1,4 +1,4 @@
-import { sendEmail } from "@/lib/email";
+import { sendEmail, sendEmailWithId } from "@/lib/email";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import {
   createInvoiceAccessToken,
@@ -493,5 +493,106 @@ export async function sendPremiumDeliveryEmail(
     subject: `Delivered · Desert Candle Works order ${orderId}`,
     html,
     text: `Your Desert Candle Works order has been delivered.\n\n${textSummary(order, details, invoiceUrl)}`,
+  });
+}
+
+export const GOOGLE_REVIEW_URL = "https://g.page/r/CQcLSwY5Vml0EBM/review";
+
+/** Rendered review-request email for an order (see lib/reviewRequests.ts for when it's sent). */
+export async function buildReviewRequestEmail(orderId: string) {
+  const { order, items, baseUrl, logoUrl } = await buildEmailContext(orderId);
+  const firstName = order.shippingAddress?.name?.trim().split(/\s+/)[0];
+  const greeting = firstName ? `Hi ${escapeHtml(firstName)},` : "Hi there,";
+  // Not every product is a candle (soap dispensers, home goods), so keep wording general.
+  const subject =
+    items.length === 1
+      ? `How are you liking your ${items[0].productName}?`
+      : "How are you liking your Desert Candle Works order?";
+
+  const html = `
+    <!doctype html>
+    <html lang="en">
+      <body style="margin:0;padding:0;background:${COLORS.cream};">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${COLORS.cream};">
+          <tr>
+            <td align="center" style="padding:24px 10px 36px;">
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="max-width:640px;background:${COLORS.white};border:1px solid ${COLORS.sand};border-radius:16px;overflow:hidden;box-shadow:0 8px 30px rgba(33,26,22,.08);">
+                <tr><td>${emailHeader(logoUrl, "Would you share a quick review? It helps our small studio more than you know.")}</td></tr>
+                <tr>
+                  <td style="padding:38px 34px 6px;text-align:center;">
+                    <div style="font-family:Georgia,'Times New Roman',serif;font-size:32px;line-height:40px;color:${COLORS.ink};">How are you enjoying them?</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:18px 34px 0;font-family:Arial,sans-serif;font-size:15px;line-height:25px;color:${COLORS.ink};">
+                    ${greeting}<br><br>
+                    We hope your new pieces have found the perfect spot at home. Every bottle is cut, cleaned and finished by hand by the two of us here in Scottsdale.<br><br>
+                    If you have a minute, would you share an honest review on Google? It&#039;s the biggest way a small studio like ours gets found.
+                  </td>
+                </tr>
+                <tr>
+                  <td align="center" style="padding:28px 34px 6px;">
+                    <a href="${GOOGLE_REVIEW_URL}" style="display:inline-block;background:${COLORS.gold};color:${COLORS.white};font-family:Arial,sans-serif;font-size:15px;font-weight:700;text-decoration:none;padding:15px 30px;border-radius:9px;">Leave a Google review</a>
+                    <div style="margin-top:10px;font-family:Arial,sans-serif;font-size:12px;line-height:18px;color:${COLORS.muted};">Takes about a minute</div>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:26px 34px 0;">
+                    <div style="font-family:Arial,sans-serif;font-size:12px;line-height:18px;letter-spacing:1.5px;text-transform:uppercase;color:${COLORS.goldDark};font-weight:700;margin-bottom:4px;">Your order</div>
+                    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">${orderItems(items)}</table>
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:24px 34px 0;font-family:Arial,sans-serif;font-size:14px;line-height:23px;color:${COLORS.muted};">
+                    Something not quite right? Just reply to this email and we&#039;ll make it right.
+                  </td>
+                </tr>
+                <tr>
+                  <td style="padding:20px 34px 8px;">
+                    <img src="${escapeHtml(`${baseUrl}/images/email-signature.png`)}" width="300" alt="Josh &amp; Cori · Desert Candle Works" style="display:block;width:300px;max-width:100%;height:auto;border:0;">
+                  </td>
+                </tr>
+                <tr><td style="padding:0 34px;"><div style="border-top:1px solid ${COLORS.sand};"></div></td></tr>
+                <tr><td>${emailFooter(baseUrl)}</td></tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+      </body>
+    </html>
+  `;
+
+  const text = [
+    firstName ? `Hi ${firstName},` : "Hi there,",
+    "",
+    "We hope your new pieces have found the perfect spot at home. Every bottle is cut, cleaned and finished by hand by the two of us here in Scottsdale.",
+    "",
+    "If you have a minute, would you share an honest review on Google? It's the biggest way a small studio like ours gets found.",
+    "",
+    `Leave a Google review: ${GOOGLE_REVIEW_URL}`,
+    "",
+    "Your order:",
+    ...order.items.map((item) => `- ${item.productName}${item.sizeName ? ` (${item.sizeName})` : ""}`),
+    "",
+    "Something not quite right? Just reply to this email and we'll make it right.",
+    "",
+    "Josh & Cori",
+    "Desert Candle Works · 480-442-7764 · @desertcandleworks",
+  ].join("\n");
+
+  return { order, subject, html, text };
+}
+
+export async function sendReviewRequestEmail(orderId: string): Promise<void> {
+  const { order, subject, html, text } = await buildReviewRequestEmail(orderId);
+  await sendEmailWithId({
+    to: order.email,
+    from: "Josh & Cori | Desert Candle Works <contact@desertcandleworks.com>",
+    replyTo: "contact@desertcandleworks.com",
+    subject,
+    html,
+    text,
+    category: "review",
+    orderId: order.id,
   });
 }
