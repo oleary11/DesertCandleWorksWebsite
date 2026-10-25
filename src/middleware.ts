@@ -44,6 +44,25 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // The session cookie is SameSite=Strict, so the browser leaves it off when an admin
+  // page is opened from another site (e.g. the "Open in Admin Dashboard" link in Gmail).
+  // Reload the same URL from our own page once; that request is same-site, so the
+  // cookie comes along. Truly signed-out visitors land here again and go to login.
+  if (
+    !token &&
+    req.method === "GET" &&
+    !pathname.startsWith("/api/") &&
+    req.headers.get("sec-fetch-site") === "cross-site" &&
+    req.headers.get("sec-fetch-mode") === "navigate"
+  ) {
+    const target = JSON.stringify(pathname + (search || "")).replace(/</g, "\\u003c");
+    return new NextResponse(
+      `<!doctype html><html><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>Opening…</title>` +
+        `<script>location.replace(${target});</script></head><body></body></html>`,
+      { headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } }
+    );
+  }
+
   // Redirect to login if not authenticated
   const loginUrl = new URL("/admin/login", req.url);
   const nextDest = pathname + (search || "");
