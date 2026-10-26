@@ -46,7 +46,10 @@ export function emailHeader(logoUrl: string, preheader: string): string {
   `;
 }
 
-export function emailFooter(baseUrl: string): string {
+export function emailFooter(baseUrl: string, unsubscribeUrl?: string): string {
+  const unsubscribe = unsubscribeUrl
+    ? `<br><a href="${escapeHtml(unsubscribeUrl)}" style="color:#958a82;">Unsubscribe from these emails</a>`
+    : "";
   return `
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
       <tr>
@@ -57,7 +60,7 @@ export function emailFooter(baseUrl: string): string {
           <a href="${escapeHtml(baseUrl)}" style="color:${COLORS.goldDark};text-decoration:none;font-weight:700;">desertcandleworks.com</a>
           <div style="margin-top:14px;color:#958a82;">
             Desert Candle Works · Scottsdale, Arizona<br>
-            © ${new Date().getFullYear()} Desert Candle Works
+            © ${new Date().getFullYear()} Desert Candle Works${unsubscribe}
           </div>
         </td>
       </tr>
@@ -87,12 +90,15 @@ export function renderMessageEmail({
   personal,
   baseUrl = DEFAULT_BASE_URL,
   assetBaseUrl = baseUrl,
+  unsubscribeUrl,
 }: {
   subject: string;
   message: string;
   personal: boolean;
   baseUrl?: string;
   assetBaseUrl?: string;
+  /** Mass emails only: adds an unsubscribe link to the footer. */
+  unsubscribeUrl?: string;
 }): { html: string; text: string } {
   const preheader = message.trim().split(/\r?\n/)[0]?.slice(0, 120) || subject;
   const signature = personal
@@ -119,7 +125,7 @@ export function renderMessageEmail({
                   </td>
                 </tr>${signature}
                 <tr><td style="padding:0 34px;"><div style="border-top:1px solid ${COLORS.sand};"></div></td></tr>
-                <tr><td>${emailFooter(baseUrl)}</td></tr>
+                <tr><td>${emailFooter(baseUrl, unsubscribeUrl)}</td></tr>
               </table>
             </td>
           </tr>
@@ -137,6 +143,7 @@ export function renderMessageEmail({
     "—",
     "Desert Candle Works · Scottsdale, Arizona",
     "contact@desertcandleworks.com · desertcandleworks.com",
+    ...(unsubscribeUrl ? ["", `Unsubscribe: ${unsubscribeUrl}`] : []),
   ].join("\n");
 
   return { html, text };

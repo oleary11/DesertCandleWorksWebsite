@@ -4,6 +4,7 @@
 import { sendEmailWithId } from "@/lib/email";
 import { DEFAULT_BASE_URL, renderMessageEmail } from "@/lib/emailLayout";
 import { addMessage, replyAddressFor, threadHeaders } from "@/lib/emailThreadsStore";
+import { unsubscribeHeaders, unsubscribePageUrl } from "@/lib/unsubscribe";
 
 const CONTACT_ADDRESS = "contact@desertcandleworks.com";
 
@@ -18,6 +19,8 @@ export async function sendAdminMessage(input: {
   inReplyTo?: string | null;
   /** Order picked on the compose form, so the email shows up under that order. */
   orderId?: string;
+  /** Mass email: adds an unsubscribe link and Gmail's one-click unsubscribe headers. */
+  bulk?: boolean;
 }): Promise<void> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || DEFAULT_BASE_URL;
   const { html, text } = renderMessageEmail({
@@ -25,6 +28,7 @@ export async function sendAdminMessage(input: {
     message: input.message,
     personal: input.personal,
     baseUrl,
+    unsubscribeUrl: input.bulk ? unsubscribePageUrl(input.to) : undefined,
   });
 
   const replyTo = (input.threadId && replyAddressFor(input.threadId)) || CONTACT_ADDRESS;
@@ -45,9 +49,11 @@ export async function sendAdminMessage(input: {
     // thread next to the customer's replies.
     ...(input.threadId
       ? { bcc: CONTACT_ADDRESS, headers: threadHeaders(input.threadId, input.inReplyTo) }
-      : input.inReplyTo
-        ? { headers: { "In-Reply-To": input.inReplyTo, References: input.inReplyTo } }
-        : {}),
+      : input.bulk
+        ? { headers: unsubscribeHeaders(input.to) }
+        : input.inReplyTo
+          ? { headers: { "In-Reply-To": input.inReplyTo, References: input.inReplyTo } }
+          : {}),
   });
 
   if (input.threadId) {

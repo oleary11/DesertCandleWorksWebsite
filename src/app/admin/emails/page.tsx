@@ -8,14 +8,28 @@ import { useModal } from "@/hooks/useModal";
 import { renderMessageEmail } from "@/lib/emailLayout";
 import ConversationsPanel from "./ConversationsPanel";
 import SentPanel from "./SentPanel";
+import ContactsPanel, { type Contact } from "./ContactsPanel";
 
+// A person on the To line; contacts from the Contacts tab carry their details along.
 type Recipient = {
   email: string;
   name: string;
-  type: "user" | "guest";
-  orderId?: string;
-  lastOrderDate?: string;
+  phone?: string | null;
+  location?: string | null;
+  orders?: number;
+  sources?: Contact["sources"];
+  optedOut?: boolean;
 };
+
+const toRecipient = (c: Contact): Recipient => ({
+  email: c.email,
+  name: c.name || "",
+  phone: c.phone,
+  location: c.location,
+  orders: c.orders,
+  sources: c.sources,
+  optedOut: c.optedOut,
+});
 
 type Order = {
   id: string;
@@ -40,7 +54,7 @@ type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
 export default function AdminEmailsPage() {
   const { showAlert, showConfirm } = useModal();
-  const [view, setView] = useState<"compose" | "conversations" | "sent">("compose");
+  const [view, setView] = useState<"compose" | "contacts" | "conversations" | "sent">("compose");
   const [sentQuery, setSentQuery] = useState("");
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
@@ -110,12 +124,10 @@ export default function AdminEmailsPage() {
     window.history.replaceState(null, "", url);
   }, []);
 
-  // Load recipients when modal opens
+  // Contacts power the quick-add buttons and the picker
   useEffect(() => {
-    if (showRecipientModal && allRecipients.length === 0) {
-      loadRecipients();
-    }
-  }, [showRecipientModal]);
+    loadRecipients();
+  }, []);
 
   // Load orders when modal opens
   useEffect(() => {
@@ -127,10 +139,10 @@ export default function AdminEmailsPage() {
   const loadRecipients = async () => {
     setLoadingRecipients(true);
     try {
-      const res = await fetch("/api/admin/email-recipients");
+      const res = await fetch("/api/admin/contacts");
       if (!res.ok) throw new Error("Failed to load recipients");
-      const data = await res.json();
-      setAllRecipients(data.recipients);
+      const data = (await res.json()) as { contacts: Contact[] };
+      setAllRecipients(data.contacts.map(toRecipient));
     } catch (err) {
       console.error("Failed to load recipients:", err);
     } finally {
@@ -249,9 +261,8 @@ export default function AdminEmailsPage() {
   };
 
   // Filter recipients based on search
-  const filteredRecipients = allRecipients.filter(r =>
-    r.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    r.name.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredRecipients = allRecipients.filter((r) =>
+    [r.email, r.name, r.phone, r.location].some((v) => v?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   // Filter orders based on search
@@ -269,9 +280,15 @@ export default function AdminEmailsPage() {
     }
   };
 
-  const selectAll = () => {
-    setSelectedRecipients([...filteredRecipients]);
+  /** Adds people to the To line (skipping unsubscribed and anyone already there). */
+  const addRecipients = (people: Recipient[]) => {
+    setSelectedRecipients((prev) => {
+      const have = new Set(prev.map((r) => r.email));
+      return [...prev, ...people.filter((p) => !p.optedOut && !have.has(p.email))];
+    });
   };
+
+  const selectAll = () => addRecipients(filteredRecipients);
 
   const clearAll = () => {
     setSelectedRecipients([]);
@@ -282,13 +299,8 @@ export default function AdminEmailsPage() {
     setOrderId(order.id);
 
     // Auto-populate recipient from selected order
-    const recipient: Recipient = {
-      email: order.email,
-      name: order.customerName,
-      type: "guest",
-      orderId: order.id,
-      lastOrderDate: order.createdAt,
-    };
+    const known = allRecipients.find((r) => r.email === order.email.toLowerCase());
+    const recipient: Recipient = known ?? { email: order.email, name: order.customerName };
 
     // Add recipient if not already selected
     if (!selectedRecipients.find(r => r.email === order.email)) {
@@ -394,14 +406,16 @@ export default function AdminEmailsPage() {
             message,
             personal,
             assetBaseUrl: typeof window === "undefined" ? undefined : window.location.origin,
+            // Mass emails get an unsubscribe link; show where it will be.
+            unsubscribeUrl: selectedRecipients.length > 1 ? "#" : undefined,
           })
         : null,
-    [subject, message, personal]
+    [subject, message, personal, selectedRecipients.length]
   );
 
   return (
-    <div className={`a-ui mx-auto px-4 py-8 sm:px-6 lg:px-8 ${view === "compose" ? "max-w-6xl" : "max-w-[1600px]"}`}>
-      <PageHeader title="Send emails" description="Email customers with a saved template or a one-off message, and read their replies." />
+    <div className="a-ui mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
+      <PageHeader title="Send emails" description="Email customers, manage your contact list, and read their replies." />
 
       <Tabs
         label="Email views"
@@ -409,6 +423,7 @@ export default function AdminEmailsPage() {
         onChange={setView}
         tabs={[
           { value: "compose", label: "Compose" },
+          { value: "contacts", label: "Contacts" },
           { value: "conversations", label: "Conversations", count: unread },
           { value: "sent", label: "Sent" },
         ]}
@@ -428,12 +443,88 @@ export default function AdminEmailsPage() {
         </div>
       )}
 
-      {view === "sent" ? (
+      {view === "contacts" ? (
+        <ContactsPanel
+          onEmail={(people) => {
+            addRecipients(people.map(toRecipient));
+            setView("compose");
+          }}
+        />
+      ) : view === "sent" ? (
         <SentPanel key={sentQuery} initialQuery={sentQuery} />
       ) : view === "conversations" ? (
         <ConversationsPanel openThreadId={openThreadId} onOpenThread={openThread} onUnreadChange={setUnread} />
       ) : (
-      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-2 xl:grid-cols-[300px_minmax(0,1fr)_minmax(0,1fr)]">
+        {/* To */}
+        <section className="a-card flex flex-col overflow-hidden lg:col-span-2 xl:sticky xl:top-20 xl:col-span-1 xl:max-h-[calc(100dvh-110px)]">
+          <div className="border-b border-[var(--a-line)] px-4 py-3">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-[var(--a-ink)]">
+                To <span className="font-normal text-[var(--a-muted)]">({selectedRecipients.length})</span>
+              </p>
+              {selectedRecipients.length > 0 && (
+                <button className="text-xs text-[var(--a-muted)] hover:text-[var(--a-ink)] hover:underline" onClick={clearAll}>
+                  Clear
+                </button>
+              )}
+            </div>
+            <div className="mt-3 flex flex-wrap gap-1.5 xl:flex-col">
+              {[
+                { label: "Everyone subscribed", people: allRecipients.filter((r) => !r.optedOut) },
+                { label: "Customers who ordered", people: allRecipients.filter((r) => !r.optedOut && (r.orders ?? 0) > 0) },
+                { label: "Newsletter signups", people: allRecipients.filter((r) => !r.optedOut && r.sources?.includes("newsletter")) },
+              ].map((group) => (
+                <button
+                  key={group.label}
+                  className="a-btn a-btn-sm justify-between gap-3"
+                  disabled={loadingRecipients || group.people.length === 0}
+                  onClick={() => addRecipients(group.people)}
+                >
+                  <span>+ {group.label}</span>
+                  <span className="tabular-nums text-[var(--a-faint)]">{loadingRecipients ? "…" : group.people.length}</span>
+                </button>
+              ))}
+              <button onClick={() => setShowRecipientModal(true)} className="a-btn a-btn-sm border-dashed">
+                <Users className="h-3.5 w-3.5" aria-hidden />
+                Pick people…
+              </button>
+            </div>
+          </div>
+          {selectedRecipients.length === 0 ? (
+            <p className="px-4 py-8 text-center text-sm text-[var(--a-muted)]">
+              No one yet. Add a group above, pick people, or select them on the Contacts tab.
+            </p>
+          ) : (
+            <ul className="max-h-64 min-h-0 flex-1 divide-y divide-[var(--a-line)] overflow-y-auto xl:max-h-none">
+              {selectedRecipients.map((recipient) => (
+                <li key={recipient.email} className="flex items-start gap-2 px-4 py-2">
+                  <div className="min-w-0 flex-1 text-sm">
+                    <p className="truncate font-medium text-[var(--a-ink)]">{recipient.name || recipient.email}</p>
+                    <p className="truncate text-xs text-[var(--a-muted)]">
+                      {[recipient.name ? recipient.email : null, recipient.location].filter(Boolean).join(" · ")}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => toggleRecipient(recipient)}
+                    className="a-icon-btn h-7 w-7 shrink-0"
+                    aria-label={`Remove ${recipient.email}`}
+                  >
+                    <X className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="border-t border-[var(--a-line)] px-4 py-2.5 text-xs text-[var(--a-muted)]">
+            {selectedRecipients.length === 1
+              ? "One-to-one: their reply shows up under Conversations."
+              : selectedRecipients.length > 1
+                ? "Mass email: each person gets their own copy with an unsubscribe link. Replies go to contact@."
+                : "One person starts a conversation; several makes a mass email."}
+          </p>
+        </section>
+
         {/* Compose */}
         <section className="a-card space-y-5 p-5 sm:p-6">
           <div>
@@ -544,42 +635,6 @@ export default function AdminEmailsPage() {
             </div>
           )}
 
-          <div>
-            <p className="a-label">
-              To <span className="font-normal text-[var(--a-muted)]">({selectedRecipients.length})</span>
-            </p>
-            {selectedRecipients.length > 0 && (
-              <ul className="mb-2 flex flex-wrap gap-1.5">
-                {selectedRecipients.map((recipient) => (
-                  <li
-                    key={recipient.email}
-                    className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--a-line)] bg-[var(--a-canvas)] py-0.5 pl-2.5 pr-1 text-sm"
-                    title={recipient.email}
-                  >
-                    <span className="truncate">{recipient.name || recipient.email}</span>
-                    <button
-                      onClick={() => toggleRecipient(recipient)}
-                      className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[var(--a-muted)] hover:bg-[var(--a-tint)] hover:text-[var(--a-ink)]"
-                      aria-label={`Remove ${recipient.email}`}
-                    >
-                      <X className="h-3 w-3" aria-hidden />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button onClick={() => setShowRecipientModal(true)} className="a-btn w-full border-dashed">
-              <Users className="h-4 w-4" aria-hidden />
-              {selectedRecipients.length === 0 ? "Choose recipients" : "Add more recipients"}
-            </button>
-            {selectedRecipients.length === 1 && (
-              <p className="a-help">One-to-one: their reply will show up under Conversations.</p>
-            )}
-            {selectedRecipients.length > 1 && (
-              <p className="a-help">Each person gets their own copy. Replies to group emails go to contact@.</p>
-            )}
-          </div>
-
           <label className="block">
             <span className="a-label">Subject</span>
             <input type="text" className="a-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line" />
@@ -591,7 +646,7 @@ export default function AdminEmailsPage() {
               className="a-textarea"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              rows={12}
+              rows={16}
               placeholder="Write your message…"
             />
             <p className="a-help">Line breaks are kept in the email; links become clickable.</p>
@@ -627,7 +682,7 @@ export default function AdminEmailsPage() {
               <>
                 <iframe
                   srcDoc={preview.html}
-                  className="block h-[620px] w-full border-0 bg-[#f7f2eb]"
+                  className="block h-[620px] w-full border-0 bg-[#f7f2eb] lg:h-[calc(100dvh-210px)]"
                   title="Email preview"
                 />
                 <details className="border-t border-[var(--a-line)]">
@@ -693,15 +748,22 @@ export default function AdminEmailsPage() {
                 return (
                   <li key={recipient.email}>
                     <label className={`flex cursor-pointer items-center gap-3 px-3 py-2.5 ${isSelected ? "bg-[var(--a-tint)]" : "hover:bg-[var(--a-canvas)]"}`}>
-                      <input type="checkbox" className="a-check" checked={isSelected} onChange={() => toggleRecipient(recipient)} />
+                      <input
+                        type="checkbox"
+                        className="a-check"
+                        checked={isSelected}
+                        disabled={recipient.optedOut && !isSelected}
+                        onChange={() => toggleRecipient(recipient)}
+                      />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-2">
-                          <span className="truncate text-sm font-medium text-[var(--a-ink)]">{recipient.name}</span>
-                          {recipient.type === "user" && <Badge tone="blue">Account</Badge>}
+                          <span className="truncate text-sm font-medium text-[var(--a-ink)]">{recipient.name || recipient.email}</span>
+                          {recipient.optedOut && <Badge tone="red">Unsubscribed</Badge>}
                         </span>
                         <span className="block truncate text-xs text-[var(--a-muted)]">
-                          {recipient.email}
-                          {recipient.lastOrderDate && ` · last order ${new Date(recipient.lastOrderDate).toLocaleDateString()}`}
+                          {[recipient.name ? recipient.email : null, recipient.phone, recipient.location, recipient.orders ? `${recipient.orders} order${recipient.orders === 1 ? "" : "s"}` : null]
+                            .filter(Boolean)
+                            .join(" · ")}
                         </span>
                       </span>
                     </label>

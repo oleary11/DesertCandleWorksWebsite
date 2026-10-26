@@ -3,6 +3,7 @@ import { isAdminAuthed } from "@/lib/adminSession";
 import { getOrderById } from "@/lib/userStore";
 import { sendAdminMessage } from "@/lib/adminMessages";
 import { createThread, deleteThread, replyDomain } from "@/lib/emailThreadsStore";
+import { listOptedOut } from "@/lib/contacts";
 import { logAdminAction } from "@/lib/adminLogs";
 
 export const runtime = "nodejs";
@@ -51,10 +52,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No valid recipients" }, { status: 400 });
     }
 
+    // Mass emails skip anyone who unsubscribed (here or in the newsletter); a one-to-one
+    // email is a direct message and always goes out.
+    const bulk = recipients.length > 1;
+    let skippedUnsubscribed = 0;
+    if (bulk) {
+      const optedOut = await listOptedOut();
+      const before = recipients.length;
+      recipients.splice(0, recipients.length, ...recipients.filter((r) => !optedOut.has(r.email.trim().toLowerCase())));
+      skippedUnsubscribed = before - recipients.length;
+      if (recipients.length === 0) {
+        return NextResponse.json({ error: "Everyone selected has unsubscribed" }, { status: 400 });
+      }
+    }
+
     // A one-to-one email becomes a conversation so the customer's reply shows up in admin.
     // Mass emails stay one-way (replies go to contact@).
     const thread =
-      recipients.length === 1
+      !bulk
         ? await createThread({
             customerEmail: recipients[0].email.trim(),
             customerName: recipients[0].name,
@@ -73,6 +88,7 @@ export async function POST(req: NextRequest) {
           personal,
           threadId: thread?.id,
           orderId: body.orderId || undefined,
+          bulk,
         });
         results.success++;
       } catch (err) {
@@ -110,6 +126,7 @@ export async function POST(req: NextRequest) {
       errors: results.errors,
       threadId: results.success > 0 ? thread?.id ?? null : null,
       repliesTracked: !!(thread && replyDomain()),
+      skippedUnsubscribed,
     });
   } catch (error) {
     console.error("[Admin Email] Error:", error);
