@@ -10,6 +10,7 @@ import BestSellerCarousel from "@/components/BestSellerCarousel";
 import MailingListSignup from "@/components/MailingListSignup";
 import type { Product } from "@/lib/products";
 import s from "@/components/home/home.module.css";
+import { SIGNATURE_SCENTS } from "@/lib/signatureScents";
 
 const script = localFont({
   src: [{ path: "../../public/fonts/Megastina.ttf", weight: "400", style: "normal" }],
@@ -50,13 +51,7 @@ const promises = [
   },
 ];
 
-const signatureScents = [
-  { name: "Cabin Spa", notes: "Sandalwood, gentle lavender and warm amber. A spa retreat in candle form." },
-  { name: "Boot Leather", notes: "Ever smell the inside of a boot store? Rich leather and warm bonfire embers." },
-  { name: "Smoked Amber", notes: "Smooth amber wrapped in smoky embers. Rich, refined and balanced." },
-  { name: "Minted Lavender", notes: "Crisp eucalyptus and soft lavender for a clean, spa-fresh scent." },
-  { name: "Sea Salt & Linen", notes: "Fresh linen with warm Caribbean teakwood. Clean and calming." },
-];
+const signatureScents = SIGNATURE_SCENTS;
 
 // Shown when the Instagram feed can't load (e.g. the access token expired),
 // so the section still looks like a live feed instead of empty tiles.

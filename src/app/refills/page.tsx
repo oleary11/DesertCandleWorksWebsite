@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import s from "@/components/home/home.module.css";
 import { serif } from "@/lib/storefrontFonts";
-import { getAllScents } from "@/lib/scents";
+import { SIGNATURE_SCENT_NAMES } from "@/lib/signatureScents";
 import RefillForm from "./RefillForm";
 
 export const metadata: Metadata = {
   title: "Bottle Refills",
   description:
-    "Burned through your Desert Candle Works candle? Send the bottle back and we'll refill it with natural coconut apricot wax in the scent of your choice for $20.",
+    "Burned through your Desert Candle Works candle? Send the bottle back and we'll refill it with natural coconut apricot wax in one of our signature scents for $20.",
   alternates: { canonical: "/refills" },
 };
 
@@ -28,10 +28,6 @@ const steps = [
 
 export default async function RefillsPage({ searchParams }: { searchParams: Promise<{ paid?: string; pay?: string }> }) {
   const { paid, pay } = await searchParams;
-  const scents = (await getAllScents().catch(() => []))
-    .filter((scent) => !scent.limited)
-    .sort((a, b) => (a.sortOrder ?? 999) - (b.sortOrder ?? 999) || a.name.localeCompare(b.name))
-    .map((scent) => scent.name);
 
   return (
     <div className={`${s.page} s-ui`}>
@@ -54,8 +50,8 @@ export default async function RefillsPage({ searchParams }: { searchParams: Prom
                 Give your bottle another life
               </h1>
               <p className="mt-5 text-lg leading-relaxed text-[var(--home-muted)]">
-                Burned all the way down? Send your Desert Candle Works bottle back and we&apos;ll refill it for $20, in any of
-                our scents.
+                Burned all the way down? Send your Desert Candle Works bottle back and we&apos;ll refill it for $20 in one of
+                our five signature scents.
               </p>
               <ol className="mt-8 space-y-5">
                 {steps.map((step, i) => (
@@ -72,7 +68,7 @@ export default async function RefillsPage({ searchParams }: { searchParams: Prom
               </ol>
             </div>
             <div className="lg:col-span-7">
-              <RefillForm scents={scents} />
+              <RefillForm scents={SIGNATURE_SCENT_NAMES} />
             </div>
           </div>
         </div>

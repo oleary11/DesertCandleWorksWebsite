@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit } from "@/lib/rateLimit";
 import { validateEmail } from "@/lib/validation";
 import { createRefillRequest, refillLabel, type RefillAddress } from "@/lib/refills";
+import { SIGNATURE_SCENT_NAMES } from "@/lib/signatureScents";
 
 export const runtime = "nodejs";
 
@@ -24,6 +25,9 @@ export async function POST(req: NextRequest) {
     const returnMethod = b.returnMethod === "pickup" ? "pickup" : "ship";
     if (!name || !email.valid || phone.replace(/\D/g, "").length < 10 || !bottle || !scent) {
       return NextResponse.json({ error: "Please fill in your name, email, phone, bottle and scent." }, { status: 400 });
+    }
+    if (!SIGNATURE_SCENT_NAMES.includes(scent)) {
+      return NextResponse.json({ error: "Refills come in our five signature scents. Please pick one." }, { status: 400 });
     }
     let address: RefillAddress | null = null;
     if (returnMethod === "ship") {
