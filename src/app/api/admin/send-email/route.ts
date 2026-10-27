@@ -5,6 +5,7 @@ import { sendAdminMessage } from "@/lib/adminMessages";
 import { createThread, deleteThread, replyDomain } from "@/lib/emailThreadsStore";
 import { listOptedOut } from "@/lib/contacts";
 import { logAdminAction } from "@/lib/adminLogs";
+import type { EmailDesign } from "@/lib/emailFrames";
 
 export const runtime = "nodejs";
 
@@ -18,7 +19,24 @@ type SendEmailRequest = {
   template?: string;
   orderId?: string;
   trackingNumber?: string;
+  /** Send inside an email frame; the message becomes an optional note within it. */
+  design?: EmailDesign | null;
 };
+
+function cleanDesign(design: SendEmailRequest["design"]): EmailDesign | null {
+  if (!design?.frameId) return null;
+  return {
+    frameId: String(design.frameId),
+    headline: String(design.headline ?? "").trim(),
+    offer: String(design.offer ?? "").trim() || undefined,
+    code: String(design.code ?? "").trim().toUpperCase() || undefined,
+    endsText: String(design.endsText ?? "").trim() || undefined,
+    ctaLabel: String(design.ctaLabel ?? "").trim() || undefined,
+    ctaUrl: String(design.ctaUrl ?? "").trim() || "/shop",
+    productSlugs: (Array.isArray(design.productSlugs) ? design.productSlugs : []).map(String).slice(0, 3),
+    pickupNote: design.pickupNote !== false,
+  };
+}
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -34,10 +52,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = (await req.json()) as SendEmailRequest;
     const subject = body.subject?.trim();
-    const message = body.message?.trim();
+    const message = body.message?.trim() ?? "";
     const personal = !!body.personal;
+    const design = cleanDesign(body.design);
 
-    if (!subject || !message) {
+    if (design && !design.headline) {
+      return NextResponse.json({ error: "A framed email needs a headline" }, { status: 400 });
+    }
+    if (!subject || (!message && !design)) {
       return NextResponse.json({ error: "Subject and message are required" }, { status: 400 });
     }
 
@@ -89,6 +111,7 @@ export async function POST(req: NextRequest) {
           threadId: thread?.id,
           orderId: body.orderId || undefined,
           bulk,
+          design,
         });
         results.success++;
       } catch (err) {

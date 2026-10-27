@@ -69,7 +69,7 @@ export function emailFooter(baseUrl: string, unsubscribeUrl?: string): string {
 }
 
 /** Escapes plain text, keeps line breaks and turns bare URLs into links. */
-function messageToHtml(message: string): string {
+export function messageToHtml(message: string): string {
   return escapeHtml(message.trim())
     .replace(
       /(https?:\/\/[^\s<]+[^\s<.,;:!?)])/g,
@@ -113,6 +113,11 @@ export function renderMessageEmail({
   const html = `
     <!doctype html>
     <html lang="en">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>${escapeHtml(subject)}</title>
+      </head>
       <body style="margin:0;padding:0;background:${COLORS.cream};">
         <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${COLORS.cream};">
           <tr>

@@ -9,6 +9,8 @@ import { renderMessageEmail } from "@/lib/emailLayout";
 import ConversationsPanel from "./ConversationsPanel";
 import SentPanel from "./SentPanel";
 import ContactsPanel, { type Contact } from "./ContactsPanel";
+import FramePanel, { type ProductOption } from "./FramePanel";
+import { renderFramedEmail, type EmailDesign, type EmailFrame } from "@/lib/emailFrames";
 
 // A person on the To line; contacts from the Contacts tab carry their details along.
 type Recipient = {
@@ -46,6 +48,8 @@ type SavedTemplate = {
   subject: string;
   message: string;
   isDefault: boolean;
+  /** Frame + content when the template is a framed (festive) email. */
+  design?: EmailDesign | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -59,6 +63,10 @@ export default function AdminEmailsPage() {
   const [openThreadId, setOpenThreadId] = useState<string | null>(null);
   const [unread, setUnread] = useState(0);
   const [personal, setPersonal] = useState(false);
+  // Festive frame (null = standard letter), the frames to choose from, and products to feature
+  const [design, setDesign] = useState<EmailDesign | null>(null);
+  const [frames, setFrames] = useState<EmailFrame[]>([]);
+  const [productOptions, setProductOptions] = useState<ProductOption[]>([]);
   const [template, setTemplate] = useState<EmailTemplate>("custom");
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
@@ -129,6 +137,21 @@ export default function AdminEmailsPage() {
     loadRecipients();
   }, []);
 
+  const loadFrames = useCallback(() => {
+    fetch("/api/admin/email-frames")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setFrames(data.frames))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    loadFrames();
+    fetch("/api/admin/promo-products")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data && setProductOptions(data.products))
+      .catch(() => {});
+  }, [loadFrames]);
+
   // Load orders when modal opens
   useEffect(() => {
     if (showOrderModal && allOrders.length === 0) {
@@ -192,6 +215,7 @@ export default function AdminEmailsPage() {
           name: templateName,
           subject,
           message,
+          design,
           isDefault: false,
         }),
       });
@@ -223,6 +247,7 @@ export default function AdminEmailsPage() {
           name: editingTemplate?.name,
           subject,
           message,
+          design,
           isDefault: false,
         }),
       });
@@ -332,6 +357,7 @@ export default function AdminEmailsPage() {
 
         setSubject(subjectText);
         setMessage(finalMessage);
+        setDesign(savedTemplate.design ?? null);
       }
     }
   }, [template, orderId, trackingNumber, savedTemplates]);
@@ -342,8 +368,8 @@ export default function AdminEmailsPage() {
       return;
     }
 
-    if (!subject || !message) {
-      setSendMessage({ type: "error", text: "Please fill in subject and message" });
+    if (!subject || (!message && !design?.headline)) {
+      setSendMessage({ type: "error", text: design ? "Please fill in the subject and headline" : "Please fill in subject and message" });
       return;
     }
 
@@ -359,6 +385,7 @@ export default function AdminEmailsPage() {
           subject,
           message,
           personal,
+          design,
           template,
           orderId: orderId || undefined,
           trackingNumber: template !== "custom" ? trackingNumber : undefined,
@@ -394,24 +421,30 @@ export default function AdminEmailsPage() {
 
   const activeSaved = savedTemplates.find((t) => t.id === template);
   const needsOrder = template !== "custom" && !!activeSaved?.message.includes("[Order ID]");
-  const canSend = !sending && selectedRecipients.length > 0 && !!subject && !!message;
+  const canSend = !sending && selectedRecipients.length > 0 && !!subject && (design ? !!design.headline : !!message);
   const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
   // Same renderer the server sends with; images load from this site for the preview.
-  const preview = useMemo(
-    () =>
-      subject && message
-        ? renderMessageEmail({
-            subject,
-            message,
-            personal,
-            assetBaseUrl: typeof window === "undefined" ? undefined : window.location.origin,
-            // Mass emails get an unsubscribe link; show where it will be.
-            unsubscribeUrl: selectedRecipients.length > 1 ? "#" : undefined,
-          })
-        : null,
-    [subject, message, personal, selectedRecipients.length]
-  );
+  const preview = useMemo(() => {
+    const assetBaseUrl = typeof window === "undefined" ? undefined : window.location.origin;
+    // Mass emails get an unsubscribe link; show where it will be.
+    const unsubscribeUrl = selectedRecipients.length > 1 ? "#" : undefined;
+    const frame = design ? frames.find((f) => f.id === design.frameId) : undefined;
+    if (design && frame) {
+      if (!subject || !design.headline) return null;
+      return renderFramedEmail({
+        subject,
+        message,
+        personal,
+        frame,
+        design,
+        products: design.productSlugs.map((slug) => productOptions.find((p) => p.slug === slug)).filter((p): p is ProductOption => !!p),
+        assetBaseUrl,
+        unsubscribeUrl,
+      });
+    }
+    return subject && message ? renderMessageEmail({ subject, message, personal, assetBaseUrl, unsubscribeUrl }) : null;
+  }, [subject, message, personal, selectedRecipients.length, design, frames, productOptions]);
 
   return (
     <div className="a-ui mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
@@ -635,13 +668,21 @@ export default function AdminEmailsPage() {
             </div>
           )}
 
+          <FramePanel
+            frames={frames}
+            products={productOptions}
+            design={design}
+            onDesignChange={setDesign}
+            onFramesChanged={loadFrames}
+          />
+
           <label className="block">
             <span className="a-label">Subject</span>
             <input type="text" className="a-input" value={subject} onChange={(e) => setSubject(e.target.value)} placeholder="Subject line" />
           </label>
 
           <label className="block">
-            <span className="a-label">Message</span>
+            <span className="a-label">{design ? "Note (optional)" : "Message"}</span>
             <textarea
               className="a-textarea"
               value={message}
@@ -693,7 +734,7 @@ export default function AdminEmailsPage() {
                 </details>
               </>
             ) : (
-              <p className="px-4 py-16 text-center text-sm text-[var(--a-muted)]">Write a subject and message to see the email.</p>
+              <p className="px-4 py-16 text-center text-sm text-[var(--a-muted)]">{design ? "Write a subject and headline to see the email." : "Write a subject and message to see the email."}</p>
             )}
           </div>
         </section>

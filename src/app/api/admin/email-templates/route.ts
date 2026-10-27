@@ -2,7 +2,19 @@ import { NextRequest, NextResponse } from "next/server";
 import { isAdminAuthed } from "@/lib/adminSession";
 import { db } from "@/lib/db/client";
 import { emailTemplates } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
+
+// Templates can carry a promotion look; add the column on first use (see drizzle/0017).
+let designColumn: Promise<unknown> | null = null;
+function ensureDesignColumn() {
+  designColumn ??= db
+    .execute(sql.raw(`ALTER TABLE "email_templates" ADD COLUMN IF NOT EXISTS "design" jsonb`))
+    .catch((err) => {
+      designColumn = null;
+      throw err;
+    });
+  return designColumn;
+}
 
 export const runtime = "nodejs";
 
@@ -15,6 +27,7 @@ export async function GET(req: NextRequest) {
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  await ensureDesignColumn();
 
   try {
     const templates = await db.select().from(emailTemplates).orderBy(emailTemplates.createdAt);
@@ -37,10 +50,11 @@ export async function POST(req: NextRequest) {
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  await ensureDesignColumn();
 
   try {
     const body = await req.json();
-    const { name, subject, message, isDefault } = body;
+    const { name, subject, message, isDefault, design } = body;
 
     if (!name || !subject || !message) {
       return NextResponse.json(
@@ -55,6 +69,7 @@ export async function POST(req: NextRequest) {
         name,
         subject,
         message,
+        design: design ?? null,
         isDefault: isDefault || false,
       })
       .returning();
@@ -78,10 +93,11 @@ export async function PUT(req: NextRequest) {
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  await ensureDesignColumn();
 
   try {
     const body = await req.json();
-    const { id, name, subject, message, isDefault } = body;
+    const { id, name, subject, message, isDefault, design } = body;
 
     if (!id) {
       return NextResponse.json(
@@ -96,6 +112,7 @@ export async function PUT(req: NextRequest) {
         name,
         subject,
         message,
+        ...(design !== undefined ? { design } : {}),
         isDefault,
         updatedAt: new Date(),
       })
@@ -128,6 +145,7 @@ export async function DELETE(req: NextRequest) {
   if (!isAdmin) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  await ensureDesignColumn();
 
   try {
     const { searchParams } = new URL(req.url);

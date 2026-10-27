@@ -393,6 +393,8 @@ export const emailTemplates = pgTable('email_templates', {
   name: varchar('name', { length: 255 }).notNull(),
   subject: varchar('subject', { length: 500 }).notNull(),
   message: text('message').notNull(),
+  // Email frame + content (lib/emailFrames.ts EmailDesign); null = standard letter.
+  design: jsonb('design'),
   isDefault: boolean('is_default').notNull().default(false),
   createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
