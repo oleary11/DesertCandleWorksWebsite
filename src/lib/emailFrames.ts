@@ -126,6 +126,9 @@ function absolute(baseUrl: string, url: string) {
  */
 export function emailLink(baseUrl: string, url: string, campaign: string, code?: string) {
   const link = new URL(absolute(baseUrl, url));
+  // A tracking link (/go/<slug>) already tags the visit and carries its code; extra
+  // tags would only clutter it.
+  if (link.pathname.startsWith("/go/")) return link.toString();
   if (!/(^|\.)desertcandleworks\.com$|^localhost$/i.test(link.hostname)) return link.toString();
   link.searchParams.set("utm_source", "email");
   link.searchParams.set("utm_medium", "email");
@@ -230,7 +233,9 @@ export function renderFramedEmail({
     .join("");
 
   const footerLinks = [
-    `<a class="dcw-link" href="${escapeHtml(emailLink(baseUrl, "/shop", campaign, code || undefined))}" style="color:${f.linkColor};text-decoration:none;">Shop</a>`,
+    // When the button is a tracking link, the footer "Shop" uses it too so every shop
+    // click from this email is counted on that link.
+    `<a class="dcw-link" href="${escapeHtml(design.ctaUrl?.startsWith("/go/") ? cta : emailLink(baseUrl, "/shop", campaign, code || undefined))}" style="color:${f.linkColor};text-decoration:none;">Shop</a>`,
     `<a class="dcw-link" href="mailto:contact@desertcandleworks.com" style="color:${f.linkColor};text-decoration:none;">Contact</a>`,
     unsubscribeUrl ? `<a class="dcw-link" href="${escapeHtml(unsubscribeUrl)}" style="color:${f.linkColor};text-decoration:none;">Unsubscribe</a>` : "",
   ]
