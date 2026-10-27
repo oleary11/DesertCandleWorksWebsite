@@ -52,6 +52,9 @@ export function AnalyticsTracker() {
         localStorage.setItem(PROMO_STORAGE_KEY, promo);
         window.dispatchEvent(new Event("dcw-promo"));
       }
+      // ?giftcard= from a gift card email: the cart checks and applies it.
+      const giftCard = params.get("giftcard")?.trim().toUpperCase();
+      if (giftCard && /^GIFT-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(giftCard)) localStorage.setItem("dcw_giftcard", giftCard);
 
       const current = decodeSource(document.cookie.match(new RegExp(`(?:^|;\\s*)${SOURCE_COOKIE}=([^;]+)`))?.[1]);
       // Tagged links (utm) always win; the referring site only fills in when we know

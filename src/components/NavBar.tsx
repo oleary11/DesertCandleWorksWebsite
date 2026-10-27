@@ -74,6 +74,20 @@ export default function NavBar() {
                       Young & Dumb
                     </span>
                   </Link>
+                  <Link
+                    href="/gift-cards"
+                    onClick={() => setShopDropdownOpen(false)}
+                    className="block px-4 py-2 hover:bg-neutral-50 transition"
+                  >
+                    Gift Cards
+                  </Link>
+                  <Link
+                    href="/refills"
+                    onClick={() => setShopDropdownOpen(false)}
+                    className="block px-4 py-2 hover:bg-neutral-50 transition"
+                  >
+                    Bottle Refills
+                  </Link>
                 </div>
               </div>
             )}
@@ -229,6 +243,8 @@ export default function NavBar() {
                 Young & Dumb
               </span>
             </Link>
+            <Link href="/gift-cards" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Gift Cards</Link>
+            <Link href="/refills" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Bottle Refills</Link>
             <Link href="/about" onClick={() => setOpen(false)} className="hover:opacity-80 transition">About</Link>
             <Link href="/contact" onClick={() => setOpen(false)} className="hover:opacity-80 transition">Contact</Link>
             {mounted && (

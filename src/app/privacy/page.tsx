@@ -10,7 +10,7 @@ export default function Privacy() {
   return (
     <section className="prose prose-neutral max-w-none px-6 sm:px-10 py-12">
       <h1>Privacy Policy</h1>
-      <p><em>Last updated: September 27, 2026</em></p>
+      <p><em>Last updated: October 26, 2026</em></p>
 
       <p>
         Desert Candle Works (&ldquo;we,&rdquo; &ldquo;us&rdquo; or &ldquo;our&rdquo;) is a small candle business in Scottsdale,
@@ -33,10 +33,20 @@ export default function Privacy() {
           your order history.
         </li>
         <li>
-          <strong>Mailing list:</strong> your email address, if you sign up for our emails.
+          <strong>Mailing list:</strong> your email address and phone number, if you sign up for our emails (for example to
+          get a welcome discount). We keep your phone number with your details so we can reach you about an order or
+          request. We don&rsquo;t send marketing texts unless you separately ask us to.
         </li>
         <li>
           <strong>Messages:</strong> your name, email and message when you use our contact form or email us.
+        </li>
+        <li>
+          <strong>Gift cards:</strong> the recipient&rsquo;s name and email address and your note, so we can deliver the
+          gift card, plus the card&rsquo;s balance as it&rsquo;s used.
+        </li>
+        <li>
+          <strong>Refill requests:</strong> your name, contact details, the bottle you&rsquo;re sending and where to return
+          it.
         </li>
         <li>
           <strong>Website visits:</strong> the pages you view, the site that referred you, your browser and device type,
@@ -51,6 +61,10 @@ export default function Privacy() {
         <li>To handle returns, refunds and customer service</li>
         <li>To run your account and keep it secure</li>
         <li>To send our emails, if you signed up. Every email has an unsubscribe link.</li>
+        <li>
+          If you start checkout and don&rsquo;t finish, to send you one reminder with a link back to your order (you can
+          unsubscribe from these too)
+        </li>
         <li>To calculate sales tax and prevent fraud</li>
         <li>To understand which pages and products people visit, so we can improve the shop</li>
       </ul>

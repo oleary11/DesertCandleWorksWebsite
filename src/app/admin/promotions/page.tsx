@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Tag, Trash2 } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
 import { Stat, Switch } from "../_components/ui";
-import { Promotion, PromotionType, isWelcomeCode } from "@/lib/promotions";
+import { Promotion, PromotionType, isPersonalCode } from "@/lib/promotions";
 import WelcomeResults from "./WelcomeResults";
 import PromotionModal from "@/components/PromotionModal";
 import { useModal } from "@/hooks/useModal";
@@ -27,8 +27,9 @@ export default function AdminPromotionsPage() {
       const res = await fetch("/api/admin/promotions");
       if (!res.ok) throw new Error("Failed to load promotions");
       const data = await res.json();
-      // Welcome popup codes (one per signup) are summed up in WelcomeResults instead.
-      setPromotions(((data.promotions || []) as Promotion[]).filter((p) => !isWelcomeCode(p)));
+      // One-per-customer codes (welcome popup, win-back emails) would flood the list; the
+      // welcome ones are summed up in WelcomeResults instead.
+      setPromotions(((data.promotions || []) as Promotion[]).filter((p) => !isPersonalCode(p)));
     } catch (err) {
       setError("Failed to load promotions");
       console.error(err);

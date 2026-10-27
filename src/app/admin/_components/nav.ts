@@ -24,6 +24,8 @@ import {
   Video,
   Wine,
   Link2,
+  Gift,
+  RefreshCw,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -59,6 +61,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/refunds", title: "Refunds", description: "Process refunds and manage returns", icon: Undo2, also: ["/admin/refunds-analytics"] },
       { href: "/admin/invoices", title: "Order Invoices", description: "Search orders and send invoice emails", icon: Mail },
       { href: "/admin/promotions", title: "Promotions", description: "Discount codes and promotions", icon: Tag },
+      { href: "/admin/gift-cards", title: "Gift Cards", description: "Gift cards, balances and store credit", icon: Gift },
+      { href: "/admin/refills", title: "Refills", description: "Bottle refill requests", icon: RefreshCw },
     ],
   },
   {

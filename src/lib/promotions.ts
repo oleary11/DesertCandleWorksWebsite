@@ -74,3 +74,11 @@ export const WELCOME_CODE_NAME_PREFIX = "Welcome code: ";
 export function isWelcomeCode(promotion: Pick<Promotion, "code">): boolean {
   return /^WELCOME-[A-Z2-9]{6}$/.test(promotion.code);
 }
+
+/**
+ * Single-use codes made for one customer (welcome popup, win-back email). Summed up on
+ * the Promotions page instead of listed one by one.
+ */
+export function isPersonalCode(promotion: Pick<Promotion, "code">): boolean {
+  return /^(WELCOME|WINBACK)-[A-Z2-9]{6}$/.test(promotion.code);
+}

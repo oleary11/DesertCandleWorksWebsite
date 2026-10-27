@@ -6,12 +6,15 @@
 // - Facebook Login (META_PAGE_ACCESS_TOKEN + INSTAGRAM_POST_USER_ID): also attaches a trending
 //   track from Meta's Instagram Audio API to reels. Used whenever it's set.
 
+import { instagramLoginToken } from "@/lib/social/igToken";
+
 type IgConn = { host: string; token: string; userId: string; audio: boolean };
 
-function connection(): IgConn {
+async function connection(): Promise<IgConn> {
   const userId = process.env.INSTAGRAM_POST_USER_ID;
   const pageToken = process.env.META_PAGE_ACCESS_TOKEN;
-  const igToken = process.env.INSTAGRAM_POST_ACCESS_TOKEN;
+  // Renewed weekly and kept in KV (lib/social/igToken.ts).
+  const igToken = await instagramLoginToken();
   if (!userId || (!pageToken && !igToken)) throw new Error("Instagram posting not configured");
   return pageToken
     ? { host: "https://graph.facebook.com/v21.0", token: pageToken, userId, audio: true }
@@ -51,7 +54,7 @@ async function publishContainer(c: IgConn, creationId: string): Promise<string> 
 }
 
 export async function publishInstagramImage(imageUrl: string, caption: string): Promise<string> {
-  const c = connection();
+  const c = await connection();
   const { id } = await igPost(c, `/${c.userId}/media`, { image_url: imageUrl, caption });
   await waitForContainer(c, id, 12);
   return publishContainer(c, id);
@@ -59,7 +62,7 @@ export async function publishInstagramImage(imageUrl: string, caption: string): 
 
 export async function publishInstagramCarousel(imageUrls: string[], caption: string): Promise<string> {
   if (imageUrls.length < 2) return publishInstagramImage(imageUrls[0], caption);
-  const c = connection();
+  const c = await connection();
   const children = await Promise.all(
     imageUrls.slice(0, 10).map((url) => igPost(c, `/${c.userId}/media`, { image_url: url, is_carousel_item: true }).then((r) => r.id))
   );
@@ -82,7 +85,7 @@ async function trendingAudioId(c: IgConn): Promise<string | null> {
 }
 
 export async function publishInstagramReel(videoUrl: string, caption: string, coverUrl?: string | null): Promise<string> {
-  const c = connection();
+  const c = await connection();
   const audioId = c.audio ? await trendingAudioId(c) : null;
   const { id } = await igPost(c, `/${c.userId}/media`, {
     media_type: "REELS",

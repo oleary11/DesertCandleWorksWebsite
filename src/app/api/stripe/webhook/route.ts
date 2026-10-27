@@ -7,6 +7,8 @@ import { incrementRedemptions } from "@/lib/promotionsStore";
 import { decodeSource } from "@/lib/attributionShared";
 import { recordOrderAttribution } from "@/lib/trackingLinks";
 import { sendAbandonedCheckoutEmail } from "@/lib/abandonedCheckout";
+import { activatePurchasedGiftCard, redeemGiftCard } from "@/lib/giftCards";
+import { markRefillPaid } from "@/lib/refills";
 
 export const runtime = "nodejs";
 
@@ -64,6 +66,31 @@ export async function POST(req: NextRequest) {
     if (await isWebhookProcessed(event.id)) {
       console.log(`[Webhook] Event ${event.id} already processed - skipping (replay protection)`);
       return NextResponse.json({ received: true, skipped: "event_already_processed" }, { status: 200 });
+    }
+
+    // A gift card purchase isn't a product order: activate the card and email it.
+    if (session.metadata?.type === "gift_card" && session.metadata.giftCardId) {
+      try {
+        const card = await activatePurchasedGiftCard(session.metadata.giftCardId, session.id);
+        console.log(`[Webhook] Gift card ${card?.code ?? session.metadata.giftCardId} activated (session ${session.id})`);
+        await markWebhookProcessed(event.id);
+      } catch (err) {
+        console.error(`[Webhook] Gift card activation failed for session ${session.id}:`, err);
+        return NextResponse.json({ error: "Gift card activation failed" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true }, { status: 200 });
+    }
+
+    // A refill payment (from the bottle-arrived email) isn't a product order either.
+    if (session.metadata?.type === "refill" && session.metadata.refillId) {
+      try {
+        await markRefillPaid(session.metadata.refillId, session.amount_total ?? 0, session.id);
+        await markWebhookProcessed(event.id);
+      } catch (err) {
+        console.error(`[Webhook] Refill payment failed for session ${session.id}:`, err);
+        return NextResponse.json({ error: "Refill update failed" }, { status: 500 });
+      }
+      return NextResponse.json({ received: true }, { status: 200 });
     }
 
     // Generate a sequential order ID (format: ST00001, ST00002, etc.)
@@ -440,6 +467,15 @@ export async function POST(req: NextRequest) {
         // Credit the order to where the buyer came from (tracking link, utm tags or
         // referring site, captured at checkout). Never blocks order processing.
         await recordOrderAttribution(orderId, decodeSource(session.metadata?.attr));
+
+        // Take the gift card amount used on this order off the card.
+        if (session.metadata?.giftCardId && session.metadata.giftCardCents) {
+          try {
+            await redeemGiftCard(session.metadata.giftCardId, parseInt(session.metadata.giftCardCents), orderId);
+          } catch (err) {
+            console.error(`[Webhook] Gift card redemption failed for order ${orderId}:`, err);
+          }
+        }
 
         // Send invoice email to all customers (guest or not)
         try {

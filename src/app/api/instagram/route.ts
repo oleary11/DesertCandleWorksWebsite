@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { instagramLoginToken } from "@/lib/social/igToken";
 
 export const runtime = "nodejs";
 export const revalidate = 3600; // Cache for 1 hour
@@ -25,7 +26,9 @@ type InstagramResponse = {
 };
 
 export async function GET() {
-  const accessToken = process.env.INSTAGRAM_ACCESS_TOKEN;
+  // The posting token (renewed weekly) can read the feed too; the old feed-only token is a
+  // fallback.
+  const accessToken = (await instagramLoginToken()) || process.env.INSTAGRAM_ACCESS_TOKEN;
 
   if (!accessToken) {
     return NextResponse.json(
@@ -52,10 +55,8 @@ export async function GET() {
 
     const data: InstagramResponse = await response.json();
 
-    // Include both images and videos (reels), exclude carousels for simplicity
-    const posts = data.data
-      .filter((post) => post.media_type === "IMAGE" || post.media_type === "VIDEO")
-      .slice(0, 4);
+    // Images, reels and carousels (a carousel's media_url is its first slide)
+    const posts = data.data.filter((post) => post.media_url || post.thumbnail_url).slice(0, 4);
 
     return NextResponse.json({
       posts: posts,

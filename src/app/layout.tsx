@@ -6,6 +6,7 @@ import { Providers } from "@/components/Providers";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
 import { PromoBanner } from "@/components/PromoBanner";
 import { WelcomePopup } from "@/components/WelcomePopup";
+import { HolidayShippingBar } from "@/components/HolidayShippingBar";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
 
@@ -268,6 +269,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <WelcomePopup />
         <Providers>
           <StorefrontOnly>
+            <HolidayShippingBar />
             <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">
               <NavBar />
             </header>

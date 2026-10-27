@@ -1,5 +1,6 @@
 "use client";
 
+import GiftCardField, { type AppliedGiftCard } from "@/components/GiftCardField";
 import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
@@ -40,6 +41,7 @@ export default function CartPage() {
   const [promoError, setPromoError] = useState("");
   const [appliedPromotion, setAppliedPromotion] = useState<AppliedPromotion | null>(null);
   const [automaticPromotion, setAutomaticPromotion] = useState<AppliedPromotion | null>(null);
+  const [giftCard, setGiftCard] = useState<AppliedGiftCard | null>(null);
 
   // Shipping state
   const [shippingAddress, setShippingAddress] = useState({
@@ -284,6 +286,7 @@ export default function CartPage() {
           lineItems,
           pointsToRedeem: pointsToRedeem > 0 ? pointsToRedeem : undefined,
           promotionId: activePromo?.id,
+          giftCardCode: giftCard && giftCardCents > 0 ? giftCard.code : undefined,
           // Pass full shipping address - Stripe will show shipping options (including local pickup)
           shippingAddress,
         }),
@@ -324,7 +327,11 @@ export default function CartPage() {
   const discountAmount = (pointsToRedeem * 5) / 100; // Convert points to dollars (1 point = $0.05)
 
   const subtotal = getTotalPrice();
-  const total = Math.max(0, subtotal - getDiscountAmount() - discountAmount + getShippingCost());
+  // A gift card pays what's left after the promotion and points (Stripe needs 50¢ to charge).
+  const giftCardCents = giftCard
+    ? Math.max(0, Math.min(giftCard.balanceCents, Math.round((subtotal - getDiscountAmount() - discountAmount) * 100) - 50))
+    : 0;
+  const total = Math.max(0, subtotal - getDiscountAmount() - discountAmount - giftCardCents / 100 + getShippingCost());
   const activePromo = getActivePromotion();
   const addressComplete = !!(
     shippingAddress.name &&
@@ -571,6 +578,17 @@ export default function CartPage() {
                   )}
                 </div>
 
+                {/* Gift card */}
+                <div className="border-b border-[var(--home-line)] py-4">
+                  <GiftCardField
+                    value={giftCard}
+                    onChange={setGiftCard}
+                    appliedCents={giftCardCents}
+                    fieldClass={fieldClass}
+                    buttonClass={btnQuiet}
+                  />
+                </div>
+
                 {/* Totals */}
                 <dl className="space-y-2.5 border-b border-[var(--home-line)] py-5 text-[15px]">
                   <div className="flex justify-between">
@@ -587,6 +605,12 @@ export default function CartPage() {
                     <div className="flex justify-between text-[#4d6a3a]">
                       <dt>Points</dt>
                       <dd className="tabular-nums">−{money(discountAmount)}</dd>
+                    </div>
+                  )}
+                  {giftCardCents > 0 && (
+                    <div className="flex justify-between text-[#4d6a3a]">
+                      <dt>Gift card</dt>
+                      <dd className="tabular-nums">−{money(giftCardCents / 100)}</dd>
                     </div>
                   )}
                   <div className="flex justify-between">

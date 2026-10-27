@@ -6,6 +6,7 @@ import Link from "next/link";
 import { X, Trash2, Minus, Plus, ShoppingBag, ArrowRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import FreeShippingBanner from "./FreeShippingBanner";
+import { HolidayShippingNote } from "./HolidayShippingBar";
 import { useModal } from "@/hooks/useModal";
 import PromoCodeField from "./PromoCodeField";
 import { trackEvent } from "@/components/AnalyticsTracker";
@@ -171,6 +172,7 @@ export default function CartDrawer({ isOpen, onClose }: CartDrawerProps) {
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
               {/* Free Shipping Banner */}
               <FreeShippingBanner currentTotal={getTotalPrice()} threshold={100} />
+              <HolidayShippingNote />
 
               {/* Items */}
               {items.map((item) => (

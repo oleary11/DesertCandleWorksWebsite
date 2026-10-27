@@ -150,6 +150,16 @@ export default async function ProductPage({ params }: Props) {
       url: `${base}/shop/${p.slug}`,
       priceValidUntil,
       itemCondition: "https://schema.org/NewCondition",
+      // Matches /policies: 30 days, unused items, returned by mail at the buyer's cost.
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "US",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 30,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/ReturnShippingFees",
+        merchantReturnLink: `${base}/policies`,
+      },
       seller: {
         "@type": "Organization",
         name: "Desert Candle Works",

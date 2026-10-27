@@ -4,6 +4,7 @@ import { getUserSession } from "@/lib/userSession";
 import { getUserById } from "@/lib/userStore";
 import { getPromotionById } from "@/lib/promotionsStore";
 import { validatePromotion } from "@/lib/promotionValidator";
+import { findActiveGiftCard, giftCardAmountFor } from "@/lib/giftCards";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { checkRateLimit } from "@/lib/rateLimit";
@@ -77,6 +78,7 @@ export async function POST(req: NextRequest) {
 
     // Parse body for line items + optional pointsToRedeem + promotionId + shippingRateAmountCents + shippingAddress
     let promotionId: string | undefined;
+    let giftCardCode: string | undefined;
     let shippingRateAmountCents: number | undefined;
     let shippingRateDescription: string | undefined;
     let isLocalPickup = false;
@@ -111,6 +113,10 @@ export async function POST(req: NextRequest) {
           typeof (body as { promotionId: unknown }).promotionId === "string"
         ) {
           promotionId = (body as { promotionId: string }).promotionId;
+        }
+
+        if ("giftCardCode" in body && typeof (body as { giftCardCode: unknown }).giftCardCode === "string") {
+          giftCardCode = (body as { giftCardCode: string }).giftCardCode;
         }
 
         if (
@@ -526,6 +532,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Gift card: pays whatever's left after the promotion and points, up to its balance.
+    // It's taken off the card when the order is paid (Stripe webhook).
+    let giftCardCents = 0;
+    if (giftCardCode) {
+      const card = await findActiveGiftCard(giftCardCode);
+      if (!card || card.balanceCents <= 0) {
+        return NextResponse.json({ error: "That gift card can't be used. Remove it and try again." }, { status: 400 });
+      }
+      giftCardCents = giftCardAmountFor(card, subtotal - totalDiscountCents);
+      if (giftCardCents > 0) {
+        sessionMetadata.giftCardId = card.id;
+        sessionMetadata.giftCardCents = String(giftCardCents);
+      }
+    }
+
     // Build shipping options
     const shippingOptions: Stripe.Checkout.SessionCreateParams.ShippingOption[] = [];
 
@@ -774,39 +795,22 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let discounts: any[] | undefined;
 
-    // IMPORTANT: Stripe only allows ONE discount, so combine points + promotions into single coupon
-    if (discountAmountCents > 0 && promotionDiscountCents > 0) {
-      // Both points and promotion - combine into single coupon
-      const totalDiscount = discountAmountCents + promotionDiscountCents;
+    // IMPORTANT: Stripe only allows ONE discount, so the promotion, points and gift card
+    // are combined into a single coupon.
+    const couponParts: string[] = [];
+    if (promotionDiscountCents > 0) {
       const promotion = appliedPromotionId ? await getPromotionById(appliedPromotionId) : null;
-
+      couponParts.push(promotion?.name || "Promotion Discount");
+    }
+    if (discountAmountCents > 0) couponParts.push(`Points (${pointsToRedeem})`);
+    if (giftCardCents > 0) couponParts.push("Gift card");
+    const couponCents = promotionDiscountCents + discountAmountCents + giftCardCents;
+    if (couponCents > 0) {
       const coupon = await stripe.coupons.create({
-        amount_off: totalDiscount,
+        amount_off: couponCents,
         currency: "usd",
         duration: "once",
-        name: `${promotion?.name || "Promotion"} + Points (${pointsToRedeem})`,
-      });
-
-      discounts = [{ discount: coupon.id }];
-    } else if (discountAmountCents > 0) {
-      // Only points redemption
-      const coupon = await stripe.coupons.create({
-        amount_off: discountAmountCents,
-        currency: "usd",
-        duration: "once",
-        name: `Points Redemption (${pointsToRedeem} points)`,
-      });
-
-      discounts = [{ discount: coupon.id }];
-    } else if (promotionDiscountCents > 0) {
-      // Only promotion discount
-      const promotion = appliedPromotionId ? await getPromotionById(appliedPromotionId) : null;
-
-      const coupon = await stripe.coupons.create({
-        amount_off: promotionDiscountCents,
-        currency: "usd",
-        duration: "once",
-        name: promotion?.name || "Promotion Discount",
+        name: couponParts.join(" + ").slice(0, 40),
       });
 
       discounts = [{ discount: coupon.id }];
@@ -824,7 +828,8 @@ export async function POST(req: NextRequest) {
       metadata: sessionMetadata, // Pass product/variant info for webhook
       // If it expires unpaid, Stripe hands us a link that reopens it, for the
       // "you left something in your cart" email (lib/abandonedCheckout.ts).
-      after_expiration: { recovery: { enabled: true } },
+      // (Not with a gift card: a reopened checkout would carry its discount along.)
+      ...(giftCardCents > 0 ? {} : { after_expiration: { recovery: { enabled: true } } }),
       automatic_tax: { enabled: true }, // Stripe Tax enabled
       custom_text: {
         submit: {

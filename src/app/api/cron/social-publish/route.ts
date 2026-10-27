@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { advanceAllGenerating } from "@/lib/social/pipeline";
 import { publishNextInQueue } from "@/lib/social/publish";
+import { refreshInstagramTokenIfDue } from "@/lib/social/igToken";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,6 +18,9 @@ export async function GET(req: NextRequest) {
   }
 
   await advanceAllGenerating().catch((err) => console.error("[Cron] social advance failed:", err));
+  // Instagram Login tokens die after 60 days unless renewed; this keeps it fresh.
+  const tokenRenewal = await refreshInstagramTokenIfDue().catch((err) => `failed: ${err}`);
+  console.log(`[Cron] Instagram token: ${tokenRenewal}`);
 
   try {
     const post = await publishNextInQueue();
