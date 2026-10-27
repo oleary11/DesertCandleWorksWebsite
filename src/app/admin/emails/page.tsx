@@ -11,7 +11,7 @@ import ConversationsPanel from "./ConversationsPanel";
 import SentPanel from "./SentPanel";
 import ContactsPanel, { type Contact } from "./ContactsPanel";
 import FramePanel, { type ProductOption } from "./FramePanel";
-import ScheduledList, { formatSendTime } from "./ScheduledList";
+import ScheduledList, { formatSendTime, toLocalInput } from "./ScheduledList";
 import { renderFramedEmail, type EmailDesign, type EmailFrame } from "@/lib/emailFrames";
 
 // A person on the To line; contacts from the Contacts tab carry their details along.
@@ -58,11 +58,7 @@ type SavedTemplate = {
 
 type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
-/** A date as the datetime-local input wants it, in this computer's time zone. */
-const toLocalInput = (d: Date) => {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
+type PromoInfo = { code: string; active: boolean; startsAt?: string; expiresAt?: string };
 
 export default function AdminEmailsPage() {
   const { showAlert, showConfirm } = useModal();
@@ -104,6 +100,15 @@ export default function AdminEmailsPage() {
   const [sendLater, setSendLater] = useState(false);
   const [sendAt, setSendAt] = useState("");
   const [scheduledRefresh, setScheduledRefresh] = useState(0);
+  // Promo codes, to warn when the email's code won't work by the time it arrives
+  const [promotions, setPromotions] = useState<PromoInfo[]>([]);
+
+  useEffect(() => {
+    fetch("/api/admin/promotions")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => data?.promotions && setPromotions(data.promotions))
+      .catch(() => {});
+  }, []);
   const [showPreview, setShowPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("light");
   const [previewWidth, setPreviewWidth] = useState<"desktop" | "phone">("desktop");
@@ -387,6 +392,8 @@ export default function AdminEmailsPage() {
       return;
     }
 
+    if (promoWarning && !(await showConfirm(`${promoWarning} ${sendLater ? "Schedule" : "Send"} it anyway?`, "Promo code problem"))) return;
+
     const scheduleAt = sendLater && sendAt ? new Date(sendAt) : null;
     if (sendLater && (!scheduleAt || Number.isNaN(scheduleAt.getTime()))) {
       setSendMessage({ type: "error", text: "Pick when to send it" });
@@ -448,6 +455,21 @@ export default function AdminEmailsPage() {
 
   const activeSaved = savedTemplates.find((t) => t.id === template);
   const needsOrder = template !== "custom" && !!activeSaved?.message.includes("[Order ID]");
+  // The email's promo code, checked against when it will arrive.
+  const promoWarning = (() => {
+    const code = design?.code?.trim().toUpperCase();
+    if (!code || !promotions.length) return null;
+    const promo = promotions.find((p) => p.code.toUpperCase() === code);
+    if (!promo) return `There's no promo code called ${code}, so it won't work for customers.`;
+    if (!promo.active) return `${code} is paused on the Promotions page, so it won't work until you turn it back on.`;
+    const arrives = sendLater && sendAt ? new Date(sendAt) : new Date();
+    if (promo.expiresAt && new Date(promo.expiresAt) <= arrives)
+      return `${code} ends ${formatSendTime(promo.expiresAt)}, ${sendLater ? "before this email goes out" : "so it has already ended"}. The code won't work.`;
+    if (promo.startsAt && new Date(promo.startsAt) > arrives)
+      return `${code} doesn't start until ${formatSendTime(promo.startsAt)}, after this email arrives.`;
+    return null;
+  })();
+
   const canSend = !sending && selectedRecipients.length > 0 && !!subject && (design ? !!design.headline : !!message);
   const money = (cents: number) => `$${(cents / 100).toFixed(2)}`;
 
@@ -760,6 +782,12 @@ export default function AdminEmailsPage() {
               />
             )}
           </div>
+
+          {promoWarning && (
+            <p role="alert" className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+              {promoWarning}
+            </p>
+          )}
 
           <button onClick={handleSend} disabled={!canSend || (sendLater && !sendAt)} className="a-btn a-btn-primary h-11 w-full text-[15px]">
             {sendLater ? <Clock className="h-4 w-4" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}

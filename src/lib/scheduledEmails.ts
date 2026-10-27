@@ -5,7 +5,7 @@
 import { Resend } from "resend";
 import { sql as dsql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
-import { markLoggedEmails } from "@/lib/emailLog";
+import { markLoggedEmails, setLoggedSendTime } from "@/lib/emailLog";
 import { deleteThread } from "@/lib/emailThreadsStore";
 
 /** Resend accepts scheduled emails up to 30 days ahead. */
@@ -109,6 +109,86 @@ export async function listScheduledEmails(): Promise<ScheduledEmail[]> {
              scheduled_at DESC
   `);
   return (result.rows as Row[]).map(fromRow);
+}
+
+/** Moves a scheduled send to a new time (every recipient's copy). */
+export async function rescheduleScheduledEmail(id: string, at: Date): Promise<void> {
+  await ensureTable();
+  const timeError = scheduleTimeError(at);
+  if (timeError) throw new Error(timeError);
+  const result = await db.execute(dsql`SELECT * FROM scheduled_emails WHERE id = ${id}`);
+  const row = result.rows[0] as (Row & { resend_ids: string[] }) | undefined;
+  if (!row) throw new Error("Scheduled email not found");
+  if (row.status === "cancelled") throw new Error("This email was cancelled");
+  if (new Date(row.scheduled_at).getTime() <= Date.now()) throw new Error("This email has already gone out");
+
+  const ids: string[] = Array.isArray(row.resend_ids) ? row.resend_ids : [];
+  if (process.env.RESEND_API_KEY) {
+    const resend = new Resend(process.env.RESEND_API_KEY);
+    const moved: string[] = [];
+    for (const resendId of ids) {
+      const { error } = await resend.emails.update({ id: resendId, scheduledAt: at.toISOString() });
+      if (error) {
+        // Put back the ones already moved, so the send stays in one piece.
+        for (const done of moved)
+          await resend.emails.update({ id: done, scheduledAt: new Date(row.scheduled_at).toISOString() }).catch(() => {});
+        throw new Error(`Couldn't change the time: ${error.message}`);
+      }
+      moved.push(resendId);
+    }
+  }
+  await db.execute(dsql`UPDATE scheduled_emails SET scheduled_at = ${at.toISOString()} WHERE id = ${id}`);
+  if (ids.length) await setLoggedSendTime(ids, at);
+}
+
+/** The email as it will arrive (the first recipient's copy), for the preview. */
+export async function scheduledEmailHtml(id: string): Promise<string | null> {
+  await ensureTable();
+  const result = await db.execute(dsql`
+    SELECT l.html_body, l.text_body
+    FROM scheduled_emails s
+    JOIN email_log l ON l.resend_id = s.resend_ids->>0
+    WHERE s.id = ${id}
+  `);
+  const row = result.rows[0] as { html_body: string | null; text_body: string | null } | undefined;
+  return row?.html_body ?? (row?.text_body ? `<pre style="white-space:pre-wrap;font-family:sans-serif">${row.text_body.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" })[c]!)}</pre>` : null);
+}
+
+/**
+ * Someone unsubscribed: cancels their copy of any mass email still waiting to go out.
+ * One-to-one emails are direct messages and are left alone, like on the send itself.
+ */
+export async function cancelScheduledFor(email: string): Promise<number> {
+  await ensureTable();
+  const address = email.trim().toLowerCase();
+  const pending = await db.execute(dsql`
+    SELECT s.id, l.resend_id
+    FROM scheduled_emails s
+    JOIN email_log l ON s.resend_ids ? l.resend_id
+    WHERE s.status = 'scheduled' AND s.scheduled_at > now() AND s.thread_id IS NULL
+      AND lower(l.to_email) = ${address}
+  `);
+  const rows = pending.rows as Array<{ id: string; resend_id: string }>;
+  if (!rows.length || !process.env.RESEND_API_KEY) return 0;
+
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const cancelled: string[] = [];
+  for (const row of rows) {
+    const { error } = await resend.emails.cancel(row.resend_id);
+    if (error) {
+      console.error(`[Scheduled Email] Couldn't cancel ${row.resend_id} for ${address}:`, error);
+      continue;
+    }
+    cancelled.push(row.resend_id);
+    await db.execute(dsql`
+      UPDATE scheduled_emails
+      SET resend_ids = resend_ids - ${row.resend_id}, recipient_count = greatest(recipient_count - 1, 0),
+          recipients_label = greatest(recipient_count - 1, 0) || ' contacts'
+      WHERE id = ${row.id}
+    `);
+  }
+  await markLoggedEmails(cancelled, "canceled");
+  return cancelled.length;
 }
 
 /** Cancels every email in a scheduled send that Resend hasn't sent yet. */

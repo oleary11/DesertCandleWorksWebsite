@@ -1,13 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateEmail } from "@/lib/validation";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { subscribeToNewsletter } from "@/lib/newsletter";
 
 export const runtime = "nodejs";
-
-type ButtondownJSON = {
-  detail?: string | { msg?: string }[];
-  errors?: { message?: string }[];
-};
 
 function extractEmailAddressFromJSON(body: unknown): string | null {
   if (!body || typeof body !== "object") return null;
@@ -60,50 +56,11 @@ export async function POST(req: NextRequest) {
     }
     const normalizedEmail = emailValidation.normalized;
 
-    const API_KEY = process.env.BUTTONDOWN_API_KEY;
-    if (!API_KEY) {
-      return NextResponse.json({ ok: false, error: "Newsletter not configured." }, { status: 500 });
+    const result = await subscribeToNewsletter(normalizedEmail);
+    if (result.ok) {
+      return NextResponse.json(result.already ? { ok: true, already: true } : { ok: true }, { status: result.already ? 200 : 201 });
     }
-
-    // Buttondown expects { email_address } at this endpoint/host
-    const bdRes = await fetch("https://api.buttondown.email/v1/subscribers", {
-      method: "POST",
-      headers: {
-        Authorization: `Token ${API_KEY}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({
-        email_address: normalizedEmail,
-        type: "regular" // Bypass confirmation email
-      }),
-    });
-
-    const text = await bdRes.text();
-    let data: ButtondownJSON = {};
-    try {
-      data = JSON.parse(text) as ButtondownJSON;
-    } catch {
-      // non-JSON error body; keep text for fallback message
-    }
-
-    if (bdRes.ok) {
-      return NextResponse.json({ ok: true }, { status: 201 });
-    }
-
-    // Normalize error details from Buttondown
-    const detailString =
-      (typeof data.detail === "string" && data.detail) ||
-      (Array.isArray(data.detail) && data.detail.map((d) => d?.msg).filter(Boolean).join(", ")) ||
-      (Array.isArray(data.errors) && data.errors.map((e) => e?.message).filter(Boolean).join(", ")) ||
-      text ||
-      "Subscription failed.";
-
-    if (detailString.toLowerCase().includes("already")) {
-      return NextResponse.json({ ok: true, already: true }, { status: 200 });
-    }
-
-    return NextResponse.json({ ok: false, error: detailString }, { status: 400 });
+    return NextResponse.json({ ok: false, error: result.error }, { status: result.status });
   } catch (err) {
     console.error(err);
     return NextResponse.json({ ok: false, error: "Server error." }, { status: 500 });

@@ -48,6 +48,8 @@ type ButtondownSubscriber = {
   type?: string;
   creation_date?: string;
   unsubscription_date?: string | null;
+  /** The welcome popup saves { phone } here. */
+  metadata?: Record<string, unknown> | null;
 };
 
 async function newsletterSubscribers(): Promise<ButtondownSubscriber[]> {
@@ -189,6 +191,7 @@ export async function listContacts(): Promise<{ contacts: Contact[]; warnings: s
       const contact = get(s.email_address);
       if (!contact) continue;
       contact.sources.add("newsletter");
+      if (typeof s.metadata?.phone === "string") contact.phone ||= s.metadata.phone;
       contact.firstSeenAt = earliest(contact.firstSeenAt, s.creation_date ?? null);
       if (s.unsubscription_date || s.type === "unsubscribed" || s.type === "removed") contact.optedOut = true;
     }

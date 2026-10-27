@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { addUnsubscribe, verifyUnsubscribeToken } from "@/lib/unsubscribe";
+import { cancelScheduledFor } from "@/lib/scheduledEmails";
 
 export const runtime = "nodejs";
 
@@ -16,5 +17,7 @@ export async function POST(req: NextRequest) {
   }
   const fromPage = req.nextUrl.searchParams.get("via") === "page";
   await addUnsubscribe(email, fromPage ? "link" : "one-click");
+  // Mass emails already scheduled for them shouldn't still arrive.
+  await cancelScheduledFor(email).catch((err) => console.error("[Unsubscribe] Cancelling scheduled emails failed:", err));
   return NextResponse.json({ ok: true });
 }

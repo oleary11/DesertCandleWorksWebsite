@@ -143,6 +143,16 @@ export async function markLoggedEmails(resendIds: string[], lastEvent: string): 
     .where(inArray(emailLog.resendId, resendIds));
 }
 
+/** A scheduled email moved to a new time: list it at that time. */
+export async function setLoggedSendTime(resendIds: string[], at: Date): Promise<void> {
+  if (!resendIds.length) return;
+  await ensureTable();
+  await db
+    .update(emailLog)
+    .set({ sentAt: at, updatedAt: dsql`now()` })
+    .where(inArray(emailLog.resendId, resendIds));
+}
+
 type ResendListedEmail = {
   id: string;
   to: string[] | null;
