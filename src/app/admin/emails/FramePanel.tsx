@@ -51,7 +51,7 @@ export default function FramePanel({
           </button>
         </div>
         <div
-          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          className="grid max-h-[290px] grid-cols-2 gap-2 overflow-y-auto p-px pr-1 sm:grid-cols-3"
           role="radiogroup"
           aria-label="Email look"
         >

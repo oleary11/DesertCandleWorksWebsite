@@ -10,11 +10,12 @@ import path from "path";
 import { splitFrameArt } from "../src/lib/frameArt";
 import { BUILT_IN_FRAMES } from "../src/lib/emailFrames";
 
-const ART: Record<string, string> = { fall: "fall-art.png", christmas: "xmas-art.png" };
+// Each frame's art is design/email-frames/<id>-art.png (Christmas predates the naming).
+const artFile = (id: string) => (id === "christmas" ? "xmas-art.png" : `${id}-art.png`);
 
 async function main() {
   for (const frame of BUILT_IN_FRAMES) {
-    const { top, panel } = await splitFrameArt(fs.readFileSync(path.join("design", "email-frames", ART[frame.id])));
+    const { top, panel } = await splitFrameArt(fs.readFileSync(path.join("design", "email-frames", artFile(frame.id))));
     for (const [url, buf] of [
       [frame.headerImageUrl, top],
       [frame.panelArtUrl!, panel],

@@ -52,7 +52,105 @@ export type EmailDesign = {
 
 export type FramedProduct = { name: string; imageUrl?: string; url: string; priceText?: string };
 
+/** A built-in frame whose art is public/email-frames/<id>-top.png and <id>-panel.png. */
+const builtIn = (
+  id: string,
+  name: string,
+  productsHeading: string,
+  c: Pick<EmailFrame, "pageColor" | "panelColor" | "panelTextColor" | "buttonColor" | "buttonTextColor" | "linkColor">
+): EmailFrame => ({
+  id,
+  name,
+  headerImageUrl: `/email-frames/${id}-top.png`,
+  panelArtUrl: `/email-frames/${id}-panel.png`,
+  productsHeading,
+  cardColor: "#ffffff",
+  ...c,
+  builtIn: true,
+});
+
+// In calendar order, so the picker reads like the year.
 export const BUILT_IN_FRAMES: EmailFrame[] = [
+  builtIn("newyears", "New Year's", "Start the year cozy", {
+    pageColor: "#3a332a",
+    panelColor: "#1d1b1a",
+    panelTextColor: "#f1d58a",
+    buttonColor: "#d6a63a",
+    buttonTextColor: "#1d1b1a",
+    linkColor: "#a87d1f",
+  }),
+  builtIn("winter", "Winter", "Cozy winter picks", {
+    pageColor: "#1f3550",
+    panelColor: "#3d6f99",
+    panelTextColor: "#ffffff",
+    buttonColor: "#1f3550",
+    buttonTextColor: "#ffffff",
+    linkColor: "#2f5f8a",
+  }),
+  builtIn("valentines", "Valentine's Day", "Gifts for your Valentine", {
+    pageColor: "#7a1a2c",
+    panelColor: "#c2253d",
+    panelTextColor: "#fff5f6",
+    buttonColor: "#5e1121",
+    buttonTextColor: "#fff5f6",
+    linkColor: "#b01e36",
+  }),
+  builtIn("stpatricks", "St. Patrick's Day", "Lucky finds", {
+    pageColor: "#2e6b3f",
+    panelColor: "#174a2c",
+    panelTextColor: "#fbfaf0",
+    buttonColor: "#d4a23c",
+    buttonTextColor: "#17301f",
+    linkColor: "#23733c",
+  }),
+  builtIn("spring", "Spring", "Fresh for spring", {
+    pageColor: "#5b7f4a",
+    panelColor: "#d9677f",
+    panelTextColor: "#fffaf7",
+    buttonColor: "#4b6b3c",
+    buttonTextColor: "#fffaf7",
+    linkColor: "#b8475f",
+  }),
+  builtIn("easter", "Easter", "Easter basket favorites", {
+    pageColor: "#6c5a96",
+    panelColor: "#8e74c4",
+    panelTextColor: "#fffdf5",
+    buttonColor: "#4f3f78",
+    buttonTextColor: "#fffdf5",
+    linkColor: "#6e55a8",
+  }),
+  builtIn("mothersday", "Mother's Day", "Gifts for Mom", {
+    pageColor: "#7d4552",
+    panelColor: "#c9737f",
+    panelTextColor: "#fffaf6",
+    buttonColor: "#5e3340",
+    buttonTextColor: "#fffaf6",
+    linkColor: "#a9525f",
+  }),
+  builtIn("fathersday", "Father's Day", "Gifts for Dad", {
+    pageColor: "#24364f",
+    panelColor: "#7a4a2a",
+    panelTextColor: "#fbf3e6",
+    buttonColor: "#24364f",
+    buttonTextColor: "#fbf3e6",
+    linkColor: "#7a4a2a",
+  }),
+  builtIn("summer", "Summer", "Summer favorites", {
+    pageColor: "#1f6e6c",
+    panelColor: "#ef6f4c",
+    panelTextColor: "#fffaf0",
+    buttonColor: "#1f6e6c",
+    buttonTextColor: "#fffaf0",
+    linkColor: "#c9502f",
+  }),
+  builtIn("fourthofjuly", "Fourth of July", "Picked for the Fourth", {
+    pageColor: "#1b2a55",
+    panelColor: "#c8283e",
+    panelTextColor: "#ffffff",
+    buttonColor: "#23356b",
+    buttonTextColor: "#ffffff",
+    linkColor: "#c8283e",
+  }),
   {
     id: "fall",
     name: "Fall",
@@ -68,6 +166,30 @@ export const BUILT_IN_FRAMES: EmailFrame[] = [
     linkColor: "#a8431f",
     builtIn: true,
   },
+  builtIn("halloween", "Halloween", "Spooky season picks", {
+    pageColor: "#2b2525",
+    panelColor: "#e8762b",
+    panelTextColor: "#231818",
+    buttonColor: "#4a2c5e",
+    buttonTextColor: "#fff5ea",
+    linkColor: "#c25a17",
+  }),
+  builtIn("thanksgiving", "Thanksgiving", "Grateful for these", {
+    pageColor: "#5a2424",
+    panelColor: "#b85a26",
+    panelTextColor: "#fff8ec",
+    buttonColor: "#5a2424",
+    buttonTextColor: "#fff8ec",
+    linkColor: "#9a4520",
+  }),
+  builtIn("hanukkah", "Hanukkah", "Gifts for all eight nights", {
+    pageColor: "#1c3570",
+    panelColor: "#2950a3",
+    panelTextColor: "#ffffff",
+    buttonColor: "#1c3570",
+    buttonTextColor: "#ffffff",
+    linkColor: "#2950a3",
+  }),
   {
     id: "christmas",
     name: "Christmas",
@@ -100,14 +222,24 @@ export const DEFAULT_DESIGN: EmailDesign = {
 const INK = "#211a16";
 const MUTED = "#8a7f77";
 
+/** Darkens a #rrggbb colour toward black, keeping its hue (factor 1 = unchanged). */
+function shade(hex: string, factor: number) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  if (!m) return hex;
+  const n = parseInt(m[1], 16);
+  const channel = (shift: number) => Math.round(((n >> shift) & 255) * factor);
+  return `#${[16, 8, 0].map((s) => channel(s).toString(16).padStart(2, "0")).join("")}`;
+}
+
 // Dark design, used by mail apps that support prefers-color-scheme (Apple Mail, iPhone
 // Mail, Outlook for Mac). Gmail's apps ignore it and recolour on their own, which the
-// transparent art copes with. Classes are prefixed so they can't clash.
-const DARK_STYLES = `
+// transparent art copes with. The page and card are deep shades of the frame's own page
+// colour (evergreen for Christmas, brown for fall). Classes are prefixed so they can't clash.
+const darkStyles = (f: EmailFrame) => `
   :root { color-scheme: light dark; supported-color-schemes: light dark; }
   @media (prefers-color-scheme: dark) {
-    .dcw-page { background: #120d0a !important; }
-    .dcw-card { background: #231a14 !important; }
+    .dcw-page { background: ${shade(f.pageColor, 0.45)} !important; }
+    .dcw-card { background: ${shade(f.pageColor, 0.7)} !important; }
     .dcw-ink { color: #f3ebe2 !important; }
     .dcw-muted { color: #b3a79d !important; }
     .dcw-link { color: #f2c48f !important; }
@@ -289,7 +421,7 @@ export function renderFramedEmail({
         <meta name="color-scheme" content="light dark">
         <meta name="supported-color-schemes" content="light dark">
         <title>${escapeHtml(subject)}</title>
-        <style>${DARK_STYLES}</style>
+        <style>${darkStyles(f)}</style>
       </head>
       <body class="dcw-page" style="margin:0;padding:0;background:${f.pageColor};">
         <div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;">${escapeHtml(preheader)}</div>
