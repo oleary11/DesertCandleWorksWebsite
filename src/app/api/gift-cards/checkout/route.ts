@@ -33,12 +33,16 @@ export async function POST(req: NextRequest) {
     const fromName = clean(body.fromName, 80);
     if (!fromName) return NextResponse.json({ error: "Add who it's from." }, { status: 400 });
 
-    // Send date: an Arizona day, today through 30 days out. Delivered at 8 AM that day.
+    // Send date and time, Arizona time, up to 30 days out (8 AM if no time is given).
+    // A time that's already passed means send it right after payment.
     let sendAt: Date | null = null;
     const sendDate = clean(body.sendDate, 10);
+    const sendTime = clean(body.sendTime, 5) || "08:00";
     if (sendDate) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(sendDate)) return NextResponse.json({ error: "Pick a valid send date." }, { status: 400 });
-      const at = new Date(`${sendDate}T08:00:00-07:00`);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(sendDate) || !/^([01]\d|2[0-3]):[0-5]\d$/.test(sendTime)) {
+        return NextResponse.json({ error: "Pick a valid send date and time." }, { status: 400 });
+      }
+      const at = new Date(`${sendDate}T${sendTime}:00-07:00`);
       if (at.getTime() > Date.now() + GIFT_CARD_MAX_SEND_DAYS * 86_400_000) {
         return NextResponse.json({ error: `Pick a send date within ${GIFT_CARD_MAX_SEND_DAYS} days.` }, { status: 400 });
       }
@@ -68,7 +72,11 @@ export async function POST(req: NextRequest) {
             unit_amount: amount * 100,
             product_data: {
               name: `Desert Candle Works gift card: $${amount}`,
-              description: `For ${clean(body.recipientName, 80) || recipient.normalized}, emailed ${sendAt ? `on ${sendDate}` : "right after you pay"}`,
+              description: `For ${clean(body.recipientName, 80) || recipient.normalized}, emailed ${
+                sendAt
+                  ? sendAt.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Phoenix" }) + " (Arizona time)"
+                  : "right after you pay"
+              }`,
             },
           },
         },

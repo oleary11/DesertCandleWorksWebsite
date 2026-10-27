@@ -239,7 +239,7 @@ export async function sendGiftCardEmail(card: GiftCard): Promise<void> {
 
 async function sendPurchaserReceipt(card: GiftCard): Promise<void> {
   const when = card.sendAt && new Date(card.sendAt).getTime() > Date.now() + 60_000
-    ? `It will be emailed to ${card.recipientEmail} on ${new Date(card.sendAt).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Phoenix" })}.`
+    ? `It will be emailed to ${card.recipientEmail} on ${new Date(card.sendAt).toLocaleString("en-US", { month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZone: "America/Phoenix" })} (Arizona time).`
     : `We just emailed it to ${card.recipientEmail}.`;
   const subject = `Your ${money(card.initialCents)} gift card is on its way`;
   const message = [

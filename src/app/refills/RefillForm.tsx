@@ -16,7 +16,7 @@ export default function RefillForm({ scents }: { scents: string[] }) {
     line1: "",
     line2: "",
     city: "",
-    state: "AZ",
+    state: "",
     postalCode: "",
     notes: "",
   });
@@ -148,7 +148,7 @@ export default function RefillForm({ scents }: { scents: string[] }) {
           </label>
           <label className="block sm:col-span-1">
             <span className={labelClass}>State</span>
-            <input required maxLength={2} className={`${fieldClass} uppercase`} value={form.state} onChange={set("state")} autoComplete="address-level1" />
+            <input required maxLength={2} placeholder="CA" className={`${fieldClass} uppercase`} value={form.state} onChange={set("state")} autoComplete="address-level1" />
           </label>
           <label className="block sm:col-span-2">
             <span className={labelClass}>ZIP</span>

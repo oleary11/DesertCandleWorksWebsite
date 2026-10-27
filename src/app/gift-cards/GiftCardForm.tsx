@@ -7,6 +7,9 @@ import { GIFT_CARD_AMOUNTS, GIFT_CARD_MAX, GIFT_CARD_MAX_SEND_DAYS, GIFT_CARD_MI
 const arizonaDate = (offsetDays = 0) =>
   new Date(Date.now() + offsetDays * 86_400_000).toLocaleDateString("en-CA", { timeZone: "America/Phoenix" });
 
+/** Has this Arizona date and time already passed? (Arizona is UTC-7 all year.) */
+const isPast = (date: string, time: string) => new Date(`${date}T${time || "00:00"}:00-07:00`).getTime() <= Date.now() + 5 * 60_000;
+
 export default function GiftCardForm() {
   const [amount, setAmount] = useState<number | "custom">(50);
   const [custom, setCustom] = useState("");
@@ -16,10 +19,13 @@ export default function GiftCardForm() {
   const [purchaserEmail, setPurchaserEmail] = useState("");
   const [message, setMessage] = useState("");
   const [sendDate, setSendDate] = useState(arizonaDate());
+  // Empty = as soon as it's paid (only offered for today).
+  const [sendTime, setSendTime] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   const value = amount === "custom" ? Number(custom) : amount;
+  const sendNow = sendDate === arizonaDate() && (!sendTime || isPast(sendDate, sendTime));
   const valid = Number.isFinite(value) && value >= GIFT_CARD_MIN && value <= GIFT_CARD_MAX;
 
   const submit = async (e: React.FormEvent) => {
@@ -41,7 +47,7 @@ export default function GiftCardForm() {
           fromName,
           purchaserEmail,
           message,
-          sendDate: sendDate === arizonaDate() ? "" : sendDate,
+          ...(sendNow ? {} : { sendDate, sendTime: sendTime || "08:00" }),
         }),
       });
       const data = await res.json();
@@ -149,20 +155,46 @@ export default function GiftCardForm() {
         />
       </label>
 
-      <label className="block">
-        <span className={labelClass}>Send it on</span>
-        <input
-          type="date"
-          className={`${fieldClass} max-w-[240px]`}
-          value={sendDate}
-          min={arizonaDate()}
-          max={arizonaDate(GIFT_CARD_MAX_SEND_DAYS - 1)}
-          onChange={(e) => setSendDate(e.target.value || arizonaDate())}
-        />
+      <fieldset>
+        <legend className={labelClass}>When should we email it?</legend>
+        <div className="flex flex-wrap gap-3">
+          <input
+            type="date"
+            aria-label="Send date"
+            className={`${fieldClass} max-w-[200px]`}
+            value={sendDate}
+            min={arizonaDate()}
+            max={arizonaDate(GIFT_CARD_MAX_SEND_DAYS - 1)}
+            onChange={(e) => {
+              const date = e.target.value || arizonaDate();
+              setSendDate(date);
+              // A later day needs a time; morning is a nice default.
+              if (date !== arizonaDate() && !sendTime) setSendTime("08:00");
+            }}
+          />
+          <input
+            type="time"
+            aria-label="Send time"
+            className={`${fieldClass} max-w-[160px]`}
+            value={sendTime}
+            step={900}
+            onChange={(e) => setSendTime(e.target.value)}
+          />
+        </div>
         <span className="mt-2 block text-xs text-[var(--home-muted)]">
-          Today sends it right after you pay. A later date sends it that morning, up to {GIFT_CARD_MAX_SEND_DAYS} days out.
+          {sendNow
+            ? "Sends right after you pay. Pick a later time or day to schedule it."
+            : `Sends ${new Date(`${sendDate}T${sendTime || "08:00"}:00-07:00`).toLocaleString("en-US", {
+                weekday: "short",
+                month: "short",
+                day: "numeric",
+                hour: "numeric",
+                minute: "2-digit",
+                timeZone: "America/Phoenix",
+              })} Arizona time.`}{" "}
+          Up to {GIFT_CARD_MAX_SEND_DAYS} days out.
         </span>
-      </label>
+      </fieldset>
 
       {error && (
         <p role="alert" className="text-sm text-[#9b3b2a]">

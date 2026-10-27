@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 import ProductCard from "@/components/ProductCard";
 import type { Product } from "@/lib/products";
 import { generateVariants } from "@/lib/products";
@@ -514,7 +515,8 @@ export default function ShopClient({ products, globalScents, alcoholTypes, homeG
             Free shipping over $100 · Free local pickup in Scottsdale
           </p>
 
-          <div role="tablist" aria-label="Category" className="mt-8 flex gap-6 border-b border-[var(--home-line)]">
+          <div className="mt-8 flex gap-6 border-b border-[var(--home-line)]">
+          <div role="tablist" aria-label="Category" className="flex gap-6">
             {CATEGORY_TABS.map((opt) => {
               const active = categoryFilter === opt.value;
               return (
@@ -534,6 +536,14 @@ export default function ShopClient({ products, globalScents, alcoholTypes, homeG
                 </button>
               );
             })}
+          </div>
+          {/* Its own page, but listed with the shop's tabs so it's easy to find. */}
+          <Link
+            href="/gift-cards"
+            className="-mb-px border-b-2 border-transparent pb-3 text-[15px] text-[var(--home-muted)] transition-colors hover:text-[var(--home-ink)]"
+          >
+            Gift cards
+          </Link>
           </div>
         </div>
       </header>
