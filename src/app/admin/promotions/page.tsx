@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Tag, Trash2 } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
 import { Stat, Switch } from "../_components/ui";
-import { Promotion, PromotionType } from "@/lib/promotions";
+import { Promotion, PromotionType, isWelcomeCode } from "@/lib/promotions";
+import WelcomeResults from "./WelcomeResults";
 import PromotionModal from "@/components/PromotionModal";
 import { useModal } from "@/hooks/useModal";
 import CandleSpinner from "@/components/CandleSpinner";
@@ -26,7 +27,8 @@ export default function AdminPromotionsPage() {
       const res = await fetch("/api/admin/promotions");
       if (!res.ok) throw new Error("Failed to load promotions");
       const data = await res.json();
-      setPromotions(data.promotions || []);
+      // Welcome popup codes (one per signup) are summed up in WelcomeResults instead.
+      setPromotions(((data.promotions || []) as Promotion[]).filter((p) => !isWelcomeCode(p)));
     } catch (err) {
       setError("Failed to load promotions");
       console.error(err);
@@ -127,6 +129,8 @@ export default function AdminPromotionsPage() {
           </button>
         }
       />
+
+      <WelcomeResults />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
         <Stat label="Active" value={activePromotions.length} />

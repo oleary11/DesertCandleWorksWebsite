@@ -7,7 +7,7 @@ import { kv } from "@vercel/kv";
 import { sendEmailWithId } from "@/lib/email";
 import { DEFAULT_BASE_URL, renderMessageEmail } from "@/lib/emailLayout";
 import { emailLink } from "@/lib/emailFrames";
-import type { Promotion } from "@/lib/promotions";
+import { WELCOME_CODE_NAME_PREFIX, type Promotion } from "@/lib/promotions";
 import { createPromotion, getPromotionByCode } from "@/lib/promotionsStore";
 import { unsubscribeHeaders, unsubscribePageUrl } from "@/lib/unsubscribe";
 
@@ -47,7 +47,7 @@ export async function issueWelcomeCode(email: string, percent: number): Promise<
   const promotion: Promotion = {
     id: `promo_${now.getTime()}_${code.slice(-6).toLowerCase()}`,
     code,
-    name: `Welcome code: ${email}`,
+    name: `${WELCOME_CODE_NAME_PREFIX}${email}`,
     description: `${percent}% off for signing up from the popup on the site. One use.`,
     trigger: "code_required",
     type: "percentage",

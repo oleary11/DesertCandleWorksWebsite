@@ -49,7 +49,7 @@ function isLineItemArray(v: unknown): v is ExtendedLineItem[] {
 export async function POST(req: NextRequest) {
   // Rate limiting protection against checkout abuse
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-  const rateLimitOk = await checkRateLimit(ip);
+  const rateLimitOk = await checkRateLimit(ip, "checkout");
 
   if (!rateLimitOk) {
     return NextResponse.json(
@@ -822,6 +822,9 @@ export async function POST(req: NextRequest) {
       phone_number_collection: { enabled: true }, // Collect phone for shipping issues
       shipping_options: shippingOptions,
       metadata: sessionMetadata, // Pass product/variant info for webhook
+      // If it expires unpaid, Stripe hands us a link that reopens it, for the
+      // "you left something in your cart" email (lib/abandonedCheckout.ts).
+      after_expiration: { recovery: { enabled: true } },
       automatic_tax: { enabled: true }, // Stripe Tax enabled
       custom_text: {
         submit: {

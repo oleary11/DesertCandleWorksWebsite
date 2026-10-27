@@ -66,3 +66,11 @@ export type PromotionValidationResult = {
   /** Discount on each cart line, in the order the lines were passed in (adds up to the total). */
   lineDiscountsCents?: number[];
 };
+
+/** The single-use codes the welcome popup emails to new signups (lib/welcomeOffer.ts). */
+export const WELCOME_CODE_NAME_PREFIX = "Welcome code: ";
+
+/** Told apart by the code itself (WELCOME-7K3F2Q), since the database doesn't keep names. */
+export function isWelcomeCode(promotion: Pick<Promotion, "code">): boolean {
+  return /^WELCOME-[A-Z2-9]{6}$/.test(promotion.code);
+}

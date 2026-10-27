@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
   try {
     // Rate limiting protection against spam account creation
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const rateLimitOk = await checkRateLimit(ip);
+    const rateLimitOk = await checkRateLimit(ip, "auth");
 
     if (!rateLimitOk) {
       return NextResponse.json(
@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     const user = await createUser(normalizedEmail, password, firstName, lastName);
 
     // Reset rate limit on successful registration
-    await resetRateLimit(ip);
+    await resetRateLimit(ip, "auth");
 
     // Link any previous guest orders to this new account and award retroactive points
     let linkedOrdersCount = 0;

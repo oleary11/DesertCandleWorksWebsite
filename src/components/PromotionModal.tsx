@@ -5,6 +5,14 @@ import { Search, Users, Package } from "lucide-react";
 import { Modal } from "@/app/admin/_components/ui";
 import { Promotion, PromotionType, PromotionTrigger, UserTargeting } from "@/lib/promotions";
 
+// Dates are Arizona days (UTC-7 all year, no daylight saving): a promotion starts at
+// 12:00 AM and ends at 11:59 PM Arizona time on the dates picked.
+const AZ_OFFSET = "-07:00";
+const arizonaDate = (iso?: string) =>
+  iso ? new Date(iso).toLocaleDateString("en-CA", { timeZone: "America/Phoenix" }) : "";
+const arizonaStart = (date: string) => new Date(`${date}T00:00:00${AZ_OFFSET}`).toISOString();
+const arizonaEnd = (date: string) => new Date(`${date}T23:59:59${AZ_OFFSET}`).toISOString();
+
 type Product = {
   slug: string;
   name: string;
@@ -51,8 +59,8 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
     minLifetimeSpendCents: promotion?.minLifetimeSpendCents
       ? (promotion.minLifetimeSpendCents / 100).toString()
       : "",
-    startsAt: promotion?.startsAt?.split("T")[0] || "",
-    expiresAt: promotion?.expiresAt?.split("T")[0] || "",
+    startsAt: arizonaDate(promotion?.startsAt),
+    expiresAt: arizonaDate(promotion?.expiresAt),
     active: promotion?.active !== false,
   });
 
@@ -236,11 +244,11 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
       }
 
       if (formData.startsAt) {
-        body.startsAt = new Date(formData.startsAt).toISOString();
+        body.startsAt = arizonaStart(formData.startsAt);
       }
 
       if (formData.expiresAt) {
-        body.expiresAt = new Date(formData.expiresAt).toISOString();
+        body.expiresAt = arizonaEnd(formData.expiresAt);
       }
 
       if (isEditing) {
@@ -800,7 +808,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="a-label">Start Date (Optional)</label>
+                <label className="a-label">Start date (optional)</label>
                 <input
                   type="date"
                   className="a-input"
@@ -810,7 +818,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
               </div>
 
               <div>
-                <label className="a-label">Expiration Date (Optional)</label>
+                <label className="a-label">Last day (optional)</label>
                 <input
                   type="date"
                   className="a-input"
@@ -819,6 +827,7 @@ export default function PromotionModal({ promotion, onClose, onSuccess }: Promot
                 />
               </div>
             </div>
+            <p className="a-help">Arizona time: starts at 12:00 AM on the start date and ends at 11:59 PM on the last day.</p>
           </section>
 
           {/* Active Status */}

@@ -9,7 +9,7 @@ import { checkRateLimit } from "@/lib/rateLimit";
 export async function GET(req: NextRequest) {
   // Rate limiting protection against token enumeration
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-  const rateLimitOk = await checkRateLimit(ip);
+  const rateLimitOk = await checkRateLimit(ip, "invoice");
 
   if (!rateLimitOk) {
     return NextResponse.json(

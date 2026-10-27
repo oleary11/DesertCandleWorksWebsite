@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
   try {
     // Rate limiting protection against brute force attacks
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const rateLimitOk = await checkRateLimit(ip);
+    const rateLimitOk = await checkRateLimit(ip, "auth");
 
     if (!rateLimitOk) {
       return NextResponse.json(
@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Reset rate limit on successful login
-    await resetRateLimit(ip);
+    await resetRateLimit(ip, "auth");
 
     // SECURITY: Session rotation - destroy any existing session before creating new one
     // This prevents session fixation attacks

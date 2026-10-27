@@ -6,6 +6,7 @@ import { getUserByEmail, createOrder, completeOrder, redeemPoints, isWebhookProc
 import { incrementRedemptions } from "@/lib/promotionsStore";
 import { decodeSource } from "@/lib/attributionShared";
 import { recordOrderAttribution } from "@/lib/trackingLinks";
+import { sendAbandonedCheckoutEmail } from "@/lib/abandonedCheckout";
 
 export const runtime = "nodejs";
 
@@ -40,6 +41,18 @@ export async function POST(req: NextRequest) {
     // This webhook just logs it for confirmation
     // The inventory restoration and points deduction happen in the refund API
 
+    return NextResponse.json({ received: true }, { status: 200 });
+  }
+
+  // Checkout left unpaid: remind them once, with a link back to it.
+  if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    try {
+      const result = await sendAbandonedCheckoutEmail(stripe, session);
+      console.log(`[Webhook] Expired checkout ${session.id}: reminder ${result}`);
+    } catch (err) {
+      console.error(`[Webhook] Abandoned checkout email failed for ${session.id}:`, err);
+    }
     return NextResponse.json({ received: true }, { status: 200 });
   }
 

@@ -8,7 +8,7 @@ export async function POST(req: NextRequest) {
   try {
     // Rate limiting protection against password change abuse
     const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
-    const rateLimitOk = await checkRateLimit(ip);
+    const rateLimitOk = await checkRateLimit(ip, "auth");
 
     if (!rateLimitOk) {
       return NextResponse.json(

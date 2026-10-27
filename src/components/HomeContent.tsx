@@ -320,7 +320,8 @@ export default function HomeContent({ bestsellers }: HomeContentProps) {
             Join our candle circle
           </h2>
           <p className="mt-4 text-lg text-[var(--home-muted)]">
-            Discount codes, drops, restocks and desert-scented stories. No spam, unsubscribe anytime.
+            Take 10% off your first order, plus first word on new scents, restocks and sales. No spam,
+            unsubscribe anytime.
           </p>
         </div>
         <div className="mt-8">

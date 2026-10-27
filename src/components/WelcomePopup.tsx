@@ -51,6 +51,7 @@ export function WelcomePopup() {
       window.removeEventListener("scroll", onScroll);
       clearTimeout(timer);
       setOpen(true);
+      fetch("/api/welcome-offer/shown", { method: "POST" }).catch(() => {});
     };
     const onScroll = () => {
       const depth = (window.scrollY + window.innerHeight) / document.documentElement.scrollHeight;
