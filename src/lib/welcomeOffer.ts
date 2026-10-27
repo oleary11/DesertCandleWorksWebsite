@@ -74,20 +74,24 @@ export async function sendWelcomeEmail(email: string, promotion: Promotion): Pro
     ? new Date(promotion.expiresAt).toLocaleDateString("en-US", { month: "long", day: "numeric", timeZone: "America/Phoenix" })
     : null;
   const subject = `Your ${percent}% off code is inside`;
+  // The code and a "shop with it applied" button follow the message.
   const message = [
     "Thanks for joining the Desert Candle Works list!",
     "",
-    `Here's ${percent}% off your order: ${promotion.code}`,
-    ends ? `It's good for one order through ${ends}.` : "It's good for one order.",
-    "",
-    `Shop with the code already applied: ${shop}`,
-    "",
     "Every candle is hand-poured in Scottsdale with natural coconut apricot wax, in a liquor bottle we rescued and cut by hand. We'll send new scents, restocks and the occasional sale. No spam, promise.",
     "",
-    "Josh & Cori",
+    `Here's ${percent}% off your order, ${ends ? `good for one order through ${ends}` : "good for one order"}. The button opens the shop with it already applied.`,
   ].join("\n");
   const unsubscribeUrl = unsubscribePageUrl(email);
-  const { html, text } = renderMessageEmail({ subject, message, personal: false, baseUrl, unsubscribeUrl });
+  const { html, text } = renderMessageEmail({
+    subject,
+    message,
+    personal: false,
+    baseUrl,
+    unsubscribeUrl,
+    code: promotion.code,
+    button: { label: `Shop with ${percent}% off`, url: shop },
+  });
   await sendEmailWithId({
     to: email,
     subject,

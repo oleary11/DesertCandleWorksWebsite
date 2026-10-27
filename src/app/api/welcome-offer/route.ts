@@ -4,6 +4,7 @@ import { validateEmail } from "@/lib/validation";
 import { subscribeToNewsletter } from "@/lib/newsletter";
 import { removeUnsubscribe } from "@/lib/unsubscribe";
 import { getWelcomeOffer, issueWelcomeCode, sendWelcomeEmail } from "@/lib/welcomeOffer";
+import { emailProblem } from "@/lib/emailQuality";
 
 export const runtime = "nodejs";
 
@@ -54,6 +55,19 @@ export async function POST(req: NextRequest) {
     const offer = getWelcomeOffer();
     if (!offer) return NextResponse.json({ ok: false, error: "This offer has ended." }, { status: 410 });
 
+    const problem = await emailProblem(email);
+    if (problem) return NextResponse.json({ ok: false, error: problem }, { status: 400 });
+
+    // One welcome code per phone number too, so a new email can't get a second discount.
+    const phoneKey = `welcome:phone:${phone.replace(/\D/g, "")}`;
+    const phoneOwner = await kv.get<string>(phoneKey);
+    if (phoneOwner && phoneOwner !== email) {
+      return NextResponse.json(
+        { ok: false, error: "This phone number already has a welcome code. Check the email you signed up with." },
+        { status: 409 }
+      );
+    }
+
     const subscribed = await subscribeToNewsletter(email, { phone, source: "welcome popup" });
     if (!subscribed.ok) return NextResponse.json({ ok: false, error: subscribed.error }, { status: subscribed.status });
     // Signing up again means they want our emails, even if they unsubscribed before.
@@ -65,6 +79,7 @@ export async function POST(req: NextRequest) {
     } catch (error) {
       return NextResponse.json({ ok: false, error: error instanceof Error ? error.message : String(error) }, { status: 409 });
     }
+    await kv.set(phoneKey, email, { nx: true });
 
     // Re-sending the same code is fine (they lost the email), but not more than every few minutes.
     if (await kv.set(`welcome:sent:${email}`, "1", { nx: true, ex: 600 }).catch(() => "OK")) {

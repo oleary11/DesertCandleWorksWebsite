@@ -91,6 +91,8 @@ export function renderMessageEmail({
   baseUrl = DEFAULT_BASE_URL,
   assetBaseUrl = baseUrl,
   unsubscribeUrl,
+  code,
+  button,
 }: {
   subject: string;
   message: string;
@@ -99,6 +101,10 @@ export function renderMessageEmail({
   assetBaseUrl?: string;
   /** Mass emails only: adds an unsubscribe link to the footer. */
   unsubscribeUrl?: string;
+  /** A promo code, shown big in a dashed box under the message. */
+  code?: string;
+  /** A call-to-action button under the message (and code). */
+  button?: { label: string; url: string };
 }): { html: string; text: string } {
   const preheader = message.trim().split(/\r?\n/)[0]?.slice(0, 120) || subject;
   const signature = personal
@@ -128,7 +134,25 @@ export function renderMessageEmail({
                   <td style="padding:34px 34px ${personal ? "18px" : "26px"};font-family:Arial,sans-serif;font-size:15px;line-height:25px;color:${COLORS.ink};">
                     ${messageToHtml(message)}
                   </td>
-                </tr>${signature}
+                </tr>${
+                  code || button
+                    ? `
+                <tr>
+                  <td align="center" style="padding:0 34px 30px;text-align:center;">${
+                    code
+                      ? `
+                    <div style="display:inline-block;border:2px dashed ${COLORS.gold};border-radius:12px;background:${COLORS.cream};padding:12px 26px;font-family:Arial,sans-serif;font-size:24px;line-height:30px;font-weight:700;letter-spacing:4px;color:${COLORS.goldDark};">${escapeHtml(code)}</div>`
+                      : ""
+                  }${
+                    button
+                      ? `
+                    <div style="margin-top:${code ? "18px" : "0"};"><a href="${escapeHtml(button.url)}" style="display:inline-block;background:${COLORS.ink};color:${COLORS.white};font-family:Arial,sans-serif;font-size:15px;line-height:20px;font-weight:700;text-decoration:none;padding:14px 32px;border-radius:999px;">${escapeHtml(button.label)}</a></div>`
+                      : ""
+                  }
+                  </td>
+                </tr>`
+                    : ""
+                }${signature}
                 <tr><td style="padding:0 34px;"><div style="border-top:1px solid ${COLORS.sand};"></div></td></tr>
                 <tr><td>${emailFooter(baseUrl, unsubscribeUrl)}</td></tr>
               </table>
@@ -142,6 +166,8 @@ export function renderMessageEmail({
   const text = [
     message.trim(),
     "",
+    ...(code ? [`Your code: ${code}`, ""] : []),
+    ...(button ? [`${button.label}: ${button.url}`, ""] : []),
     ...(personal
       ? ["Josh & Cori", "Desert Candle Works", "www.desertcandleworks.com", "480-442-7764", "Instagram: @desertcandleworks", ""]
       : []),
