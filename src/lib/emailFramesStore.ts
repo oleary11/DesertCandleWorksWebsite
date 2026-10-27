@@ -1,12 +1,12 @@
 // Custom email frames uploaded from /admin/emails, alongside the built-in ones. An
-// upload is a transparent illustration plus colours; the header image (illustration
-// falling into the top of the colour panel) is composited here and stored in Blob.
+// upload is a transparent illustration plus colours; it's split here into the layer
+// above the panel and the layer inside its top (lib/frameArt.ts) and stored in Blob.
 
 import { put } from "@vercel/blob";
 import { sql as dsql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { BUILT_IN_FRAMES, type EmailFrame } from "@/lib/emailFrames";
-import { composeFrameHeader } from "@/lib/frameArt";
+import { splitFrameArt } from "@/lib/frameArt";
 
 // Same as drizzle/0018_email_frames.sql, so the feature works before that migration is run.
 const ENSURE_STATEMENTS = [
@@ -14,6 +14,7 @@ const ENSURE_STATEMENTS = [
     "id" uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     "name" varchar(100) NOT NULL,
     "header_image_url" text NOT NULL,
+    "panel_art_url" text,
     "art_image_url" text,
     "products_heading" varchar(120),
     "page_color" varchar(9) NOT NULL,
@@ -25,6 +26,7 @@ const ENSURE_STATEMENTS = [
     "link_color" varchar(9) NOT NULL,
     "created_at" timestamp with time zone NOT NULL DEFAULT now()
   )`,
+  `ALTER TABLE "email_frames" ADD COLUMN IF NOT EXISTS "panel_art_url" text`,
 ];
 
 let ensured: Promise<void> | null = null;
@@ -42,6 +44,7 @@ type Row = {
   id: string;
   name: string;
   header_image_url: string;
+  panel_art_url: string | null;
   art_image_url: string | null;
   products_heading: string | null;
   page_color: string;
@@ -57,6 +60,7 @@ const fromRow = (r: Row): EmailFrame => ({
   id: r.id,
   name: r.name,
   headerImageUrl: r.header_image_url,
+  panelArtUrl: r.panel_art_url,
   artImageUrl: r.art_image_url,
   productsHeading: r.products_heading,
   pageColor: r.page_color,
@@ -103,13 +107,17 @@ export async function createFrame(input: NewFrame): Promise<EmailFrame> {
 
   const artRes = await fetch(input.artImageUrl);
   if (!artRes.ok) throw new Error("Couldn't load the uploaded artwork");
-  const header = await composeFrameHeader(Buffer.from(await artRes.arrayBuffer()), input);
-  const blob = await put(`email-frames/${crypto.randomUUID()}.jpg`, header, { access: "public", contentType: "image/jpeg" });
+  const { top, panel } = await splitFrameArt(Buffer.from(await artRes.arrayBuffer()));
+  const id = crypto.randomUUID();
+  const [topBlob, panelBlob] = await Promise.all([
+    put(`email-frames/${id}-top.png`, top, { access: "public", contentType: "image/png" }),
+    put(`email-frames/${id}-panel.png`, panel, { access: "public", contentType: "image/png" }),
+  ]);
 
   const result = await db.execute(dsql`
-    INSERT INTO email_frames (name, header_image_url, art_image_url, products_heading, page_color, card_color,
+    INSERT INTO email_frames (name, header_image_url, panel_art_url, art_image_url, products_heading, page_color, card_color,
       panel_color, panel_text_color, button_color, button_text_color, link_color)
-    VALUES (${input.name.trim()}, ${blob.url}, ${input.artImageUrl}, ${input.productsHeading || null}, ${input.pageColor},
+    VALUES (${input.name.trim()}, ${topBlob.url}, ${panelBlob.url}, ${input.artImageUrl}, ${input.productsHeading || null}, ${input.pageColor},
       ${input.cardColor}, ${input.panelColor}, ${input.panelTextColor}, ${input.buttonColor}, ${input.buttonTextColor},
       ${input.linkColor})
     RETURNING *
