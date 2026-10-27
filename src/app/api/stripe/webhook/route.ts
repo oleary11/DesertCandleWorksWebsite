@@ -4,6 +4,8 @@ import { getPriceToProduct } from "@/lib/pricemap";
 import { incrStock, incrVariantStock } from "@/lib/productsStore";
 import { getUserByEmail, createOrder, completeOrder, redeemPoints, isWebhookProcessed, markWebhookProcessed, generateOrderId } from "@/lib/userStore";
 import { incrementRedemptions } from "@/lib/promotionsStore";
+import { decodeSource } from "@/lib/attributionShared";
+import { recordOrderAttribution } from "@/lib/trackingLinks";
 
 export const runtime = "nodejs";
 
@@ -421,6 +423,10 @@ export async function POST(req: NextRequest) {
             console.error("[Webhook] Failed to add guest to mailing list:", mailingErr);
           }
         }
+
+        // Credit the order to where the buyer came from (tracking link, utm tags or
+        // referring site, captured at checkout). Never blocks order processing.
+        await recordOrderAttribution(orderId, decodeSource(session.metadata?.attr));
 
         // Send invoice email to all customers (guest or not)
         try {

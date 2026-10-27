@@ -3,7 +3,8 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Mail, Package, Pencil, Save, Search, Trash2, Users, X } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
-import { Badge, Modal, Switch, Tabs } from "../_components/ui";
+import { Badge, Modal, Segmented, Switch, Tabs } from "../_components/ui";
+import { previewInMode, type PreviewMode } from "@/lib/emailPreview";
 import { useModal } from "@/hooks/useModal";
 import { renderMessageEmail } from "@/lib/emailLayout";
 import ConversationsPanel from "./ConversationsPanel";
@@ -93,6 +94,8 @@ export default function AdminEmailsPage() {
   const [sending, setSending] = useState(false);
   const [sendMessage, setSendMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [previewMode, setPreviewMode] = useState<PreviewMode>("light");
+  const [previewWidth, setPreviewWidth] = useState<"desktop" | "phone">("desktop");
 
   // Template management
   const [savedTemplates, setSavedTemplates] = useState<SavedTemplate[]>([]);
@@ -711,21 +714,57 @@ export default function AdminEmailsPage() {
 
         {/* Preview */}
         <section className="lg:sticky lg:top-20">
-          <button className="a-btn mb-3 w-full lg:hidden" onClick={() => setShowPreview(!showPreview)} disabled={!subject || !message}>
+          <button className="a-btn mb-3 w-full lg:hidden" onClick={() => setShowPreview(!showPreview)} disabled={!preview}>
             {showPreview ? "Hide preview" : "Show preview"}
           </button>
           <div className={`a-card overflow-hidden ${showPreview ? "" : "hidden lg:block"}`}>
             <div className="border-b border-[var(--a-line)] px-4 py-3">
-              <p className="a-section-label text-[var(--a-faint)]">Preview</p>
-              <p className="mt-0.5 truncate text-sm font-medium text-[var(--a-ink)]">{subject || "No subject yet"}</p>
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className="a-section-label text-[var(--a-faint)]">Preview</p>
+                  <p className="mt-0.5 truncate text-sm font-medium text-[var(--a-ink)]">{subject || "No subject yet"}</p>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  <Segmented
+                    label="Colour mode"
+                    value={previewMode}
+                    onChange={setPreviewMode}
+                    options={[
+                      { value: "light", label: "Light" },
+                      { value: "dark", label: "Dark" },
+                      { value: "gmail", label: "Gmail dark" },
+                    ]}
+                  />
+                  <Segmented
+                    label="Screen"
+                    value={previewWidth}
+                    onChange={setPreviewWidth}
+                    options={[
+                      { value: "desktop", label: "Desktop" },
+                      { value: "phone", label: "Phone" },
+                    ]}
+                  />
+                </div>
+              </div>
+              {previewMode !== "light" && (
+                <p className="mt-2 text-xs text-[var(--a-muted)]">
+                  {previewMode === "dark"
+                    ? "How Apple Mail, iPhone Mail and Outlook for Mac show it in dark mode."
+                    : "Roughly how the Gmail app darkens it on its own (it ignores the email's dark design)."}
+                </p>
+              )}
             </div>
             {preview ? (
               <>
-                <iframe
-                  srcDoc={preview.html}
-                  className="block h-[620px] w-full border-0 bg-[#f7f2eb] lg:h-[calc(100dvh-210px)]"
-                  title="Email preview"
-                />
+                <div className={previewWidth === "phone" ? "bg-[var(--a-canvas)] px-3 py-3" : ""}>
+                  <iframe
+                    srcDoc={previewInMode(preview.html, previewMode)}
+                    className={`mx-auto block h-[620px] border-0 lg:h-[calc(100dvh-250px)] ${
+                      previewWidth === "phone" ? "w-[375px] max-w-full rounded-[22px] border-[6px] border-[#2f2a25]" : "w-full"
+                    } ${previewMode === "light" ? "bg-[#f7f2eb]" : "bg-[#121212]"}`}
+                    title="Email preview"
+                  />
+                </div>
                 <details className="border-t border-[var(--a-line)]">
                   <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium text-[var(--a-muted)] hover:text-[var(--a-ink)]">
                     Plain-text version

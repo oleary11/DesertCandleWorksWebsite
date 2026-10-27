@@ -2,6 +2,15 @@
 
 import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import {
+  PROMO_STORAGE_KEY,
+  SOURCE_COOKIE,
+  SOURCE_MAX_AGE,
+  decodeSource,
+  encodeSource,
+  sourceFromReferrer,
+  sourceFromUtm,
+} from "@/lib/attributionShared";
 
 function getOrCreateSessionId(): string {
   const KEY = "_dcw_sid";
@@ -31,6 +40,32 @@ function getOrCreateSessionId(): string {
 export function AnalyticsTracker() {
   const pathname = usePathname();
   const lastPath = useRef<string | null>(null);
+
+  // Remember where this visitor came from (for crediting their order) and any ?promo=
+  // code from a link, which the cart applies automatically.
+  useEffect(() => {
+    if (pathname.startsWith("/admin") || pathname.startsWith("/api")) return;
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const promo = params.get("promo")?.trim().toUpperCase();
+      if (promo && /^[A-Z0-9_-]{2,40}$/.test(promo)) {
+        localStorage.setItem(PROMO_STORAGE_KEY, promo);
+        window.dispatchEvent(new Event("dcw-promo"));
+      }
+
+      const current = decodeSource(document.cookie.match(new RegExp(`(?:^|;\\s*)${SOURCE_COOKIE}=([^;]+)`))?.[1]);
+      // Tagged links (utm) always win; the referring site only fills in when we know
+      // nothing better, so a link visit isn't overwritten by a later Google search.
+      const next =
+        sourceFromUtm(params) ??
+        (!current || current.via === "referrer" ? sourceFromReferrer(document.referrer, window.location.hostname) : null);
+      if (next && !(current?.via === "link" && next.via === "utm" && next.source === current.source)) {
+        document.cookie = `${SOURCE_COOKIE}=${encodeURIComponent(encodeSource(next))}; path=/; max-age=${SOURCE_MAX_AGE}; samesite=lax`;
+      }
+    } catch {
+      // Never let attribution break the page
+    }
+  }, [pathname]);
 
   // Track page views on route change
   useEffect(() => {

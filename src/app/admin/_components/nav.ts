@@ -23,6 +23,7 @@ import {
   Users,
   Video,
   Wine,
+  Link2,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -77,6 +78,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { href: "/admin/social", title: "Social Media", description: "Generate, review and schedule posts", icon: Megaphone },
       { href: "/admin/emails", title: "Send Emails", description: "Custom emails and shipping notifications", icon: Send },
+      { href: "/admin/links", title: "Links", description: "Tracking links and where sales come from", icon: Link2 },
     ],
   },
   {

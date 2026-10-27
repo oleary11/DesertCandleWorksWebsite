@@ -120,6 +120,27 @@ function absolute(baseUrl: string, url: string) {
   return /^https?:\/\//i.test(url) ? url : `${baseUrl}${url.startsWith("/") ? url : `/${url}`}`;
 }
 
+/**
+ * Site link from an email: tagged as email traffic (so orders are credited to it) and,
+ * when there's a promo code, opening with the code applied (?promo=, see cart).
+ */
+export function emailLink(baseUrl: string, url: string, campaign: string, code?: string) {
+  const link = new URL(absolute(baseUrl, url));
+  if (!/(^|\.)desertcandleworks\.com$|^localhost$/i.test(link.hostname)) return link.toString();
+  link.searchParams.set("utm_source", "email");
+  link.searchParams.set("utm_medium", "email");
+  link.searchParams.set("utm_campaign", campaign);
+  if (code) link.searchParams.set("promo", code);
+  return link.toString();
+}
+
+const campaignSlug = (text: string) =>
+  text
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60) || "email";
+
 /** URL of the script-font headline image (see app/api/email/headline). */
 export function headlineImageUrl(assetBaseUrl: string, text: string, color: string) {
   // v= busts the year-long image cache whenever the lettering style changes.
@@ -149,10 +170,11 @@ export function renderFramedEmail({
   unsubscribeUrl?: string;
 }): { html: string; text: string } {
   const f = frame;
-  const cta = absolute(baseUrl, design.ctaUrl || "/shop");
   const ctaLabel = design.ctaLabel?.trim() || "";
   const offer = design.offer?.trim() || "";
   const code = design.code?.trim() || "";
+  const campaign = campaignSlug(code || design.headline || subject);
+  const cta = emailLink(baseUrl, design.ctaUrl || "/shop", campaign, code || undefined);
   const ends = design.endsText?.trim() || "";
   const preheader =
     [offer, code ? `Use code ${code}` : "", ends].filter(Boolean).join(". ") ||
@@ -168,10 +190,12 @@ export function renderFramedEmail({
       ? `<div style="${sans}margin-top:4px;font-size:15px;line-height:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${f.panelTextColor};">${escapeHtml(offer)}</div>`
       : "",
     code || ends
-      ? `<div style="margin-top:16px;">
+      ? `<div style="margin-top:20px;">
           ${
             code
-              ? `<span style="display:inline-block;border:1.5px dashed ${f.panelTextColor};border-radius:8px;padding:8px 18px;${sans}font-size:17px;line-height:22px;font-weight:700;letter-spacing:4px;color:${f.panelTextColor};">${escapeHtml(code)}</span>`
+              ? `<div style="${sans}font-size:11px;line-height:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${f.panelTextColor};opacity:.9;">Your code</div>
+                 <a href="${escapeHtml(cta)}" style="display:inline-block;margin-top:8px;background:${f.panelTextColor};color:${f.panelColor};border-radius:12px;padding:13px 30px;${sans}font-size:26px;line-height:30px;font-weight:800;letter-spacing:6px;text-decoration:none;">${escapeHtml(code)}</a>
+                 ${ctaLabel ? `<div style="${sans}margin-top:8px;font-size:12px;line-height:17px;color:${f.panelTextColor};opacity:.9;">Applied automatically when you shop from this email</div>` : ""}`
               : ""
           }
           ${ends ? `<div style="${sans}margin-top:10px;font-size:13px;line-height:18px;font-weight:700;color:${f.panelTextColor};">${escapeHtml(ends)}</div>` : ""}
@@ -192,7 +216,7 @@ export function renderFramedEmail({
     .map(
       (p) => `
       <div style="display:inline-block;vertical-align:top;width:170px;margin:0 6px 16px;text-align:center;">
-        <a href="${escapeHtml(absolute(baseUrl, p.url))}" style="text-decoration:none;">
+        <a href="${escapeHtml(emailLink(baseUrl, p.url, campaign, code || undefined))}" style="text-decoration:none;">
           ${
             p.imageUrl
               ? `<img src="${escapeHtml(absolute(assetBaseUrl, p.imageUrl))}" width="170" height="170" alt="${escapeHtml(p.name)}" style="display:block;width:170px;height:170px;object-fit:cover;border-radius:12px;border:0;">`
@@ -206,7 +230,7 @@ export function renderFramedEmail({
     .join("");
 
   const footerLinks = [
-    `<a class="dcw-link" href="${escapeHtml(absolute(baseUrl, "/shop"))}" style="color:${f.linkColor};text-decoration:none;">Shop</a>`,
+    `<a class="dcw-link" href="${escapeHtml(emailLink(baseUrl, "/shop", campaign, code || undefined))}" style="color:${f.linkColor};text-decoration:none;">Shop</a>`,
     `<a class="dcw-link" href="mailto:contact@desertcandleworks.com" style="color:${f.linkColor};text-decoration:none;">Contact</a>`,
     unsubscribeUrl ? `<a class="dcw-link" href="${escapeHtml(unsubscribeUrl)}" style="color:${f.linkColor};text-decoration:none;">Unsubscribe</a>` : "",
   ]
@@ -292,7 +316,7 @@ export function renderFramedEmail({
     ...(featured.length
       ? [
           `${f.productsHeading || "Featured favorites"}:`,
-          ...featured.map((p) => `- ${p.name}${p.priceText ? ` (${p.priceText})` : ""}: ${absolute(baseUrl, p.url)}`),
+          ...featured.map((p) => `- ${p.name}${p.priceText ? ` (${p.priceText})` : ""}: ${emailLink(baseUrl, p.url, campaign, code || undefined)}`),
           "",
         ]
       : []),

@@ -4,7 +4,7 @@ import { useCartStore } from "@/lib/cartStore";
 import Image from "next/image";
 import Link from "next/link";
 import { Trash2, Minus, Plus, Tag, X, ShoppingBag, Truck, Lock } from "lucide-react";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModal } from "@/hooks/useModal";
 import { trackEvent } from "@/components/AnalyticsTracker";
@@ -12,6 +12,7 @@ import s from "@/components/home/home.module.css";
 import { serif } from "@/lib/storefrontFonts";
 import ShopDialog from "@/components/shop/ShopDialog";
 import { btnPrimary, btnQuiet, fieldClass, labelClass, money } from "@/components/shop/styles";
+import { PROMO_STORAGE_KEY } from "@/lib/attributionShared";
 
 type AppliedPromotion = {
   id: string;
@@ -20,6 +21,8 @@ type AppliedPromotion = {
   type: string;
   discountPercent?: number;
   discountAmountCents?: number;
+  /** Discount on each cart line, in cart order (for showing original vs discounted price). */
+  lineDiscountsCents?: number[];
 };
 
 export default function CartPage() {
@@ -88,8 +91,73 @@ export default function CartPage() {
     checkAutomaticPromotions();
   }, [checkAutomaticPromotions]);
 
-  async function applyPromoCode() {
-    if (!promoCode.trim()) return;
+  // Apply a code saved from a link (?promo=CODE, e.g. a promo email's button) when the
+  // cart has items, retrying whenever the cart changes (it may need 2+ items to qualify).
+  // Removing the promo clears the saved code.
+  const cartQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+  const savedPromoTriedAt = useRef<number | null>(null);
+  useEffect(() => {
+    if (appliedPromotion || cartQuantity === 0 || savedPromoTriedAt.current === cartQuantity) return;
+    let saved: string | null = null;
+    try {
+      saved = localStorage.getItem(PROMO_STORAGE_KEY);
+    } catch {}
+    if (!saved) return;
+    savedPromoTriedAt.current = cartQuantity;
+    applyPromoCode(saved);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- retry only when the cart quantity changes
+  }, [cartQuantity, appliedPromotion]);
+
+  // Re-check an applied code whenever the cart changes, so the discount and each line's
+  // discounted price stay right (and the code comes off if the cart no longer qualifies).
+  const cartSignature = items.map((i) => `${i.productSlug}:${i.variantId ?? ""}:${i.quantity}:${i.price}`).join("|");
+  const promoCheckedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!appliedPromotion) {
+      promoCheckedFor.current = null;
+      return;
+    }
+    if (promoCheckedFor.current === null) {
+      promoCheckedFor.current = cartSignature; // just applied for this cart
+      return;
+    }
+    if (promoCheckedFor.current === cartSignature) return;
+    promoCheckedFor.current = cartSignature;
+    const code = appliedPromotion.code;
+    let cancelled = false;
+    fetch("/api/promotions/validate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        code,
+        cartItems: items.map((item) => ({
+          productSlug: item.productSlug,
+          quantity: item.quantity,
+          priceCents: Math.round(item.price * 100),
+        })),
+      }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (cancelled) return;
+        if (data.valid) {
+          setAppliedPromotion(data.promotion);
+        } else {
+          setAppliedPromotion(null);
+          setPromoError(`${code} was removed: ${data.error || "the cart no longer qualifies"}`);
+          savedPromoTriedAt.current = cartQuantity; // a saved link code retries once the cart changes again
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- re-check only when the cart itself changes
+  }, [cartSignature, appliedPromotion]);
+
+  async function applyPromoCode(codeArg?: string) {
+    const code = (codeArg ?? promoCode).trim().toUpperCase();
+    if (!code) return;
 
     setApplyingPromo(true);
     setPromoError("");
@@ -104,13 +172,21 @@ export default function CartPage() {
       const res = await fetch("/api/promotions/validate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoCode.toUpperCase(), cartItems }),
+        body: JSON.stringify({ code, cartItems }),
       });
 
       const data = await res.json();
 
       if (!res.ok || !data.valid) {
-        setPromoError(data.error || "Invalid promotion code");
+        const reason = data.error || "Invalid promotion code";
+        setPromoError(codeArg ? `Code ${code} isn't applied yet: ${reason}` : reason);
+        // Forget a saved link code only when the code itself is dead; if the cart just
+        // doesn't qualify yet (e.g. needs 2 items), keep it and retry as the cart changes.
+        if (codeArg && /not found|invalid|expired|no longer|not started|inactive/i.test(reason)) {
+          try {
+            localStorage.removeItem(PROMO_STORAGE_KEY);
+          } catch {}
+        }
         setApplyingPromo(false);
         return;
       }
@@ -126,6 +202,9 @@ export default function CartPage() {
   }
 
   function removePromotion() {
+    try {
+      localStorage.removeItem(PROMO_STORAGE_KEY);
+    } catch {}
     setAppliedPromotion(null);
     setAutomaticPromotion(null);
     setPromoError("");
@@ -338,8 +417,12 @@ export default function CartPage() {
               </div>
 
               <ul className="mt-6 divide-y divide-[var(--home-line)] border-y border-[var(--home-line)]">
-                {items.map((item) => {
+                {items.map((item, index) => {
                   const details = [item.sizeName, item.wickTypeName, item.scentName].filter(Boolean).join(" · ");
+                  const lineTotal = item.price * item.quantity;
+                  // Only trust the breakdown if it was computed for this exact cart.
+                  const lineDiscount =
+                    activePromo?.lineDiscountsCents?.length === items.length ? (activePromo.lineDiscountsCents[index] ?? 0) / 100 : 0;
                   const atMax = item.quantity >= item.maxStock;
                   return (
                     <li key={`${item.productSlug}-${item.variantId || ""}`} className="flex gap-4 py-5 sm:gap-5">
@@ -363,7 +446,19 @@ export default function CartPage() {
                             </Link>
                             {details && <p className="mt-1 text-sm text-[var(--home-muted)]">{details}</p>}
                           </div>
-                          <p className="shrink-0 font-semibold tabular-nums text-[var(--home-ink)]">{money(item.price * item.quantity)}</p>
+                          {lineDiscount > 0 ? (
+                            <div className="shrink-0 text-right tabular-nums">
+                              <p className="text-sm text-[var(--home-muted)] line-through" aria-label={`Was ${money(lineTotal)}`}>
+                                {money(lineTotal)}
+                              </p>
+                              <p className="font-semibold text-[#3f6b34]">{money(lineTotal - lineDiscount)}</p>
+                              <p className="mt-0.5 text-xs text-[#3f6b34]">
+                                {activePromo?.code} saves {money(lineDiscount)}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="shrink-0 font-semibold tabular-nums text-[var(--home-ink)]">{money(lineTotal)}</p>
+                          )}
                         </div>
 
                         <div className="mt-auto flex items-center justify-between gap-3 pt-3">

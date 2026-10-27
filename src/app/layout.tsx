@@ -4,6 +4,7 @@ import NavBar from "../components/NavBar";
 import StorefrontOnly from "@/components/StorefrontOnly";
 import { Providers } from "@/components/Providers";
 import { AnalyticsTracker } from "@/components/AnalyticsTracker";
+import { PromoBanner } from "@/components/PromoBanner";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL || "https://www.desertcandleworks.com";
 
@@ -262,6 +263,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-dvh w-full overflow-x-clip bg-[var(--color-bg)] text-[var(--color-ink)] antialiased flex flex-col">
         <AnalyticsTracker />
+        <PromoBanner />
         <Providers>
           <StorefrontOnly>
             <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/40 border-b border-[var(--color-line)]">

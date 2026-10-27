@@ -7,6 +7,7 @@ import { validatePromotion } from "@/lib/promotionValidator";
 import { getPriceToProduct } from "@/lib/pricemap";
 import { listResolvedProducts } from "@/lib/resolvedProducts";
 import { checkRateLimit } from "@/lib/rateLimit";
+import { SOURCE_COOKIE, decodeSource, encodeSource } from "@/lib/attributionShared";
 import { getBottleInventoryById, getSingleBottleStock } from "@/lib/bottleInventoryStore";
 
 export const runtime = "nodejs";
@@ -368,6 +369,10 @@ export async function POST(req: NextRequest) {
     if (appliedPromotionId) {
       sessionMetadata.promotionId = appliedPromotionId;
     }
+    // Where the buyer came from (tracking link, utm tags or referring site), so the
+    // webhook can credit the order to it.
+    const visitSource = decodeSource(req.cookies.get(SOURCE_COOKIE)?.value);
+    if (visitSource) sessionMetadata.attr = encodeSource(visitSource);
 
     // Build line items with custom names
     const lineItems: LineItem[] = [];
