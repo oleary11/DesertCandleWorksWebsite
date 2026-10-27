@@ -18,6 +18,8 @@ type EmailOptions = {
   category?: EmailCategory;
   /** Order this email is about, when the subject doesn't name it. */
   orderId?: string;
+  /** Have Resend hold the email and send it at this time (up to 30 days ahead). */
+  scheduledAt?: Date;
 };
 
 /**
@@ -65,6 +67,7 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
       ...(options.replyTo ? { replyTo: options.replyTo } : {}),
       ...(options.bcc ? { bcc: options.bcc } : {}),
       ...(options.headers ? { headers: options.headers } : {}),
+      ...(options.scheduledAt ? { scheduledAt: options.scheduledAt.toISOString() } : {}),
     });
     if (error) {
       // Older callers only logged rejections; keep that unless asked to throw.
@@ -72,7 +75,7 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
       console.error("Resend rejected email:", error);
       return null;
     }
-    console.log(`✓ Email sent to ${options.to}`);
+    console.log(`✓ Email ${options.scheduledAt ? `scheduled for ${options.scheduledAt.toISOString()}` : "sent"} to ${options.to}`);
     if (data?.id) {
       // Loaded lazily so sending never depends on the database being reachable.
       try {
@@ -87,6 +90,7 @@ async function deliver(options: EmailOptions, throwOnRejected: boolean): Promise
           replyTo: options.replyTo,
           html: options.html,
           text: options.text,
+          scheduledAt: options.scheduledAt,
         });
       } catch (logError) {
         console.error("Email sent but not logged:", logError);

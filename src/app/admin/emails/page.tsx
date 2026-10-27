@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Mail, Package, Pencil, Save, Search, Trash2, Users, X } from "lucide-react";
+import { Clock, Mail, Package, Pencil, Save, Search, Trash2, Users, X } from "lucide-react";
 import PageHeader from "../_components/PageHeader";
 import { Badge, Modal, Segmented, Switch, Tabs } from "../_components/ui";
 import { previewInMode, type PreviewMode } from "@/lib/emailPreview";
@@ -11,6 +11,7 @@ import ConversationsPanel from "./ConversationsPanel";
 import SentPanel from "./SentPanel";
 import ContactsPanel, { type Contact } from "./ContactsPanel";
 import FramePanel, { type ProductOption } from "./FramePanel";
+import ScheduledList, { formatSendTime } from "./ScheduledList";
 import { renderFramedEmail, type EmailDesign, type EmailFrame } from "@/lib/emailFrames";
 
 // A person on the To line; contacts from the Contacts tab carry their details along.
@@ -57,6 +58,12 @@ type SavedTemplate = {
 
 type EmailTemplate = "shipping" | "delivery" | "custom" | string;
 
+/** A date as the datetime-local input wants it, in this computer's time zone. */
+const toLocalInput = (d: Date) => {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+};
+
 export default function AdminEmailsPage() {
   const { showAlert, showConfirm } = useModal();
   const [view, setView] = useState<"compose" | "contacts" | "conversations" | "sent">("compose");
@@ -93,6 +100,10 @@ export default function AdminEmailsPage() {
   // Sending state
   const [sending, setSending] = useState(false);
   const [sendMessage, setSendMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  // Send later: a local date-time from the picker ("2026-11-03T09:00"), or "" to send now
+  const [sendLater, setSendLater] = useState(false);
+  const [sendAt, setSendAt] = useState("");
+  const [scheduledRefresh, setScheduledRefresh] = useState(0);
   const [showPreview, setShowPreview] = useState(false);
   const [previewMode, setPreviewMode] = useState<PreviewMode>("light");
   const [previewWidth, setPreviewWidth] = useState<"desktop" | "phone">("desktop");
@@ -376,6 +387,12 @@ export default function AdminEmailsPage() {
       return;
     }
 
+    const scheduleAt = sendLater && sendAt ? new Date(sendAt) : null;
+    if (sendLater && (!scheduleAt || Number.isNaN(scheduleAt.getTime()))) {
+      setSendMessage({ type: "error", text: "Pick when to send it" });
+      return;
+    }
+
     setSending(true);
     setSendMessage(null);
 
@@ -392,6 +409,7 @@ export default function AdminEmailsPage() {
           template,
           orderId: orderId || undefined,
           trackingNumber: template !== "custom" ? trackingNumber : undefined,
+          scheduleAt: scheduleAt?.toISOString() ?? null,
         }),
       });
       const data = await res.json();
@@ -399,7 +417,9 @@ export default function AdminEmailsPage() {
 
       setSendMessage({
         type: data.sent > 0 ? "success" : "error",
-        text: `Sent ${data.sent} of ${data.total} ${data.total === 1 ? "email" : "emails"}${data.failed > 0 ? `. ${data.failed} failed.` : "."}${
+        text: `${data.scheduledAt ? "Scheduled" : "Sent"} ${data.sent} of ${data.total} ${data.total === 1 ? "email" : "emails"}${
+          data.scheduledAt ? ` for ${formatSendTime(data.scheduledAt)}` : ""
+        }${data.failed > 0 ? `. ${data.failed} failed.` : "."}${
           data.threadId && data.repliesTracked ? " Their reply will show up in Conversations." : ""
         }`,
       });
@@ -407,6 +427,10 @@ export default function AdminEmailsPage() {
       // Clear form on success
       if (data.sent > 0) {
         setSelectedRecipients([]);
+        if (data.scheduledAt) {
+          setSendLater(false);
+          setScheduledRefresh((n) => n + 1);
+        }
         if (template === "custom") {
           setSubject("");
           setMessage("");
@@ -704,12 +728,51 @@ export default function AdminEmailsPage() {
             </div>
           </div>
 
-          <button onClick={handleSend} disabled={!canSend} className="a-btn a-btn-primary h-11 w-full text-[15px]">
-            <Mail className="h-4 w-4" aria-hidden />
+          <div className="rounded-lg border border-[var(--a-line)] p-3">
+            <div className="flex items-start gap-3">
+              <Switch
+                checked={sendLater}
+                onChange={() => {
+                  // Start the picker at tomorrow, 9 AM
+                  if (!sendLater && !sendAt) {
+                    const d = new Date(Date.now() + 86_400_000);
+                    d.setHours(9, 0, 0, 0);
+                    setSendAt(toLocalInput(d));
+                  }
+                  setSendLater(!sendLater);
+                }}
+                label="Send later"
+              />
+              <div className="text-sm">
+                <p className="font-medium text-[var(--a-ink)]">Send later</p>
+                <p className="text-[var(--a-muted)]">Schedule it up to 30 days ahead. You can cancel it until then.</p>
+              </div>
+            </div>
+            {sendLater && (
+              <input
+                type="datetime-local"
+                className="a-input mt-3"
+                value={sendAt}
+                min={toLocalInput(new Date(Date.now() + 2 * 60_000))}
+                max={toLocalInput(new Date(Date.now() + 30 * 86_400_000))}
+                onChange={(e) => setSendAt(e.target.value)}
+                aria-label="Send at"
+              />
+            )}
+          </div>
+
+          <button onClick={handleSend} disabled={!canSend || (sendLater && !sendAt)} className="a-btn a-btn-primary h-11 w-full text-[15px]">
+            {sendLater ? <Clock className="h-4 w-4" aria-hidden /> : <Mail className="h-4 w-4" aria-hidden />}
             {sending
-              ? "Sending…"
-              : `Send to ${selectedRecipients.length} ${selectedRecipients.length === 1 ? "recipient" : "recipients"}`}
+              ? sendLater
+                ? "Scheduling…"
+                : "Sending…"
+              : sendLater && sendAt
+                ? `Schedule for ${formatSendTime(new Date(sendAt).toISOString())}`
+                : `Send to ${selectedRecipients.length} ${selectedRecipients.length === 1 ? "recipient" : "recipients"}`}
           </button>
+
+          <ScheduledList refreshKey={scheduledRefresh} />
         </section>
 
         {/* Preview */}

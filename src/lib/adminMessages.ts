@@ -30,7 +30,9 @@ export async function sendAdminMessage(input: {
   bulk?: boolean;
   /** Send inside a festive frame (lib/emailFrames.ts) instead of the standard letter. */
   design?: EmailDesign | null;
-}): Promise<void> {
+  /** Have Resend send it at this time instead of now. */
+  scheduledAt?: Date;
+}): Promise<string | null> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || DEFAULT_BASE_URL;
   const unsubscribeUrl = input.bulk ? unsubscribePageUrl(input.to) : undefined;
   const frame = input.design ? await getFrame(input.design.frameId) : null;
@@ -71,6 +73,7 @@ export async function sendAdminMessage(input: {
     text,
     category: "message",
     orderId: input.orderId,
+    scheduledAt: input.scheduledAt,
     // In a conversation, contact@ gets a hidden copy so our side shows in the inbox
     // thread next to the customer's replies.
     ...(input.threadId
@@ -110,4 +113,5 @@ export async function sendAdminMessage(input: {
       resendId,
     });
   }
+  return resendId;
 }

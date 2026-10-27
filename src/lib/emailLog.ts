@@ -102,6 +102,8 @@ export async function logSentEmail(input: {
   replyTo?: string;
   html: string;
   text?: string;
+  /** Scheduled for later: listed at that time, as "scheduled" until Resend sends it. */
+  scheduledAt?: Date;
 }): Promise<void> {
   try {
     await ensureTable();
@@ -118,7 +120,8 @@ export async function logSentEmail(input: {
         subject: input.subject,
         category,
         orderId,
-        lastEvent: "sent",
+        lastEvent: input.scheduledAt ? "scheduled" : "sent",
+        ...(input.scheduledAt ? { sentAt: input.scheduledAt } : {}),
         ...content,
       })
       .onConflictDoUpdate({
@@ -130,6 +133,16 @@ export async function logSentEmail(input: {
   }
 }
 
+/** Sets the status shown in the Sent tab, e.g. "canceled" for a cancelled scheduled email. */
+export async function markLoggedEmails(resendIds: string[], lastEvent: string): Promise<void> {
+  if (!resendIds.length) return;
+  await ensureTable();
+  await db
+    .update(emailLog)
+    .set({ lastEvent, updatedAt: dsql`now()` })
+    .where(inArray(emailLog.resendId, resendIds));
+}
+
 type ResendListedEmail = {
   id: string;
   to: string[] | null;
@@ -138,6 +151,8 @@ type ResendListedEmail = {
   created_at: string;
   last_event: string | null;
   reply_to: string[] | null;
+  /** Set on emails scheduled for later; they're listed at the time they go out. */
+  scheduled_at?: string | null;
 };
 
 /** Resend writes "2026-10-25 15:25:00.123+00"; JS needs "T" and a "+00:00" offset. */
@@ -192,7 +207,7 @@ export async function syncFromResend(options: { stopBefore?: Date; maxPages?: nu
               category,
               orderId,
               lastEvent: email.last_event,
-              sentAt: resendDate(email.created_at),
+              sentAt: resendDate(email.scheduled_at || email.created_at),
             };
           })
         )

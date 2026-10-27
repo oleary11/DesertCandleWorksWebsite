@@ -6,6 +6,7 @@ import { createThread, deleteThread, replyDomain } from "@/lib/emailThreadsStore
 import { listOptedOut } from "@/lib/contacts";
 import { logAdminAction } from "@/lib/adminLogs";
 import type { EmailDesign } from "@/lib/emailFrames";
+import { recordScheduledEmail, scheduleTimeError } from "@/lib/scheduledEmails";
 
 export const runtime = "nodejs";
 
@@ -21,6 +22,8 @@ type SendEmailRequest = {
   trackingNumber?: string;
   /** Send inside an email frame; the message becomes an optional note within it. */
   design?: EmailDesign | null;
+  /** ISO time to send at instead of now (Resend holds it until then). */
+  scheduleAt?: string | null;
 };
 
 function cleanDesign(design: SendEmailRequest["design"]): EmailDesign | null {
@@ -62,6 +65,11 @@ export async function POST(req: NextRequest) {
     if (!subject || (!message && !design)) {
       return NextResponse.json({ error: "Subject and message are required" }, { status: 400 });
     }
+    const scheduledAt = body.scheduleAt ? new Date(body.scheduleAt) : undefined;
+    const timeError = scheduledAt && scheduleTimeError(scheduledAt);
+    if (timeError) {
+      return NextResponse.json({ error: timeError }, { status: 400 });
+    }
 
     const seen = new Set<string>();
     const recipients = (Array.isArray(body.recipients) ? body.recipients : []).filter((r) => {
@@ -101,9 +109,10 @@ export async function POST(req: NextRequest) {
         : null;
 
     const results = { success: 0, failed: 0, errors: [] as string[] };
+    const resendIds: string[] = [];
     for (const recipient of recipients) {
       try {
-        await sendAdminMessage({
+        const resendId = await sendAdminMessage({
           to: recipient.email.trim(),
           subject,
           message,
@@ -112,7 +121,9 @@ export async function POST(req: NextRequest) {
           orderId: body.orderId || undefined,
           bulk,
           design,
+          scheduledAt,
         });
+        if (resendId) resendIds.push(resendId);
         results.success++;
       } catch (err) {
         results.failed++;
@@ -121,6 +132,18 @@ export async function POST(req: NextRequest) {
       }
     }
     if (thread && results.success === 0) await deleteThread(thread.id);
+    if (scheduledAt && results.success > 0) {
+      await recordScheduledEmail({
+        subject,
+        recipientsLabel: bulk
+          ? `${results.success} contacts`
+          : recipients[0].name?.trim() || recipients[0].email.trim(),
+        recipientCount: results.success,
+        scheduledAt,
+        resendIds,
+        threadId: thread?.id,
+      });
+    }
 
     await logAdminAction({
       action: "email.send",
@@ -133,6 +156,7 @@ export async function POST(req: NextRequest) {
         recipientCount: recipients.length,
         subject,
         personal,
+        scheduledAt: scheduledAt?.toISOString(),
         threadId: results.success > 0 ? thread?.id : undefined,
         successCount: results.success,
         failedCount: results.failed,
@@ -150,6 +174,7 @@ export async function POST(req: NextRequest) {
       threadId: results.success > 0 ? thread?.id ?? null : null,
       repliesTracked: !!(thread && replyDomain()),
       skippedUnsubscribed,
+      scheduledAt: scheduledAt?.toISOString() ?? null,
     });
   } catch (error) {
     console.error("[Admin Email] Error:", error);
