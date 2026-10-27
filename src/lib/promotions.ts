@@ -63,4 +63,6 @@ export type PromotionValidationResult = {
   error?: string;
   discountAmountCents?: number;
   discountPercent?: number;
+  /** Discount on each cart line, in the order the lines were passed in (adds up to the total). */
+  lineDiscountsCents?: number[];
 };

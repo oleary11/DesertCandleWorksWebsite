@@ -60,10 +60,16 @@ export async function validatePromotion(
 
   // Check quantity requirements
   const totalQuantity = context.cartItems.reduce((sum, item) => sum + item.quantity, 0);
-  if (promotion.minQuantity && totalQuantity < promotion.minQuantity) {
+  // "Buy X get Y" (as the admin form words it) needs X + Y items for one full deal;
+  // other types treat minQuantity as the minimum items in the cart.
+  const requiredQuantity =
+    promotion.type === "bogo" && promotion.minQuantity && promotion.applyToQuantity
+      ? promotion.minQuantity + promotion.applyToQuantity
+      : promotion.minQuantity;
+  if (requiredQuantity && totalQuantity < requiredQuantity) {
     return {
       valid: false,
-      error: `You need at least ${promotion.minQuantity} items in your cart`,
+      error: `You need at least ${requiredQuantity} items in your cart`,
     };
   }
 
@@ -164,13 +170,29 @@ export async function validatePromotion(
   }
 
   // Calculate discount
-  const { discountAmountCents, discountPercent } = calculateDiscount(promotion, context);
+  const { discountAmountCents, discountPercent, lineDiscountsCents } = calculateDiscount(promotion, context);
 
   return {
     valid: true,
     discountAmountCents,
     discountPercent,
+    lineDiscountsCents: lineDiscountsCents ?? spreadDiscount(discountAmountCents, context.cartItems),
   };
+}
+
+/**
+ * Splits an order-wide discount across lines in proportion to each line's total, so
+ * the cart can show every item's original and discounted price. Rounding leftovers go
+ * to the largest line so the parts add up exactly.
+ */
+function spreadDiscount(totalCents: number, items: CartItem[]): number[] {
+  const lineTotals = items.map((item) => item.priceCents * item.quantity);
+  const subtotal = lineTotals.reduce((sum, v) => sum + v, 0);
+  if (!totalCents || !subtotal) return items.map(() => 0);
+  const parts = lineTotals.map((v) => Math.floor((totalCents * v) / subtotal));
+  const largest = lineTotals.indexOf(Math.max(...lineTotals));
+  parts[largest] += totalCents - parts.reduce((sum, v) => sum + v, 0);
+  return parts;
 }
 
 /**
@@ -179,9 +201,10 @@ export async function validatePromotion(
 function calculateDiscount(
   promotion: Promotion,
   context: ValidationContext
-): { discountAmountCents: number; discountPercent?: number } {
+): { discountAmountCents: number; discountPercent?: number; lineDiscountsCents?: number[] } {
   let discountAmountCents = 0;
   let discountPercent: number | undefined;
+  let lineDiscountsCents: number[] | undefined;
 
   switch (promotion.type) {
     case "percentage":
@@ -213,25 +236,28 @@ function calculateDiscount(
     case "bogo":
       // Calculate BOGO discount - get cheapest items free
       if (promotion.minQuantity && promotion.applyToQuantity) {
-        // Filter applicable products
-        let applicableItems = context.cartItems;
+        // Filter applicable products (keeping each line's position for the per-line breakdown)
+        let applicableItems = context.cartItems.map((item, index) => ({ ...item, index }));
         if (promotion.applicableProductSlugs && promotion.applicableProductSlugs.length > 0) {
-          applicableItems = context.cartItems.filter((item) =>
+          applicableItems = applicableItems.filter((item) =>
             promotion.applicableProductSlugs!.includes(item.productSlug)
           );
         }
+        lineDiscountsCents = context.cartItems.map(() => 0);
 
         // Sort by price per unit (cheapest first)
         const sortedItems = applicableItems
+          // Callers (cart, checkout) pass each line's unit price, not the line total.
           .map((item) => ({
             ...item,
-            pricePerUnit: item.priceCents / item.quantity,
+            pricePerUnit: item.priceCents,
           }))
           .sort((a, b) => a.pricePerUnit - b.pricePerUnit);
 
-        // Calculate how many free items
+        // "Buy X get Y": every X + Y items make one deal, and the Y cheapest per deal are
+        // discounted. (Dividing by X alone made "buy 1 get 1" discount every item.)
         const totalQuantity = sortedItems.reduce((sum, item) => sum + item.quantity, 0);
-        const sets = Math.floor(totalQuantity / promotion.minQuantity);
+        const sets = Math.floor(totalQuantity / (promotion.minQuantity + promotion.applyToQuantity));
         const freeItems = Math.min(sets * promotion.applyToQuantity, totalQuantity);
 
         // discountPercent on bogo = how much off each discounted item (100 = free, 50 = half off)
@@ -243,14 +269,16 @@ function calculateDiscount(
           if (remainingFree <= 0) break;
 
           const freeFromThisItem = Math.min(item.quantity, remainingFree);
-          discountAmountCents += Math.round(freeFromThisItem * item.pricePerUnit * discountFraction);
+          const lineDiscount = Math.round(freeFromThisItem * item.pricePerUnit * discountFraction);
+          discountAmountCents += lineDiscount;
+          lineDiscountsCents[item.index] += lineDiscount;
           remainingFree -= freeFromThisItem;
         }
       }
       break;
   }
 
-  return { discountAmountCents, discountPercent };
+  return { discountAmountCents, discountPercent, lineDiscountsCents };
 }
 
 /**

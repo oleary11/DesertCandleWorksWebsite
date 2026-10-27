@@ -94,6 +94,7 @@ export async function POST(req: NextRequest) {
           type: promotion.type,
           discountPercent: validation.discountPercent,
           discountAmountCents: validation.discountAmountCents,
+          lineDiscountsCents: validation.lineDiscountsCents,
         },
       });
     }
@@ -119,6 +120,7 @@ export async function POST(req: NextRequest) {
         type: bestPromotion.type,
         discountPercent: validation.discountPercent,
         discountAmountCents: validation.discountAmountCents,
+        lineDiscountsCents: validation.lineDiscountsCents,
       },
     });
   } catch (error) {
