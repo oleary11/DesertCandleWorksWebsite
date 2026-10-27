@@ -101,7 +101,8 @@ function absolute(baseUrl: string, url: string) {
 
 /** URL of the script-font headline image (see app/api/email/headline). */
 export function headlineImageUrl(assetBaseUrl: string, text: string, color: string) {
-  return `${assetBaseUrl}/api/email/headline?t=${encodeURIComponent(text.trim())}&c=${color.replace("#", "")}`;
+  // v= busts the year-long image cache whenever the lettering style changes.
+  return `${assetBaseUrl}/api/email/headline?t=${encodeURIComponent(text.trim())}&c=${color.replace("#", "")}&v=2`;
 }
 
 export function renderFramedEmail({
@@ -141,15 +142,15 @@ export function renderFramedEmail({
 
   const panelParts = [
     `<div style="${sans}font-size:11px;line-height:16px;letter-spacing:3px;text-transform:uppercase;color:${f.panelTextColor};opacity:.85;">Desert Candle Works</div>`,
-    `<img src="${escapeHtml(headlineImageUrl(assetBaseUrl, design.headline, f.panelTextColor))}" width="520" alt="${escapeHtml(design.headline)}" style="display:block;width:100%;max-width:520px;height:auto;margin:6px auto 0;border:0;color:${f.panelTextColor};font-family:Georgia,serif;font-size:40px;line-height:46px;">`,
+    `<img src="${escapeHtml(headlineImageUrl(assetBaseUrl, design.headline, f.panelTextColor))}" width="520" alt="${escapeHtml(design.headline)}" style="display:block;width:100%;max-width:520px;height:auto;margin:4px auto 0;border:0;color:${f.panelTextColor};font-family:Georgia,serif;font-size:40px;line-height:46px;">`,
     offer
-      ? `<div style="${sans}margin-top:6px;font-size:19px;line-height:26px;font-weight:800;letter-spacing:1px;text-transform:uppercase;color:${f.panelTextColor};">${escapeHtml(offer)}</div>`
+      ? `<div style="${sans}margin-top:4px;font-size:15px;line-height:22px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${f.panelTextColor};">${escapeHtml(offer)}</div>`
       : "",
     code || ends
       ? `<div style="margin-top:16px;">
           ${
             code
-              ? `<span style="display:inline-block;border:2px dashed ${f.panelTextColor};border-radius:8px;padding:7px 16px;font-family:'Courier New',Courier,monospace;font-size:20px;line-height:24px;font-weight:700;letter-spacing:3px;color:${f.panelTextColor};">${escapeHtml(code)}</span>`
+              ? `<span style="display:inline-block;border:1.5px dashed ${f.panelTextColor};border-radius:8px;padding:8px 18px;${sans}font-size:17px;line-height:22px;font-weight:700;letter-spacing:4px;color:${f.panelTextColor};">${escapeHtml(code)}</span>`
               : ""
           }
           ${ends ? `<div style="${sans}margin-top:10px;font-size:13px;line-height:18px;font-weight:700;color:${f.panelTextColor};">${escapeHtml(ends)}</div>` : ""}
@@ -194,9 +195,11 @@ export function renderFramedEmail({
   const rows = [
     `<tr><td style="padding:0;line-height:0;font-size:0;"><img src="${escapeHtml(absolute(assetBaseUrl, f.headerImageUrl))}" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;border:0;"></td></tr>`,
     `<tr>
-      <td style="padding:0 20px;">
-        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:${f.panelColor};border-radius:0 0 18px 18px;">
-          <tr><td align="center" style="padding:10px 30px 38px;text-align:center;">${panelParts.join("\n")}</td></tr>
+      <td align="center" style="padding:0;">
+        <!-- Same proportions as the panel drawn into the artwork (40px inset of 1200 each side),
+             so the edges line up at any screen width. -->
+        <table role="presentation" width="93.334%" align="center" cellspacing="0" cellpadding="0" border="0" style="width:93.334%;margin:0 auto;background:${f.panelColor};border-radius:0 0 18px 18px;">
+          <tr><td align="center" style="padding:8px 18px 36px;text-align:center;">${panelParts.join("\n")}</td></tr>
         </table>
       </td>
     </tr>`,

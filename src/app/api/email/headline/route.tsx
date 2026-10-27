@@ -10,12 +10,14 @@ export const runtime = "nodejs";
 // real text (with the text as alt). GET /api/email/headline?t=Autumn%20Sale&c=fffaf2
 
 const WIDTH = 1040; // shown at 520px in the email: 2x for sharp retina text
-let font: ArrayBuffer | null = null;
+const fonts = new Map<string, ArrayBuffer>();
 
-function loadFont(): ArrayBuffer {
+function loadFont(file: string): ArrayBuffer {
+  let font = fonts.get(file);
   if (!font) {
-    const buf = fs.readFileSync(path.join(process.cwd(), "public", "fonts", "Megastina.ttf"));
+    const buf = fs.readFileSync(path.join(process.cwd(), "public", "fonts", file));
     font = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength) as ArrayBuffer;
+    fonts.set(file, font);
   }
   return font;
 }
@@ -48,6 +50,9 @@ export async function GET(req: NextRequest) {
           lineHeight: 1.05,
           color,
           padding: "0 10px",
+          // Megastina is a hairline script; a same-colour halo thickens the strokes so the
+          // headline still reads at phone size.
+          textShadow: [2.4, -2.4].flatMap((d) => [`${d}px 0 0 ${color}`, `0 ${d}px 0 ${color}`]).join(", "),
         }}
       >
         {text}
@@ -56,7 +61,7 @@ export async function GET(req: NextRequest) {
     {
       width: WIDTH,
       height,
-      fonts: [{ name: "Megastina", data: loadFont(), weight: 400, style: "normal" }],
+      fonts: [{ name: "Megastina", data: loadFont("Megastina.ttf"), weight: 400, style: "normal" }],
       headers: { "Cache-Control": "public, max-age=31536000, immutable" },
     }
   );
